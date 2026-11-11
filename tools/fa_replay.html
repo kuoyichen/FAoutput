@@ -102,7 +102,7 @@ aside h2:first-child{margin-top:2px}
       <span>速度</span><span id="i_spd">—</span>
       <span>俯仰</span><span id="i_pit">—</span>
       <span>航向</span><span id="i_hdg">—</span>
-      <span>生命值</span><span id="i_hp">—</span>
+      <span>損傷</span><span id="i_hp">—</span>
     </div>
   </div>
   <div class="ov" id="legend"><div class="t">顏色代碼</div><div id="legitems"></div></div>
@@ -120,7 +120,7 @@ aside h2:first-child{margin-top:2px}
     <span>航向</span><span id="p_hdg">—</span>
     <span>俯仰 / 滾轉</span><span id="p_att">—</span>
     <span>油門 / 推力</span><span id="p_thr">—</span>
-    <span>生命值</span><span id="p_hp">—</span>
+    <span>損傷</span><span id="p_hp">—</span>
   </div>
   <div class="bar" title="油門（淡）/ 推力（線）"><i id="thr_bar"></i><b id="rpm_bar"></b></div>
   <h2>操縱面</h2>
@@ -440,7 +440,7 @@ function buildEvents(fr){
   for (const g of gunShots){ ev.push({ t:g.t, text:"機砲", kind:"gun" }); }
   // 擊中與擊毀（同一架飛機 0.5 秒內的多次擊中合併）
   let lastHit = {};
-  const hitText = (h, n) => `${label(h.key)} 被${h.wpn ? " "+h.wpn+" " : h.by==="missile"?"飛彈":h.by==="bullet"?"機砲":""}擊中${n>1?" ×"+n:""}${h.hp!=null?`（生命 ${Math.round(h.hp/h.max*100)}%）`:""}`;
+  const hitText = (h, n) => `${label(h.key)} 被${h.wpn ? " "+h.wpn+" " : h.by==="missile"?"飛彈":h.by==="bullet"?"機砲":""}擊中${n>1?" ×"+n:""}${h.hp!=null?`（損傷 ${Math.round((1-h.hp/h.max)*100)}%）`:""}`;
   for (const h of hits){
     const L = lastHit[h.key]; if (L && h.t - L.tl < 0.8){ L.n++; L.tl = h.t; if (!L.h.by) L.h = { ...L.h, by:h.by, wpn:h.wpn }; L.text = hitText({ ...h, by:L.h.by, wpn:L.h.wpn }, L.n); continue; }
     const e = { t:h.t, tl:h.t, n:1, h, text:hitText(h,1), kind:"hit" }; ev.push(e); lastHit[h.key] = e;
@@ -812,7 +812,7 @@ function update(){
     $("i_spd").textContent = `${Math.round(s.spd*3600/6076)} kts`;
     $("i_pit").textContent = `${(s.vp ?? s.pitch).toFixed(1)}°`;
     $("i_hdg").textContent = `${((s.vh ?? s.hdg)+360)%360 | 0}°`;
-    $("i_hp").textContent = tr.hpMax && s.hp != null ? `${Math.round(s.hp/tr.hpMax*100)}%（${s.hp}/${tr.hpMax}）` : "—";
+    $("i_hp").textContent = tr.hpMax && s.hp != null ? `損傷 ${Math.round((1-s.hp/tr.hpMax)*100)}%（${s.hp}/${tr.hpMax}）` : "—";
   } else { $("i_name").textContent = tr ? `${displayName(tr.name)}（不在場）` : "—"; }
   const pt = tracks.get(playerKey), p = pt && sampleTrack(pt, now);
   if (p){
@@ -821,7 +821,7 @@ function update(){
     $("p_spd").textContent = `${Math.round(p.spd*3600/6076)} kts`;
     $("p_hdg").textContent = `${Math.round((p.hdg+360)%360)}°`;
     $("p_att").textContent = `${p.pitch.toFixed(0)}° / ${p.roll.toFixed(0)}°`;
-    $("p_hp").textContent = pt.hpMax && p.hp != null ? `${Math.round(p.hp/pt.hpMax*100)}%（${p.hp}/${pt.hpMax}）` : "—";
+    $("p_hp").textContent = pt.hpMax && p.hp != null ? `損傷 ${Math.round((1-p.hp/pt.hpMax)*100)}%（${p.hp}/${pt.hpMax}）` : "—";
   }
   const ok = a.actOk;
   $("p_thr").textContent = !ok || a.thr == null ? "—" : `${a.thr}% / ${a.rpm}%`;
