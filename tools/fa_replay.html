@@ -32,6 +32,8 @@ canvas:active{cursor:grabbing}
 #legend .t{font-size:11px;text-align:right;color:var(--ink2);margin:0 2px 3px}
 #legend div.it{display:flex;align-items:center;gap:6px;margin:2px 0;padding:1px 6px;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.4);border:1px solid rgba(0,0,0,.2);cursor:pointer}
 #legend div.it.off{opacity:.35}
+#legend .ren{margin-left:auto;opacity:.7;cursor:pointer;padding:0 2px}
+#legend .ren:hover{opacity:1}
 #drop{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;pointer-events:none;text-align:center;padding:20px;color:#3a2a18}
 #drop b{font-size:18px}
 #drop.hide{display:none}
@@ -47,6 +49,8 @@ button.on{border-color:var(--accent);color:var(--accent)}
 #marks{position:absolute;left:8px;right:8px;top:0;height:6px;pointer-events:none}
 #marks i{position:absolute;width:2px;height:6px;background:var(--accent);opacity:.85}
 #marks i.w{background:#ff5a3c}
+#marks i.h{background:#ffd23c}
+#marks i.k{background:#d01010;height:10px;top:-2px;width:3px;opacity:1}
 #time{font-variant-numeric:tabular-nums;min-width:110px;text-align:right}
 #fname{color:var(--muted);max-width:28vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
@@ -72,6 +76,9 @@ aside h2:first-child{margin-top:2px}
 #events li{padding:3px 4px;border-radius:4px;cursor:pointer;display:flex;gap:8px}
 #events li:hover{background:var(--dark2)}
 #events li.past{color:var(--muted)}
+#events li.hit{color:#ffd23c}
+#events li.kill{color:#ff6a50;font-weight:600}
+#events li.past.hit,#events li.past.kill{opacity:.65}
 #events li time{font-variant-numeric:tabular-nums;color:var(--muted);min-width:46px}
 .opts label{display:flex;align-items:center;gap:6px;margin:3px 0;cursor:pointer}
 .opts input[type=range]{flex:1}
@@ -155,34 +162,40 @@ aside h2:first-child{margin-top:2px}
 <script>
 "use strict";
 // ================= 解析錄製檔 =================
-const KEYS_V1 = ["G","SPACE","ENTER","BACKSPACE","TAB","B","F","W","H","L","C","R",
-  "0","1","2","3","4","5","6","7","8","9","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12"];
 const STATIONS = 8, STN_STRIDE = 0x11;
 const str = (u8,a,b) => { let s=""; for (let i=a;i<b;i++) s += String.fromCharCode(u8[i]); return s; };
 
 function parse(buf){
   const dv = new DataView(buf), u8 = new Uint8Array(buf), magic = str(u8,0,6);
-  if (magic === "FAFLT1" || magic === "FAFLT2") return parseFlight(dv, u8, magic === "FAFLT2");
+  if (/^FAFLT[123]$/.test(magic)) return parseFlight(dv, u8, +magic[5]);
   if (magic === "FAREC1" || magic === "FAREC2") return parseRec(dv, u8, magic);
   throw new Error("不認得的檔案格式：" + magic);
 }
-function parseFlight(dv, u8, v2){
-  const names = [], frames = [], raws = []; let p = 6;
+function parseFlight(dv, u8, ver){
+  const names = [], frames = [], raws = [], types = new Map(); let p = 6, cur = null;
   while (p < u8.length){
     const tag = u8[p++];
     if (tag === 0x4E){ // N：類型名稱
       if (p + 3 > u8.length) break;
       const id = dv.getUint16(p,true), len = u8[p+2]; p += 3;
       names[id] = str(u8,p,p+len); p += len;
-    } else if (tag === 0x4F){ // O：物件原始資料（研究用）
+    } else if (tag === 0x4F){ // O：物件第一次出現的原始資料
       if (p + 8 > u8.length) break;
-      const idx = dv.getUint16(p,true), len = dv.getUint16(p+6,true); p += 8;
-      raws.push({ idx, raw: u8.slice(p, p+len) }); p += len;
+      const idx = dv.getUint16(p,true), addr = dv.getUint32(p+2,true), len = dv.getUint16(p+6,true); p += 8;
+      raws.push({ idx, addr, raw: u8.slice(p, p+len) }); p += len;
+    } else if (tag === 0x54){ // T：類型定義原始資料
+      if (p + 6 > u8.length) break;
+      const ptr = dv.getUint32(p,true), len = dv.getUint16(p+4,true); p += 6;
+      types.set(ptr, u8.slice(p, p+len)); p += len;
+    } else if (tag === 0x52){ // R：飛機每筆原始資料（屬於前一個 F）
+      if (p + 4 > u8.length) break;
+      const idx = dv.getUint16(p,true), len = dv.getUint16(p+2,true); p += 4;
+      if (cur){ (cur.raw ??= new Map()).set(idx, u8.subarray(p, p+len)); } p += len;
     } else if (tag === 0x46){ // F：一筆影格
-      const hdr = 8+3+(v2?2:0)+16+2; if (p + hdr > u8.length) break;
+      const hdr = 8+3+(ver>=2?2:0)+16+2; if (p + hdr > u8.length) break;
       const t = dv.getFloat64(p,true); p += 8;
       const c1 = u8[p], c2 = u8[p+1], sel = u8[p+2]; p += 3;
-      let thr = null, rpm = null; if (v2){ thr = u8[p]; rpm = u8[p+1]; p += 2; }
+      let thr = null, rpm = null; if (ver >= 2){ thr = u8[p]; rpm = u8[p+1]; p += 2; }
       const stn = []; for (let k=0;k<STATIONS;k++){ stn.push(dv.getUint16(p,true)); p += 2; }
       const n = dv.getUint16(p,true); p += 2;
       if (p + n*27 > u8.length) break;
@@ -195,10 +208,28 @@ function parseFlight(dv, u8, v2){
           roll: dv.getInt16(p+21,true)/65536*360, spd: dv.getInt32(p+23,true)/256 });
         p += 27;
       }
-      frames.push({ t, c1, c2, sel, thr, rpm, stn, objs });
+      cur = { t, c1, c2, sel, thr, rpm, stn, objs, actOk: true };
+      frames.push(cur);
     } else break;
   }
-  return { kind:"flight", frames, raws };
+  const d = { kind:"flight", ver, frames, raws, types };
+  if (ver < 3) fixOldPlayer(d);
+  return d;
+}
+// 舊版錄製（FAFLT1/2）的索引 0 是 0x50CE80 工作副本，常常其實是別架飛機。
+// 用 AI 旗標（物件 +1 的 0x80）在物件表裡找出真正的玩家，換成索引 0。
+function fixOldPlayer(d){
+  const fr = d.frames; let dup = 0, tot = 0;
+  for (const f of fr){ const o = f.objs.get(0); if (!o || f.objs.size < 2) continue; tot++;
+    for (const [i,q] of f.objs) if (i && q.x===o.x && q.y===o.y && q.z===o.z){ dup++; break; } }
+  if (!tot || dup/tot < 0.2) return;
+  const cand = d.raws.find(r => r.idx && r.raw[0]===4 && !(r.raw[1] & 0x80));
+  for (const f of fr){
+    f.objs.delete(0);
+    if (cand && f.objs.has(cand.idx)){ const o = f.objs.get(cand.idx); f.objs.delete(cand.idx); o.idx = 0; f.objs.set(0, o); }
+    f.actOk = false;          // 操縱面 / 掛點資料是別架飛機的，不顯示
+  }
+  d.note = cand ? `舊版錄製：玩家改用物件 #${cand.idx}` : "舊版錄製：找不到玩家";
 }
 function parseRec(dv, u8, magic){
   let size, pos;
@@ -212,64 +243,58 @@ function parseRec(dv, u8, magic){
       hdg: dv.getUint16(b+0x1D,true)/65536*360, pitch: dv.getInt16(b+0x1F,true)/65536*360,
       roll: dv.getInt16(b+0x21,true)/65536*360, spd: dv.getInt32(b+0x34,true)/256 };
     const stn = []; for (let k=0;k<STATIONS;k++) stn.push(hasAct ? dv.getUint16(b+0x2EE+k*STN_STRIDE,true) : 0);
-    frames.push({ t, c1: hasAct?u8[b+0x16F]:0, c2: hasAct?u8[b+0x170]:0, sel: hasAct?u8[b+0x11C]:0, stn,
+    frames.push({ t, c1: hasAct?u8[b+0x16F]:0, c2: hasAct?u8[b+0x170]:0, sel: hasAct?u8[b+0x11C]:0, stn, actOk: hasAct,
       thr: size > 0x1F4 ? u8[b+0x1F4] : null, rpm: size > 0x1EF ? u8[b+0x1EF] : null, objs: new Map([[0,o]]) });
     pos += rec;
   }
   let s = 0; while (s < frames.length-1 && (o0 => o0.x===0 && o0.y===0 && o0.z===0)(frames[s].objs.get(0))) s++;
-  return { kind:"rec", frames: frames.slice(s), raws: [] };
+  return { kind:"rec", frames: frames.slice(s), raws: [], types: new Map() };
 }
 
-// ================= 事件 =================
-const BITS = [["gear","c1",0x40,"起落架"],["brake","c1",0x80,"煞車"],["flaps","c2",0x01,"襟翼"],["hook","c2",0x04,"捕捉勾"]];
-const stnName = k => k===0 ? "機砲" : `掛點${k}`;
-function buildEvents(fr){
-  const ev = [];
-  for (let i=1;i<fr.length;i++){
-    const a = fr[i-1], b = fr[i], t = b.t;
-    for (const [k,f,bit,label] of BITS){
-      const x = !!(a[f]&bit), y = !!(b[f]&bit);
-      if (x!==y) ev.push({t, text: label + (k==="brake" ? (y?" 開":" 關") : (y?" 放下":" 收起")), kind:"ctl"});
-    }
-    if (a.sel !== b.sel) ev.push({t, text:"選擇 " + stnName(b.sel-3), kind:"sel"});
-    for (let k=0;k<STATIONS;k++){
-      const d = a.stn[k]-b.stn[k];
-      if (d>0 && d<1000){
-        if (k===0){
-          let last = null; for (let j=ev.length-1;j>=0;j--) if (ev[j].kind==="gun"){ last = ev[j]; break; }
-          if (last && t - last.tEnd < 0.6){ last.n += d; last.tEnd = t; last.text = `機砲 ${last.n} 發`; continue; }
-          ev.push({t, tEnd:t, n:d, text:`機砲 ${d} 發`, kind:"gun"});
-        } else ev.push({t, text:`發射 掛點${k}（剩 ${b.stn[k]}）`, kind:"wpn"});
-      }
-    }
-    if (b.objs.size > 1 || a.objs.size > 1){
-      for (const [idx,o] of b.objs){ const q = a.objs.get(idx);
-        if (idx && (!q || q.name!==o.name)) ev.push({t, text:`出現 ${o.name} #${idx}`, kind:"spawn", idx}); }
-      for (const [idx,q] of a.objs){ if (idx && !b.objs.has(idx)) ev.push({t, text:`消失 ${q.name} #${idx}`, kind:"despawn", idx}); }
-    }
-  }
-  return ev;
+// ================= 機型名稱（可在圖例改名，存在瀏覽器裡） =================
+const printable = s => /^[\x20-\x7e]+$/.test(s) && /[A-Za-z0-9]{2,}/.test(s) && !/^T[0-9A-F]{8}$/.test(s) && s !== "?";
+let typeAlias = {}; try { typeAlias = JSON.parse(localStorage.getItem("fa_type_alias") || "{}"); } catch(e){}
+const saveAlias = () => { try { localStorage.setItem("fa_type_alias", JSON.stringify(typeAlias)); } catch(e){} };
+let autoNames = new Map();
+function displayName(raw){ return typeAlias[raw] || (printable(raw) ? raw : autoNames.get(raw) || "未知機型"); }
+
+// 外型（機體座標：右 +x、前 +z；長度約 2）
+function mirror(half){ return [...half, ...half.slice(1,-1).reverse().map(([x,z])=>[-x,z])].map(([x,z])=>[x,0,z]); }
+const SHAPES = {
+  fighter: { k:1.0, pts: mirror([[0,1],[.06,.78],[.11,.45],[.13,.15],[.7,-.25],[.72,-.36],[.16,-.28],[.15,-.62],[.4,-.86],[.4,-.96],[.12,-.9],[0,-.84]]) },
+  f14:     { k:1.15, pts: mirror([[0,1],[.07,.75],[.12,.5],[.2,.3],[.85,-.28],[.85,-.38],[.3,-.2],[.24,-.55],[.6,-.82],[.6,-.95],[.2,-.88],[.12,-1],[0,-.9]]) },
+  bomber:  { k:2.4, pts: mirror([[0,1],[.05,.92],[.07,.6],[.08,.28],[1.15,-.22],[1.15,-.32],[.09,-.02],[.07,-.62],[.4,-.8],[.4,-.9],[.06,-.86],[0,-1]]) },
+  heavy:   { k:2.0, pts: mirror([[0,1],[.08,.9],[.1,.4],[1.0,0],[1.0,-.1],[.1,-.05],[.09,-.65],[.42,-.85],[.42,-.95],[.08,-.92],[0,-1]]) },
+  heli:    { k:0.9, pts: mirror([[0,.9],[.15,.7],[.18,.3],[.12,0],[.05,-.3],[.05,-.9],[.2,-.95],[.2,-1],[0,-1]]) },
+};
+function shapeFor(name){
+  const n = displayName(name);
+  if (/B-?52|B-?1\b|B-?1B|TU-?95|TU-?160|TU-?22|TU-?16|BEAR|BLACKJACK/i.test(n)) return SHAPES.bomber;
+  if (/C-?130|C-?17|KC|E-?3|E-?2|IL-?76|AN-?\d|707|747|TRANS|TANK|AWACS|P-?3/i.test(n)) return SHAPES.heavy;
+  if (/F-?14|TOMCAT|MIG-?23|MIG-?27|SU-?24|F-?111|TORNADO/i.test(n)) return SHAPES.f14;
+  if (/AH-?|UH-?|MI-?\d|KA-?\d|HELI|COBRA|APACHE|HIND/i.test(n)) return SHAPES.heli;
+  return SHAPES.fighter;
 }
 
 // ================= 狀態 =================
 let data = null, events = [], T0 = 0, T1 = 0, now = 0, playing = false;
-const tracks = new Map();   // key -> {key, idx, name, cls, static, missile, pts:[{t,x,y,z,hdg,pitch,roll}]}
-let gunShots = [], selKey = null, playerKey = null, playerCls = null;
-let viewMode = "follow";    // follow | free | group
-const hidden = new Set();   // 圖例中被隱藏的群組
+const tracks = new Map();   // key -> {key, idx, name, cls, kind, pts:[...]}
+let gunShots = [], hits = [], kills = [], selKey = null, playerKey = null, playerCls = 4;
+let viewMode = "follow";
+const hidden = new Set();
 const cam = { yaw: -0.7, pitch: 0.42, dist: 30000, cx:0, cy:0, cz:0 };
 const BULLET_FPS = 3300, BULLET_LIFE = 1.4;
 const PALETTE = ["#ffc21a","#36c3f2","#ff4a2a","#2f9b3a","#a35bd8","#ff7aa8","#f07c1a","#e8e8e8","#1c6fd1","#93c83e"];
 const $ = id => document.getElementById(id);
 const keyOf = o => o.idx + "|" + o.name;
 const MISSILE_RE = /AIM|AGM|MISS|SAM|SA-|AA-|R-\d|ROCKET|BOMB|MK\d|GBU|HARM|MAV/i;
+const dist3 = (a,b) => Math.hypot(a.x-b.x, a.y-b.y, a.z-b.z);
 
 function load(buf, name){
   try { data = parse(buf); } catch(e){ alert(e.message); return; }
   if (!data.frames.length){ alert("檔案裡沒有資料"); return; }
   const fr = data.frames;
   T0 = fr[0].t; T1 = fr[fr.length-1].t; now = T0;
-  events = buildEvents(fr);
   tracks.clear(); hidden.clear();
   for (const f of fr) for (const [idx,o] of f.objs){
     const key = keyOf(o); let tr = tracks.get(key);
@@ -277,71 +302,166 @@ function load(buf, name){
     tr.pts.push({ t:f.t, x:o.x, y:o.y, z:o.z, hdg:o.hdg, pitch:o.pitch, roll:o.roll, spd:o.spd });
   }
   const p0 = fr.find(f=>f.objs.get(0))?.objs.get(0);
-  playerKey = p0 ? keyOf(p0) : null; playerCls = p0?.cls ?? null; selKey = playerKey;
+  playerKey = p0 ? keyOf(p0) : null; playerCls = p0?.cls ?? 4; selKey = playerKey;
+  // 自動機型代號
+  autoNames = new Map(); let an = 0;
+  const ordered = [...tracks.values()].sort((a,b)=> (a.key===playerKey?-1:b.key===playerKey?1:0) || a.idx-b.idx);
+  for (const tr of ordered) if ((tr.cls === 4) && !printable(tr.name) && !autoNames.has(tr.name)) autoNames.set(tr.name, `機型 ${String.fromCharCode(65 + an++)}`);
+  // 分類
   for (const tr of tracks.values()){
-    const a = tr.pts[0]; let moved = false, vmax = 0;
+    const a = tr.pts[0]; let moved = false, vmax = 0, smin = Infinity, smax = 0;
     for (let j=1;j<tr.pts.length;j++){
       const p = tr.pts[j], q = tr.pts[j-1];
       if (Math.abs(p.x-a.x)+Math.abs(p.y-a.y)+Math.abs(p.z-a.z) > 30) moved = true;
-      // 由位置變化推算朝向（較可靠）
       const dt = p.t-q.t, dx=p.x-q.x, dy=p.y-q.y, dz=p.z-q.z, h=Math.hypot(dx,dz);
       if (dt>0 && h+Math.abs(dy) > 3){ p.vh = Math.atan2(dx,dz)*180/Math.PI; p.vp = Math.atan2(dy,h)*180/Math.PI; vmax = Math.max(vmax, Math.hypot(h,dy)/dt); }
     }
+    for (const p of tr.pts){ smin = Math.min(smin, p.spd); smax = Math.max(smax, p.spd); }
     if (tr.pts.length > 1 && tr.pts[1].vh != null){ tr.pts[0].vh = tr.pts[1].vh; tr.pts[0].vp = tr.pts[1].vp; }
     for (let j=1;j<tr.pts.length;j++) if (tr.pts[j].vh == null && tr.pts[j-1].vh != null){ tr.pts[j].vh = tr.pts[j-1].vh; tr.pts[j].vp = tr.pts[j-1].vp; }
-    tr.static = !moved;
-    tr.missile = tr.idx !== 0 && moved && (MISSILE_RE.test(tr.name) || (tr.cls !== playerCls && vmax > 1100*6076/3600));
+    tr.t0 = tr.pts[0].t; tr.t1 = tr.pts[tr.pts.length-1].t;
+    if (tr.idx === 0 || tr.cls === 4) tr.kind = "aircraft";
+    else if (!moved) tr.kind = "static";
+    else if (tr.cls === 6 || MISSILE_RE.test(tr.name)){
+      // 類別 6 = 射出物：一出現就是固定高速（約 2000~2300 ft/s）的是機砲彈，其餘是飛彈
+      tr.kind = (tr.pts[0].spd >= 1800 && smax - smin < 400) ? "bullet" : "missile";
+    }
+    else if (tr.cls === 2 && tr.t0 > T0 + 2) tr.kind = "debris";
+    else if (vmax > 1100*6076/3600) tr.kind = "missile";
+    else tr.kind = "ground";
   }
-  // 機砲射擊
+  const aircraft = [...tracks.values()].filter(t=>t.kind==="aircraft");
+  const posAt = (tr,t) => sampleTrack(tr,t);
+  // 射手：出現時最近的飛機
+  for (const tr of tracks.values()) if (tr.kind==="bullet" || tr.kind==="missile"){
+    let best=null, bd=Infinity; for (const a of aircraft){ const s = posAt(a, tr.t0); if (s){ const d = dist3(s, tr.pts[0]); if (d<bd){ bd=d; best=a; } } }
+    tr.shooter = bd < 3000 ? best?.key : null;
+  }
+  // 擊中：射出物在錄製結束前消失，且消失位置靠近某架飛機（不是射手）
+  hits = [];
+  for (const tr of tracks.values()) if ((tr.kind==="bullet" || tr.kind==="missile") && tr.t1 < T1 - 0.3){
+    const e = tr.pts[tr.pts.length-1], R = tr.kind==="missile" ? 900 : 300;
+    let best=null, bd=Infinity;
+    for (const a of aircraft){ if (a.key===tr.shooter) continue; const s = posAt(a, e.t); if (s){ const d = dist3(s,e); if (d<bd){ bd=d; best=a; } } }
+    if (best && bd < R){ hits.push({ t:e.t, key:best.key, by:tr.kind, shooter:tr.shooter, x:e.x, y:e.y, z:e.z }); }
+  }
+  hits.sort((a,b)=>a.t-b.t);
+  // 擊毀：殘骸（類別 2，任務中途出現）在某架飛機旁出現；或飛機墜地
+  kills = [];
+  for (const tr of tracks.values()) if (tr.kind==="debris"){
+    let best=null, bd=Infinity; for (const a of aircraft){ const s = posAt(a, tr.t0); if (s){ const d = dist3(s,tr.pts[0]); if (d<bd){ bd=d; best=a; } } }
+    if (!best || bd >= 2500) continue;
+    let k = kills.find(k=>k.key===best.key);
+    if (!k){ const s = posAt(best, tr.t0); k = { t:tr.t0, key:best.key, x:s.x, y:s.y, z:s.z, parts:[] }; kills.push(k); }
+    if (tr.t0 - k.t < 8){ tr.parent = best.key; tr.half = k.parts.length % 2; k.parts.push(tr.key); best.split = true; }
+  }
+  // 直接消失：飛機在錄製結束前不見，且消失前 3 秒內被擊中
+  for (const a of aircraft) if (!kills.some(k=>k.key===a.key) && a.t1 < T1 - 0.5 && hits.some(h=>h.key===a.key && h.t <= a.t1 + 0.3 && a.t1 - h.t < 3)){
+    const l = a.pts[a.pts.length-1]; kills.push({ t:l.t, key:a.key, x:l.x, y:l.y, z:l.z, vanish:true }); }
+  for (const a of aircraft){ const l = a.pts[a.pts.length-1];
+    if (!kills.some(k=>k.key===a.key) && l.y < 30 && a.pts.some(p=>p.y > 500) && l.spd > 150) kills.push({ t:l.t, key:a.key, x:l.x, y:l.y, z:l.z, crash:true }); }
+  kills.sort((a,b)=>a.t-b.t);
+  for (const k of kills){ const tr = tracks.get(k.key); tr.killT = k.t; }
+  // 機砲：沒有實際彈道資料時（舊格式），用彈數減少推算
   gunShots = [];
-  for (let i=1;i<fr.length;i++){
+  const haveBullets = [...tracks.values()].some(t=>t.kind==="bullet" && t.shooter===playerKey);
+  if (!haveBullets) for (let i=1;i<fr.length;i++){
+    if (!fr[i].actOk) continue;
     const d = fr[i-1].stn[0] - fr[i].stn[0], p = fr[i].objs.get(0), q = fr[i-1].objs.get(0);
     if (!(d>0 && d<1000) || !p || !q) continue;
     const dt = Math.max(1e-3, fr[i].t - fr[i-1].t);
     const vx=(p.x-q.x)/dt, vy=(p.y-q.y)/dt, vz=(p.z-q.z)/dt, m=Math.hypot(vx,vy,vz);
     let ux, uy, uz;
-    if (m > 20){ ux=vx/m; uy=vy/m; uz=vz/m; }
-    else { const h=p.hdg*Math.PI/180, pt=p.pitch*Math.PI/180; ux=Math.sin(h)*Math.cos(pt); uy=Math.sin(pt); uz=Math.cos(h)*Math.cos(pt); }
+    if (m > 20){ ux=vx/m; uy=vy/m; uz=vz/m; } else { const h=p.hdg*Math.PI/180, pt=p.pitch*Math.PI/180; ux=Math.sin(h)*Math.cos(pt); uy=Math.sin(pt); uz=Math.cos(h)*Math.cos(pt); }
     gunShots.push({ t:fr[i].t, dur:dt, x:p.x, y:p.y, z:p.z, ux, uy, uz, vx, vy, vz });
   }
-  $("fname").textContent = `${name} · ${fr.length} 筆 · ${(T1-T0).toFixed(1)} 秒 · ${[...tracks.values()].filter(t=>!t.static&&!t.missile).length} 個移動物件`;
+  events = buildEvents(fr);
+  const nAir = aircraft.length;
+  $("fname").textContent = `${name} · ${(T1-T0).toFixed(0)} 秒 · ${nAir} 架飛機${data.note ? " · " + data.note : ""}`;
   $("drop").classList.add("hide");
   buildLegend(); resetView(); renderEvents(); renderMarks(); update();
 }
 
+// ================= 事件 =================
+const BITS = [["gear","c1",0x40,"起落架"],["brake","c1",0x80,"煞車"],["flaps","c2",0x01,"襟翼"],["hook","c2",0x04,"捕捉勾"]];
+const stnName = k => k===0 ? "機砲" : `掛點${k}`;
+const label = key => { const tr = tracks.get(key); if (!tr) return "?"; return key===playerKey ? `${displayName(tr.name)}（玩家）` : `${displayName(tr.name)} #${String(tr.idx).padStart(4,"0")}`; };
+function buildEvents(fr){
+  const ev = [];
+  for (let i=1;i<fr.length;i++){
+    const a = fr[i-1], b = fr[i], t = b.t;
+    if (!a.actOk || !b.actOk) continue;
+    for (const [k,f,bit,lbl] of BITS){
+      const x = !!(a[f]&bit), y = !!(b[f]&bit);
+      if (x!==y) ev.push({t, text: lbl + (k==="brake" ? (y?" 開":" 關") : (y?" 放下":" 收起")), kind:"ctl"});
+    }
+    if (a.sel !== b.sel) ev.push({t, text:"選擇 " + stnName(b.sel-3), kind:"sel"});
+    for (let k=1;k<STATIONS;k++){ const d = a.stn[k]-b.stn[k]; if (d>0 && d<1000) ev.push({t, text:`發射 掛點${k}（剩 ${b.stn[k]}）`, kind:"wpn"}); }
+  }
+  // 玩家射擊（由射出物推得）
+  let burst = null;
+  for (const tr of [...tracks.values()].filter(t=>t.shooter && (t.kind==="bullet"||t.kind==="missile")).sort((a,b)=>a.t0-b.t0)){
+    const who = tr.shooter===playerKey ? "玩家" : label(tr.shooter);
+    if (tr.kind==="missile") ev.push({ t:tr.t0, text:`${who} 發射飛彈`, kind:"wpn" });
+    else if (burst && burst.shooter===tr.shooter && tr.t0 - burst.tEnd < 0.8){ burst.n++; burst.tEnd = tr.t0; burst.text = `${who} 機砲連射（${burst.n}）`; }
+    else { burst = { t:tr.t0, tEnd:tr.t0, n:1, shooter:tr.shooter, text:`${who} 機砲連射（1）`, kind:"gun" }; ev.push(burst); }
+  }
+  for (const g of gunShots){ ev.push({ t:g.t, text:"機砲", kind:"gun" }); }
+  // 擊中與擊毀（同一架飛機 0.5 秒內的多次擊中合併）
+  let lastHit = {};
+  for (const h of hits){
+    const L = lastHit[h.key]; if (L && h.t - L.t < 0.6){ L.n++; L.text = `${label(h.key)} 被${h.by==="missile"?"飛彈":"機砲"}擊中 ×${L.n}`; continue; }
+    const e = { t:h.t, n:1, text:`${label(h.key)} 被${h.by==="missile"?"飛彈":"機砲"}擊中`, kind:"hit" }; ev.push(e); lastHit[h.key] = e;
+  }
+  for (const k of kills) ev.push({ t:k.t, text:`💥 ${label(k.key)} ${k.crash?"墜毀":"被擊毀"}${k.parts?.length>1?"（斷成兩截）":k.vanish?"（消失）":""}`, kind:"kill" });
+  if (gunShots.length){ // 合併推算的機砲事件
+    const out = []; for (const e of ev.sort((a,b)=>a.t-b.t)){ const l = out[out.length-1];
+      if (e.kind==="gun" && e.text==="機砲" && l && l.kind==="gun" && e.t - l.tEnd < 0.6){ l.tEnd = e.t; continue; }
+      if (e.kind==="gun" && e.text==="機砲") e.tEnd = e.t; out.push(e); } return out;
+  }
+  return ev.sort((a,b)=>a.t-b.t);
+}
+
 // ---------- 分組與顏色 ----------
 function groupOf(tr){
-  if (tr.missile) return "飛彈 / 武器";
-  if (tr.static) return "靜止物件";
-  return $("o_color").value === "cls" ? `類別 ${tr.cls}` : tr.name;
+  if (tr.kind==="missile") return "飛彈";
+  if (tr.kind==="bullet") return "機砲彈";
+  if (tr.kind==="debris") return "殘骸";
+  if (tr.kind==="static") return "靜止物件";
+  if (tr.kind==="ground") return "地面 / 水面";
+  return $("o_color").value === "cls" ? `類別 ${tr.cls}` : displayName(tr.name);
 }
+const FIXED = { "飛彈":"#ffffff", "機砲彈":"#fff1a8", "殘骸":"#5a4a3a", "靜止物件":"#7d7468", "地面 / 水面":"#3d6b52" };
 let groupColor = new Map();
 function buildLegend(){
   groupColor = new Map();
-  const groups = new Map();
+  const groups = new Map(), rawOf = new Map();
   const ordered = [...tracks.values()].sort((a,b)=> (a.key===playerKey?-1:b.key===playerKey?1:0) || a.idx-b.idx);
-  for (const tr of ordered){ const g = groupOf(tr); groups.set(g, (groups.get(g)||0) + 1); }
+  for (const tr of ordered){ const g = groupOf(tr); groups.set(g, (groups.get(g)||0) + 1); if (tr.kind==="aircraft") rawOf.set(g, tr.name); }
   let ci = 0;
-  for (const g of groups.keys()){
-    if (g === "飛彈 / 武器") groupColor.set(g, "#ffffff");
-    else if (g === "靜止物件") groupColor.set(g, "#7d7468");
-    else groupColor.set(g, PALETTE[ci++ % PALETTE.length]);
-  }
-  $("legitems").innerHTML = [...groups].map(([g,n]) =>
-    `<div class="it${hidden.has(g)?" off":""}" data-g="${g.replace(/"/g,"&quot;")}" style="background:${groupColor.get(g)}${g==="飛彈 / 武器"?";color:#222;text-shadow:none":""}">${g}<span style="margin-left:auto;opacity:.85">${n}</span></div>`).join("");
-  document.querySelectorAll("#legend .it").forEach(el => el.onclick = () => {
-    const g = el.dataset.g; hidden.has(g) ? hidden.delete(g) : hidden.add(g); el.classList.toggle("off"); draw(); });
+  for (const g of groups.keys()) groupColor.set(g, FIXED[g] || PALETTE[ci++ % PALETTE.length]);
+  $("legitems").innerHTML = [...groups].map(([g,n]) => {
+    const light = ["飛彈","機砲彈"].includes(g);
+    const ren = rawOf.has(g) && $("o_color").value==="type" ? `<span class="ren" data-raw="${encodeURIComponent(rawOf.get(g))}" title="改機型名稱">✎</span>` : "";
+    return `<div class="it${hidden.has(g)?" off":""}" data-g="${encodeURIComponent(g)}" style="background:${groupColor.get(g)}${light?";color:#222;text-shadow:none":""}">${g}${ren}<span style="margin-left:auto;opacity:.85">${n}</span></div>`; }).join("");
+  document.querySelectorAll("#legend .it").forEach(el => el.onclick = ev => {
+    const rn = ev.target.closest(".ren");
+    if (rn){ ev.stopPropagation(); const raw = decodeURIComponent(rn.dataset.raw);
+      const v = prompt("這個機型的名稱（例如 F-14、B-52），外型會跟著名稱改變：", displayName(raw));
+      if (v != null){ if (v.trim()) typeAlias[raw] = v.trim(); else delete typeAlias[raw]; saveAlias(); buildLegend(); renderEvents(); update(); }
+      return; }
+    const g = decodeURIComponent(el.dataset.g); hidden.has(g) ? hidden.delete(g) : hidden.add(g); el.classList.toggle("off"); draw(); });
 }
 const colorOf = tr => groupColor.get(groupOf(tr)) || "#ccc";
 
 // ---------- 插值 ----------
-function ptIndex(pts, t){ let lo=0, hi=pts.length-1; if (t < pts[0].t || t > pts[hi].t + 0.5) return -1;
+function ptIndex(pts, t){ let lo=0, hi=pts.length-1; if (t < pts[0].t || t > pts[hi].t + 0.15) return -1;
   while (lo<hi){ const m=(lo+hi+1)>>1; if (pts[m].t<=t) lo=m; else hi=m-1; } return lo; }
 const lerpAng = (a,b,f) => a + (((b-a+540)%360)-180)*f;
 function sampleTrack(tr, t){
   const i = ptIndex(tr.pts, t); if (i < 0) return null;
   const a = tr.pts[i], b = tr.pts[Math.min(i+1, tr.pts.length-1)];
-  if (b.t - a.t > 2) return t - a.t < 0.5 ? { ...a } : null;     // 中間有空檔（物件消失又出現）
+  if (b.t - a.t > 2) return t - a.t < 0.5 ? { ...a } : null;
   const f = b.t>a.t ? Math.min(1, Math.max(0,(t-a.t)/(b.t-a.t))) : 0;
   return { x:a.x+(b.x-a.x)*f, y:a.y+(b.y-a.y)*f, z:a.z+(b.z-a.z)*f,
     hdg:lerpAng(a.hdg,b.hdg,f), pitch:lerpAng(a.pitch,b.pitch,f), roll:lerpAng(a.roll,b.roll,f), spd:a.spd+(b.spd-a.spd)*f,
@@ -359,8 +479,7 @@ window.addEventListener("resize", resize);
 
 const flip = () => $("o_flip").checked ? -1 : 1;
 function toCam(x,y,z){
-  const fz = flip();
-  const dx = x-cam.cx, dy = y-cam.cy, dz = (z-cam.cz)*fz;
+  const dx = x-cam.cx, dy = y-cam.cy, dz = (z-cam.cz)*flip();
   const cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
   const x1 = dx*cy - dz*sy, z1 = dx*sy + dz*cy;
   const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
@@ -379,25 +498,19 @@ function line3(a,b,color,width=1,n=nearZ()){
   const p=proj(s[0]), q=proj(s[1]); ctx.strokeStyle=color; ctx.lineWidth=width; ctx.beginPath(); ctx.moveTo(p[0],p[1]); ctx.lineTo(q[0],q[1]); ctx.stroke();
 }
 const niceStep = v => { const e = Math.pow(10, Math.floor(Math.log10(v))), m = v/e; return (m<2?1:m<5?2:5)*e; };
-function rotate(v, hdg, pitch, roll){ // 機體（右 +x、上 +y、前 +z）→ 世界
+function rotate(v, hdg, pitch, roll){
   let [x,y,z] = v; const r = -roll*Math.PI/180, p = -pitch*Math.PI/180, h = hdg*Math.PI/180;
   [x,y] = [x*Math.cos(r) - y*Math.sin(r), x*Math.sin(r) + y*Math.cos(r)];
   [y,z] = [y*Math.cos(p) - z*Math.sin(p), y*Math.sin(p) + z*Math.cos(p)];
   return [x*Math.cos(h) + z*Math.sin(h), y, -x*Math.sin(h) + z*Math.cos(h)];
 }
-// 戰機剪影（機體座標，長度 1）
-const JET = (() => { const half = [[0,1],[.06,.78],[.11,.45],[.13,.15],[.7,-.25],[.72,-.36],[.16,-.28],[.15,-.62],[.4,-.86],[.4,-.96],[.12,-.9],[0,-.84]];
-  return [...half, ...half.slice(1,-1).reverse().map(([x,z])=>[-x,z])].map(([x,z])=>[x,0,z]); })();
-
-function shade(hex, k){ const n = parseInt(hex.slice(1),16); let r=n>>16, g=(n>>8)&255, b=n&255;
-  r=Math.round(Math.min(255,r*k)); g=Math.round(Math.min(255,g*k)); b=Math.round(Math.min(255,b*k)); return `rgb(${r},${g},${b})`; }
+function shade(hex, k){ const n = parseInt(hex.slice(1),16); return `rgb(${Math.min(255,(n>>16)*k)|0},${Math.min(255,((n>>8)&255)*k)|0},${Math.min(255,(n&255)*k)|0})`; }
 function rgba(hex, a){ const n = parseInt(hex.slice(1),16); return `rgba(${n>>16},${(n>>8)&255},${n&255},${a})`; }
+const cssCache = {}; const getCss = n => cssCache[n] ??= getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
 function drawGround(){
-  // 地平線以上：天空漸層；地面：以大四邊形近似
   const R = cam.dist*8, gx = cam.cx, gz = cam.cz, n = nearZ();
   const corners = [[gx-R,0,gz-R],[gx+R,0,gz-R],[gx+R,0,gz+R],[gx-R,0,gz+R]].map(p=>toCam(...p));
-  // 對近平面裁切多邊形
   const poly = [];
   for (let i=0;i<4;i++){ const A = corners[i], B = corners[(i+1)%4];
     if (A[2]>=n) poly.push(A);
@@ -408,11 +521,9 @@ function drawGround(){
   const g = ctx.createLinearGradient(0, Math.max(0,top), 0, Math.min(H, bot));
   g.addColorStop(0, getCss("--ground1")); g.addColorStop(1, getCss("--ground2"));
   ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(...pp[0]); for (const p of pp.slice(1)) ctx.lineTo(...p); ctx.closePath(); ctx.fill();
-  // 地平線霧
   const hz = ctx.createLinearGradient(0, top-30, 0, top+H*0.18);
   hz.addColorStop(0, "rgba(240,205,150,.9)"); hz.addColorStop(1, "rgba(240,205,150,0)");
   ctx.fillStyle = hz; ctx.fillRect(0, top-30, W, H*0.18+30);
-  // 格線
   const step = niceStep(cam.dist/7), N = Math.ceil(cam.dist*3/step);
   const sx = Math.round(gx/step)*step, sz = Math.round(gz/step)*step;
   for (let i=-N;i<=N;i++){
@@ -422,22 +533,102 @@ function drawGround(){
   }
   return step;
 }
-const cssCache = {}; const getCss = n => cssCache[n] ??= getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// 爆炸：火球 + 四散的碎片 + 煙
+function rnd(seed){ let s = seed % 2147483647; if (s <= 0) s += 2147483646; return () => (s = s * 16807 % 2147483647) / 2147483647; }
+function drawExplosion(k, size){
+  const age = now - k.t; if (age < 0 || age > 6) return;
+  const c = toCam(k.x, k.y, k.z); if (c[2] < nearZ()) return;
+  const p = proj(c), sc = F / c[2];
+  const R = Math.max(10, 600*sc*size);
+  // 閃光與火球
+  if (age < 1.6){
+    const r = R * (0.3 + age*1.4), a = 1 - age/1.6;
+    const g = ctx.createRadialGradient(p[0],p[1],0,p[0],p[1],r);
+    g.addColorStop(0, `rgba(255,255,220,${a})`); g.addColorStop(.35, `rgba(255,190,60,${a*.9})`); g.addColorStop(.7, `rgba(230,70,20,${a*.6})`); g.addColorStop(1, "rgba(80,20,0,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p[0],p[1],r,0,7); ctx.fill();
+  }
+  // 煙
+  if (age > 0.4){ const a = Math.max(0, 0.45 - (age-0.4)/12); const r = R*(0.8 + age*0.6);
+    const g = ctx.createRadialGradient(p[0],p[1]-age*R*0.15,0,p[0],p[1]-age*R*0.15,r);
+    g.addColorStop(0, `rgba(50,40,35,${a})`); g.addColorStop(1, "rgba(50,40,35,0)"); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p[0],p[1]-age*R*0.15,r,0,7); ctx.fill(); }
+  // 碎片（受重力，拖著火光）
+  const r = rnd(Math.round(k.t*1000) + k.key.length*97);
+  for (let i=0;i<36;i++){
+    const th = r()*Math.PI*2, ph = (r()-0.3)*Math.PI*0.9, v = 150 + r()*450, life = 1.5 + r()*3;
+    if (age > life) { r(); continue; }
+    const vx = Math.cos(th)*Math.cos(ph)*v, vy = Math.sin(ph)*v, vz = Math.sin(th)*Math.cos(ph)*v;
+    const pos = t => [k.x + vx*t, Math.max(0, k.y + vy*t - 16*t*t), k.z + vz*t];
+    const a = 1 - age/life, hot = r() < 0.5;
+    line3(pos(Math.max(0,age-0.25)), pos(age), hot ? `rgba(255,${150+((a*100)|0)},60,${a})` : `rgba(40,30,25,${a})`, hot ? 2 : 2.5);
+  }
+}
+
+// 機身切成兩半：把外型多邊形沿 z = CUT 切開，切口畫成鋸齒
+const CUT = 0.12;
+function clipHalf(pts, front){
+  const inside = v => front ? v[2] >= CUT : v[2] < CUT, out = [];
+  for (let i=0;i<pts.length;i++){
+    const A = pts[i], B = pts[(i+1)%pts.length], ia = inside(A), ib = inside(B);
+    if (ia) out.push(A);
+    if (ia !== ib){ const f = (CUT-A[2])/(B[2]-A[2]); out.push([A[0]+(B[0]-A[0])*f, A[1]+(B[1]-A[1])*f, CUT, 1]); }
+  }
+  // 兩個切點之間補鋸齒
+  const res = [];
+  for (let i=0;i<out.length;i++){
+    const A = out[i], B = out[(i+1)%out.length]; res.push(A);
+    if (A[3] && B[3]){ const n = 7; for (let k=1;k<n;k++){ res.push([A[0]+(B[0]-A[0])*k/n, A[1]+(B[1]-A[1])*k/n, CUT + (k%2 ? 0.07 : -0.05)]); } }
+  }
+  return res;
+}
+const halfCache = new Map();
+// 側面輪廓（機身 + 垂直尾翼），讓翻滾時從側面看也看得到
+const SIDE = [[0,.02,1],[0,.07,.8],[0,.09,.3],[0,.09,-.55],[0,.38,-.85],[0,.38,-.97],[0,.07,-1],[0,-.06,-.95],[0,-.08,-.3],[0,-.07,.6]];
+function halfShape(shp, front){ const key = shp.k + (front?"f":"r");
+  if (!halfCache.has(key)) halfCache.set(key, [clipHalf(shp.pts, front), clipHalf(SIDE, front)]); return halfCache.get(key); }
+function drawHalf(tr, s, c, size, labelOn){
+  const par = tracks.get(tr.parent), shp = shapeFor(par.name), n0 = nearZ();
+  const L = Math.max(70, c[2]*0.03) * size * shp.k * 1.3;
+  const poly = halfShape(shp, tr.half === 0);
+  // 碎片本身的姿態（會翻滾）；把半截的中心移到物件位置
+  const zc = tr.half === 0 ? (1+CUT)/2 : (CUT-1)/2;
+  const place = poly => poly.map(v => { const r = rotate([v[0]*L, v[1]*L, (v[2]-zc)*L], s.hdg, s.pitch, s.roll); return toCam(s.x+r[0], s.y+r[1], s.z+r[2]); });
+  const polys = poly.map(place);
+  if (polys.some(pc => pc.some(p=>p[2] < n0))) return;
+  // 地面陰影
+  if (s.y > 50){ const sh = poly[0].map(v => { const r = rotate([v[0]*L, 0, (v[2]-zc)*L], s.hdg, 0, 0); return toCam(s.x+r[0], 0, s.z+r[2]); });
+    if (sh.every(p=>p[2]>n0)){ const sp = sh.map(proj); ctx.fillStyle = "rgba(50,25,5,.18)"; ctx.beginPath(); ctx.moveTo(...sp[0]); for (const p of sp.slice(1)) ctx.lineTo(...p); ctx.closePath(); ctx.fill(); } }
+  const depth = pc => pc.reduce((a,p)=>a+p[2],0)/pc.length;
+  [0,1].sort((a,b)=>depth(polys[b])-depth(polys[a])).forEach(i => {
+    const pp = polys[i].map(proj);
+    ctx.beginPath(); ctx.moveTo(...pp[0]); for (const p of pp.slice(1)) ctx.lineTo(...p); ctx.closePath();
+    ctx.fillStyle = shade(colorOf(par), i ? 0.35 : 0.5); ctx.fill(); ctx.strokeStyle = "rgba(20,15,10,.85)"; ctx.lineWidth = 1; ctx.stroke();
+  });
+  // 切口火焰與黑煙
+  const r = rnd(Math.round(now*12) + tr.idx*31), cutp = rotate([0,0,(CUT-zc)*L], s.hdg, s.pitch, s.roll);
+  const fx = s.x+cutp[0], fy = s.y+cutp[1], fz = s.z+cutp[2], burning = now - tr.t0 < 25;
+  if (burning){ for (let i=0;i<4;i++){ const q = proj(toCam(fx+(r()-.5)*L*0.25, fy+(r()-.5)*L*0.25, fz+(r()-.5)*L*0.25)); if (!q) continue;
+    ctx.fillStyle = `rgba(255,${120+(r()*110|0)},40,${0.55+r()*0.4})`; ctx.beginPath(); ctx.arc(q[0],q[1],2+r()*4,0,7); ctx.fill(); } }
+  for (let i=0;i<7;i++){ const up = r(); const q = proj(toCam(fx+(r()-.5)*L*0.6, fy+L*0.15+up*L*1.4, fz+(r()-.5)*L*0.6));
+    ctx.fillStyle = `rgba(35,30,28,${(0.35-up*0.25)*(burning?1:0.5)})`; ctx.beginPath(); ctx.arc(q[0],q[1],4+up*9,0,7); ctx.fill(); }
+  if (labelOn && tr.half === 0){ const q = proj(c); ctx.font = "600 11px system-ui"; ctx.fillStyle = "rgba(120,20,10,.95)";
+    ctx.fillText(`${displayName(par.name)} ${String(par.idx).padStart(4,"0")} ✕`, q[0]+10, q[1]-10); }
+  if (tr.key === selKey){ const q = proj(c), k = Math.max(26, L*F/c[2]*1.6); ctx.strokeStyle = "rgba(255,250,240,.95)"; ctx.lineWidth = 2; ctx.strokeRect(q[0]-k/2, q[1]-k/2, k, k); }
+}
 
 let lastDrawn = [];
 function draw(){
   ctx.clearRect(0,0,W,H);
-  if (!data){ return; }
+  if (!data) return;
   const live = [];
   for (const tr of tracks.values()){
-    if (tr.static && !$("o_static").checked) continue;
+    if (tr.kind==="static" && !$("o_static").checked) continue;
     if (hidden.has(groupOf(tr))) continue;
     const s = sampleTrack(tr, now); if (s) live.push({ tr, s });
   }
-  // 鏡頭
   const sel = live.find(l=>l.tr.key===selKey);
   if (viewMode === "follow" && sel){ cam.cx = sel.s.x; cam.cy = sel.s.y; cam.cz = sel.s.z; }
-  if (viewMode === "group"){ const mv = live.filter(l=>!l.tr.static && !l.tr.missile); if (mv.length){
+  if (viewMode === "group"){ const mv = live.filter(l=>l.tr.kind==="aircraft"); if (mv.length){
     let x0=Infinity,x1=-Infinity,z0=Infinity,z1=-Infinity,y=0; for (const {s} of mv){ x0=Math.min(x0,s.x); x1=Math.max(x1,s.x); z0=Math.min(z0,s.z); z1=Math.max(z1,s.z); y+=s.y; }
     cam.cx=(x0+x1)/2; cam.cz=(z0+z1)/2; cam.cy=y/mv.length*0.5; cam.dist = Math.max(6000, Math.hypot(x1-x0, z1-z0)*1.1); } }
 
@@ -446,32 +637,35 @@ function draw(){
   if (step) ctx.fillText(`格線 ${step>=1000 ? step/1000+"k" : step} ft`, W-12, H-42); ctx.textAlign = "left";
 
   const size = +$("o_size").value, useVel = $("o_vel").checked, n0 = nearZ();
-  // 緞帶軌跡（隨滾轉扭轉的帶子）
+  // 緞帶軌跡
   if ($("o_trail").checked){
     const tl = +$("o_tlen").value;
     for (const { tr } of live){
-      if (tr.static) continue;
-      const col = colorOf(tr), pts = tr.pts;
-      const w = tr.missile ? 0 : Math.max(25, cam.dist*0.004) * size;
-      let j0 = ptIndex(pts, Math.max(pts[0].t, now - tl)); if (j0 < 0) j0 = 0;
-      const j1 = ptIndex(pts, now); if (j1 < 0) continue;
+      if (tr.kind==="static" || tr.kind==="bullet") continue;
+      const tn = tr.split ? Math.min(now, tr.killT) : now;
+      const dead = tr.killT != null && now > tr.killT;
+      const col = dead ? "#3a3530" : colorOf(tr), pts = tr.pts;
+      const w = tr.kind==="aircraft" ? Math.max(25, cam.dist*0.004) * size * (shapeFor(tr.name).k > 1.5 ? 1.6 : 1) : 0;
+      let j0 = ptIndex(pts, Math.max(pts[0].t, tn - tl)); if (j0 < 0) j0 = 0;
+      const j1 = ptIndex(pts, tn); if (j1 < 0) continue;
       let prev = null;
       for (let j=j0;j<=j1+1 && j<pts.length;j++){
-        let p = pts[j]; if (j === j1+1){ const s = sampleTrack(tr, now); if (!s) break; p = { ...s, t: now }; }
-        if (p.t > now + 1e-6) break;
+        let p = pts[j]; if (j === j1+1){ const s = sampleTrack(tr, tn); if (!s) break; p = { ...s, t: tn }; }
+        if (p.t > tn + 1e-6) break;
         const h = useVel && p.vh!=null ? p.vh : p.hdg, pi = useVel && p.vp!=null ? p.vp : p.pitch;
         const r = rotate([w,0,0], h, pi, p.roll);
-        const cur = { L: toCam(p.x-r[0], p.y-r[1], p.z-r[2]), R: toCam(p.x+r[0], p.y+r[1], p.z+r[2]), C: toCam(p.x,p.y,p.z), t: p.t };
+        const cur = { L: toCam(p.x-r[0], p.y-r[1], p.z-r[2]), R: toCam(p.x+r[0], p.y+r[1], p.z+r[2]), C: toCam(p.x,p.y,p.z), t: p.t, dead: tr.killT!=null && p.t > tr.killT };
         if (prev && cur.t - prev.t < 2 && prev.C[2] > n0 && cur.C[2] > n0){
           const age = (now - cur.t) / tl, a = Math.max(0.12, 0.75 - age*0.6);
+          const cc = cur.dead || tr.parent ? "#2e2a26" : col;
           if (w > 0 && prev.L[2]>n0 && prev.R[2]>n0 && cur.L[2]>n0 && cur.R[2]>n0){
             const q = [prev.L, cur.L, cur.R, prev.R].map(proj);
-            ctx.fillStyle = rgba(col, a*0.45); ctx.beginPath(); ctx.moveTo(...q[0]); ctx.lineTo(...q[1]); ctx.lineTo(...q[2]); ctx.lineTo(...q[3]); ctx.closePath(); ctx.fill();
-            ctx.strokeStyle = rgba(col, a); ctx.lineWidth = 1.2;
+            ctx.fillStyle = rgba(cc, a*0.45); ctx.beginPath(); ctx.moveTo(...q[0]); ctx.lineTo(...q[1]); ctx.lineTo(...q[2]); ctx.lineTo(...q[3]); ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = rgba(cc, a); ctx.lineWidth = 1.2;
             ctx.beginPath(); ctx.moveTo(...q[0]); ctx.lineTo(...q[1]); ctx.moveTo(...q[3]); ctx.lineTo(...q[2]); ctx.stroke();
           } else {
             const a0 = proj(prev.C), a1 = proj(cur.C);
-            ctx.strokeStyle = rgba(tr.missile ? "#ff5a3c" : col, a); ctx.lineWidth = tr.missile ? 2.5 : 1.5;
+            ctx.strokeStyle = tr.kind==="missile" ? `rgba(240,240,235,${a*0.8})` : rgba(cc, a); ctx.lineWidth = tr.kind==="missile" ? 2.5 : 1.5;
             ctx.beginPath(); ctx.moveTo(...a0); ctx.lineTo(...a1); ctx.stroke();
           }
         }
@@ -484,42 +678,64 @@ function draw(){
   lastDrawn = [];
   const dropOn = $("o_drop").checked, labelOn = $("o_label").checked;
   for (const { tr, s, c } of items){
-    const col = colorOf(tr), isSel = tr.key === selKey;
-    if (dropOn && !tr.static && s.y > 1) line3([s.x,s.y,s.z],[s.x,0,s.z],"rgba(60,35,10,.35)");
-    const L = Math.max(70, c[2]*0.03) * size * (tr.key===playerKey ? 1.2 : 1);
+    if (tr.split && now > tr.killT) continue;   // 已裂成兩半，原機不再畫
+    if (tr.parent){ drawHalf(tr, s, c, size, labelOn); lastDrawn.push({ key: tr.key, ...(([x,y])=>({x,y}))(proj(c)) }); continue; }
+    const col = colorOf(tr), isSel = tr.key === selKey, dead = tr.killT != null && now > tr.killT;
+    if (dropOn && tr.kind==="aircraft" && s.y > 1) line3([s.x,s.y,s.z],[s.x,0,s.z],"rgba(60,35,10,.35)");
+    const shp = shapeFor(tr.name);
+    const L = Math.max(70, c[2]*0.03) * size * (tr.kind==="aircraft" ? shp.k : 1) * (tr.key===playerKey ? 1.1 : 1);
     const ps = proj(c);
-    if (tr.missile){
-      const h = s.vh ?? s.hdg, pi = s.vp ?? s.pitch, r = rotate([0,0,1],h,pi,0), ML = L*2.6;
+    const h = useVel && s.vh!=null ? s.vh : s.hdg, pi = useVel && s.vp!=null ? s.vp : s.pitch;
+    if (tr.kind==="bullet"){
+      // 機砲彈：短短的線條
+      const r = rotate([0,0,1], s.vh ?? s.hdg, s.vp ?? s.pitch, 0), seg = Math.max(40, c[2]*0.012) * size;
+      line3([s.x-r[0]*seg, s.y-r[1]*seg, s.z-r[2]*seg],[s.x,s.y,s.z], getCss("--gun"), 2.2);
+      continue;
+    } else if (tr.kind==="missile"){
+      // 飛彈：較長的粗線條
+      const r = rotate([0,0,1], s.vh ?? s.hdg, s.vp ?? s.pitch, 0), ML = L*2.6;
       line3([s.x-r[0]*ML, s.y-r[1]*ML, s.z-r[2]*ML],[s.x,s.y,s.z], "#fff", 4);
       line3([s.x-r[0]*ML, s.y-r[1]*ML, s.z-r[2]*ML],[s.x-r[0]*ML*0.55, s.y-r[1]*ML*0.55, s.z-r[2]*ML*0.55], "#ff5a3c", 4);
-    } else if (tr.static){
-      const k = Math.max(3, 5*size); ctx.fillStyle = col; ctx.fillRect(ps[0]-k/2, ps[1]-k/2, k, k);
+    } else if (tr.kind==="static" || tr.kind==="debris" || tr.kind==="ground"){
+      const k = Math.max(3, (tr.kind==="debris"?4:5)*size); ctx.fillStyle = col; ctx.fillRect(ps[0]-k/2, ps[1]-k/2, k, k);
+      if (tr.kind==="debris"){ continue; }
     } else {
-      const h = useVel && s.vh!=null ? s.vh : s.hdg, pi = useVel && s.vp!=null ? s.vp : s.pitch;
-      const pc = JET.map(v => { const r = rotate([v[0]*L, 0, v[2]*L], h, pi, s.roll); return toCam(s.x+r[0], s.y+r[1], s.z+r[2]); });
+      const pc = shp.pts.map(v => { const r = rotate([v[0]*L, 0, v[2]*L], h, pi, s.roll); return toCam(s.x+r[0], s.y+r[1], s.z+r[2]); });
       if (pc.some(p=>p[2] < n0)) continue;
       const pp = pc.map(proj);
       let area = 0; for (let k=0;k<pp.length;k++){ const a = pp[k], b = pp[(k+1)%pp.length]; area += a[0]*b[1]-b[0]*a[1]; }
-      // 地面陰影
-      const sh = JET.map(v => { const r = rotate([v[0]*L, 0, v[2]*L], h, 0, 0); return toCam(s.x+r[0], 0, s.z+r[2]); });
+      const sh = shp.pts.map(v => { const r = rotate([v[0]*L, 0, v[2]*L], h, 0, 0); return toCam(s.x+r[0], 0, s.z+r[2]); });
       if (sh.every(p=>p[2]>n0) && s.y > 50){ const sp = sh.map(proj); ctx.fillStyle = "rgba(50,25,5,.22)";
         ctx.beginPath(); ctx.moveTo(...sp[0]); for (const p of sp.slice(1)) ctx.lineTo(...p); ctx.closePath(); ctx.fill(); }
       ctx.beginPath(); ctx.moveTo(...pp[0]); for (const p of pp.slice(1)) ctx.lineTo(...p); ctx.closePath();
-      const lit = area < 0 ? 1.08 : 0.72 * flipLight();
+      const base = dead ? "#3b3631" : col, lit = area < 0 ? 1.08 : 0.72;
       const grd = ctx.createLinearGradient(...proj(pc[0]), ...proj(pc[Math.floor(pc.length/2)]));
-      grd.addColorStop(0, shade(col, lit*1.15)); grd.addColorStop(1, shade(col, lit*0.8));
+      grd.addColorStop(0, shade(base, lit*1.15)); grd.addColorStop(1, shade(base, lit*0.8));
       ctx.fillStyle = grd; ctx.fill(); ctx.strokeStyle = "rgba(20,15,10,.75)"; ctx.lineWidth = 1; ctx.stroke();
+      if (dead){ // 冒煙
+        const r = rnd(Math.round(now*10));
+        for (let i=0;i<5;i++){ const q = proj(toCam(s.x+(r()-.5)*L, s.y+L*0.3+r()*L, s.z+(r()-.5)*L)); ctx.fillStyle = `rgba(40,35,30,${0.25+r()*0.25})`; ctx.beginPath(); ctx.arc(q[0],q[1],3+r()*6,0,7); ctx.fill(); }
+      }
     }
-    if (isSel){ const k = Math.max(26, L*F/c[2]*2.3); ctx.fillStyle = "rgba(255,248,235,.28)"; ctx.fillRect(ps[0]-k/2, ps[1]-k/2, k, k);
-      ctx.strokeStyle = "rgba(255,250,240,.95)"; ctx.lineWidth = 2; ctx.strokeRect(ps[0]-k/2, ps[1]-k/2, k, k);
-      ctx.strokeStyle = "rgba(60,40,20,.6)"; ctx.lineWidth = 1; ctx.strokeRect(ps[0]-k/2-2, ps[1]-k/2-2, k+4, k+4); }
-    if (labelOn && !tr.static){
-      ctx.font = "600 11px system-ui"; ctx.fillStyle = "rgba(25,15,5,.9)";
-      ctx.fillText(String(tr.idx).padStart(4,"0"), ps[0]+8, ps[1]-8);
+    // 被擊中：閃動方框
+    if (tr.kind==="aircraft"){
+      const hit = hits.find(hh => hh.key===tr.key && now >= hh.t && now - hh.t < 1.5);
+      if (hit){ const k = Math.max(30, L*F/c[2]*2.6) * (1 + (now-hit.t)*0.2), on = Math.floor((now - hit.t)*8) % 2 === 0;
+        ctx.strokeStyle = on ? "rgba(255,40,20,.95)" : "rgba(255,240,200,.9)"; ctx.lineWidth = 3; ctx.strokeRect(ps[0]-k/2, ps[1]-k/2, k, k);
+        ctx.fillStyle = on ? "rgba(255,40,20,.18)" : "rgba(255,240,200,.1)"; ctx.fillRect(ps[0]-k/2, ps[1]-k/2, k, k);
+        ctx.font = "700 12px system-ui"; ctx.fillStyle = on ? "#ff2814" : "#fff"; ctx.fillText(hit.by==="missile" ? "HIT!" : "HIT", ps[0]-k/2, ps[1]-k/2-4); }
+    }
+    if (isSel){ const k = Math.max(26, L*F/c[2]*2.3); ctx.fillStyle = "rgba(255,248,235,.22)"; ctx.fillRect(ps[0]-k/2, ps[1]-k/2, k, k);
+      ctx.strokeStyle = "rgba(255,250,240,.95)"; ctx.lineWidth = 2; ctx.strokeRect(ps[0]-k/2, ps[1]-k/2, k, k); }
+    if (labelOn && tr.kind==="aircraft"){
+      ctx.font = "600 11px system-ui"; ctx.fillStyle = dead ? "rgba(120,20,10,.95)" : "rgba(25,15,5,.9)";
+      ctx.fillText(`${displayName(tr.name)} ${String(tr.idx).padStart(4,"0")}${dead?" ✕":""}`, ps[0]+10, ps[1]-10);
     }
     lastDrawn.push({ key: tr.key, x: ps[0], y: ps[1] });
   }
-  // 機砲曳光彈：短短的連續線段
+  // 爆炸
+  for (const k of kills) drawExplosion(k, size);
+  // 推算的機砲（舊格式）
   const seg = Math.max(40, cam.dist*0.006) * size;
   for (const g of gunShots){
     const age0 = now - g.t; if (age0 < 0 || age0 > BULLET_LIFE + g.dur) continue;
@@ -532,7 +748,6 @@ function draw(){
   }
   ctx.globalAlpha = 1;
 }
-const flipLight = () => 1;
 
 // ================= 介面 =================
 const fmt = t => { t = Math.max(0,t); const m = Math.floor(t/60); return `${m}:${(t-m*60).toFixed(1).padStart(4,"0")}`; };
@@ -542,30 +757,33 @@ function update(){
   $("time").textContent = `${fmt(now-T0)} / ${fmt(T1-T0)}`;
   $("clock").textContent = `T+ ${fmt(now-T0)}`;
   const a = frameAt(now);
-  // 選取資訊
   const tr = tracks.get(selKey), s = tr && sampleTrack(tr, now);
   if (tr && s){
-    $("i_name").textContent = tr.key===playerKey ? `${tr.name}（玩家）` : tr.name;
+    const dead = tr.killT != null && now > tr.killT;
+    const par = tr.parent && tracks.get(tr.parent);
+    if (par) $("i_name").textContent = `${displayName(par.name)} ${String(par.idx).padStart(4,"0")} ${tr.half===0?"前":"後"}半截`; else
+    $("i_name").textContent = (tr.key===playerKey ? `${displayName(tr.name)}（玩家）` : displayName(tr.name)) + (dead ? " ✕ 已擊毀" : "");
     $("i_id").textContent = String(tr.idx).padStart(4,"0");
     $("i_alt").textContent = `${Math.round(s.y).toLocaleString()} ft`;
     $("i_spd").textContent = `${Math.round(s.spd*3600/6076)} kts`;
     $("i_pit").textContent = `${(s.vp ?? s.pitch).toFixed(1)}°`;
     $("i_hdg").textContent = `${((s.vh ?? s.hdg)+360)%360 | 0}°`;
-  } else { $("i_name").textContent = tr ? `${tr.name}（不在場）` : "—"; }
-  // 玩家面板
+  } else { $("i_name").textContent = tr ? `${displayName(tr.name)}（不在場）` : "—"; }
   const pt = tracks.get(playerKey), p = pt && sampleTrack(pt, now);
   if (p){
-    $("p_name").textContent = pt.name;
+    $("p_name").textContent = displayName(pt.name);
     $("p_alt").textContent = `${Math.round(p.y).toLocaleString()} ft`;
     $("p_spd").textContent = `${Math.round(p.spd*3600/6076)} kts`;
     $("p_hdg").textContent = `${Math.round((p.hdg+360)%360)}°`;
     $("p_att").textContent = `${p.pitch.toFixed(0)}° / ${p.roll.toFixed(0)}°`;
   }
-  $("p_thr").textContent = a.thr == null ? "—" : `${a.thr}% / ${a.rpm}%`;
-  $("thr_bar").style.width = (a.thr ?? 0) + "%"; $("rpm_bar").style.width = (a.rpm ?? 0) + "%";
-  for (const [k,f,bit] of BITS) $("c_"+k).classList.toggle("on", !!(a[f]&bit));
+  const ok = a.actOk;
+  $("p_thr").textContent = !ok || a.thr == null ? "—" : `${a.thr}% / ${a.rpm}%`;
+  $("thr_bar").style.width = (ok ? a.thr ?? 0 : 0) + "%"; $("rpm_bar").style.width = (ok ? a.rpm ?? 0 : 0) + "%";
+  for (const [k,f,bit] of BITS) $("c_"+k).classList.toggle("on", ok && !!(a[f]&bit));
   const sl = a.sel - 3;
-  $("stn").innerHTML = a.stn.map((v,k)=> (k===0 || v>0 || k===sl) ? `<div class="${k===sl?"sel":""}"><small>${stnName(k)}</small>${v}</div>` : "").join("");
+  $("stn").innerHTML = !ok ? "<span style='color:var(--muted)'>（這個錄製檔沒有玩家掛點資料）</span>" :
+    a.stn.map((v,k)=> (k===0 || v>0 || k===sl) ? `<div class="${k===sl?"sel":""}"><small>${stnName(k)}</small>${v}</div>` : "").join("");
   [...$("events").children].forEach(li => li.classList.toggle("past", +li.dataset.t <= now));
   draw();
 }
@@ -573,15 +791,15 @@ function renderEvents(){
   const ul = $("events"); ul.innerHTML = "";
   if (!events.length){ ul.innerHTML = "<li class='past'>（沒有事件）</li>"; return; }
   for (const e of events){
-    const li = document.createElement("li"); li.dataset.t = e.t;
+    const li = document.createElement("li"); li.dataset.t = e.t; if (e.kind==="kill") li.className = "kill"; if (e.kind==="hit") li.classList.add("hit");
     li.innerHTML = `<time>${fmt(e.t-T0)}</time><span>${e.text}</span>`;
-    li.onclick = () => { now = Math.max(T0, e.t-1); update(); };
+    li.onclick = () => { now = Math.max(T0, e.t-1.5); update(); };
     ul.appendChild(li);
   }
 }
 function renderMarks(){
-  $("marks").innerHTML = events.filter(e=>e.kind!=="despawn")
-    .map(e=>`<i class="${e.kind==="wpn"||e.kind==="gun"?"w":""}" style="left:${(e.t-T0)/Math.max(1e-6,T1-T0)*100}%"></i>`).join("");
+  $("marks").innerHTML = events.filter(e=>e.kind!=="ctl" && e.kind!=="sel")
+    .map(e=>`<i class="${e.kind==="kill"?"k":e.kind==="hit"?"h":e.kind==="wpn"||e.kind==="gun"?"w":""}" style="left:${(e.t-T0)/Math.max(1e-6,T1-T0)*100}%"></i>`).join("");
 }
 function resetView(){
   cam.yaw = -0.7; cam.pitch = 0.42;
@@ -613,7 +831,6 @@ window.addEventListener("keydown", e => {
   if (e.code === "ArrowLeft" && data){ now = Math.max(T0, now-5); update(); }
 });
 
-// 滑鼠：旋轉、平移、縮放、點選
 let drag = null;
 cv.addEventListener("contextmenu", e=>e.preventDefault());
 cv.addEventListener("pointerdown", e => { cv.setPointerCapture(e.pointerId); drag = { x:e.clientX, y:e.clientY, sx:e.clientX, sy:e.clientY, pan: e.button===2 || e.shiftKey }; });
@@ -640,6 +857,7 @@ let last = performance.now();
 function tick(t){
   const dt = (t-last)/1000; last = t;
   if (playing && data){ now += dt * +$("speed").value; if (now >= T1){ now = T1; setPlaying(false); } update(); }
+  else if (data && (kills.some(k=>now>=k.t && now-k.t<6) || hits.some(h=>now>=h.t && now-h.t<1.5))) draw();
   requestAnimationFrame(tick);
 }
 resize(); requestAnimationFrame(tick);
