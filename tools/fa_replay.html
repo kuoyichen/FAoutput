@@ -147,8 +147,9 @@ aside .btn.sm{padding:2px 8px;font-size:12px;cursor:pointer}
     <label>外型 <select id="o_model"><option value="3d">3D 模型（SH 檔）</option><option value="flat">平面剪影</option></select></label>
     <div id="pivrow" class="hide" style="font-size:12px;line-height:1.9">
       <div>可變翼轉軸微調（<span id="pivname"></span>）</div>
-      <label>向外 <input type="range" id="piv_x" min="-30" max="30" step="1" value="0"> <span id="piv_xv">0</span></label>
-      <label>向前 <input type="range" id="piv_y" min="-40" max="40" step="1" value="0"> <span id="piv_yv">0</span></label>
+      <label>轉軸向外 <input type="range" id="piv_x" min="-40" max="40" step="1" value="0"> <span id="piv_xv">0</span></label>
+      <label>轉軸向前 <input type="range" id="piv_y" min="-60" max="60" step="1" value="0"> <span id="piv_yv">0</span></label>
+      <button id="piv_reset" class="btn sm" style="font-size:12px">還原預設</button>
       <label>後掠預覽 <input type="range" id="piv_sw" min="-1" max="48" step="1" value="-1"> <span id="piv_swv">依速度</span></label>
       <div style="color:var(--muted)">轉軸（SH 座標）：<span id="pivpos"></span></div>
     </div>
@@ -629,20 +630,24 @@ function modelFor(name){
     return { P, n:[nx,ny,nz], c:[cx,cy,cz], part }; };
   const faces = m.f.map(idx => mkFace(idx, null));
   for (const pt of m.parts || []){
+    // 機翼頂點是以機翼自己的轉軸為原點存的：畫的時候要先搬到外翼套上的轉軸位置
     const part = { side: pt.side, piv: pt.pivot, sc, pv0: [pt.pivot[0]*sc, (pt.pivot[2]-zc)*sc, (pt.pivot[1]-ym)*sc] };
-    for (const idx of pt.f) faces.push(mkFace(idx, part));
+    for (const idx of pt.f){ const fc = mkFace(idx, part); fc.Lc = fc.P.map(q => [q[0], q[1] + zc*sc, q[2] + ym*sc]); faces.push(fc); }
   }
   pm = { faces, src: m, key: k, wings: (m.parts || []).length > 0 }; preparedModels.set(k, pm); return pm;
 }
 const LIGHT = (() => { const v = [0.35, 0.85, 0.4], l = Math.hypot(...v); return v.map(x => x/l); })();
 // 可變翼：依速度後掠（約 0.4 馬赫以下 20°，0.9 馬赫以上 68°；模型存的是展開 20° 的位置）
-let pivotAdj = {}; try { pivotAdj = JSON.parse(localStorage.getItem("fa_pivot_adj") || "{}"); } catch(e){}
+// 轉軸微調（SH 單位，dx = 向外、dy = 向前）；機翼根部跟著轉軸一起移動
+const PIVOT_DEFAULT = {};
+let pivotAdj = {}; try { pivotAdj = JSON.parse(localStorage.getItem("fa_pivot_adj3") || "{}"); } catch(e){}
+const adjOf = k => pivotAdj[k] || PIVOT_DEFAULT[k] || { dx:0, dy:0 };
 const sweepFor = spd => { const ov = +$("piv_sw").value; if (ov >= 0) return ov * Math.PI / 180; const M = spd / 1100; return Math.max(0, Math.min(48, (M - 0.4) / 0.5 * 48)) * Math.PI / 180; };
-function pivotOf(pm, part){ const a = pivotAdj[pm.key] || { dx:0, dy:0 };
+function pivotOf(pm, part){ const a = adjOf(pm.key);
   return [part.pv0[0] + part.side*a.dx*part.sc, part.pv0[1], part.pv0[2] + a.dy*part.sc]; }
-function sweepPt(v, part, a, pv){
-  const t = part.side > 0 ? a : -a, dx = v[0]-pv[0], dz = v[2]-pv[2];
-  return [pv[0] + dx*Math.cos(t) + dz*Math.sin(t), v[1], pv[2] + dz*Math.cos(t) - dx*Math.sin(t)];
+function sweepPt(w, part, a, pv){   // w = 機翼本地座標（原點 = 轉軸）
+  const t = part.side > 0 ? a : -a;
+  return [pv[0] + w[0]*Math.cos(t) + w[2]*Math.sin(t), pv[1] + w[1], pv[2] + w[2]*Math.cos(t) - w[0]*Math.sin(t)];
 }
 function drawModel(pm, s, c, L, h, pi, col, dead){
   const n0 = nearZ(), list = [], sw = pm.wings ? sweepFor(s.spd) : 0;
@@ -650,7 +655,7 @@ function drawModel(pm, s, c, L, h, pi, col, dead){
   const up = rotate([0,L,0], h, pi, s.roll), cu = toCam(s.x+up[0], s.y+up[1], s.z+up[2]);
   const below = (cu[0]-c[0])*-c[0] + (cu[1]-c[1])*-c[1] + (cu[2]-c[2])*-c[2] < 0;
   for (const f of pm.faces){
-    let P = f.P; if (f.part && sw){ const pv = pivotOf(pm, f.part); P = f.P.map(v => sweepPt(v, f.part, sw, pv)); }
+    let P = f.P; if (f.part){ const pv = pivotOf(pm, f.part); P = f.Lc.map(w => sweepPt(w, f.part, sw, pv)); }
     const pc = P.map(v => { const r = rotate([v[0]*L, v[1]*L, v[2]*L], h, pi, s.roll); return toCam(s.x+r[0], s.y+r[1], s.z+r[2]); });
     if (pc.some(p => p[2] < n0)) return false;
     let d = 0; for (const p of pc) d += p[2]; list.push({ f, pc, d: d/pc.length });
@@ -701,7 +706,7 @@ function fillModelSelect(force){
 function fillPivot(){
   const tr = tracks.get(selKey), pm = tr && tr.kind === "aircraft" && $("o_model").value === "3d" ? modelFor(tr.name) : null;
   $("pivrow").classList.toggle("hide", !(pm && pm.wings)); if (!pm || !pm.wings) return;
-  const a = pivotAdj[pm.key] || { dx:0, dy:0 }, part = pm.faces.find(f => f.part && f.part.side > 0)?.part;
+  const a = adjOf(pm.key), part = pm.faces.find(f => f.part && f.part.side > 0)?.part;
   $("pivname").textContent = pm.key.toUpperCase();
   if (document.activeElement !== $("piv_x")) $("piv_x").value = a.dx; if (document.activeElement !== $("piv_y")) $("piv_y").value = a.dy;
   $("piv_xv").textContent = a.dx; $("piv_yv").textContent = a.dy;
@@ -710,8 +715,10 @@ function fillPivot(){
 }
 for (const id of ["piv_x","piv_y"]) $(id).oninput = () => { const tr = tracks.get(selKey), pm = tr && modelFor(tr.name); if (!pm) return;
   pivotAdj[pm.key] = { dx: +$("piv_x").value, dy: +$("piv_y").value };
-  try { localStorage.setItem("fa_pivot_adj", JSON.stringify(pivotAdj)); } catch(e){}
+  try { localStorage.setItem("fa_pivot_adj3", JSON.stringify(pivotAdj)); } catch(e){}
   fillPivot(); draw(); };
+$("piv_reset").onclick = () => { const tr = tracks.get(selKey), pm = tr && modelFor(tr.name); if (!pm) return;
+  delete pivotAdj[pm.key]; try { localStorage.setItem("fa_pivot_adj3", JSON.stringify(pivotAdj)); } catch(e){} fillPivot(); draw(); };
 $("piv_sw").oninput = () => { fillPivot(); draw(); };
 $("i_model").onchange = e => { const tr = tracks.get(selKey); if (!tr) return;
   if (e.target.value) modelAlias[tr.name] = e.target.value; else delete modelAlias[tr.name];
