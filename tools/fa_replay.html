@@ -833,7 +833,7 @@ function line3(a,b,color,width=1,n=nearZ()){
 }
 const niceStep = v => { const e = Math.pow(10, Math.floor(Math.log10(v))), m = v/e; return (m<2?1:m<5?2:5)*e; };
 function rotate(v, hdg, pitch, roll){
-  let [x,y,z] = v; const r = -roll*Math.PI/180, p = -pitch*Math.PI/180, h = hdg*Math.PI/180;
+  let [x,y,z] = v; const r = roll*Math.PI/180, p = -pitch*Math.PI/180, h = hdg*Math.PI/180;
   [x,y] = [x*Math.cos(r) - y*Math.sin(r), x*Math.sin(r) + y*Math.cos(r)];
   [y,z] = [y*Math.cos(p) - z*Math.sin(p), y*Math.sin(p) + z*Math.cos(p)];
   return [x*Math.cos(h) + z*Math.sin(h), y, -x*Math.sin(h) + z*Math.cos(h)];
