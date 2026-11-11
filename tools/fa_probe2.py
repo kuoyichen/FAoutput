@@ -5,9 +5,10 @@ FA.EXE 記憶體探針 v2（不修改 FA.EXE）— 物件列舉、事件偵測�
   python fa_probe2.py objects            每秒列出目前所有物件（含名稱、位置、速度）
   python fa_probe2.py log                以 10Hz 記錄所有物件到 objlog.csv，
                                          並在 events.csv 記錄物件出現 / 消失（如飛彈發射、被擊毀）
-  python fa_probe2.py diff               找出玩家飛機的「動作」欄位（起落架、彈藥數…）
-      先讓飛機保持穩定，按 Enter 建立基準；接著做一個動作（放起落架 / 開一槍），
-      再按 Enter，畫面會列出這段期間變動、但平常不太會變的位元組。重複幾次即可。
+  python fa_probe2.py record             找「動作」欄位用（起落架、彈藥數…）。不需要切換視窗：
+      先執行，再進遊戲飛行並依序做動作，每個動作間隔 5 秒以上；關遊戲即停止。
+      會錄下玩家物件原始位元組與鍵盤按鍵時間到 player_rec.bin
+  python fa_probe2.py analyze            分析 player_rec.bin，輸出 analyze_report.txt
 
 腳本與 FA.EXE 誰先啟動都可以。
 
@@ -152,50 +153,81 @@ def cmd_log(h, hz, out, evout):
             prev = s
             time.sleep(1 / hz)
 
-def cmd_diff(h, size):
-    import msvcrt
-    print(f"監看玩家物件 0x{PLAYER:X} 起 0x{size:X} 位元組。")
-    print("保持穩定飛行，按 Enter 建立基準（會先觀察 3 秒找出一直在變的欄位）…")
-    input()
-    noisy = set(); first = read(h, PLAYER, size); t_end = time.time() + 3
-    while time.time() < t_end:
-        b = read(h, PLAYER, size)
-        noisy |= {i for i in range(size) if b[i] != first[i]}
-        time.sleep(0.05)
-    base_ = read(h, PLAYER, size)
-    print(f"已排除 {len(noisy)} 個持續變動的位元組。現在做一個動作，完成後按 Enter（輸入 q 再 Enter 結束）。")
-    while True:
-        changed = {}
-        while not msvcrt.kbhit():
+KEYS = {0x47: "G", 0x20: "SPACE", 0x0D: "ENTER", 0x08: "BACKSPACE", 0x09: "TAB",
+        0x42: "B", 0x46: "F", 0x57: "W", 0x48: "H", 0x4C: "L", 0x43: "C", 0x52: "R"}
+for _c in range(0x30, 0x3A): KEYS[_c] = chr(_c)          # 0-9
+for _c in range(0x70, 0x7C): KEYS[_c] = f"F{_c - 0x6F}"  # F1-F12
+
+def cmd_record(h, size, hz, out):
+    """不需切換視窗：持續錄下玩家物件原始位元組 + 鍵盤按鍵時間，事後再分析。"""
+    u32 = ctypes.WinDLL("user32")
+    print(f"開始錄製玩家物件 0x{PLAYER:X} 起 0x{size:X} 位元組到 {out}")
+    print("回到遊戲：先穩定飛 5 秒，再依序做動作（例如放起落架、收起落架、開槍、射一枚飛彈），")
+    print("每個動作之間隔 5 秒以上。結束任務或關掉遊戲就會自動停止。")
+    t0 = time.time(); n = 0
+    with open(out, "wb") as f:
+        f.write(b"FAREC1" + struct.pack("<II", PLAYER, size))
+        while True:
             b = read(h, PLAYER, size)
-            if b is None: print("FA.EXE 已結束"); return
-            for i in range(size):
-                if i not in noisy and b[i] != base_[i]:
-                    changed.setdefault(i, set()).add(b[i])
-            time.sleep(0.02)
-        line = input()
-        now = read(h, PLAYER, size)
-        if not changed: print("  （沒有偵測到變動）")
-        for i in sorted(changed):
-            print(f"  +0x{i:03X} (0x{PLAYER + i:X}): {base_[i]:3d} -> {now[i]:3d}   (過程中出現過 {sorted(changed[i])[:8]})")
-        if line.strip().lower() == "q": return
-        base_ = now
-        print("已更新基準。做下一個動作後按 Enter。")
+            if b is None: break
+            keys = 0; names = list(KEYS)
+            for bit, vk in enumerate(names):
+                if u32.GetAsyncKeyState(vk) & 0x8000: keys |= 1 << bit
+            f.write(struct.pack("<dQ", time.time() - t0, keys) + b); n += 1
+            if n % int(hz * 10) == 0: f.flush()
+            time.sleep(1 / hz)
+    print(f"FA.EXE 已結束，共錄 {n} 筆。執行: python fa_probe2.py analyze --out {out}")
+
+def cmd_analyze(path, report):
+    raw = open(path, "rb").read()
+    assert raw[:6] == b"FAREC1", "不是錄製檔"
+    addr, size = struct.unpack_from("<II", raw, 6); pos = 14; rec = 16 + size
+    ts, keys, frames = [], [], []
+    while pos + rec <= len(raw):
+        t, k = struct.unpack_from("<dQ", raw, pos)
+        ts.append(t); keys.append(k); frames.append(raw[pos + 16: pos + rec]); pos += rec
+    names = list(KEYS.values())
+    lines = [f"錄製檔 {path}: {len(frames)} 筆, {ts[-1] if ts else 0:.1f} 秒, 位址 0x{addr:X} 長度 0x{size:X}", ""]
+    lines.append("== 鍵盤事件 ==")
+    for i in range(1, len(keys)):
+        down = keys[i] & ~keys[i - 1]
+        for bit, nm in enumerate(names):
+            if down >> bit & 1: lines.append(f"  {ts[i]:8.2f}s  按下 {nm}")
+    lines.append("")
+    lines.append("== 很少變動的位元組（最可能是起落架、彈藥、武器狀態）==")
+    cands = []
+    for off in range(size):
+        ev = []
+        for i in range(1, len(frames)):
+            a, b = frames[i - 1][off], frames[i][off]
+            if a != b: ev.append((ts[i], a, b))
+        if 1 <= len(ev) <= 40: cands.append((off, ev))
+    cands.sort(key=lambda c: len(c[1]))
+    for off, ev in cands:
+        lines.append(f"+0x{off:03X} (0x{addr + off:X})  變動 {len(ev)} 次:")
+        lines.append("    " + ", ".join(f"{t:.2f}s {a}->{b}" for t, a, b in ev[:20]) + (" ..." if len(ev) > 20 else ""))
+    txt = "\n".join(lines)
+    open(report, "w", encoding="utf-8").write(txt)
+    print(txt); print(f"\n已寫入 {report}，把這個檔案傳給 Claude 即可。")
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("mode", choices=["objects", "log", "diff"])
+    ap.add_argument("mode", choices=["objects", "log", "record", "analyze"])
     ap.add_argument("--hz", type=float, default=10)
     ap.add_argument("--out", default="objlog.csv")
     ap.add_argument("--events", default="events.csv")
     ap.add_argument("--size", type=lambda s: int(s, 0), default=0x400,
-                    help="diff 模式監看的範圍（預設 0x400）")
+                    help="record 模式錄製的範圍（預設 0x400）")
+    ap.add_argument("--rec", default="player_rec.bin", help="record / analyze 用的錄製檔")
+    ap.add_argument("--report", default="analyze_report.txt")
     a = ap.parse_args()
+    if a.mode == "analyze":
+        cmd_analyze(a.rec, a.report); return
     h = attach()
     try:
         if a.mode == "objects": cmd_objects(h)
         elif a.mode == "log": cmd_log(h, a.hz, a.out, a.events)
-        else: cmd_diff(h, a.size)
+        else: cmd_record(h, a.size, a.hz, a.rec)
     except KeyboardInterrupt:
         pass
 
