@@ -126,19 +126,28 @@ def cmd_objects(h):
                   f"{o['z_ft']:>9} {o['hdg_deg']:>6} {o['spd_kts']:>5}  {o['flags']}")
         time.sleep(1)
 
-# 玩家動作欄位（由 2026-11-11 實測錄製檔分析得出）
-GEAR_ADDR = 0x50CFEF      # bit 0x40 = 起落架放下（G 鍵切換；0x50CFF3 同步）
-WPN_COUNT_ADDR = 0x50D17F # 目前選擇武器的剩餘數量（發射飛彈 4->3）
-GUN_AMMO_ADDR = 0x50D16E  # 按住 TAB（機砲）時遞減 163->93，推測為機砲彈數（待確認）
+# 玩家動作欄位（由 2026-11-11 兩次實測錄製檔分析得出）
+CTRL1_ADDR = 0x50CFEF     # bit 0x40 = 起落架放下 (G)，bit 0x80 = 煞車 (B)；0x50CFF3 為同步副本
+CTRL2_ADDR = 0x50CFF0     # bit 0x01 = 襟翼 (F)，bit 0x04 = 捕捉勾 (H)；0x50CFF4 為同步副本
+STATION_BASE = 0x50D16E   # 武器掛點陣列，每格 0x11 位元組，+0 為 uint16 剩餘數量
+STATION_STRIDE = 0x11     # 掛點 0 = 機砲（675 發，每 0.2 秒約 14 發），其後為飛彈 / 炸彈
+STATIONS = 8
+
+ACT_BITS = [("gear", CTRL1_ADDR, 0x40, "起落架"), ("brake", CTRL1_ADDR, 0x80, "煞車"),
+            ("flaps", CTRL2_ADDR, 0x01, "襟翼"), ("hook", CTRL2_ADDR, 0x04, "捕捉勾")]
+ACT_FIELDS = [n for n, *_ in ACT_BITS] + [f"stn{i}" for i in range(STATIONS)]
 
 def player_actions(h):
-    g = read(h, GEAR_ADDR, 1); c = read(h, WPN_COUNT_ADDR, 1); ga = read(h, GUN_AMMO_ADDR, 1)
-    if not (g and c and ga): return None
-    return {"gear_down": int(bool(g[0] & 0x40)), "wpn_count": c[0], "gun_ammo": ga[0]}
+    c = read(h, CTRL1_ADDR, 2); st = read(h, STATION_BASE, STATION_STRIDE * STATIONS)
+    if not (c and st): return None
+    act = {n: int(bool(c[addr - CTRL1_ADDR] & bit)) for n, addr, bit, _ in ACT_BITS}
+    for i in range(STATIONS):
+        act[f"stn{i}"] = struct.unpack_from("<H", st, i * STATION_STRIDE)[0]
+    return act
 
 def cmd_log(h, hz, out, evout):
     t0 = time.time(); prev = {}; prev_act = None
-    fields = ["t", "idx"] + list(decode(h, PLAYER, bytes(OBJ_READ)).keys()) + ["gear_down", "wpn_count", "gun_ammo"]
+    fields = ["t", "idx"] + list(decode(h, PLAYER, bytes(OBJ_READ)).keys()) + ACT_FIELDS
     with open(out, "w", newline="") as f, open(evout, "w", newline="") as fe:
         w = csv.DictWriter(f, fieldnames=fields); w.writeheader()
         we = csv.writer(fe); we.writerow(["t", "event", "idx", "name", "cls", "x_ft", "alt_ft", "z_ft"])
@@ -151,15 +160,16 @@ def cmd_log(h, hz, out, evout):
                 w.writerow({"t": t, "idx": i, **o, **(act if i == 0 else {})})
             p0 = s[0]
             if prev_act and act:
-                if act["gear_down"] != prev_act["gear_down"]:
-                    ev = "gear_down" if act["gear_down"] else "gear_up"
-                    we.writerow([t, ev, 0, p0["name"], p0["cls"], p0["x_ft"], p0["alt_ft"], p0["z_ft"]])
-                    print(f"[{t:8.2f}] {'放下' if act['gear_down'] else '收起'}起落架")
-                if act["wpn_count"] < prev_act["wpn_count"]:
-                    we.writerow([t, "weapon_fired", 0, p0["name"], p0["cls"], p0["x_ft"], p0["alt_ft"], p0["z_ft"]])
-                    print(f"[{t:8.2f}] 發射武器，剩 {act['wpn_count']}")
-                if act["gun_ammo"] != prev_act["gun_ammo"]:
-                    we.writerow([t, "gun_fired", 0, p0["name"], p0["cls"], p0["x_ft"], p0["alt_ft"], p0["z_ft"]])
+                def ev(name, extra=""):
+                    we.writerow([t, name, 0, p0["name"], p0["cls"], p0["x_ft"], p0["alt_ft"], p0["z_ft"]])
+                    print(f"[{t:8.2f}] {name} {extra}")
+                for n, _, _, label in ACT_BITS:
+                    if act[n] != prev_act[n]:
+                        ev(f"{n}_{'on' if act[n] else 'off'}", label)
+                for i in range(STATIONS):
+                    k = f"stn{i}"; d = prev_act[k] - act[k]
+                    if 0 < d < 1000:
+                        ev("gun_fired" if i == 0 else f"weapon_fired_stn{i}", f"x{d}，剩 {act[k]}")
             prev_act = act or prev_act
             # 物件出現 / 消失（同一索引換了位址或名稱也算重新出現）
             for i, o in s.items():
