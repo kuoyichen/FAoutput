@@ -105,6 +105,7 @@ aside .btn.sm{padding:2px 8px;font-size:12px;cursor:pointer}
       <span>速度</span><span id="i_spd">—</span>
       <span>俯仰</span><span id="i_pit">—</span>
       <span>航向</span><span id="i_hdg">—</span>
+      <span>國別</span><span id="i_nat">—</span>
       <span>損傷</span><span id="i_hp">—</span>
     </div>
   </div>
@@ -143,7 +144,7 @@ aside .btn.sm{padding:2px 8px;font-size:12px;cursor:pointer}
     <label><input type="checkbox" id="o_flip"> 鏡像 Z 軸（方向左右相反時勾選）</label>
     <label>外型 <select id="o_model"><option value="3d">3D 模型（SH 檔）</option><option value="flat">平面剪影</option></select></label>
     <label class="shrow"><span class="btn sm">載入 .SH 檔<input id="shfile" type="file" accept=".sh,.SH" multiple hidden></span> <span id="shlist"></span></label>
-    <label>顏色依 <select id="o_color"><option value="type">機型</option><option value="cls">類別代碼</option></select></label>
+    <label>顏色依 <select id="o_color"><option value="nat">國別（敵我）</option><option value="type">機型</option><option value="cls">類別代碼</option></select></label>
     <label>圖示大小 <input type="range" id="o_size" min="0.4" max="4" step="0.1" value="1"></label>
     <label>軌跡長度 <input type="range" id="o_tlen" min="5" max="600" step="5" value="60"><span id="o_tlen_v">60s</span></label>
   </div>
@@ -308,6 +309,14 @@ let viewMode = "follow";
 const hidden = new Set();
 const cam = { yaw: -0.7, pitch: 0.42, dist: 30000, cx:0, cy:0, cz:0 };
 const BULLET_FPS = 3300, BULLET_LIFE = 1.4;
+// 國別：物件 +0x09，低 7 位元 = FA.EXE 裡的國籍表索引，0x80 = 與玩家敵對
+const NATIONS = ["美國","英國","中國","法國","德國","比利時","約旦","以色列","日本","北韓","俄羅斯","南韓","敘利亞","埃及（阿拉伯）","埃及（伊斯蘭）",
+  "愛沙尼亞","拉脫維亞","立陶宛","波蘭","白俄羅斯","北越","南越","烏克蘭","伊拉克","伊朗","科威特","沙烏地阿拉伯","阿曼","阿聯","卡達","巴林","利比亞","蘇丹",
+  "古巴","巴拿馬","哥倫比亞","巴基斯坦","印度","阿富汗","台灣","希臘","土耳其","義大利","瑞典","芬蘭","挪威","西班牙","葡萄牙","奧地利","丹麥","荷蘭","加拿大",
+  "保加利亞","匈牙利","羅馬尼亞","澳洲","菲律賓","阿根廷","波士尼亞","塞爾維亞"];
+const NAT_OFF = 0x09;
+const natName = v => NATIONS[v & 0x7F] ?? `國別 ${v & 0x7F}`;
+const FRIEND_COL = ["#2f8cff","#22c3d6","#5b6cff","#36d39a"], ENEMY_COL = ["#ff3b2f","#ff8a1c","#e0408a","#b8321a"];
 const PALETTE = ["#ffc21a","#36c3f2","#ff4a2a","#2f9b3a","#a35bd8","#ff7aa8","#f07c1a","#e8e8e8","#1c6fd1","#93c83e"];
 const $ = id => document.getElementById(id);
 const keyOf = o => o.idx + "|" + o.name;
@@ -331,7 +340,9 @@ function load(buf, name){
     const rw = f.raw?.get(idx), hp = rw && rw.length > 0x10 ? rw[HP_OFF] | rw[HP_OFF+1]<<8 : null;
     tr.pts.push({ t:f.t, x:o.x, y:o.y, z:o.z, hdg:o.hdg, pitch:o.pitch, roll:o.roll, spd:o.spd, hp });
     if (hp != null) tr.hpMax = Math.max(tr.hpMax || 0, hp);
+    if (tr.nat == null && rw && rw.length > NAT_OFF) tr.nat = rw[NAT_OFF];
   }
+  for (const r of data.raws) for (const tr of tracks.values()) if (tr.idx === r.idx && tr.nat == null && r.raw.length > NAT_OFF && r.raw[0] === tr.cls) tr.nat = r.raw[NAT_OFF];
   const p0 = fr.find(f=>f.objs.get(0))?.objs.get(0);
   playerKey = p0 ? keyOf(p0) : null; playerCls = p0?.cls ?? 4; selKey = playerKey;
   // 自動機型代號
@@ -481,7 +492,10 @@ function groupOf(tr){
   if (tr.kind==="pilot") return "跳傘飛行員";
   if (tr.kind==="static") return "靜止物件";
   if (tr.kind==="ground") return "地面 / 水面";
-  return $("o_color").value === "cls" ? `類別 ${tr.cls}` : displayName(tr.name);
+  const m = $("o_color").value;
+  if (m === "cls") return `類別 ${tr.cls}`;
+  if (m === "nat" && tr.nat != null) return `${natName(tr.nat)}${tr.nat & 0x80 ? "（敵）" : "（友）"}`;
+  return displayName(tr.name);
 }
 const FIXED = { "飛彈":"#ffffff", "機砲彈":"#fff1a8", "殘骸":"#5a4a3a", "跳傘飛行員":"#f4f1e8", "靜止物件":"#7d7468", "地面 / 水面":"#3d6b52" };
 let groupColor = new Map();
@@ -491,7 +505,13 @@ function buildLegend(){
   const ordered = [...tracks.values()].sort((a,b)=> (a.key===playerKey?-1:b.key===playerKey?1:0) || a.idx-b.idx);
   for (const tr of ordered){ const g = groupOf(tr); groups.set(g, (groups.get(g)||0) + 1); if (tr.kind==="aircraft") rawOf.set(g, tr.name); }
   let ci = 0;
-  for (const g of groups.keys()) groupColor.set(g, FIXED[g] || PALETTE[ci++ % PALETTE.length]);
+  let fi = 0, ei = 0;
+  for (const g of groups.keys()){
+    if (FIXED[g]) groupColor.set(g, FIXED[g]);
+    else if (g.endsWith("（友）")) groupColor.set(g, FRIEND_COL[fi++ % FRIEND_COL.length]);
+    else if (g.endsWith("（敵）")) groupColor.set(g, ENEMY_COL[ei++ % ENEMY_COL.length]);
+    else groupColor.set(g, PALETTE[ci++ % PALETTE.length]);
+  }
   $("legitems").innerHTML = [...groups].map(([g,n]) => {
     const light = ["飛彈","機砲彈","跳傘飛行員"].includes(g);
     const ren = rawOf.has(g) && $("o_color").value==="type" ? `<span class="ren" data-raw="${encodeURIComponent(rawOf.get(g))}" title="改機型名稱">✎</span><span class="ren shp" data-raw="${encodeURIComponent(rawOf.get(g))}" title="用俯視剪影圖換外型（機頭朝上；按住 Shift 點擊可還原內建外型）">✈</span>` : "";
@@ -1005,6 +1025,7 @@ function update(){
     $("i_spd").textContent = `${Math.round(s.spd*3600/6076)} kts`;
     $("i_pit").textContent = `${(s.vp ?? s.pitch).toFixed(1)}°`;
     $("i_hdg").textContent = `${((s.vh ?? s.hdg)+360)%360 | 0}°`;
+    $("i_nat").textContent = tr.nat != null ? `${natName(tr.nat)}（${tr.nat & 0x80 ? "敵方" : "友方"}）` : "—";
     $("i_hp").textContent = tr.hpMax && s.hp != null ? `${Math.round((1-s.hp/tr.hpMax)*100)}%（${s.hp}/${tr.hpMax}）` : "—";
   } else { $("i_name").textContent = tr ? `${displayName(tr.name)}（不在場）` : "—"; }
   const pt = tracks.get(playerKey), p = pt && sampleTrack(pt, now);
