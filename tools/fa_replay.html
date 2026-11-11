@@ -6,80 +6,106 @@
 <title>FA 任務重播</title>
 <style>
 :root{
-  --bg:#0e1116; --panel:#161b22; --panel2:#1d232c; --line:#2b333f; --text:#d7dde5; --muted:#8b96a5;
-  --accent:#f2c14e; --enemy:#ef6b5b; --friend:#5ab0f0; --static:#7f8c99; --missile:#ffffff; --ok:#5fd38d;
-  --grid:#232b36; --gun:#ffb347; --grid2:#2f3a48;
+  --sky1:#e9c48f; --sky2:#c98a49; --ground1:#c88b47; --ground2:#8f5a2a; --gridc:rgba(255,236,205,.42); --gridmaj:rgba(255,242,222,.7);
+  --panel:rgba(214,222,212,.88); --panel-line:rgba(70,80,72,.55); --ink:#24302a; --ink2:#4d5a52;
+  --dark:#14181d; --dark2:#1d232b; --line:#2e3742; --text:#dde3ea; --muted:#8b96a5; --accent:#ffd54a; --gun:#fff1a8;
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}
-body{display:grid;grid-template-columns:1fr 300px;grid-template-rows:auto 1fr auto;height:100vh}
-header{grid-column:1/3;display:flex;align-items:center;gap:12px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
-header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.02em}
-header .file{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
-button,select,label.btn{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 10px;font:inherit;cursor:pointer}
-button:hover,label.btn:hover{border-color:var(--muted)}
-button.on{border-color:var(--accent);color:var(--accent)}
-#view{position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 35%,#141a22,#0b0e12)}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--dark);color:var(--text);font:13px/1.45 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}
+#app{position:fixed;inset:0;display:grid;grid-template-columns:1fr auto;grid-template-rows:1fr auto}
+#view{position:relative;overflow:hidden;background:linear-gradient(var(--sky1),var(--sky2))}
 canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
 canvas:active{cursor:grabbing}
-#drop{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);pointer-events:none;text-align:center;padding:20px}
-#drop b{color:var(--text);font-size:16px}
+
+/* 疊加面板（參考 ACMI 風格） */
+.ov{position:absolute;background:var(--panel);color:var(--ink);border:1px solid var(--panel-line);border-radius:3px;
+    box-shadow:0 2px 10px rgba(0,0,0,.25);font-family:Georgia,"Times New Roman","Microsoft JhengHei",serif}
+#tlbox{left:12px;top:10px;padding:6px 12px 8px;min-width:230px;clip-path:polygon(0 0,100% 0,100% 70%,93% 100%,0 100%)}
+#tlbox .big{font-size:18px;letter-spacing:.02em}
+#tlbox .row{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:15px}
+#tlbox button{font:inherit;font-size:13px;background:transparent;border:0;color:var(--ink);cursor:pointer;padding:0;text-decoration:underline dotted}
+#infobox{right:12px;top:10px;padding:6px 14px 8px;min-width:210px;font-size:14px;clip-path:polygon(0 0,100% 0,100% 100%,7% 100%,0 70%)}
+#infobox .name{font-size:16px;font-weight:600}
+#infobox .g{display:grid;grid-template-columns:auto 1fr;gap:0 10px}
+#infobox .g span:nth-child(even){text-align:right;font-variant-numeric:tabular-nums}
+#legend{left:12px;bottom:12px;padding:4px 6px 6px;font-size:13px;min-width:190px}
+#legend .t{font-size:11px;text-align:right;color:var(--ink2);margin:0 2px 3px}
+#legend div.it{display:flex;align-items:center;gap:6px;margin:2px 0;padding:1px 6px;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.4);border:1px solid rgba(0,0,0,.2);cursor:pointer}
+#legend div.it.off{opacity:.35}
+#drop{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;pointer-events:none;text-align:center;padding:20px;color:#3a2a18}
+#drop b{font-size:18px}
 #drop.hide{display:none}
-#hint{position:absolute;left:10px;bottom:8px;color:var(--muted);font-size:11px;pointer-events:none}
-aside{background:var(--panel);border-left:1px solid var(--line);overflow:auto;padding:10px 12px;grid-row:2/4;grid-column:2}
-aside h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:14px 0 6px;font-weight:600}
+#hint{position:absolute;right:12px;bottom:10px;color:rgba(40,25,10,.7);font-size:11px;pointer-events:none;text-align:right}
+
+/* 下方播放列 */
+footer{grid-column:1/3;display:flex;align-items:center;gap:10px;padding:7px 12px;background:var(--dark2);border-top:1px solid var(--line)}
+button,select,label.btn{background:#262e38;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 10px;font:inherit;cursor:pointer}
+button:hover,label.btn:hover{border-color:var(--muted)}
+button.on{border-color:var(--accent);color:var(--accent)}
+#tl{position:relative;flex:1;height:28px}
+#tl input{position:absolute;inset:0;width:100%;margin:0;background:transparent}
+#marks{position:absolute;left:8px;right:8px;top:0;height:6px;pointer-events:none}
+#marks i{position:absolute;width:2px;height:6px;background:var(--accent);opacity:.85}
+#marks i.w{background:#ff5a3c}
+#time{font-variant-numeric:tabular-nums;min-width:110px;text-align:right}
+#fname{color:var(--muted);max-width:28vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* 右側抽屜 */
+aside{width:290px;background:var(--dark);border-left:1px solid var(--line);overflow:auto;padding:10px 12px}
+aside.hide{display:none}
+aside h2{font-size:12px;letter-spacing:.08em;color:var(--muted);margin:14px 0 6px;font-weight:600}
 aside h2:first-child{margin-top:2px}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px}
 .kv span:nth-child(odd){color:var(--muted)}
 .kv span:nth-child(even){text-align:right;font-variant-numeric:tabular-nums}
-.bar{position:relative;height:8px;margin-top:8px;border-radius:4px;background:var(--panel2);border:1px solid var(--line);overflow:hidden}
+.bar{position:relative;height:8px;margin-top:8px;border-radius:4px;background:#262e38;border:1px solid var(--line);overflow:hidden}
 .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);opacity:.35}
 .bar b{position:absolute;left:0;top:2px;height:2px;background:var(--accent)}
 .chips{display:flex;flex-wrap:wrap;gap:5px}
 .chip{padding:2px 8px;border-radius:10px;border:1px solid var(--line);color:var(--muted)}
-.chip.on{border-color:var(--ok);color:var(--ok)}
+.chip.on{border-color:#5fd38d;color:#5fd38d}
 .stn{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
 .stn div{border:1px solid var(--line);border-radius:5px;padding:3px 4px;text-align:center;font-variant-numeric:tabular-nums}
 .stn div small{display:block;color:var(--muted);font-size:10px}
 .stn div.sel{border-color:var(--accent);color:var(--accent)}
-#events{list-style:none;margin:0;padding:0;max-height:34vh;overflow:auto}
+#events{list-style:none;margin:0;padding:0;max-height:32vh;overflow:auto}
 #events li{padding:3px 4px;border-radius:4px;cursor:pointer;display:flex;gap:8px}
-#events li:hover{background:var(--panel2)}
+#events li:hover{background:var(--dark2)}
 #events li.past{color:var(--muted)}
 #events li time{font-variant-numeric:tabular-nums;color:var(--muted);min-width:46px}
 .opts label{display:flex;align-items:center;gap:6px;margin:3px 0;cursor:pointer}
 .opts input[type=range]{flex:1}
-footer{grid-column:1;display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--panel);border-top:1px solid var(--line)}
-#tl{position:relative;flex:1;height:28px}
-#tl input{position:absolute;inset:0;width:100%;margin:0;background:transparent}
-#marks{position:absolute;left:8px;right:8px;top:0;height:6px;pointer-events:none}
-#marks i{position:absolute;width:2px;height:6px;background:var(--accent);opacity:.8}
-#marks i.w{background:var(--enemy)}
-#time{font-variant-numeric:tabular-nums;min-width:110px;text-align:right}
-@media (max-width:820px){
-  body{grid-template-columns:1fr;grid-template-rows:auto 55vh auto auto}
-  aside{grid-row:4;grid-column:1;border-left:0;border-top:1px solid var(--line)}
-  header{grid-column:1}
-}
+@media (max-width:820px){ aside{position:absolute;right:0;top:0;bottom:46px;z-index:5} #legend{display:none} }
 </style>
 </head>
 <body>
-<header>
-  <h1>FA 任務重播</h1>
-  <span class="file" id="fname">尚未載入檔案</span>
-  <label class="btn">開啟 .bin<input id="file" type="file" accept=".bin" hidden></label>
-</header>
-
+<div id="app">
 <div id="view">
   <canvas id="cv"></canvas>
-  <div id="drop"><b>把 flight_*.bin 拖進來，或按右上角「開啟 .bin」</b>
-    <span>支援 <code>fa_probe2.py flight</code>（所有物件）與 <code>fa_probe2.py record</code>（只有玩家）錄的檔案</span></div>
-  <div id="hint">左鍵拖曳：旋轉　右鍵 / Shift+拖曳：平移　滾輪：縮放　空白鍵：播放 / 暫停　← →：前後 5 秒</div>
+  <div class="ov" id="tlbox">
+    <div class="big" id="clock">T+ 0:00.0</div>
+    <div class="row"><span>播放：<span id="spdlbl">1×</span></span><span id="playlbl">▶</span></div>
+    <div class="row" style="justify-content:flex-end"><button id="viewmode">跟隨視角</button></div>
+  </div>
+  <div class="ov" id="infobox">
+    <div class="name" id="i_name">—</div>
+    <div class="g">
+      <span>編號</span><span id="i_id">—</span>
+      <span>高度</span><span id="i_alt">—</span>
+      <span>速度</span><span id="i_spd">—</span>
+      <span>俯仰</span><span id="i_pit">—</span>
+      <span>航向</span><span id="i_hdg">—</span>
+    </div>
+  </div>
+  <div class="ov" id="legend"><div class="t">顏色代碼</div><div id="legitems"></div></div>
+  <div id="drop"><b>把 flight_*.bin 拖進來，或按下方「開啟 .bin」</b>
+    <span>支援 <code>fa_probe2.py flight</code>（所有物件）與 <code>fa_probe2.py record</code>（只有玩家）的錄製檔</span></div>
+  <div id="hint">左鍵拖曳：旋轉　右鍵 / Shift 拖曳：平移　滾輪：縮放<br>點飛機：選取　空白鍵：播放 / 暫停　← →：前後 5 秒</div>
 </div>
 
-<aside>
+<aside id="side">
   <h2>玩家</h2>
-  <div class="kv" id="pinfo">
+  <div class="kv">
     <span>機型</span><span id="p_name">—</span>
     <span>高度</span><span id="p_alt">—</span>
     <span>速度</span><span id="p_spd">—</span>
@@ -87,7 +113,7 @@ footer{grid-column:1;display:flex;align-items:center;gap:10px;padding:8px 14px;b
     <span>俯仰 / 滾轉</span><span id="p_att">—</span>
     <span>油門 / 推力</span><span id="p_thr">—</span>
   </div>
-  <div class="bar" title="油門"><i id="thr_bar"></i><b id="rpm_bar"></b></div>
+  <div class="bar" title="油門（淡）/ 推力（線）"><i id="thr_bar"></i><b id="rpm_bar"></b></div>
   <h2>操縱面</h2>
   <div class="chips">
     <span class="chip" id="c_gear">起落架</span><span class="chip" id="c_flaps">襟翼</span>
@@ -97,13 +123,13 @@ footer{grid-column:1;display:flex;align-items:center;gap:10px;padding:8px 14px;b
   <div class="stn" id="stn"></div>
   <h2>顯示</h2>
   <div class="opts">
-    <label><input type="checkbox" id="o_follow" checked> 鏡頭跟隨玩家</label>
-    <label><input type="checkbox" id="o_trail" checked> 軌跡</label>
-    <label><input type="checkbox" id="o_drop" checked> 高度垂線</label>
-    <label><input type="checkbox" id="o_label" checked> 名稱標籤</label>
-    <label><input type="checkbox" id="o_static" checked> 靜止物件</label>
+    <label><input type="checkbox" id="o_trail" checked> 緞帶軌跡</label>
+    <label><input type="checkbox" id="o_drop"> 高度垂線</label>
+    <label><input type="checkbox" id="o_label" checked> 編號標籤</label>
+    <label><input type="checkbox" id="o_static"> 靜止物件</label>
     <label><input type="checkbox" id="o_vel" checked> 用移動方向決定機頭朝向</label>
     <label><input type="checkbox" id="o_flip"> 鏡像 Z 軸（方向左右相反時勾選）</label>
+    <label>顏色依 <select id="o_color"><option value="type">機型</option><option value="cls">類別代碼</option></select></label>
     <label>圖示大小 <input type="range" id="o_size" min="0.4" max="4" step="0.1" value="1"></label>
     <label>軌跡長度 <input type="range" id="o_tlen" min="5" max="600" step="5" value="60"><span id="o_tlen_v">60s</span></label>
   </div>
@@ -112,6 +138,7 @@ footer{grid-column:1;display:flex;align-items:center;gap:10px;padding:8px 14px;b
 </aside>
 
 <footer>
+  <label class="btn">開啟 .bin<input id="file" type="file" accept=".bin" hidden></label>
   <button id="play" title="播放 / 暫停">▶</button>
   <select id="speed" title="播放速度">
     <option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option>
@@ -119,32 +146,39 @@ footer{grid-column:1;display:flex;align-items:center;gap:10px;padding:8px 14px;b
   </select>
   <div id="tl"><div id="marks"></div><input id="seek" type="range" min="0" max="1000" step="1" value="0"></div>
   <span id="time">0:00.0 / 0:00.0</span>
-  <button id="reset" title="重設視角">重設視角</button>
+  <span id="fname">尚未載入</span>
+  <button id="reset" title="重設視角">重設</button>
+  <button id="sidebtn" class="on" title="顯示 / 隱藏右側面板">面板</button>
 </footer>
+</div>
 
 <script>
 "use strict";
-// ---------- 解析錄製檔 ----------
+// ================= 解析錄製檔 =================
 const KEYS_V1 = ["G","SPACE","ENTER","BACKSPACE","TAB","B","F","W","H","L","C","R",
   "0","1","2","3","4","5","6","7","8","9","F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12"];
 const STATIONS = 8, STN_STRIDE = 0x11;
+const str = (u8,a,b) => { let s=""; for (let i=a;i<b;i++) s += String.fromCharCode(u8[i]); return s; };
 
 function parse(buf){
-  const dv = new DataView(buf), u8 = new Uint8Array(buf);
-  const magic = String.fromCharCode(...u8.slice(0,6));
+  const dv = new DataView(buf), u8 = new Uint8Array(buf), magic = str(u8,0,6);
   if (magic === "FAFLT1" || magic === "FAFLT2") return parseFlight(dv, u8, magic === "FAFLT2");
   if (magic === "FAREC1" || magic === "FAREC2") return parseRec(dv, u8, magic);
   throw new Error("不認得的檔案格式：" + magic);
 }
 function parseFlight(dv, u8, v2){
-  const names = []; const frames = []; let p = 6;
+  const names = [], frames = [], raws = []; let p = 6;
   while (p < u8.length){
     const tag = u8[p++];
-    if (tag === 0x4E){ // N
+    if (tag === 0x4E){ // N：類型名稱
       if (p + 3 > u8.length) break;
       const id = dv.getUint16(p,true), len = u8[p+2]; p += 3;
-      names[id] = String.fromCharCode(...u8.slice(p,p+len)); p += len;
-    } else if (tag === 0x46){ // F
+      names[id] = str(u8,p,p+len); p += len;
+    } else if (tag === 0x4F){ // O：物件原始資料（研究用）
+      if (p + 8 > u8.length) break;
+      const idx = dv.getUint16(p,true), len = dv.getUint16(p+6,true); p += 8;
+      raws.push({ idx, raw: u8.slice(p, p+len) }); p += len;
+    } else if (tag === 0x46){ // F：一筆影格
       const hdr = 8+3+(v2?2:0)+16+2; if (p + hdr > u8.length) break;
       const t = dv.getFloat64(p,true); p += 8;
       const c1 = u8[p], c2 = u8[p+1], sel = u8[p+2]; p += 3;
@@ -155,24 +189,22 @@ function parseFlight(dv, u8, v2){
       const objs = new Map();
       for (let i=0;i<n;i++){
         const idx = dv.getUint16(p,true), cls = u8[p+2], nid = dv.getUint16(p+3,true);
-        const o = { idx, cls, name: names[nid] ?? "?",
+        objs.set(idx, { idx, cls, name: names[nid] ?? "?",
           x: dv.getInt32(p+5,true)/256, y: dv.getInt32(p+9,true)/256, z: dv.getInt32(p+13,true)/256,
           hdg: dv.getUint16(p+17,true)/65536*360, pitch: dv.getInt16(p+19,true)/65536*360,
-          roll: dv.getInt16(p+21,true)/65536*360, spd: dv.getInt32(p+23,true)/256 };
-        objs.set(idx, o); p += 27;
+          roll: dv.getInt16(p+21,true)/65536*360, spd: dv.getInt32(p+23,true)/256 });
+        p += 27;
       }
       frames.push({ t, c1, c2, sel, thr, rpm, stn, objs });
     } else break;
   }
-  return { kind:"flight", frames };
+  return { kind:"flight", frames, raws };
 }
 function parseRec(dv, u8, magic){
-  let addr, size, pos, names;
-  if (magic === "FAREC1"){ addr = dv.getUint32(6,true); size = dv.getUint32(10,true); pos = 14; names = KEYS_V1; }
-  else { addr = dv.getUint32(6,true); size = dv.getUint32(10,true); const kl = dv.getUint16(14,true);
-         names = String.fromCharCode(...u8.slice(16,16+kl)).split(","); pos = 16+kl; }
-  const rec = 16 + size, frames = [];
-  const hasAct = size >= 0x2EE + STN_STRIDE*STATIONS;
+  let size, pos;
+  if (magic === "FAREC1"){ size = dv.getUint32(10,true); pos = 14; }
+  else { size = dv.getUint32(10,true); pos = 16 + dv.getUint16(14,true); }
+  const rec = 16 + size, frames = [], hasAct = size >= 0x2EE + STN_STRIDE*STATIONS;
   while (pos + rec <= u8.length){
     const t = dv.getFloat64(pos,true), b = pos + 16;
     const o = { idx:0, cls:u8[b], name:"玩家",
@@ -181,31 +213,30 @@ function parseRec(dv, u8, magic){
       roll: dv.getInt16(b+0x21,true)/65536*360, spd: dv.getInt32(b+0x34,true)/256 };
     const stn = []; for (let k=0;k<STATIONS;k++) stn.push(hasAct ? dv.getUint16(b+0x2EE+k*STN_STRIDE,true) : 0);
     frames.push({ t, c1: hasAct?u8[b+0x16F]:0, c2: hasAct?u8[b+0x170]:0, sel: hasAct?u8[b+0x11C]:0, stn,
-                  thr: size > 0x1F4 ? u8[b+0x1F4] : null, rpm: size > 0x1EF ? u8[b+0x1EF] : null,
-                  objs: new Map([[0,o]]) });
+      thr: size > 0x1F4 ? u8[b+0x1F4] : null, rpm: size > 0x1EF ? u8[b+0x1EF] : null, objs: new Map([[0,o]]) });
     pos += rec;
   }
-  // 遊戲還沒進入任務時位置全是 0：去掉開頭
-  let s = 0; while (s < frames.length-1 && frames[s].objs.get(0).x===0 && frames[s].objs.get(0).y===0 && frames[s].objs.get(0).z===0) s++;
-  return { kind:"rec", frames: frames.slice(s) };
+  let s = 0; while (s < frames.length-1 && (o0 => o0.x===0 && o0.y===0 && o0.z===0)(frames[s].objs.get(0))) s++;
+  return { kind:"rec", frames: frames.slice(s), raws: [] };
 }
 
-// ---------- 事件 ----------
+// ================= 事件 =================
 const BITS = [["gear","c1",0x40,"起落架"],["brake","c1",0x80,"煞車"],["flaps","c2",0x01,"襟翼"],["hook","c2",0x04,"捕捉勾"]];
+const stnName = k => k===0 ? "機砲" : `掛點${k}`;
 function buildEvents(fr){
   const ev = [];
   for (let i=1;i<fr.length;i++){
     const a = fr[i-1], b = fr[i], t = b.t;
     for (const [k,f,bit,label] of BITS){
       const x = !!(a[f]&bit), y = !!(b[f]&bit);
-      if (x!==y) ev.push({t, text: label + (k==="gear"||k==="flaps"||k==="hook" ? (y?" 放下":" 收起") : (y?" 開":" 關")), kind:"ctl"});
+      if (x!==y) ev.push({t, text: label + (k==="brake" ? (y?" 開":" 關") : (y?" 放下":" 收起")), kind:"ctl"});
     }
     if (a.sel !== b.sel) ev.push({t, text:"選擇 " + stnName(b.sel-3), kind:"sel"});
     for (let k=0;k<STATIONS;k++){
       const d = a.stn[k]-b.stn[k];
       if (d>0 && d<1000){
-        if (k===0){ // 機砲連發合併
-          const last = ev.findLast?.(e=>e.kind==="gun") ?? [...ev].reverse().find(e=>e.kind==="gun");
+        if (k===0){
+          let last = null; for (let j=ev.length-1;j>=0;j--) if (ev[j].kind==="gun"){ last = ev[j]; break; }
           if (last && t - last.tEnd < 0.6){ last.n += d; last.tEnd = t; last.text = `機砲 ${last.n} 發`; continue; }
           ev.push({t, tEnd:t, n:d, text:`機砲 ${d} 發`, kind:"gun"});
         } else ev.push({t, text:`發射 掛點${k}（剩 ${b.stn[k]}）`, kind:"wpn"});
@@ -213,21 +244,25 @@ function buildEvents(fr){
     }
     if (b.objs.size > 1 || a.objs.size > 1){
       for (const [idx,o] of b.objs){ const q = a.objs.get(idx);
-        if (idx && (!q || q.name!==o.name)) ev.push({t, text:`出現 ${o.name}`, kind:"spawn", idx}); }
-      for (const [idx,q] of a.objs){ if (idx && !b.objs.has(idx)) ev.push({t, text:`消失 ${q.name}`, kind:"despawn", idx}); }
+        if (idx && (!q || q.name!==o.name)) ev.push({t, text:`出現 ${o.name} #${idx}`, kind:"spawn", idx}); }
+      for (const [idx,q] of a.objs){ if (idx && !b.objs.has(idx)) ev.push({t, text:`消失 ${q.name} #${idx}`, kind:"despawn", idx}); }
     }
   }
   return ev;
 }
-const stnName = k => k===0 ? "機砲" : `掛點${k}`;
 
-// ---------- 狀態 ----------
-let data = null, events = [], T0 = 0, T1 = 0, now = 0, playing = false, playerName = "玩家";
-const trails = new Map(); // idx -> {name, pts:[{t,x,y,z}]}
-const staticSet = new Set();
-let gunShots = [];
+// ================= 狀態 =================
+let data = null, events = [], T0 = 0, T1 = 0, now = 0, playing = false;
+const tracks = new Map();   // key -> {key, idx, name, cls, static, missile, pts:[{t,x,y,z,hdg,pitch,roll}]}
+let gunShots = [], selKey = null, playerKey = null, playerCls = null;
+let viewMode = "follow";    // follow | free | group
+const hidden = new Set();   // 圖例中被隱藏的群組
+const cam = { yaw: -0.7, pitch: 0.42, dist: 30000, cx:0, cy:0, cz:0 };
 const BULLET_FPS = 3300, BULLET_LIFE = 1.4;
-const cam = { yaw: -0.6, pitch: 0.45, dist: 30000, cx:0, cy:0, cz:0, fov: 900 };
+const PALETTE = ["#ffc21a","#36c3f2","#ff4a2a","#2f9b3a","#a35bd8","#ff7aa8","#f07c1a","#e8e8e8","#1c6fd1","#93c83e"];
+const $ = id => document.getElementById(id);
+const keyOf = o => o.idx + "|" + o.name;
+const MISSILE_RE = /AIM|AGM|MISS|SAM|SA-|AA-|R-\d|ROCKET|BOMB|MK\d|GBU|HARM|MAV/i;
 
 function load(buf, name){
   try { data = parse(buf); } catch(e){ alert(e.message); return; }
@@ -235,229 +270,302 @@ function load(buf, name){
   const fr = data.frames;
   T0 = fr[0].t; T1 = fr[fr.length-1].t; now = T0;
   events = buildEvents(fr);
-  playerName = fr.find(f=>f.objs.get(0))?.objs.get(0).name || "玩家";
-  // 軌跡與靜止物件判定
-  trails.clear(); staticSet.clear();
-  const first = new Map(), moved = new Set();
+  tracks.clear(); hidden.clear();
   for (const f of fr) for (const [idx,o] of f.objs){
-    const key = idx+"|"+o.name;
-    let tr = trails.get(key); if (!tr){ tr = {idx, name:o.name, cls:o.cls, pts:[]}; trails.set(key,tr); }
-    tr.pts.push({t:f.t, x:o.x, y:o.y, z:o.z});
-    const f0 = first.get(key); if (!f0) first.set(key,o);
-    else if (Math.abs(f0.x-o.x)+Math.abs(f0.y-o.y)+Math.abs(f0.z-o.z) > 30) moved.add(key);
+    const key = keyOf(o); let tr = tracks.get(key);
+    if (!tr){ tr = { key, idx, name:o.name, cls:o.cls, pts:[] }; tracks.set(key, tr); }
+    tr.pts.push({ t:f.t, x:o.x, y:o.y, z:o.z, hdg:o.hdg, pitch:o.pitch, roll:o.roll, spd:o.spd });
   }
-  for (const k of trails.keys()) if (!moved.has(k)) staticSet.add(k);
-  // 機砲射擊：掛點 0 數量減少的每一筆
+  const p0 = fr.find(f=>f.objs.get(0))?.objs.get(0);
+  playerKey = p0 ? keyOf(p0) : null; playerCls = p0?.cls ?? null; selKey = playerKey;
+  for (const tr of tracks.values()){
+    const a = tr.pts[0]; let moved = false, vmax = 0;
+    for (let j=1;j<tr.pts.length;j++){
+      const p = tr.pts[j], q = tr.pts[j-1];
+      if (Math.abs(p.x-a.x)+Math.abs(p.y-a.y)+Math.abs(p.z-a.z) > 30) moved = true;
+      // 由位置變化推算朝向（較可靠）
+      const dt = p.t-q.t, dx=p.x-q.x, dy=p.y-q.y, dz=p.z-q.z, h=Math.hypot(dx,dz);
+      if (dt>0 && h+Math.abs(dy) > 3){ p.vh = Math.atan2(dx,dz)*180/Math.PI; p.vp = Math.atan2(dy,h)*180/Math.PI; vmax = Math.max(vmax, Math.hypot(h,dy)/dt); }
+    }
+    if (tr.pts.length > 1 && tr.pts[1].vh != null){ tr.pts[0].vh = tr.pts[1].vh; tr.pts[0].vp = tr.pts[1].vp; }
+    for (let j=1;j<tr.pts.length;j++) if (tr.pts[j].vh == null && tr.pts[j-1].vh != null){ tr.pts[j].vh = tr.pts[j-1].vh; tr.pts[j].vp = tr.pts[j-1].vp; }
+    tr.static = !moved;
+    tr.missile = tr.idx !== 0 && moved && (MISSILE_RE.test(tr.name) || (tr.cls !== playerCls && vmax > 1100*6076/3600));
+  }
+  // 機砲射擊
   gunShots = [];
   for (let i=1;i<fr.length;i++){
     const d = fr[i-1].stn[0] - fr[i].stn[0], p = fr[i].objs.get(0), q = fr[i-1].objs.get(0);
     if (!(d>0 && d<1000) || !p || !q) continue;
     const dt = Math.max(1e-3, fr[i].t - fr[i-1].t);
-    let vx=(p.x-q.x)/dt, vy=(p.y-q.y)/dt, vz=(p.z-q.z)/dt, m=Math.hypot(vx,vy,vz);
+    const vx=(p.x-q.x)/dt, vy=(p.y-q.y)/dt, vz=(p.z-q.z)/dt, m=Math.hypot(vx,vy,vz);
     let ux, uy, uz;
     if (m > 20){ ux=vx/m; uy=vy/m; uz=vz/m; }
     else { const h=p.hdg*Math.PI/180, pt=p.pitch*Math.PI/180; ux=Math.sin(h)*Math.cos(pt); uy=Math.sin(pt); uz=Math.cos(h)*Math.cos(pt); }
     gunShots.push({ t:fr[i].t, dur:dt, x:p.x, y:p.y, z:p.z, ux, uy, uz, vx, vy, vz });
   }
-  document.getElementById("fname").textContent = `${name}　·　${fr.length} 筆　·　${(T1-T0).toFixed(1)} 秒　·　${data.kind==="flight"?"所有物件":"只有玩家"}`;
-  document.getElementById("drop").classList.add("hide");
-  resetView(); renderEvents(); renderMarks(); update();
+  $("fname").textContent = `${name} · ${fr.length} 筆 · ${(T1-T0).toFixed(1)} 秒 · ${[...tracks.values()].filter(t=>!t.static&&!t.missile).length} 個移動物件`;
+  $("drop").classList.add("hide");
+  buildLegend(); resetView(); renderEvents(); renderMarks(); update();
 }
 
-// 取得時間 t 的插值狀態
-function frameIndex(t){
-  const fr = data.frames; let lo = 0, hi = fr.length-1;
-  while (lo < hi){ const m = (lo+hi+1)>>1; if (fr[m].t <= t) lo = m; else hi = m-1; }
-  return lo;
+// ---------- 分組與顏色 ----------
+function groupOf(tr){
+  if (tr.missile) return "飛彈 / 武器";
+  if (tr.static) return "靜止物件";
+  return $("o_color").value === "cls" ? `類別 ${tr.cls}` : tr.name;
 }
-function lerpAng(a,b,f){ let d = ((b-a+540)%360)-180; return a + d*f; }
-function stateAt(t){
-  const fr = data.frames, i = frameIndex(t), a = fr[i], b = fr[Math.min(i+1, fr.length-1)];
-  const f = b.t>a.t ? Math.min(1, Math.max(0,(t-a.t)/(b.t-a.t))) : 0;
-  const objs = [];
-  for (const [idx,o] of a.objs){
-    const q = b.objs.get(idx); const ok = q && q.name===o.name;
-    const s = ok ? { ...o, x:o.x+(q.x-o.x)*f, y:o.y+(q.y-o.y)*f, z:o.z+(q.z-o.z)*f,
-      hdg: lerpAng(o.hdg,q.hdg,f), pitch: lerpAng(o.pitch,q.pitch,f), roll: lerpAng(o.roll,q.roll,f), spd:o.spd+(q.spd-o.spd)*f } : { ...o };
-    // 用移動方向決定朝向
-    const key = idx+"|"+o.name, tr = trails.get(key);
-    s.key = key; s.static = staticSet.has(key);
-    if (tr) {
-      const j = tr.pts.findIndex(p=>p.t>=a.t);
-      const p0 = tr.pts[Math.max(0,j-1)], p1 = tr.pts[Math.min(tr.pts.length-1, j+1)];
-      if (p0 && p1 && p1.t>p0.t){
-        const dx=p1.x-p0.x, dy=p1.y-p0.y, dz=p1.z-p0.z, h=Math.hypot(dx,dz);
-        if (h + Math.abs(dy) > 5){ s.vhdg = Math.atan2(dx,dz)*180/Math.PI; s.vpitch = Math.atan2(dy,h)*180/Math.PI; }
-      }
-    }
-    objs.push(s);
+let groupColor = new Map();
+function buildLegend(){
+  groupColor = new Map();
+  const groups = new Map();
+  const ordered = [...tracks.values()].sort((a,b)=> (a.key===playerKey?-1:b.key===playerKey?1:0) || a.idx-b.idx);
+  for (const tr of ordered){ const g = groupOf(tr); groups.set(g, (groups.get(g)||0) + 1); }
+  let ci = 0;
+  for (const g of groups.keys()){
+    if (g === "飛彈 / 武器") groupColor.set(g, "#ffffff");
+    else if (g === "靜止物件") groupColor.set(g, "#7d7468");
+    else groupColor.set(g, PALETTE[ci++ % PALETTE.length]);
   }
-  return { a, objs };
+  $("legitems").innerHTML = [...groups].map(([g,n]) =>
+    `<div class="it${hidden.has(g)?" off":""}" data-g="${g.replace(/"/g,"&quot;")}" style="background:${groupColor.get(g)}${g==="飛彈 / 武器"?";color:#222;text-shadow:none":""}">${g}<span style="margin-left:auto;opacity:.85">${n}</span></div>`).join("");
+  document.querySelectorAll("#legend .it").forEach(el => el.onclick = () => {
+    const g = el.dataset.g; hidden.has(g) ? hidden.delete(g) : hidden.add(g); el.classList.toggle("off"); draw(); });
 }
+const colorOf = tr => groupColor.get(groupOf(tr)) || "#ccc";
 
-// ---------- 3D ----------
-const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
-let W=0,H=0,DPR=1;
-function resize(){ DPR = window.devicePixelRatio||1; const r = cv.getBoundingClientRect(); W=r.width; H=r.height;
-  cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR); ctx.setTransform(DPR,0,0,DPR,0,0); draw(); }
+// ---------- 插值 ----------
+function ptIndex(pts, t){ let lo=0, hi=pts.length-1; if (t < pts[0].t || t > pts[hi].t + 0.5) return -1;
+  while (lo<hi){ const m=(lo+hi+1)>>1; if (pts[m].t<=t) lo=m; else hi=m-1; } return lo; }
+const lerpAng = (a,b,f) => a + (((b-a+540)%360)-180)*f;
+function sampleTrack(tr, t){
+  const i = ptIndex(tr.pts, t); if (i < 0) return null;
+  const a = tr.pts[i], b = tr.pts[Math.min(i+1, tr.pts.length-1)];
+  if (b.t - a.t > 2) return t - a.t < 0.5 ? { ...a } : null;     // 中間有空檔（物件消失又出現）
+  const f = b.t>a.t ? Math.min(1, Math.max(0,(t-a.t)/(b.t-a.t))) : 0;
+  return { x:a.x+(b.x-a.x)*f, y:a.y+(b.y-a.y)*f, z:a.z+(b.z-a.z)*f,
+    hdg:lerpAng(a.hdg,b.hdg,f), pitch:lerpAng(a.pitch,b.pitch,f), roll:lerpAng(a.roll,b.roll,f), spd:a.spd+(b.spd-a.spd)*f,
+    vh: a.vh!=null && b.vh!=null ? lerpAng(a.vh,b.vh,f) : a.vh, vp: a.vp!=null && b.vp!=null ? a.vp+(b.vp-a.vp)*f : a.vp };
+}
+function frameAt(t){ const fr = data.frames; let lo=0, hi=fr.length-1;
+  while (lo<hi){ const m=(lo+hi+1)>>1; if (fr[m].t<=t) lo=m; else hi=m-1; } return fr[lo]; }
+
+// ================= 3D =================
+const cv = $("cv"), ctx = cv.getContext("2d");
+let W=0, H=0, F=1;
+function resize(){ const dpr = window.devicePixelRatio||1, r = cv.getBoundingClientRect(); W=r.width; H=r.height;
+  cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr); ctx.setTransform(dpr,0,0,dpr,0,0); F = Math.min(W,H)*1.05; draw(); }
 window.addEventListener("resize", resize);
 
-const flipZ = () => document.getElementById("o_flip").checked ? -1 : 1;
+const flip = () => $("o_flip").checked ? -1 : 1;
 function toCam(x,y,z){
-  z *= flipZ();
-  let dx = x-cam.cx, dy = y-cam.cy, dz = z-cam.cz*flipZ();
+  const fz = flip();
+  const dx = x-cam.cx, dy = y-cam.cy, dz = (z-cam.cz)*fz;
   const cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
-  let x1 = dx*cy - dz*sy, z1 = dx*sy + dz*cy;
+  const x1 = dx*cy - dz*sy, z1 = dx*sy + dz*cy;
   const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
-  let y2 = dy*cp - z1*sp, z2 = dy*sp + z1*cp;
-  return [x1, y2, z2 + cam.dist];
+  return [x1, dy*cp + z1*sp, -dy*sp + z1*cp + cam.dist];
 }
-const NEAR = 1;
-function proj(c){ const f = cam.fov / c[2] * Math.min(W,H)/900; return [W/2 + c[0]*f, H/2 - c[1]*f]; }
-function line3(a,b,color,width=1,nearF=0.002){
-  let A = toCam(...a), B = toCam(...b);
-  const n = cam.dist*nearF + NEAR;
-  if (A[2]<n && B[2]<n) return;
+const nearZ = () => cam.dist*0.01 + 1;
+const proj = c => [W/2 + c[0]*F/c[2], H/2 - c[1]*F/c[2]];
+function clipSeg(A,B,n){
+  if (A[2]<n && B[2]<n) return null;
   if (A[2]<n){ const f=(n-A[2])/(B[2]-A[2]); A=[A[0]+(B[0]-A[0])*f, A[1]+(B[1]-A[1])*f, n]; }
   if (B[2]<n){ const f=(n-B[2])/(A[2]-B[2]); B=[B[0]+(A[0]-B[0])*f, B[1]+(A[1]-B[1])*f, n]; }
-  const p=proj(A), q=proj(B); ctx.strokeStyle=color; ctx.lineWidth=width; ctx.beginPath(); ctx.moveTo(p[0],p[1]); ctx.lineTo(q[0],q[1]); ctx.stroke();
+  return [A,B];
 }
-function niceStep(v){ const e = Math.pow(10, Math.floor(Math.log10(v))); const m = v/e; return (m<2?1:m<5?2:5)*e; }
+function line3(a,b,color,width=1,n=nearZ()){
+  const s = clipSeg(toCam(...a), toCam(...b), n); if (!s) return;
+  const p=proj(s[0]), q=proj(s[1]); ctx.strokeStyle=color; ctx.lineWidth=width; ctx.beginPath(); ctx.moveTo(p[0],p[1]); ctx.lineTo(q[0],q[1]); ctx.stroke();
+}
+const niceStep = v => { const e = Math.pow(10, Math.floor(Math.log10(v))), m = v/e; return (m<2?1:m<5?2:5)*e; };
+function rotate(v, hdg, pitch, roll){ // 機體（右 +x、上 +y、前 +z）→ 世界
+  let [x,y,z] = v; const r = -roll*Math.PI/180, p = -pitch*Math.PI/180, h = hdg*Math.PI/180;
+  [x,y] = [x*Math.cos(r) - y*Math.sin(r), x*Math.sin(r) + y*Math.cos(r)];
+  [y,z] = [y*Math.cos(p) - z*Math.sin(p), y*Math.sin(p) + z*Math.cos(p)];
+  return [x*Math.cos(h) + z*Math.sin(h), y, -x*Math.sin(h) + z*Math.cos(h)];
+}
+// 戰機剪影（機體座標，長度 1）
+const JET = (() => { const half = [[0,1],[.06,.78],[.11,.45],[.13,.15],[.7,-.25],[.72,-.36],[.16,-.28],[.15,-.62],[.4,-.86],[.4,-.96],[.12,-.9],[0,-.84]];
+  return [...half, ...half.slice(1,-1).reverse().map(([x,z])=>[-x,z])].map(([x,z])=>[x,0,z]); })();
 
-function rotate(v, hdg, pitch, roll){ // 機體座標 → 世界：先滾轉(z) 再俯仰(x) 再航向(y)
-  let [x,y,z] = v; const r = roll*Math.PI/180, p = -pitch*Math.PI/180, h = hdg*Math.PI/180;
-  let x1 = x*Math.cos(r) - y*Math.sin(r), y1 = x*Math.sin(r) + y*Math.cos(r); x=x1; y=y1;
-  let y2 = y*Math.cos(p) - z*Math.sin(p), z2 = y*Math.sin(p) + z*Math.cos(p); y=y2; z=z2;
-  let x3 = x*Math.cos(h) + z*Math.sin(h), z3 = -x*Math.sin(h) + z*Math.cos(h);
-  return [x3, y, z3];
-}
-function isMissile(o){
-  if (o.idx===0 || o.static) return false;
-  return /AIM|AGM|MISS|SAM|SA-|AA-|R-\d|ROCKET|BOMB|MK\d|GBU/i.test(o.name) ||
-         (o.cls !== playerCls() && o.spd > 1100*6076/3600);
-}
-function colorFor(o){
-  if (o.idx===0) return getCss("--accent");
-  if (o.static) return getCss("--static");
-  if (isMissile(o)) return getCss("--missile");
-  if (o.cls === playerCls()) return getCss("--enemy");
-  return getCss("--friend");
-}
-let _pc = null; function playerCls(){ if (_pc==null && data) _pc = data.frames.find(f=>f.objs.get(0))?.objs.get(0).cls; return _pc; }
-const cssCache = {}; function getCss(n){ return cssCache[n] ??= getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function shade(hex, k){ const n = parseInt(hex.slice(1),16); let r=n>>16, g=(n>>8)&255, b=n&255;
+  r=Math.round(Math.min(255,r*k)); g=Math.round(Math.min(255,g*k)); b=Math.round(Math.min(255,b*k)); return `rgb(${r},${g},${b})`; }
+function rgba(hex, a){ const n = parseInt(hex.slice(1),16); return `rgba(${n>>16},${(n>>8)&255},${n&255},${a})`; }
 
+function drawGround(){
+  // 地平線以上：天空漸層；地面：以大四邊形近似
+  const R = cam.dist*8, gx = cam.cx, gz = cam.cz, n = nearZ();
+  const corners = [[gx-R,0,gz-R],[gx+R,0,gz-R],[gx+R,0,gz+R],[gx-R,0,gz+R]].map(p=>toCam(...p));
+  // 對近平面裁切多邊形
+  const poly = [];
+  for (let i=0;i<4;i++){ const A = corners[i], B = corners[(i+1)%4];
+    if (A[2]>=n) poly.push(A);
+    if ((A[2]>=n) !== (B[2]>=n)){ const f=(n-A[2])/(B[2]-A[2]); poly.push([A[0]+(B[0]-A[0])*f, A[1]+(B[1]-A[1])*f, n]); } }
+  if (poly.length < 3) return;
+  const pp = poly.map(proj);
+  const top = Math.min(...pp.map(p=>p[1])), bot = Math.max(...pp.map(p=>p[1]));
+  const g = ctx.createLinearGradient(0, Math.max(0,top), 0, Math.min(H, bot));
+  g.addColorStop(0, getCss("--ground1")); g.addColorStop(1, getCss("--ground2"));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(...pp[0]); for (const p of pp.slice(1)) ctx.lineTo(...p); ctx.closePath(); ctx.fill();
+  // 地平線霧
+  const hz = ctx.createLinearGradient(0, top-30, 0, top+H*0.18);
+  hz.addColorStop(0, "rgba(240,205,150,.9)"); hz.addColorStop(1, "rgba(240,205,150,0)");
+  ctx.fillStyle = hz; ctx.fillRect(0, top-30, W, H*0.18+30);
+  // 格線
+  const step = niceStep(cam.dist/7), N = Math.ceil(cam.dist*3/step);
+  const sx = Math.round(gx/step)*step, sz = Math.round(gz/step)*step;
+  for (let i=-N;i<=N;i++){
+    const majX = Math.round((sx+i*step)/step) % 5 === 0, majZ = Math.round((sz+i*step)/step) % 5 === 0;
+    line3([sx+i*step,0,sz-N*step],[sx+i*step,0,sz+N*step], majX?getCss("--gridmaj"):getCss("--gridc"), majX?1.2:0.8, cam.dist*0.15);
+    line3([sx-N*step,0,sz+i*step],[sx+N*step,0,sz+i*step], majZ?getCss("--gridmaj"):getCss("--gridc"), majZ?1.2:0.8, cam.dist*0.15);
+  }
+  return step;
+}
+const cssCache = {}; const getCss = n => cssCache[n] ??= getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+let lastDrawn = [];
 function draw(){
   ctx.clearRect(0,0,W,H);
-  if (!data) return;
-  const st = stateAt(now), player = st.objs.find(o=>o.idx===0);
-  if (document.getElementById("o_follow").checked && player){ cam.cx = player.x; cam.cy = player.y; cam.cz = player.z; }
-  // 地面格線
-  const step = niceStep(cam.dist/6), N = Math.ceil(cam.dist*1.1/step);
-  const gx = Math.round(cam.cx/step)*step, gz = Math.round(cam.cz/step)*step;
-  for (let i=-N;i<=N;i++){
-    const major = Math.round((gx+i*step)/step) % 5 === 0;
-    line3([gx+i*step,0,gz-N*step],[gx+i*step,0,gz+N*step], major?getCss("--grid2"):getCss("--grid"),1,0.25);
-    const majorz = Math.round((gz+i*step)/step) % 5 === 0;
-    line3([gx-N*step,0,gz+i*step],[gx+N*step,0,gz+i*step], majorz?getCss("--grid2"):getCss("--grid"),1,0.25);
+  if (!data){ return; }
+  const live = [];
+  for (const tr of tracks.values()){
+    if (tr.static && !$("o_static").checked) continue;
+    if (hidden.has(groupOf(tr))) continue;
+    const s = sampleTrack(tr, now); if (s) live.push({ tr, s });
   }
-  ctx.fillStyle = getCss("--muted"); ctx.font = "11px system-ui"; ctx.fillText(`格線 ${step>=1000? (step/1000)+"k":step} ft`, 10, 18);
+  // 鏡頭
+  const sel = live.find(l=>l.tr.key===selKey);
+  if (viewMode === "follow" && sel){ cam.cx = sel.s.x; cam.cy = sel.s.y; cam.cz = sel.s.z; }
+  if (viewMode === "group"){ const mv = live.filter(l=>!l.tr.static && !l.tr.missile); if (mv.length){
+    let x0=Infinity,x1=-Infinity,z0=Infinity,z1=-Infinity,y=0; for (const {s} of mv){ x0=Math.min(x0,s.x); x1=Math.max(x1,s.x); z0=Math.min(z0,s.z); z1=Math.max(z1,s.z); y+=s.y; }
+    cam.cx=(x0+x1)/2; cam.cz=(z0+z1)/2; cam.cy=y/mv.length*0.5; cam.dist = Math.max(6000, Math.hypot(x1-x0, z1-z0)*1.1); } }
 
-  const showStatic = document.getElementById("o_static").checked;
-  // 軌跡
-  if (document.getElementById("o_trail").checked){
-    const tl = +document.getElementById("o_tlen").value;
-    for (const [key,tr] of trails){
-      if (staticSet.has(key)) continue;
-      const pts = tr.pts; let j0 = 0; while (j0<pts.length && pts[j0].t < now-tl) j0++;
-      const col = tr.idx===0 ? getCss("--accent") : "rgba(200,210,225,0.35)";
-      for (let j=j0+1;j<pts.length && pts[j].t<=now;j++){
-        if (pts[j].t - pts[j-1].t > 2) continue;
-        line3([pts[j-1].x,pts[j-1].y,pts[j-1].z],[pts[j].x,pts[j].y,pts[j].z], col, tr.idx===0?1.6:1);
+  const step = drawGround();
+  ctx.fillStyle = "rgba(60,35,10,.75)"; ctx.font = "11px system-ui"; ctx.textAlign = "right";
+  if (step) ctx.fillText(`格線 ${step>=1000 ? step/1000+"k" : step} ft`, W-12, H-42); ctx.textAlign = "left";
+
+  const size = +$("o_size").value, useVel = $("o_vel").checked, n0 = nearZ();
+  // 緞帶軌跡（隨滾轉扭轉的帶子）
+  if ($("o_trail").checked){
+    const tl = +$("o_tlen").value;
+    for (const { tr } of live){
+      if (tr.static) continue;
+      const col = colorOf(tr), pts = tr.pts;
+      const w = tr.missile ? 0 : Math.max(25, cam.dist*0.004) * size;
+      let j0 = ptIndex(pts, Math.max(pts[0].t, now - tl)); if (j0 < 0) j0 = 0;
+      const j1 = ptIndex(pts, now); if (j1 < 0) continue;
+      let prev = null;
+      for (let j=j0;j<=j1+1 && j<pts.length;j++){
+        let p = pts[j]; if (j === j1+1){ const s = sampleTrack(tr, now); if (!s) break; p = { ...s, t: now }; }
+        if (p.t > now + 1e-6) break;
+        const h = useVel && p.vh!=null ? p.vh : p.hdg, pi = useVel && p.vp!=null ? p.vp : p.pitch;
+        const r = rotate([w,0,0], h, pi, p.roll);
+        const cur = { L: toCam(p.x-r[0], p.y-r[1], p.z-r[2]), R: toCam(p.x+r[0], p.y+r[1], p.z+r[2]), C: toCam(p.x,p.y,p.z), t: p.t };
+        if (prev && cur.t - prev.t < 2 && prev.C[2] > n0 && cur.C[2] > n0){
+          const age = (now - cur.t) / tl, a = Math.max(0.12, 0.75 - age*0.6);
+          if (w > 0 && prev.L[2]>n0 && prev.R[2]>n0 && cur.L[2]>n0 && cur.R[2]>n0){
+            const q = [prev.L, cur.L, cur.R, prev.R].map(proj);
+            ctx.fillStyle = rgba(col, a*0.45); ctx.beginPath(); ctx.moveTo(...q[0]); ctx.lineTo(...q[1]); ctx.lineTo(...q[2]); ctx.lineTo(...q[3]); ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = rgba(col, a); ctx.lineWidth = 1.2;
+            ctx.beginPath(); ctx.moveTo(...q[0]); ctx.lineTo(...q[1]); ctx.moveTo(...q[3]); ctx.lineTo(...q[2]); ctx.stroke();
+          } else {
+            const a0 = proj(prev.C), a1 = proj(cur.C);
+            ctx.strokeStyle = rgba(tr.missile ? "#ff5a3c" : col, a); ctx.lineWidth = tr.missile ? 2.5 : 1.5;
+            ctx.beginPath(); ctx.moveTo(...a0); ctx.lineTo(...a1); ctx.stroke();
+          }
+        }
+        prev = cur;
       }
     }
   }
-  // 物件
-  const size = +document.getElementById("o_size").value;
-  const useVel = document.getElementById("o_vel").checked;
-  const items = [];
-  for (const o of st.objs){
-    if (o.static && !showStatic) continue;
-    const c = toCam(o.x,o.y,o.z); if (c[2] < cam.dist*0.002+NEAR) continue;
-    items.push({o,c});
-  }
-  items.sort((a,b)=>b.c[2]-a.c[2]);
-  const dropOn = document.getElementById("o_drop").checked, labelOn = document.getElementById("o_label").checked;
-  for (const {o,c} of items){
-    const col = colorFor(o);
-    if (dropOn && !o.static && o.y > 1) line3([o.x,o.y,o.z],[o.x,0,o.z],"rgba(150,160,175,0.25)");
-    // 圖示大小：隨距離放大，保持畫面上可見
-    const L = Math.max(60, c[2]*0.028) * size * (o.idx===0?1.25:1);
-    if (isMissile(o)){
-      // 飛彈：較長的粗線條，沿移動方向
-      const hdg = o.vhdg ?? o.hdg, pit = o.vpitch ?? o.pitch;
-      const r = rotate([0,0,1],hdg,pit,0), ML = L*2.4;
-      line3([o.x-r[0]*ML, o.y-r[1]*ML, o.z-r[2]*ML],[o.x,o.y,o.z], col, 3.5);
-      const ph = proj(c); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(ph[0],ph[1],2.5,0,7); ctx.fill();
-    } else if (o.static){
-      const p = proj(c); const s = Math.max(3, 5*size);
-      ctx.fillStyle = col; ctx.globalAlpha = .8; ctx.fillRect(p[0]-s/2,p[1]-s/2,s,s); ctx.globalAlpha = 1;
+  // 物件（由遠到近）
+  const items = live.map(l => ({ ...l, c: toCam(l.s.x, l.s.y, l.s.z) })).filter(i => i.c[2] > n0).sort((a,b)=>b.c[2]-a.c[2]);
+  lastDrawn = [];
+  const dropOn = $("o_drop").checked, labelOn = $("o_label").checked;
+  for (const { tr, s, c } of items){
+    const col = colorOf(tr), isSel = tr.key === selKey;
+    if (dropOn && !tr.static && s.y > 1) line3([s.x,s.y,s.z],[s.x,0,s.z],"rgba(60,35,10,.35)");
+    const L = Math.max(70, c[2]*0.03) * size * (tr.key===playerKey ? 1.2 : 1);
+    const ps = proj(c);
+    if (tr.missile){
+      const h = s.vh ?? s.hdg, pi = s.vp ?? s.pitch, r = rotate([0,0,1],h,pi,0), ML = L*2.6;
+      line3([s.x-r[0]*ML, s.y-r[1]*ML, s.z-r[2]*ML],[s.x,s.y,s.z], "#fff", 4);
+      line3([s.x-r[0]*ML, s.y-r[1]*ML, s.z-r[2]*ML],[s.x-r[0]*ML*0.55, s.y-r[1]*ML*0.55, s.z-r[2]*ML*0.55], "#ff5a3c", 4);
+    } else if (tr.static){
+      const k = Math.max(3, 5*size); ctx.fillStyle = col; ctx.fillRect(ps[0]-k/2, ps[1]-k/2, k, k);
     } else {
-      const hdg = useVel && o.vhdg!=null ? o.vhdg : o.hdg;
-      const pit = useVel && o.vpitch!=null ? o.vpitch : o.pitch;
-      const shape = [[0,0,L],[-0.7*L,0,-0.6*L],[0,0,-0.3*L],[0.7*L,0,-0.6*L]];
-      const w = shape.map(v=>{ const r = rotate(v,hdg,pit,o.roll); return [o.x+r[0], o.y+r[1], o.z+r[2]]; });
-      const pc = w.map(p=>toCam(...p));
-      if (pc.some(p=>p[2] < cam.dist*0.002+NEAR)) continue;
+      const h = useVel && s.vh!=null ? s.vh : s.hdg, pi = useVel && s.vp!=null ? s.vp : s.pitch;
+      const pc = JET.map(v => { const r = rotate([v[0]*L, 0, v[2]*L], h, pi, s.roll); return toCam(s.x+r[0], s.y+r[1], s.z+r[2]); });
+      if (pc.some(p=>p[2] < n0)) continue;
       const pp = pc.map(proj);
-      // 正反面：上面亮、下面暗
-      const n = (pp[1][0]-pp[0][0])*(pp[3][1]-pp[0][1]) - (pp[1][1]-pp[0][1])*(pp[3][0]-pp[0][0]);
-      ctx.beginPath(); ctx.moveTo(pp[0][0],pp[0][1]); for (let k=1;k<4;k++) ctx.lineTo(pp[k][0],pp[k][1]); ctx.closePath();
-      ctx.fillStyle = col; ctx.globalAlpha = n>0 ? .95 : .55; ctx.fill(); ctx.globalAlpha = 1;
-      ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.lineWidth = 1; ctx.stroke();
+      let area = 0; for (let k=0;k<pp.length;k++){ const a = pp[k], b = pp[(k+1)%pp.length]; area += a[0]*b[1]-b[0]*a[1]; }
+      // 地面陰影
+      const sh = JET.map(v => { const r = rotate([v[0]*L, 0, v[2]*L], h, 0, 0); return toCam(s.x+r[0], 0, s.z+r[2]); });
+      if (sh.every(p=>p[2]>n0) && s.y > 50){ const sp = sh.map(proj); ctx.fillStyle = "rgba(50,25,5,.22)";
+        ctx.beginPath(); ctx.moveTo(...sp[0]); for (const p of sp.slice(1)) ctx.lineTo(...p); ctx.closePath(); ctx.fill(); }
+      ctx.beginPath(); ctx.moveTo(...pp[0]); for (const p of pp.slice(1)) ctx.lineTo(...p); ctx.closePath();
+      const lit = area < 0 ? 1.08 : 0.72 * flipLight();
+      const grd = ctx.createLinearGradient(...proj(pc[0]), ...proj(pc[Math.floor(pc.length/2)]));
+      grd.addColorStop(0, shade(col, lit*1.15)); grd.addColorStop(1, shade(col, lit*0.8));
+      ctx.fillStyle = grd; ctx.fill(); ctx.strokeStyle = "rgba(20,15,10,.75)"; ctx.lineWidth = 1; ctx.stroke();
     }
-    if (labelOn && (!o.static || items.length < 60)){
-      const p = proj(c); ctx.fillStyle = o.idx===0 ? col : "rgba(215,221,229,.75)";
-      ctx.font = (o.idx===0?"600 ":"")+"11px system-ui";
-      ctx.fillText(o.idx===0 ? `${o.name}  ${Math.round(o.y)} ft  ${Math.round(o.spd*3600/6076)} kts` : o.name, p[0]+8, p[1]-6);
+    if (isSel){ const k = Math.max(26, L*F/c[2]*2.3); ctx.fillStyle = "rgba(255,248,235,.28)"; ctx.fillRect(ps[0]-k/2, ps[1]-k/2, k, k);
+      ctx.strokeStyle = "rgba(255,250,240,.95)"; ctx.lineWidth = 2; ctx.strokeRect(ps[0]-k/2, ps[1]-k/2, k, k);
+      ctx.strokeStyle = "rgba(60,40,20,.6)"; ctx.lineWidth = 1; ctx.strokeRect(ps[0]-k/2-2, ps[1]-k/2-2, k+4, k+4); }
+    if (labelOn && !tr.static){
+      ctx.font = "600 11px system-ui"; ctx.fillStyle = "rgba(25,15,5,.9)";
+      ctx.fillText(String(tr.idx).padStart(4,"0"), ps[0]+8, ps[1]-8);
+    }
+    lastDrawn.push({ key: tr.key, x: ps[0], y: ps[1] });
+  }
+  // 機砲曳光彈：短短的連續線段
+  const seg = Math.max(40, cam.dist*0.006) * size;
+  for (const g of gunShots){
+    const age0 = now - g.t; if (age0 < 0 || age0 > BULLET_LIFE + g.dur) continue;
+    for (let k=0;k<4;k++){
+      const age = age0 + g.dur*(k/4); if (age < 0 || age > BULLET_LIFE) continue;
+      const bx = g.x + (g.vx + g.ux*BULLET_FPS)*age, by = g.y + (g.vy + g.uy*BULLET_FPS)*age, bz = g.z + (g.vz + g.uz*BULLET_FPS)*age;
+      ctx.globalAlpha = 1 - age/BULLET_LIFE*0.7;
+      line3([bx-g.ux*seg, by-g.uy*seg, bz-g.uz*seg],[bx,by,bz], getCss("--gun"), 2.2);
     }
   }
-  // 機砲：短短的連續線段
-  if (gunShots.length){
-    const seg = Math.max(40, cam.dist*0.006) * size, col = getCss("--gun");
-    for (const g of gunShots){
-      const age0 = now - g.t; if (age0 < 0 || age0 > BULLET_LIFE + g.dur) continue;
-      const nb = 4; // 每筆紀錄期間畫 4 顆曳光彈
-      for (let k=0;k<nb;k++){
-        const age = age0 + g.dur*(k/nb); if (age < 0 || age > BULLET_LIFE) continue;
-        const bx = g.x + (g.vx + g.ux*BULLET_FPS)*age, by = g.y + (g.vy + g.uy*BULLET_FPS)*age, bz = g.z + (g.vz + g.uz*BULLET_FPS)*age;
-        ctx.globalAlpha = 1 - age/BULLET_LIFE*0.7;
-        line3([bx-g.ux*seg, by-g.uy*seg, bz-g.uz*seg],[bx,by,bz], col, 2);
-      }
-    }
-    ctx.globalAlpha = 1;
-  }
+  ctx.globalAlpha = 1;
 }
+const flipLight = () => 1;
 
-// ---------- 介面 ----------
-const $ = id => document.getElementById(id);
-function fmt(t){ t = Math.max(0,t); const m = Math.floor(t/60), s = t - m*60; return `${m}:${s.toFixed(1).padStart(4,"0")}`; }
+// ================= 介面 =================
+const fmt = t => { t = Math.max(0,t); const m = Math.floor(t/60); return `${m}:${(t-m*60).toFixed(1).padStart(4,"0")}`; };
 function update(){
   if (!data) return;
   $("seek").value = Math.round((now-T0)/Math.max(1e-6,T1-T0)*1000);
   $("time").textContent = `${fmt(now-T0)} / ${fmt(T1-T0)}`;
-  const st = stateAt(now), p = st.objs.find(o=>o.idx===0), a = st.a;
+  $("clock").textContent = `T+ ${fmt(now-T0)}`;
+  const a = frameAt(now);
+  // 選取資訊
+  const tr = tracks.get(selKey), s = tr && sampleTrack(tr, now);
+  if (tr && s){
+    $("i_name").textContent = tr.key===playerKey ? `${tr.name}（玩家）` : tr.name;
+    $("i_id").textContent = String(tr.idx).padStart(4,"0");
+    $("i_alt").textContent = `${Math.round(s.y).toLocaleString()} ft`;
+    $("i_spd").textContent = `${Math.round(s.spd*3600/6076)} kts`;
+    $("i_pit").textContent = `${(s.vp ?? s.pitch).toFixed(1)}°`;
+    $("i_hdg").textContent = `${((s.vh ?? s.hdg)+360)%360 | 0}°`;
+  } else { $("i_name").textContent = tr ? `${tr.name}（不在場）` : "—"; }
+  // 玩家面板
+  const pt = tracks.get(playerKey), p = pt && sampleTrack(pt, now);
   if (p){
-    $("p_name").textContent = playerName;
+    $("p_name").textContent = pt.name;
     $("p_alt").textContent = `${Math.round(p.y).toLocaleString()} ft`;
     $("p_spd").textContent = `${Math.round(p.spd*3600/6076)} kts`;
     $("p_hdg").textContent = `${Math.round((p.hdg+360)%360)}°`;
     $("p_att").textContent = `${p.pitch.toFixed(0)}° / ${p.roll.toFixed(0)}°`;
-    $("thr_bar").style.width = (a.thr ?? 0) + "%"; $("rpm_bar").style.width = (a.rpm ?? 0) + "%";
-    $("p_thr").textContent = a.thr == null ? "—" : `${a.thr}% / ${a.rpm}%`;
   }
+  $("p_thr").textContent = a.thr == null ? "—" : `${a.thr}% / ${a.rpm}%`;
+  $("thr_bar").style.width = (a.thr ?? 0) + "%"; $("rpm_bar").style.width = (a.rpm ?? 0) + "%";
   for (const [k,f,bit] of BITS) $("c_"+k).classList.toggle("on", !!(a[f]&bit));
-  const sel = a.sel - 3;
-  $("stn").innerHTML = a.stn.map((v,k)=> (k===0 || v>0 || k===sel) ? `<div class="${k===sel?"sel":""}"><small>${stnName(k)}</small>${v}</div>` : "").join("");
+  const sl = a.sel - 3;
+  $("stn").innerHTML = a.stn.map((v,k)=> (k===0 || v>0 || k===sl) ? `<div class="${k===sl?"sel":""}"><small>${stnName(k)}</small>${v}</div>` : "").join("");
   [...$("events").children].forEach(li => li.classList.toggle("past", +li.dataset.t <= now));
   draw();
 }
@@ -472,60 +580,66 @@ function renderEvents(){
   }
 }
 function renderMarks(){
-  $("marks").innerHTML = events.filter(e=>e.kind!=="spawn"&&e.kind!=="despawn"||e.kind==="spawn")
+  $("marks").innerHTML = events.filter(e=>e.kind!=="despawn")
     .map(e=>`<i class="${e.kind==="wpn"||e.kind==="gun"?"w":""}" style="left:${(e.t-T0)/Math.max(1e-6,T1-T0)*100}%"></i>`).join("");
 }
 function resetView(){
-  cam.yaw = -0.6; cam.pitch = 0.45;
-  if (!data) return;
-  // 依玩家飛行範圍決定距離
-  const tr = [...trails.values()].find(t=>t.idx===0);
+  cam.yaw = -0.7; cam.pitch = 0.42;
+  const tr = tracks.get(playerKey);
   if (tr){ let mx=-Infinity,mn=Infinity,Mz=-Infinity,mz=Infinity;
     for (const p of tr.pts){ mx=Math.max(mx,p.x); mn=Math.min(mn,p.x); Mz=Math.max(Mz,p.z); mz=Math.min(mz,p.z); }
-    cam.dist = Math.min(400000, Math.max(8000, Math.max(mx-mn, Mz-mz)*1.3)); }
+    cam.dist = Math.min(400000, Math.max(8000, Math.max(mx-mn, Mz-mz)*0.9)); }
 }
+function setView(m){ viewMode = m; $("viewmode").textContent = { follow:"跟隨視角", free:"自由視角", group:"群組視角" }[m]; draw(); }
 
 $("file").onchange = e => { const f = e.target.files[0]; if (f) f.arrayBuffer().then(b=>load(b,f.name)); };
 const view = $("view");
-view.addEventListener("dragover", e=>{ e.preventDefault(); });
+view.addEventListener("dragover", e=>e.preventDefault());
 view.addEventListener("drop", e=>{ e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) f.arrayBuffer().then(b=>load(b,f.name)); });
-
-$("play").onclick = () => { if (!data) return; if (now >= T1) now = T0; playing = !playing; $("play").textContent = playing ? "❚❚" : "▶"; $("play").classList.toggle("on", playing); last = performance.now(); };
+function setPlaying(v){ playing = v; $("play").textContent = v ? "❚❚" : "▶"; $("playlbl").textContent = v ? "▶ 播放中" : "❚❚ 暫停"; $("play").classList.toggle("on", v); }
+$("play").onclick = () => { if (!data) return; if (now >= T1) now = T0; setPlaying(!playing); last = performance.now(); };
+$("speed").onchange = e => $("spdlbl").textContent = e.target.value + "×";
 $("seek").oninput = e => { if (!data) return; now = T0 + (T1-T0)*e.target.value/1000; update(); };
-$("reset").onclick = () => { resetView(); $("o_follow").checked = true; update(); };
+$("reset").onclick = () => { resetView(); setView("follow"); selKey = playerKey; update(); };
+$("viewmode").onclick = () => setView(viewMode==="follow" ? "group" : viewMode==="group" ? "free" : "follow");
+$("sidebtn").onclick = () => { $("side").classList.toggle("hide"); $("sidebtn").classList.toggle("on"); setTimeout(resize, 0); };
 $("o_tlen").oninput = e => { $("o_tlen_v").textContent = e.target.value + "s"; draw(); };
+$("o_color").onchange = () => { buildLegend(); draw(); };
 document.querySelectorAll(".opts input").forEach(i => i.addEventListener("input", () => update()));
 window.addEventListener("keydown", e => {
-  if (e.target.tagName === "INPUT" && e.target.type !== "range" && e.target.type !== "checkbox") return;
+  if (e.target.tagName === "SELECT") return;
   if (e.code === "Space"){ e.preventDefault(); $("play").click(); }
   if (e.code === "ArrowRight" && data){ now = Math.min(T1, now+5); update(); }
   if (e.code === "ArrowLeft" && data){ now = Math.max(T0, now-5); update(); }
 });
 
-// 滑鼠 / 觸控：旋轉、平移、縮放
+// 滑鼠：旋轉、平移、縮放、點選
 let drag = null;
 cv.addEventListener("contextmenu", e=>e.preventDefault());
-cv.addEventListener("pointerdown", e => { cv.setPointerCapture(e.pointerId); drag = { x:e.clientX, y:e.clientY, pan: e.button===2 || e.shiftKey }; });
+cv.addEventListener("pointerdown", e => { cv.setPointerCapture(e.pointerId); drag = { x:e.clientX, y:e.clientY, sx:e.clientX, sy:e.clientY, pan: e.button===2 || e.shiftKey }; });
 cv.addEventListener("pointermove", e => {
   if (!drag) return; const dx = e.clientX-drag.x, dy = e.clientY-drag.y; drag.x = e.clientX; drag.y = e.clientY;
   if (drag.pan){
-    $("o_follow").checked = false;
-    const s = cam.dist / (cam.fov * Math.min(W,H)/900);
-    const cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
-    cam.cx -= (dx*cy) * s; cam.cz -= (-dx*sy) * s * flipZ();
-    cam.cx -= (dy*sy) * s; cam.cz -= (dy*cy) * s * flipZ();
-  } else {
-    cam.yaw += dx*0.006; cam.pitch = Math.max(-1.5, Math.min(1.55, cam.pitch + dy*0.006));
-  }
+    if (viewMode !== "free") setView("free");
+    const s = cam.dist / F, cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw), fz = flip();
+    cam.cx -= (dx*cy + dy*sy) * s; cam.cz -= (-dx*sy + dy*cy) * s * fz;
+  } else { cam.yaw += dx*0.006; cam.pitch = Math.max(0.03, Math.min(1.55, cam.pitch + dy*0.006)); }
   draw();
 });
-cv.addEventListener("pointerup", () => drag = null);
-cv.addEventListener("wheel", e => { e.preventDefault(); cam.dist = Math.max(200, Math.min(2e6, cam.dist * Math.exp(e.deltaY*0.0012))); draw(); }, { passive:false });
+cv.addEventListener("pointerup", e => {
+  if (drag && Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy) < 4 && data){
+    const r = cv.getBoundingClientRect(), mx = e.clientX-r.left, my = e.clientY-r.top;
+    let best = null, bd = 22; for (const d of lastDrawn){ const dd = Math.hypot(d.x-mx, d.y-my); if (dd < bd){ bd = dd; best = d; } }
+    if (best){ selKey = best.key; if (viewMode === "free") setView("follow"); update(); }
+  }
+  drag = null;
+});
+cv.addEventListener("wheel", e => { e.preventDefault(); cam.dist = Math.max(300, Math.min(2e6, cam.dist * Math.exp(e.deltaY*0.0012))); if (viewMode==="group") setView("free"); draw(); }, { passive:false });
 
 let last = performance.now();
 function tick(t){
   const dt = (t-last)/1000; last = t;
-  if (playing && data){ now += dt * +$("speed").value; if (now >= T1){ now = T1; playing = false; $("play").textContent = "▶"; $("play").classList.remove("on"); } update(); }
+  if (playing && data){ now += dt * +$("speed").value; if (now >= T1){ now = T1; setPlaying(false); } update(); }
   requestAnimationFrame(tick);
 }
 resize(); requestAnimationFrame(tick);
