@@ -126,9 +126,19 @@ def cmd_objects(h):
                   f"{o['z_ft']:>9} {o['hdg_deg']:>6} {o['spd_kts']:>5}  {o['flags']}")
         time.sleep(1)
 
+# 玩家動作欄位（由 2026-11-11 實測錄製檔分析得出）
+GEAR_ADDR = 0x50CFEF      # bit 0x40 = 起落架放下（G 鍵切換；0x50CFF3 同步）
+WPN_COUNT_ADDR = 0x50D17F # 目前選擇武器的剩餘數量（發射飛彈 4->3）
+TRIGGER_ADDR = 0x50CEE5   # 0/1 來回切換，推測為機砲扳機（待確認）
+
+def player_actions(h):
+    g = read(h, GEAR_ADDR, 1); c = read(h, WPN_COUNT_ADDR, 1); tr = read(h, TRIGGER_ADDR, 1)
+    if not (g and c and tr): return None
+    return {"gear_down": int(bool(g[0] & 0x40)), "wpn_count": c[0], "trigger": tr[0]}
+
 def cmd_log(h, hz, out, evout):
-    t0 = time.time(); prev = {}
-    fields = ["t", "idx"] + list(decode(h, PLAYER, bytes(OBJ_READ)).keys())
+    t0 = time.time(); prev = {}; prev_act = None
+    fields = ["t", "idx"] + list(decode(h, PLAYER, bytes(OBJ_READ)).keys()) + ["gear_down", "wpn_count", "trigger"]
     with open(out, "w", newline="") as f, open(evout, "w", newline="") as fe:
         w = csv.DictWriter(f, fieldnames=fields); w.writeheader()
         we = csv.writer(fe); we.writerow(["t", "event", "idx", "name", "cls", "x_ft", "alt_ft", "z_ft"])
@@ -136,8 +146,23 @@ def cmd_log(h, hz, out, evout):
             s = snapshot(h)
             if s is None: print("FA.EXE 已結束"); return
             t = round(time.time() - t0, 2)
+            act = player_actions(h) or {}
             for i, o in s.items():
-                w.writerow({"t": t, "idx": i, **o})
+                w.writerow({"t": t, "idx": i, **o, **(act if i == 0 else {})})
+            p0 = s[0]
+            if prev_act and act:
+                if act["gear_down"] != prev_act["gear_down"]:
+                    ev = "gear_down" if act["gear_down"] else "gear_up"
+                    we.writerow([t, ev, 0, p0["name"], p0["cls"], p0["x_ft"], p0["alt_ft"], p0["z_ft"]])
+                    print(f"[{t:8.2f}] {'放下' if act['gear_down'] else '收起'}起落架")
+                if act["wpn_count"] < prev_act["wpn_count"]:
+                    we.writerow([t, "weapon_fired", 0, p0["name"], p0["cls"], p0["x_ft"], p0["alt_ft"], p0["z_ft"]])
+                    print(f"[{t:8.2f}] 發射武器，剩 {act['wpn_count']}")
+                if act["trigger"] and not prev_act["trigger"]:
+                    we.writerow([t, "trigger_on", 0, p0["name"], p0["cls"], p0["x_ft"], p0["alt_ft"], p0["z_ft"]])
+                if prev_act["trigger"] and not act["trigger"]:
+                    we.writerow([t, "trigger_off", 0, p0["name"], p0["cls"], p0["x_ft"], p0["alt_ft"], p0["z_ft"]])
+            prev_act = act or prev_act
             # 物件出現 / 消失（同一索引換了位址或名稱也算重新出現）
             for i, o in s.items():
                 q = prev.get(i)
