@@ -132,15 +132,19 @@ CTRL2_ADDR = 0x50CFF0     # bit 0x01 = 襟翼 (F)，bit 0x04 = 捕捉勾 (H)；0
 STATION_BASE = 0x50D16E   # 武器掛點陣列，每格 0x11 位元組，+0 為 uint16 剩餘數量
 STATION_STRIDE = 0x11     # 掛點 0 = 機砲（675 發，每 0.2 秒約 14 發），其後為飛彈 / 炸彈
 STATIONS = 8
+SELECT_ADDR = 0x50CF9C    # 目前選擇的武器：值 - 3 = 掛點編號（3 = 機砲，[ ] 切換，空掛點會被跳過）
+SELECT_OFFSET = 3
 
 ACT_BITS = [("gear", CTRL1_ADDR, 0x40, "起落架"), ("brake", CTRL1_ADDR, 0x80, "煞車"),
             ("flaps", CTRL2_ADDR, 0x01, "襟翼"), ("hook", CTRL2_ADDR, 0x04, "捕捉勾")]
-ACT_FIELDS = [n for n, *_ in ACT_BITS] + [f"stn{i}" for i in range(STATIONS)]
+ACT_FIELDS = [n for n, *_ in ACT_BITS] + ["sel_stn"] + [f"stn{i}" for i in range(STATIONS)]
 
 def player_actions(h):
     c = read(h, CTRL1_ADDR, 2); st = read(h, STATION_BASE, STATION_STRIDE * STATIONS)
-    if not (c and st): return None
+    sel = read(h, SELECT_ADDR, 1)
+    if not (c and st and sel): return None
     act = {n: int(bool(c[addr - CTRL1_ADDR] & bit)) for n, addr, bit, _ in ACT_BITS}
+    act["sel_stn"] = sel[0] - SELECT_OFFSET
     for i in range(STATIONS):
         act[f"stn{i}"] = struct.unpack_from("<H", st, i * STATION_STRIDE)[0]
     return act
@@ -166,6 +170,8 @@ def cmd_log(h, hz, out, evout):
                 for n, _, _, label in ACT_BITS:
                     if act[n] != prev_act[n]:
                         ev(f"{n}_{'on' if act[n] else 'off'}", label)
+                if act["sel_stn"] != prev_act["sel_stn"]:
+                    ev(f"select_stn{act['sel_stn']}", "切換武器" + ("（機砲）" if act["sel_stn"] == 0 else ""))
                 for i in range(STATIONS):
                     k = f"stn{i}"; d = prev_act[k] - act[k]
                     if 0 < d < 1000:
