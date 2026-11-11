@@ -37,7 +37,6 @@ canvas:active{cursor:grabbing}
 #drop{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;pointer-events:none;text-align:center;padding:20px;color:#3a2a18}
 #drop b{font-size:18px}
 #drop.hide{display:none}
-#pivrow.hide{display:none}
 #hint{position:absolute;right:12px;bottom:10px;color:rgba(40,25,10,.7);font-size:11px;pointer-events:none;text-align:right}
 
 /* 下方播放列 */
@@ -145,14 +144,6 @@ aside .btn.sm{padding:2px 8px;font-size:12px;cursor:pointer}
     <label><input type="checkbox" id="o_vel" checked> 用移動方向決定機頭朝向</label>
     <label><input type="checkbox" id="o_flip"> 鏡像 Z 軸（方向左右相反時勾選）</label>
     <label>外型 <select id="o_model"><option value="3d">3D 模型（SH 檔）</option><option value="flat">平面剪影</option></select></label>
-    <div id="pivrow" class="hide" style="font-size:12px;line-height:1.9">
-      <div>可變翼轉軸微調（<span id="pivname"></span>）</div>
-      <label>轉軸向外 <input type="range" id="piv_x" min="-40" max="40" step="1" value="0"> <span id="piv_xv">0</span></label>
-      <label>轉軸向前 <input type="range" id="piv_y" min="-60" max="60" step="1" value="0"> <span id="piv_yv">0</span></label>
-      <button id="piv_reset" class="btn sm" style="font-size:12px">還原預設</button>
-      <label>後掠預覽 <input type="range" id="piv_sw" min="-1" max="48" step="1" value="-1"> <span id="piv_swv">依速度</span></label>
-      <div style="color:var(--muted)">轉軸（SH 座標）：<span id="pivpos"></span></div>
-    </div>
     <label class="shrow"><span class="btn sm">載入 .SH 檔<input id="shfile" type="file" accept=".sh,.SH" multiple hidden></span> <span id="shlist"></span></label>
     <label>顏色依 <select id="o_color"><option value="nat">國別（敵我）</option><option value="type">機型</option><option value="cls">類別代碼</option></select></label>
     <label>圖示大小 <input type="range" id="o_size" min="0.4" max="4" step="0.1" value="1"></label>
@@ -638,13 +629,9 @@ function modelFor(name){
 }
 const LIGHT = (() => { const v = [0.35, 0.85, 0.4], l = Math.hypot(...v); return v.map(x => x/l); })();
 // 可變翼：依速度後掠（約 0.4 馬赫以下 20°，0.9 馬赫以上 68°；模型存的是展開 20° 的位置）
-// 轉軸微調（SH 單位，dx = 向外、dy = 向前）；機翼根部跟著轉軸一起移動
-const PIVOT_DEFAULT = {};
-let pivotAdj = {}; try { pivotAdj = JSON.parse(localStorage.getItem("fa_pivot_adj3") || "{}"); } catch(e){}
-const adjOf = k => pivotAdj[k] || PIVOT_DEFAULT[k] || { dx:0, dy:0 };
-const sweepFor = spd => { const ov = +$("piv_sw").value; if (ov >= 0) return ov * Math.PI / 180; const M = spd / 1100; return Math.max(0, Math.min(48, (M - 0.4) / 0.5 * 48)) * Math.PI / 180; };
-function pivotOf(pm, part){ const a = adjOf(pm.key);
-  return [part.pv0[0] + part.side*a.dx*part.sc, part.pv0[1], part.pv0[2] + a.dy*part.sc]; }
+const sweepFor = spd => { const M = spd / 1100; return Math.max(0, Math.min(48, (M - 0.4) / 0.5 * 48)) * Math.PI / 180; };
+// 機翼轉軸 = SH 解析時找到的外翼套外角
+const pivotOf = (pm, part) => part.pv0;
 function sweepPt(w, part, a, pv){   // w = 機翼本地座標（原點 = 轉軸）
   const t = part.side > 0 ? a : -a;
   return [pv[0] + w[0]*Math.cos(t) + w[2]*Math.sin(t), pv[1] + w[1], pv[2] + w[2]*Math.cos(t) - w[0]*Math.sin(t)];
@@ -703,23 +690,6 @@ function fillModelSelect(force){
   $("i_model").innerHTML = `<option value="">自動（${auto}）</option>` + ks.map(k => `<option value="${k}">${k.toUpperCase()}</option>`).join("") + `<option value="-">不用（平面）</option>`;
   $("i_model").value = cur;
 }
-function fillPivot(){
-  const tr = tracks.get(selKey), pm = tr && tr.kind === "aircraft" && $("o_model").value === "3d" ? modelFor(tr.name) : null;
-  $("pivrow").classList.toggle("hide", !(pm && pm.wings)); if (!pm || !pm.wings) return;
-  const a = adjOf(pm.key), part = pm.faces.find(f => f.part && f.part.side > 0)?.part;
-  $("pivname").textContent = pm.key.toUpperCase();
-  if (document.activeElement !== $("piv_x")) $("piv_x").value = a.dx; if (document.activeElement !== $("piv_y")) $("piv_y").value = a.dy;
-  $("piv_xv").textContent = a.dx; $("piv_yv").textContent = a.dy;
-  $("piv_swv").textContent = +$("piv_sw").value < 0 ? "依速度" : (20 + +$("piv_sw").value) + "°";
-  if (part) $("pivpos").textContent = `x ±${part.piv[0] + a.dx}，y ${part.piv[1] + a.dy}`;
-}
-for (const id of ["piv_x","piv_y"]) $(id).oninput = () => { const tr = tracks.get(selKey), pm = tr && modelFor(tr.name); if (!pm) return;
-  pivotAdj[pm.key] = { dx: +$("piv_x").value, dy: +$("piv_y").value };
-  try { localStorage.setItem("fa_pivot_adj3", JSON.stringify(pivotAdj)); } catch(e){}
-  fillPivot(); draw(); };
-$("piv_reset").onclick = () => { const tr = tracks.get(selKey), pm = tr && modelFor(tr.name); if (!pm) return;
-  delete pivotAdj[pm.key]; try { localStorage.setItem("fa_pivot_adj3", JSON.stringify(pivotAdj)); } catch(e){} fillPivot(); draw(); };
-$("piv_sw").oninput = () => { fillPivot(); draw(); };
 $("i_model").onchange = e => { const tr = tracks.get(selKey); if (!tr) return;
   if (e.target.value) modelAlias[tr.name] = e.target.value; else delete modelAlias[tr.name];
   try { localStorage.setItem("fa_model_alias", JSON.stringify(modelAlias)); } catch(err){}
@@ -1134,7 +1104,7 @@ function update(){
     $("i_spd").textContent = `${Math.round(s.spd*3600/6076)} kts`;
     $("i_pit").textContent = `${(s.vp ?? s.pitch).toFixed(1)}°`;
     $("i_hdg").textContent = `${((s.vh ?? s.hdg)+360)%360 | 0}°`;
-    fillModelSelect(); fillPivot();
+    fillModelSelect();
     $("i_nat").textContent = tr.nat != null ? `${natName(tr.nat)}（${tr.nat & 0x80 ? "敵方" : "友方"}）` : "—";
     $("i_hp").textContent = tr.hpMax && s.hp != null ? `${Math.round((1-s.hp/tr.hpMax)*100)}%（${s.hp}/${tr.hpMax}）` : "—";
   } else { $("i_name").textContent = tr ? `${displayName(tr.name)}（不在場）` : "—"; }
