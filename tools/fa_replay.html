@@ -622,7 +622,9 @@ function modelFor(name){
   const faces = m.f.map(idx => mkFace(idx, null));
   for (const pt of m.parts || []){
     // 機翼頂點是以機翼自己的轉軸為原點存的：畫的時候要先搬到外翼套上的轉軸位置
-    const part = { side: pt.side, piv: pt.pivot, sc, pv0: [pt.pivot[0]*sc, (pt.pivot[2]-zc)*sc, (pt.pivot[1]-ym)*sc] };
+    // 使用者微調過的 F-14 SH：機翼再往上、往前一點（只針對 f14）
+    const fix = k === "f14" ? { up: 4, fwd: 6 } : { up: 0, fwd: 0 };
+    const part = { side: pt.side, piv: pt.pivot, sc, pv0: [pt.pivot[0]*sc, (pt.pivot[2]+fix.up-zc)*sc, (pt.pivot[1]+fix.fwd-ym)*sc] };
     for (const idx of pt.f){ const fc = mkFace(idx, part); fc.Lc = fc.P.map(q => [q[0], q[1] + zc*sc, q[2] + ym*sc]); faces.push(fc); }
   }
   pm = { faces, src: m, key: k, wings: (m.parts || []).length > 0 }; preparedModels.set(k, pm); return pm;
