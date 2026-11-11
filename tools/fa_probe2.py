@@ -296,10 +296,14 @@ def cmd_flight(h, hz, out):
                          u16 航向, i16 俯仰, i16 滾轉, i32 速度)          — 索引 0 = 玩家
           b"R" u16 索引, u16 長度, 原始位元組                  — 緊接在 F 之後，每架飛機一筆（找生命值用）
     """
+    # 每一次任務存成一個檔：任務結束回到設定畫面（場景沒有飛機）就關檔，下一次任務開始再開新檔
     names = {}; seen = set(); tdump = set(); t0 = None; n = 0; warned = False; waiting = False
-    print(f"開始錄製到 {out}（{hz} 筆/秒）。關掉遊戲即停止。")
-    with open(out, "wb") as f:
-        f.write(b"FAFLT3")
+    f = None; files = []; base = out
+    def new_name():
+        if base: return base if not files else base.replace(".bin", "") + f"_{len(files) + 1}.bin"
+        return time.strftime("flight_%Y%m%d_%H%M%S.bin")
+    print(f"等待任務開始（{hz} 筆/秒）。每次任務各存一個檔，關掉遊戲即停止。")
+    try:
         while True:
             if read(h, PLAYER, 1) is None: break
             cnt_raw = read(h, OBJ_COUNT, 2)
@@ -313,10 +317,15 @@ def cmd_flight(h, hz, out):
                 if b and struct.unpack_from("<I", b, 1)[0] & 1: objs.append((i, p, b))
             # 還在遊戲設定畫面（場景裡沒有飛機）就不錄，等任務開始
             if not any(b[0] == AIRCRAFT_CLS for _, _, b in objs):
+                if f:
+                    f.close(); f = None
+                    print(f"  任務結束，已存 {files[-1]}（{n} 筆）")
                 if not waiting: print("  等待任務開始（場景裡還沒有飛機）…"); waiting = True
                 time.sleep(0.5); continue
-            if waiting or t0 is None: print("  任務開始，錄製中"); waiting = False
-            if t0 is None: t0 = time.time()
+            if f is None:
+                name = new_name(); files.append(name); f = open(name, "wb"); f.write(b"FAFLT3")
+                names = {}; seen = set(); tdump = set(); _name_cache.clear(); t0 = time.time(); n = 0; warned = False
+                print(f"  任務開始，錄製到 {name}"); waiting = False
             pl = find_player(objs)
             if pl:
                 pi, paddr, pb = pl
@@ -350,7 +359,9 @@ def cmd_flight(h, hz, out):
             if n % int(hz * 5) == 0:
                 f.flush(); print(f"  {time.time() - t0:7.1f}s  {len(objs)} 個物件，{nac} 架飛機")
             time.sleep(1 / hz)
-    print(f"FA.EXE 已結束，共 {n} 筆。用 fa_replay.html 開啟 {out} 播放。")
+    finally:
+        if f: f.close()
+    print(f"FA.EXE 已結束，共錄了 {len(files)} 次任務：" + ("、".join(files) or "（無）") + "。用 fa_replay.html 開啟播放。")
 
 def main():
     ap = argparse.ArgumentParser()
@@ -362,7 +373,7 @@ def main():
                     help="record 模式錄製的範圍（預設 0x800）")
     ap.add_argument("--rec", default="player_rec.bin", help="record / analyze 用的錄製檔")
     ap.add_argument("--report", default="analyze_report.txt")
-    ap.add_argument("--flight", default=None, help="flight 模式輸出檔（預設 flight_年月日_時分秒.bin）")
+    ap.add_argument("--flight", default=None, help="flight 模式輸出檔（預設每次任務一個 flight_年月日_時分秒.bin；指定名稱時第 2 次任務起加 _2、_3）")
     a = ap.parse_args()
     if a.mode == "analyze":
         cmd_analyze(a.rec, a.report); return
@@ -370,7 +381,7 @@ def main():
     try:
         if a.mode == "objects": cmd_objects(h)
         elif a.mode == "log": cmd_log(h, a.hz, a.out, a.events)
-        elif a.mode == "flight": cmd_flight(h, a.hz, a.flight or time.strftime("flight_%Y%m%d_%H%M%S.bin"))
+        elif a.mode == "flight": cmd_flight(h, a.hz, a.flight)
         else: cmd_record(h, a.size, a.hz, a.rec)
     except KeyboardInterrupt:
         pass

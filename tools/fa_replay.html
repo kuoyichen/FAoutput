@@ -37,6 +37,7 @@ canvas:active{cursor:grabbing}
 #drop{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;pointer-events:none;text-align:center;padding:20px;color:#3a2a18}
 #drop b{font-size:18px}
 #drop.hide{display:none}
+#mission.hide{display:none}
 #hint{position:absolute;right:12px;bottom:10px;color:rgba(40,25,10,.7);font-size:11px;pointer-events:none;text-align:right}
 
 /* 下方播放列 */
@@ -162,6 +163,7 @@ aside .btn.sm{padding:2px 8px;font-size:12px;cursor:pointer}
   </select>
   <div id="tl"><div id="marks"></div><input id="seek" type="range" min="0" max="1000" step="1" value="0"></div>
   <span id="time">0:00.0 / 0:00.0</span>
+  <select id="mission" class="hide" title="這個檔案裡錄到好幾次任務，選擇要播放哪一次"></select>
   <span id="fname">尚未載入</span>
   <button id="reset" title="重設視角">重設</button>
   <button id="sidebtn" class="on" title="顯示 / 隱藏右側面板">面板</button>
@@ -325,12 +327,33 @@ const MISSILE_RE = /AIM|AGM|MISS|SAM|SA-|AA-|R-\d|ROCKET|BOMB|MK\d|GBU|HARM|MAV/
 const dist3 = (a,b) => Math.hypot(a.x-b.x, a.y-b.y, a.z-b.z);
 
 const HP_OFF = 0x0E;   // 飛機物件 +0x0E：u16 生命值（B-52 / F-14 滿血 270）
+// 一個檔案裡可能有好幾次任務（舊版錄製程式回到設定畫面時不換檔）：
+// 沒有飛機的影格 = 設定畫面；時間跳超過 3 秒 = 中間暫停過。依此切成幾段，各自當作獨立任務播放。
+function splitMissions(frames){
+  const hasAc = f => [...f.objs.values()].some(o => o.cls === 4 && (o.x || o.y || o.z));
+  const segs = []; let cur = null, prevT = null;
+  for (const f of frames){
+    const ac = hasAc(f);
+    if (!ac || (prevT != null && f.t - prevT > 3)){ if (cur && cur.length > 1) segs.push(cur); cur = null; }
+    if (ac){ (cur ??= []).push(f); prevT = f.t; } else prevT = null;
+  }
+  if (cur && cur.length > 1) segs.push(cur);
+  return segs;
+}
+let loadedName = "";
 function load(buf, name){
   try { data = parse(buf); } catch(e){ alert(e.message); return; }
   if (!data.frames.length){ alert("檔案裡沒有資料"); return; }
-  // 開頭還在遊戲設定畫面（沒有飛機）的部分不播放
-  const first = data.frames.findIndex(f => [...f.objs.values()].some(o => o.cls === 4 && (o.x || o.y || o.z)));
-  if (first > 0) data.frames = data.frames.slice(first);
+  data.segs = splitMissions(data.frames);
+  if (!data.segs.length){ alert("檔案裡沒有任務資料（全部都在設定畫面）"); return; }
+  loadedName = name;
+  $("mission").innerHTML = data.segs.map((sg, i) => `<option value="${i}">任務 ${i+1}（${Math.round(sg[sg.length-1].t - sg[0].t)} 秒）</option>`).join("");
+  $("mission").classList.toggle("hide", data.segs.length < 2);
+  buildMission(0);
+}
+function buildMission(k){
+  data.frames = data.segs[k]; const name = loadedName + (data.segs.length > 1 ? ` · 任務 ${k+1}/${data.segs.length}` : "");
+  $("mission").value = k;
   const fr = data.frames;
   T0 = fr[0].t; T1 = fr[fr.length-1].t; now = T0;
   tracks.clear(); hidden.clear();
@@ -1152,6 +1175,7 @@ function resetView(){
 }
 function setView(m){ viewMode = m; $("viewmode").textContent = { follow:"跟隨視角", free:"自由視角", group:"群組視角" }[m]; draw(); }
 
+$("mission").onchange = e => { if (data) buildMission(+e.target.value); };
 $("file").onchange = e => { const f = e.target.files[0]; if (f) f.arrayBuffer().then(b=>load(b,f.name)); };
 const view = $("view");
 view.addEventListener("dragover", e=>e.preventDefault());
