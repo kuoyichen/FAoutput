@@ -8,7 +8,7 @@
 :root{
   --bg:#0e1116; --panel:#161b22; --panel2:#1d232c; --line:#2b333f; --text:#d7dde5; --muted:#8b96a5;
   --accent:#f2c14e; --enemy:#ef6b5b; --friend:#5ab0f0; --static:#7f8c99; --missile:#ffffff; --ok:#5fd38d;
-  --grid:#232b36; --grid2:#2f3a48;
+  --grid:#232b36; --gun:#ffb347; --grid2:#2f3a48;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}
@@ -32,6 +32,9 @@ aside h2:first-child{margin-top:2px}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px}
 .kv span:nth-child(odd){color:var(--muted)}
 .kv span:nth-child(even){text-align:right;font-variant-numeric:tabular-nums}
+.bar{position:relative;height:8px;margin-top:8px;border-radius:4px;background:var(--panel2);border:1px solid var(--line);overflow:hidden}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);opacity:.35}
+.bar b{position:absolute;left:0;top:2px;height:2px;background:var(--accent)}
 .chips{display:flex;flex-wrap:wrap;gap:5px}
 .chip{padding:2px 8px;border-radius:10px;border:1px solid var(--line);color:var(--muted)}
 .chip.on{border-color:var(--ok);color:var(--ok)}
@@ -82,7 +85,9 @@ footer{grid-column:1;display:flex;align-items:center;gap:10px;padding:8px 14px;b
     <span>速度</span><span id="p_spd">—</span>
     <span>航向</span><span id="p_hdg">—</span>
     <span>俯仰 / 滾轉</span><span id="p_att">—</span>
+    <span>油門 / 推力</span><span id="p_thr">—</span>
   </div>
+  <div class="bar" title="油門"><i id="thr_bar"></i><b id="rpm_bar"></b></div>
   <h2>操縱面</h2>
   <div class="chips">
     <span class="chip" id="c_gear">起落架</span><span class="chip" id="c_flaps">襟翼</span>
@@ -127,11 +132,11 @@ const STATIONS = 8, STN_STRIDE = 0x11;
 function parse(buf){
   const dv = new DataView(buf), u8 = new Uint8Array(buf);
   const magic = String.fromCharCode(...u8.slice(0,6));
-  if (magic === "FAFLT1") return parseFlight(dv, u8);
+  if (magic === "FAFLT1" || magic === "FAFLT2") return parseFlight(dv, u8, magic === "FAFLT2");
   if (magic === "FAREC1" || magic === "FAREC2") return parseRec(dv, u8, magic);
   throw new Error("不認得的檔案格式：" + magic);
 }
-function parseFlight(dv, u8){
+function parseFlight(dv, u8, v2){
   const names = []; const frames = []; let p = 6;
   while (p < u8.length){
     const tag = u8[p++];
@@ -140,9 +145,10 @@ function parseFlight(dv, u8){
       const id = dv.getUint16(p,true), len = u8[p+2]; p += 3;
       names[id] = String.fromCharCode(...u8.slice(p,p+len)); p += len;
     } else if (tag === 0x46){ // F
-      const hdr = 8+3+16+2; if (p + hdr > u8.length) break;
+      const hdr = 8+3+(v2?2:0)+16+2; if (p + hdr > u8.length) break;
       const t = dv.getFloat64(p,true); p += 8;
       const c1 = u8[p], c2 = u8[p+1], sel = u8[p+2]; p += 3;
+      let thr = null, rpm = null; if (v2){ thr = u8[p]; rpm = u8[p+1]; p += 2; }
       const stn = []; for (let k=0;k<STATIONS;k++){ stn.push(dv.getUint16(p,true)); p += 2; }
       const n = dv.getUint16(p,true); p += 2;
       if (p + n*27 > u8.length) break;
@@ -155,7 +161,7 @@ function parseFlight(dv, u8){
           roll: dv.getInt16(p+21,true)/65536*360, spd: dv.getInt32(p+23,true)/256 };
         objs.set(idx, o); p += 27;
       }
-      frames.push({ t, c1, c2, sel, stn, objs });
+      frames.push({ t, c1, c2, sel, thr, rpm, stn, objs });
     } else break;
   }
   return { kind:"flight", frames };
@@ -175,6 +181,7 @@ function parseRec(dv, u8, magic){
       roll: dv.getInt16(b+0x21,true)/65536*360, spd: dv.getInt32(b+0x34,true)/256 };
     const stn = []; for (let k=0;k<STATIONS;k++) stn.push(hasAct ? dv.getUint16(b+0x2EE+k*STN_STRIDE,true) : 0);
     frames.push({ t, c1: hasAct?u8[b+0x16F]:0, c2: hasAct?u8[b+0x170]:0, sel: hasAct?u8[b+0x11C]:0, stn,
+                  thr: size > 0x1F4 ? u8[b+0x1F4] : null, rpm: size > 0x1EF ? u8[b+0x1EF] : null,
                   objs: new Map([[0,o]]) });
     pos += rec;
   }
@@ -218,6 +225,8 @@ const stnName = k => k===0 ? "機砲" : `掛點${k}`;
 let data = null, events = [], T0 = 0, T1 = 0, now = 0, playing = false, playerName = "玩家";
 const trails = new Map(); // idx -> {name, pts:[{t,x,y,z}]}
 const staticSet = new Set();
+let gunShots = [];
+const BULLET_FPS = 3300, BULLET_LIFE = 1.4;
 const cam = { yaw: -0.6, pitch: 0.45, dist: 30000, cx:0, cy:0, cz:0, fov: 900 };
 
 function load(buf, name){
@@ -238,6 +247,18 @@ function load(buf, name){
     else if (Math.abs(f0.x-o.x)+Math.abs(f0.y-o.y)+Math.abs(f0.z-o.z) > 30) moved.add(key);
   }
   for (const k of trails.keys()) if (!moved.has(k)) staticSet.add(k);
+  // 機砲射擊：掛點 0 數量減少的每一筆
+  gunShots = [];
+  for (let i=1;i<fr.length;i++){
+    const d = fr[i-1].stn[0] - fr[i].stn[0], p = fr[i].objs.get(0), q = fr[i-1].objs.get(0);
+    if (!(d>0 && d<1000) || !p || !q) continue;
+    const dt = Math.max(1e-3, fr[i].t - fr[i-1].t);
+    let vx=(p.x-q.x)/dt, vy=(p.y-q.y)/dt, vz=(p.z-q.z)/dt, m=Math.hypot(vx,vy,vz);
+    let ux, uy, uz;
+    if (m > 20){ ux=vx/m; uy=vy/m; uz=vz/m; }
+    else { const h=p.hdg*Math.PI/180, pt=p.pitch*Math.PI/180; ux=Math.sin(h)*Math.cos(pt); uy=Math.sin(pt); uz=Math.cos(h)*Math.cos(pt); }
+    gunShots.push({ t:fr[i].t, dur:dt, x:p.x, y:p.y, z:p.z, ux, uy, uz, vx, vy, vz });
+  }
   document.getElementById("fname").textContent = `${name}　·　${fr.length} 筆　·　${(T1-T0).toFixed(1)} 秒　·　${data.kind==="flight"?"所有物件":"只有玩家"}`;
   document.getElementById("drop").classList.add("hide");
   resetView(); renderEvents(); renderMarks(); update();
@@ -310,10 +331,15 @@ function rotate(v, hdg, pitch, roll){ // 機體座標 → 世界：先滾轉(z) 
   let x3 = x*Math.cos(h) + z*Math.sin(h), z3 = -x*Math.sin(h) + z*Math.cos(h);
   return [x3, y, z3];
 }
+function isMissile(o){
+  if (o.idx===0 || o.static) return false;
+  return /AIM|AGM|MISS|SAM|SA-|AA-|R-\d|ROCKET|BOMB|MK\d|GBU/i.test(o.name) ||
+         (o.cls !== playerCls() && o.spd > 1100*6076/3600);
+}
 function colorFor(o){
   if (o.idx===0) return getCss("--accent");
   if (o.static) return getCss("--static");
-  if (o.spd > 1100*6076/3600 || /AIM|AGM|MISS|SAM|SA-|AA-|BOMB|MK/i.test(o.name)) return getCss("--missile");
+  if (isMissile(o)) return getCss("--missile");
   if (o.cls === playerCls()) return getCss("--enemy");
   return getCss("--friend");
 }
@@ -366,7 +392,13 @@ function draw(){
     if (dropOn && !o.static && o.y > 1) line3([o.x,o.y,o.z],[o.x,0,o.z],"rgba(150,160,175,0.25)");
     // 圖示大小：隨距離放大，保持畫面上可見
     const L = Math.max(60, c[2]*0.028) * size * (o.idx===0?1.25:1);
-    if (o.static){
+    if (isMissile(o)){
+      // 飛彈：較長的粗線條，沿移動方向
+      const hdg = o.vhdg ?? o.hdg, pit = o.vpitch ?? o.pitch;
+      const r = rotate([0,0,1],hdg,pit,0), ML = L*2.4;
+      line3([o.x-r[0]*ML, o.y-r[1]*ML, o.z-r[2]*ML],[o.x,o.y,o.z], col, 3.5);
+      const ph = proj(c); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(ph[0],ph[1],2.5,0,7); ctx.fill();
+    } else if (o.static){
       const p = proj(c); const s = Math.max(3, 5*size);
       ctx.fillStyle = col; ctx.globalAlpha = .8; ctx.fillRect(p[0]-s/2,p[1]-s/2,s,s); ctx.globalAlpha = 1;
     } else {
@@ -386,8 +418,23 @@ function draw(){
     if (labelOn && (!o.static || items.length < 60)){
       const p = proj(c); ctx.fillStyle = o.idx===0 ? col : "rgba(215,221,229,.75)";
       ctx.font = (o.idx===0?"600 ":"")+"11px system-ui";
-      ctx.fillText(o.idx===0 ? `${o.name}  ${Math.round(o.y)} ft` : o.name, p[0]+8, p[1]-6);
+      ctx.fillText(o.idx===0 ? `${o.name}  ${Math.round(o.y)} ft  ${Math.round(o.spd*3600/6076)} kts` : o.name, p[0]+8, p[1]-6);
     }
+  }
+  // 機砲：短短的連續線段
+  if (gunShots.length){
+    const seg = Math.max(40, cam.dist*0.006) * size, col = getCss("--gun");
+    for (const g of gunShots){
+      const age0 = now - g.t; if (age0 < 0 || age0 > BULLET_LIFE + g.dur) continue;
+      const nb = 4; // 每筆紀錄期間畫 4 顆曳光彈
+      for (let k=0;k<nb;k++){
+        const age = age0 + g.dur*(k/nb); if (age < 0 || age > BULLET_LIFE) continue;
+        const bx = g.x + (g.vx + g.ux*BULLET_FPS)*age, by = g.y + (g.vy + g.uy*BULLET_FPS)*age, bz = g.z + (g.vz + g.uz*BULLET_FPS)*age;
+        ctx.globalAlpha = 1 - age/BULLET_LIFE*0.7;
+        line3([bx-g.ux*seg, by-g.uy*seg, bz-g.uz*seg],[bx,by,bz], col, 2);
+      }
+    }
+    ctx.globalAlpha = 1;
   }
 }
 
@@ -405,6 +452,8 @@ function update(){
     $("p_spd").textContent = `${Math.round(p.spd*3600/6076)} kts`;
     $("p_hdg").textContent = `${Math.round((p.hdg+360)%360)}°`;
     $("p_att").textContent = `${p.pitch.toFixed(0)}° / ${p.roll.toFixed(0)}°`;
+    $("thr_bar").style.width = (a.thr ?? 0) + "%"; $("rpm_bar").style.width = (a.rpm ?? 0) + "%";
+    $("p_thr").textContent = a.thr == null ? "—" : `${a.thr}% / ${a.rpm}%`;
   }
   for (const [k,f,bit] of BITS) $("c_"+k).classList.toggle("on", !!(a[f]&bit));
   const sel = a.sel - 3;

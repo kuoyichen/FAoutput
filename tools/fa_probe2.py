@@ -136,6 +136,8 @@ STATION_STRIDE = 0x11     # 掛點 0 = 機砲（675 發，每 0.2 秒約 14 發�
 STATIONS = 8
 SELECT_ADDR = 0x50CF9C    # 目前選擇的武器：值 - 3 = 掛點編號（3 = 機砲，[ ] 切換，空掛點會被跳過）
 SELECT_OFFSET = 3
+THROTTLE_ADDR = 0x50D074  # 油門設定 %（第一次錄製時 100->68->58->44->41，0x50D072 同步）【候選，待確認】
+RPM_ADDR = 0x50D06F       # 引擎實際推力 %（緩慢跟隨油門變化）【候選，待確認】
 
 ACT_BITS = [("gear", CTRL1_ADDR, 0x40, "起落架"), ("brake", CTRL1_ADDR, 0x80, "煞車"),
             ("flaps", CTRL2_ADDR, 0x01, "襟翼"), ("hook", CTRL2_ADDR, 0x04, "捕捉勾")]
@@ -264,21 +266,22 @@ def cmd_analyze(path, report):
     print(txt); print(f"\n已寫入 {report}，把這個檔案傳給 Claude 即可。")
 
 def cmd_flight(h, hz, out):
-    """錄製播放器用的 .bin（FAFLT1）：所有物件 + 玩家動作。格式見 replay/README 或 fa_replay.html。
+    """錄製播放器用的 .bin（FAFLT2）：所有物件 + 玩家動作。格式見 replay/README 或 fa_replay.html。
 
-    檔頭  b"FAFLT1"
+    檔頭  b"FAFLT2"（FAFLT1 相同但 F 區塊沒有油門 / 推力兩個位元組）
     區塊  b"N" u16 名稱編號, u8 長度, 名稱(latin1)             — 新類型名稱第一次出現時
-          b"F" f64 時間, u8 ctrl1, u8 ctrl2, u8 選擇值, u16 掛點數量[8], u16 物件數,
+          b"F" f64 時間, u8 ctrl1, u8 ctrl2, u8 選擇值, u8 油門%, u8 推力%, u16 掛點數量[8], u16 物件數,
                物件數 × (u16 索引, u8 類別, u16 名稱編號, i32 x, i32 y, i32 z,
                          u16 航向, i16 俯仰, i16 滾轉, i32 速度)          — 原始定點值
     """
     names = {}; t0 = time.time(); n = 0
     print(f"開始錄製到 {out}（{hz} 筆/秒）。關掉遊戲即停止。")
     with open(out, "wb") as f:
-        f.write(b"FAFLT1")
+        f.write(b"FAFLT2")
         while True:
             pb = read(h, PLAYER, OBJ_READ)
             ctl = read(h, CTRL1_ADDR, 2); sel = read(h, SELECT_ADDR, 1)
+            thr = read(h, THROTTLE_ADDR, 1) or b"\0"; rpm = read(h, RPM_ADDR, 1) or b"\0"
             st = read(h, STATION_BASE, STATION_STRIDE * STATIONS)
             if not (pb and ctl and sel and st): break
             objs = [(0, pb)]
@@ -299,7 +302,7 @@ def cmd_flight(h, hz, out):
                     f.write(b"N" + struct.pack("<HB", names[nm], len(e)) + e)
                 body += struct.pack("<HBH", i, b[0], names[nm]) + b[0x11:0x23] + b[0x34:0x38]
             stn = [struct.unpack_from("<H", st, k * STATION_STRIDE)[0] for k in range(STATIONS)]
-            f.write(b"F" + struct.pack("<dBBB8HH", time.time() - t0, ctl[0], ctl[1], sel[0], *stn, len(objs)) + body)
+            f.write(b"F" + struct.pack("<dBBBBB8HH", time.time() - t0, ctl[0], ctl[1], sel[0], thr[0], rpm[0], *stn, len(objs)) + body)
             n += 1
             if n % int(hz * 5) == 0:
                 f.flush(); print(f"  {time.time() - t0:7.1f}s  {len(objs)} 個物件")
