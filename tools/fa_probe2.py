@@ -73,9 +73,18 @@ def read(h, addr, n):
 
 _name_cache = {}
 def type_name(h, tptr):
-    """類型名稱：目前還不知道名稱存在類型定義的哪裡，先用類型定義位址當作代號（T1429C388）。"""
+    """類型名稱：類型定義 +5 是指向名稱字串的指標（短名稱 "F-14"，後面接長名稱 "F-14A Tomcat"）。
+    讀不到時用類型定義位址當作代號（T1429C388）。"""
     if tptr in _name_cache: return _name_cache[tptr]
     name = f"T{tptr:08X}"
+    hdr = read(h, tptr, 9) if tptr else None
+    if hdr and len(hdr) == 9:
+        sp, = struct.unpack_from("<I", hdr, 5)
+        txt = read(h, sp, 48) if sp else None
+        if txt:
+            short = txt.split(b"\0")[0]
+            if 1 < len(short) < 32 and all(0x20 <= c < 0x7F for c in short):
+                name = short.decode("ascii")
     _name_cache[tptr] = name
     return name
 

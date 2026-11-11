@@ -102,6 +102,7 @@ aside h2:first-child{margin-top:2px}
       <span>速度</span><span id="i_spd">—</span>
       <span>俯仰</span><span id="i_pit">—</span>
       <span>航向</span><span id="i_hdg">—</span>
+      <span>生命值</span><span id="i_hp">—</span>
     </div>
   </div>
   <div class="ov" id="legend"><div class="t">顏色代碼</div><div id="legitems"></div></div>
@@ -119,6 +120,7 @@ aside h2:first-child{margin-top:2px}
     <span>航向</span><span id="p_hdg">—</span>
     <span>俯仰 / 滾轉</span><span id="p_att">—</span>
     <span>油門 / 推力</span><span id="p_thr">—</span>
+    <span>生命值</span><span id="p_hp">—</span>
   </div>
   <div class="bar" title="油門（淡）/ 推力（線）"><i id="thr_bar"></i><b id="rpm_bar"></b></div>
   <h2>操縱面</h2>
@@ -214,6 +216,13 @@ function parseFlight(dv, u8, ver){
   }
   const d = { kind:"flight", ver, frames, raws, types };
   if (ver < 3) fixOldPlayer(d);
+  // 類型定義 +5 是名稱字串指標；字串剛好在傾印範圍內時就能直接讀出（例如 AIM-9L、Pilot）
+  const real = new Map();
+  for (const [ptr, b] of types){ if (b.length < 9) continue;
+    const off = (b[5] | b[6]<<8 | b[7]<<16 | b[8]<<24) - ptr;
+    if (off >= 9 && off < b.length){ let e = off; while (e < b.length && b[e]) e++; const nm = str(b, off, e);
+      if (/^[\x20-\x7e]{2,31}$/.test(nm)) real.set("T" + ptr.toString(16).toUpperCase().padStart(8,"0"), nm); } }
+  if (real.size) for (const f of frames) for (const o of f.objs.values()){ const r = real.get(o.name); if (r) o.name = r; }
   return d;
 }
 // 舊版錄製（FAFLT1/2）的索引 0 是 0x50CE80 工作副本，常常其實是別架飛機。
@@ -277,7 +286,7 @@ function shapeFor(name){
 }
 
 // ================= 狀態 =================
-let data = null, events = [], T0 = 0, T1 = 0, now = 0, playing = false;
+let hasHp = false, data = null, events = [], T0 = 0, T1 = 0, now = 0, playing = false;
 const tracks = new Map();   // key -> {key, idx, name, cls, kind, pts:[...]}
 let gunShots = [], hits = [], kills = [], selKey = null, playerKey = null, playerCls = 4;
 let viewMode = "follow";
@@ -290,6 +299,7 @@ const keyOf = o => o.idx + "|" + o.name;
 const MISSILE_RE = /AIM|AGM|MISS|SAM|SA-|AA-|R-\d|ROCKET|BOMB|MK\d|GBU|HARM|MAV/i;
 const dist3 = (a,b) => Math.hypot(a.x-b.x, a.y-b.y, a.z-b.z);
 
+const HP_OFF = 0x0E;   // 飛機物件 +0x0E：u16 生命值（B-52 / F-14 滿血 270）
 function load(buf, name){
   try { data = parse(buf); } catch(e){ alert(e.message); return; }
   if (!data.frames.length){ alert("檔案裡沒有資料"); return; }
@@ -297,9 +307,12 @@ function load(buf, name){
   T0 = fr[0].t; T1 = fr[fr.length-1].t; now = T0;
   tracks.clear(); hidden.clear();
   for (const f of fr) for (const [idx,o] of f.objs){
+    if (idx === 0 && o.x === 0 && o.y === 0 && o.z === 0){ f.objs.delete(0); continue; }   // 任務開始前玩家還沒放進場景
     const key = keyOf(o); let tr = tracks.get(key);
     if (!tr){ tr = { key, idx, name:o.name, cls:o.cls, pts:[] }; tracks.set(key, tr); }
-    tr.pts.push({ t:f.t, x:o.x, y:o.y, z:o.z, hdg:o.hdg, pitch:o.pitch, roll:o.roll, spd:o.spd });
+    const rw = f.raw?.get(idx), hp = rw && rw.length > 0x10 ? rw[HP_OFF] | rw[HP_OFF+1]<<8 : null;
+    tr.pts.push({ t:f.t, x:o.x, y:o.y, z:o.z, hdg:o.hdg, pitch:o.pitch, roll:o.roll, spd:o.spd, hp });
+    if (hp != null) tr.hpMax = Math.max(tr.hpMax || 0, hp);
   }
   const p0 = fr.find(f=>f.objs.get(0))?.objs.get(0);
   playerKey = p0 ? keyOf(p0) : null; playerCls = p0?.cls ?? 4; selKey = playerKey;
@@ -326,6 +339,7 @@ function load(buf, name){
       // 類別 6 = 射出物：一出現就是固定高速（約 2000~2300 ft/s）的是機砲彈，其餘是飛彈
       tr.kind = (tr.pts[0].spd >= 1800 && smax - smin < 400) ? "bullet" : "missile";
     }
+    else if (tr.cls === 2 && /pilot|eject/i.test(tr.name)) tr.kind = "pilot";
     else if (tr.cls === 2 && tr.t0 > T0 + 2) tr.kind = "debris";
     else if (vmax > 1100*6076/3600) tr.kind = "missile";
     else tr.kind = "ground";
@@ -345,18 +359,35 @@ function load(buf, name){
     for (const a of aircraft){ if (a.key===tr.shooter) continue; const s = posAt(a, e.t); if (s){ const d = dist3(s,e); if (d<bd){ bd=d; best=a; } } }
     if (best && bd < R){ hits.push({ t:e.t, key:best.key, by:tr.kind, shooter:tr.shooter, x:e.x, y:e.y, z:e.z }); }
   }
+  // 有生命值資料（FAFLT3）：生命值下降就是被擊中，用附近消失的射出物判斷是飛彈還是機砲
+  hasHp = aircraft.some(a => a.hpMax);
+  if (hasHp){
+    hits = [];
+    const shots = [...tracks.values()].filter(t => (t.kind==="bullet" || t.kind==="missile") && t.t1 < T1 - 0.3);
+    for (const a of aircraft){ let prev = null;
+      for (const p of a.pts){ if (p.hp == null) continue;
+        if (prev != null && p.hp < prev){
+          let g = null, gd = Infinity;
+          for (const q of shots){ if (q.shooter===a.key || q.t1 < p.t - 1.5 || q.t1 > p.t + 0.5) continue;
+            const e = q.pts[q.pts.length-1], s2 = posAt(a, e.t); if (!s2) continue; const d = dist3(s2, e); if (d < 3000 && d < gd){ gd = d; g = q; } }
+          hits.push({ t:p.t, key:a.key, by:g?.kind ?? null, wpn:g && printable(g.name) ? g.name : null, shooter:g?.shooter ?? null, hp:p.hp, max:a.hpMax, dmg:prev - p.hp });
+        }
+        prev = p.hp; } }
+  }
   hits.sort((a,b)=>a.t-b.t);
   // 擊毀：殘骸（類別 2，任務中途出現）在某架飛機旁出現；或飛機墜地
   kills = [];
-  for (const tr of tracks.values()) if (tr.kind==="debris"){
+  if (hasHp) for (const a of aircraft){ const z = a.pts.find((p,j) => p.hp === 0 && j > 0 && a.pts[j-1].hp > 0);
+    if (z) kills.push({ t:z.t, key:a.key, x:z.x, y:z.y, z:z.z, parts:[] }); }
+  for (const tr of [...tracks.values()].filter(t=>t.kind==="debris").sort((a,b)=>a.t0-b.t0)){
     let best=null, bd=Infinity; for (const a of aircraft){ const s = posAt(a, tr.t0); if (s){ const d = dist3(s,tr.pts[0]); if (d<bd){ bd=d; best=a; } } }
     if (!best || bd >= 2500) continue;
     let k = kills.find(k=>k.key===best.key);
-    if (!k){ const s = posAt(best, tr.t0); k = { t:tr.t0, key:best.key, x:s.x, y:s.y, z:s.z, parts:[] }; kills.push(k); }
-    if (tr.t0 - k.t < 8){ tr.parent = best.key; tr.half = k.parts.length % 2; k.parts.push(tr.key); best.split = true; }
+    if (!k && !hasHp){ const s = posAt(best, tr.t0); k = { t:tr.t0, key:best.key, x:s.x, y:s.y, z:s.z, parts:[] }; kills.push(k); }
+    if (k && tr.t0 - k.t > -1 && tr.t0 - k.t < 8){ tr.parent = best.key; tr.half = k.parts.length % 2; k.parts.push(tr.key); best.split = true; }
   }
   // 直接消失：飛機在錄製結束前不見，且消失前 3 秒內被擊中
-  for (const a of aircraft) if (!kills.some(k=>k.key===a.key) && a.t1 < T1 - 0.5 && hits.some(h=>h.key===a.key && h.t <= a.t1 + 0.3 && a.t1 - h.t < 3)){
+  for (const a of aircraft) if (!hasHp && !kills.some(k=>k.key===a.key) && a.t1 < T1 - 0.5 && hits.some(h=>h.key===a.key && h.t <= a.t1 + 0.3 && a.t1 - h.t < 3)){
     const l = a.pts[a.pts.length-1]; kills.push({ t:l.t, key:a.key, x:l.x, y:l.y, z:l.z, vanish:true }); }
   for (const a of aircraft){ const l = a.pts[a.pts.length-1];
     if (!kills.some(k=>k.key===a.key) && l.y < 30 && a.pts.some(p=>p.y > 500) && l.spd > 150) kills.push({ t:l.t, key:a.key, x:l.x, y:l.y, z:l.z, crash:true }); }
@@ -409,10 +440,12 @@ function buildEvents(fr){
   for (const g of gunShots){ ev.push({ t:g.t, text:"機砲", kind:"gun" }); }
   // 擊中與擊毀（同一架飛機 0.5 秒內的多次擊中合併）
   let lastHit = {};
+  const hitText = (h, n) => `${label(h.key)} 被${h.wpn ? " "+h.wpn+" " : h.by==="missile"?"飛彈":h.by==="bullet"?"機砲":""}擊中${n>1?" ×"+n:""}${h.hp!=null?`（生命 ${Math.round(h.hp/h.max*100)}%）`:""}`;
   for (const h of hits){
-    const L = lastHit[h.key]; if (L && h.t - L.t < 0.6){ L.n++; L.text = `${label(h.key)} 被${h.by==="missile"?"飛彈":"機砲"}擊中 ×${L.n}`; continue; }
-    const e = { t:h.t, n:1, text:`${label(h.key)} 被${h.by==="missile"?"飛彈":"機砲"}擊中`, kind:"hit" }; ev.push(e); lastHit[h.key] = e;
+    const L = lastHit[h.key]; if (L && h.t - L.tl < 0.8){ L.n++; L.tl = h.t; if (!L.h.by) L.h = { ...L.h, by:h.by, wpn:h.wpn }; L.text = hitText({ ...h, by:L.h.by, wpn:L.h.wpn }, L.n); continue; }
+    const e = { t:h.t, tl:h.t, n:1, h, text:hitText(h,1), kind:"hit" }; ev.push(e); lastHit[h.key] = e;
   }
+  for (const tr of tracks.values()) if (tr.kind==="pilot") ev.push({ t:tr.t0, text:"🪂 飛行員跳傘", kind:"ctl" });
   for (const k of kills) ev.push({ t:k.t, text:`💥 ${label(k.key)} ${k.crash?"墜毀":"被擊毀"}${k.parts?.length>1?"（斷成兩截）":k.vanish?"（消失）":""}`, kind:"kill" });
   if (gunShots.length){ // 合併推算的機砲事件
     const out = []; for (const e of ev.sort((a,b)=>a.t-b.t)){ const l = out[out.length-1];
@@ -427,11 +460,12 @@ function groupOf(tr){
   if (tr.kind==="missile") return "飛彈";
   if (tr.kind==="bullet") return "機砲彈";
   if (tr.kind==="debris") return "殘骸";
+  if (tr.kind==="pilot") return "跳傘飛行員";
   if (tr.kind==="static") return "靜止物件";
   if (tr.kind==="ground") return "地面 / 水面";
   return $("o_color").value === "cls" ? `類別 ${tr.cls}` : displayName(tr.name);
 }
-const FIXED = { "飛彈":"#ffffff", "機砲彈":"#fff1a8", "殘骸":"#5a4a3a", "靜止物件":"#7d7468", "地面 / 水面":"#3d6b52" };
+const FIXED = { "飛彈":"#ffffff", "機砲彈":"#fff1a8", "殘骸":"#5a4a3a", "跳傘飛行員":"#f4f1e8", "靜止物件":"#7d7468", "地面 / 水面":"#3d6b52" };
 let groupColor = new Map();
 function buildLegend(){
   groupColor = new Map();
@@ -441,7 +475,7 @@ function buildLegend(){
   let ci = 0;
   for (const g of groups.keys()) groupColor.set(g, FIXED[g] || PALETTE[ci++ % PALETTE.length]);
   $("legitems").innerHTML = [...groups].map(([g,n]) => {
-    const light = ["飛彈","機砲彈"].includes(g);
+    const light = ["飛彈","機砲彈","跳傘飛行員"].includes(g);
     const ren = rawOf.has(g) && $("o_color").value==="type" ? `<span class="ren" data-raw="${encodeURIComponent(rawOf.get(g))}" title="改機型名稱">✎</span>` : "";
     return `<div class="it${hidden.has(g)?" off":""}" data-g="${encodeURIComponent(g)}" style="background:${groupColor.get(g)}${light?";color:#222;text-shadow:none":""}">${g}${ren}<span style="margin-left:auto;opacity:.85">${n}</span></div>`; }).join("");
   document.querySelectorAll("#legend .it").forEach(el => el.onclick = ev => {
@@ -463,7 +497,7 @@ function sampleTrack(tr, t){
   const a = tr.pts[i], b = tr.pts[Math.min(i+1, tr.pts.length-1)];
   if (b.t - a.t > 2) return t - a.t < 0.5 ? { ...a } : null;
   const f = b.t>a.t ? Math.min(1, Math.max(0,(t-a.t)/(b.t-a.t))) : 0;
-  return { x:a.x+(b.x-a.x)*f, y:a.y+(b.y-a.y)*f, z:a.z+(b.z-a.z)*f,
+  return { hp:a.hp, x:a.x+(b.x-a.x)*f, y:a.y+(b.y-a.y)*f, z:a.z+(b.z-a.z)*f,
     hdg:lerpAng(a.hdg,b.hdg,f), pitch:lerpAng(a.pitch,b.pitch,f), roll:lerpAng(a.roll,b.roll,f), spd:a.spd+(b.spd-a.spd)*f,
     vh: a.vh!=null && b.vh!=null ? lerpAng(a.vh,b.vh,f) : a.vh, vp: a.vp!=null && b.vp!=null ? a.vp+(b.vp-a.vp)*f : a.vp };
 }
@@ -696,6 +730,13 @@ function draw(){
       const r = rotate([0,0,1], s.vh ?? s.hdg, s.vp ?? s.pitch, 0), ML = L*2.6;
       line3([s.x-r[0]*ML, s.y-r[1]*ML, s.z-r[2]*ML],[s.x,s.y,s.z], "#fff", 4);
       line3([s.x-r[0]*ML, s.y-r[1]*ML, s.z-r[2]*ML],[s.x-r[0]*ML*0.55, s.y-r[1]*ML*0.55, s.z-r[2]*ML*0.55], "#ff5a3c", 4);
+    } else if (tr.kind==="pilot"){
+      // 降落傘：傘蓋 + 傘繩 + 人
+      const k = Math.max(7, 9*size), cy = ps[1] - k*1.6;
+      ctx.fillStyle = "#f4f1e8"; ctx.strokeStyle = "rgba(60,40,20,.8)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(ps[0], cy, k, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); for (const dx of [-k, -k/3, k/3, k]){ ctx.moveTo(ps[0]+dx, cy); ctx.lineTo(ps[0], ps[1]); } ctx.stroke();
+      ctx.fillStyle = "#3a2a1a"; ctx.beginPath(); ctx.arc(ps[0], ps[1], 2.5, 0, 7); ctx.fill();
     } else if (tr.kind==="static" || tr.kind==="debris" || tr.kind==="ground"){
       const k = Math.max(3, (tr.kind==="debris"?4:5)*size); ctx.fillStyle = col; ctx.fillRect(ps[0]-k/2, ps[1]-k/2, k, k);
       if (tr.kind==="debris"){ continue; }
@@ -730,6 +771,9 @@ function draw(){
     if (labelOn && tr.kind==="aircraft"){
       ctx.font = "600 11px system-ui"; ctx.fillStyle = dead ? "rgba(120,20,10,.95)" : "rgba(25,15,5,.9)";
       ctx.fillText(`${displayName(tr.name)} ${String(tr.idx).padStart(4,"0")}${dead?" ✕":""}`, ps[0]+10, ps[1]-10);
+      if (tr.hpMax && s.hp != null){ const f = s.hp / tr.hpMax, bw = 46;
+        ctx.fillStyle = "rgba(20,15,10,.55)"; ctx.fillRect(ps[0]+10, ps[1]-6, bw, 4);
+        ctx.fillStyle = f > 0.6 ? "#3cc45a" : f > 0.3 ? "#f0b030" : "#e83a22"; ctx.fillRect(ps[0]+10, ps[1]-6, bw*f, 4); }
     }
     lastDrawn.push({ key: tr.key, x: ps[0], y: ps[1] });
   }
@@ -768,6 +812,7 @@ function update(){
     $("i_spd").textContent = `${Math.round(s.spd*3600/6076)} kts`;
     $("i_pit").textContent = `${(s.vp ?? s.pitch).toFixed(1)}°`;
     $("i_hdg").textContent = `${((s.vh ?? s.hdg)+360)%360 | 0}°`;
+    $("i_hp").textContent = tr.hpMax && s.hp != null ? `${Math.round(s.hp/tr.hpMax*100)}%（${s.hp}/${tr.hpMax}）` : "—";
   } else { $("i_name").textContent = tr ? `${displayName(tr.name)}（不在場）` : "—"; }
   const pt = tracks.get(playerKey), p = pt && sampleTrack(pt, now);
   if (p){
@@ -776,6 +821,7 @@ function update(){
     $("p_spd").textContent = `${Math.round(p.spd*3600/6076)} kts`;
     $("p_hdg").textContent = `${Math.round((p.hdg+360)%360)}°`;
     $("p_att").textContent = `${p.pitch.toFixed(0)}° / ${p.roll.toFixed(0)}°`;
+    $("p_hp").textContent = pt.hpMax && p.hp != null ? `${Math.round(p.hp/pt.hpMax*100)}%（${p.hp}/${pt.hpMax}）` : "—";
   }
   const ok = a.actOk;
   $("p_thr").textContent = !ok || a.thr == null ? "—" : `${a.thr}% / ${a.rpm}%`;
