@@ -129,16 +129,16 @@ def cmd_objects(h):
 # 玩家動作欄位（由 2026-11-11 實測錄製檔分析得出）
 GEAR_ADDR = 0x50CFEF      # bit 0x40 = 起落架放下（G 鍵切換；0x50CFF3 同步）
 WPN_COUNT_ADDR = 0x50D17F # 目前選擇武器的剩餘數量（發射飛彈 4->3）
-TRIGGER_ADDR = 0x50CEE5   # 0/1 來回切換，推測為機砲扳機（待確認）
+GUN_AMMO_ADDR = 0x50D16E  # 按住 TAB（機砲）時遞減 163->93，推測為機砲彈數（待確認）
 
 def player_actions(h):
-    g = read(h, GEAR_ADDR, 1); c = read(h, WPN_COUNT_ADDR, 1); tr = read(h, TRIGGER_ADDR, 1)
-    if not (g and c and tr): return None
-    return {"gear_down": int(bool(g[0] & 0x40)), "wpn_count": c[0], "trigger": tr[0]}
+    g = read(h, GEAR_ADDR, 1); c = read(h, WPN_COUNT_ADDR, 1); ga = read(h, GUN_AMMO_ADDR, 1)
+    if not (g and c and ga): return None
+    return {"gear_down": int(bool(g[0] & 0x40)), "wpn_count": c[0], "gun_ammo": ga[0]}
 
 def cmd_log(h, hz, out, evout):
     t0 = time.time(); prev = {}; prev_act = None
-    fields = ["t", "idx"] + list(decode(h, PLAYER, bytes(OBJ_READ)).keys()) + ["gear_down", "wpn_count", "trigger"]
+    fields = ["t", "idx"] + list(decode(h, PLAYER, bytes(OBJ_READ)).keys()) + ["gear_down", "wpn_count", "gun_ammo"]
     with open(out, "w", newline="") as f, open(evout, "w", newline="") as fe:
         w = csv.DictWriter(f, fieldnames=fields); w.writeheader()
         we = csv.writer(fe); we.writerow(["t", "event", "idx", "name", "cls", "x_ft", "alt_ft", "z_ft"])
@@ -158,10 +158,8 @@ def cmd_log(h, hz, out, evout):
                 if act["wpn_count"] < prev_act["wpn_count"]:
                     we.writerow([t, "weapon_fired", 0, p0["name"], p0["cls"], p0["x_ft"], p0["alt_ft"], p0["z_ft"]])
                     print(f"[{t:8.2f}] 發射武器，剩 {act['wpn_count']}")
-                if act["trigger"] and not prev_act["trigger"]:
-                    we.writerow([t, "trigger_on", 0, p0["name"], p0["cls"], p0["x_ft"], p0["alt_ft"], p0["z_ft"]])
-                if prev_act["trigger"] and not act["trigger"]:
-                    we.writerow([t, "trigger_off", 0, p0["name"], p0["cls"], p0["x_ft"], p0["alt_ft"], p0["z_ft"]])
+                if act["gun_ammo"] != prev_act["gun_ammo"]:
+                    we.writerow([t, "gun_fired", 0, p0["name"], p0["cls"], p0["x_ft"], p0["alt_ft"], p0["z_ft"]])
             prev_act = act or prev_act
             # 物件出現 / 消失（同一索引換了位址或名稱也算重新出現）
             for i, o in s.items():
@@ -182,16 +180,19 @@ KEYS = {0x47: "G", 0x20: "SPACE", 0x0D: "ENTER", 0x08: "BACKSPACE", 0x09: "TAB",
         0x42: "B", 0x46: "F", 0x57: "W", 0x48: "H", 0x4C: "L", 0x43: "C", 0x52: "R"}
 for _c in range(0x30, 0x3A): KEYS[_c] = chr(_c)          # 0-9
 for _c in range(0x70, 0x7C): KEYS[_c] = f"F{_c - 0x6F}"  # F1-F12
+KEYS_V1 = list(KEYS.values())                            # FAREC1 錄製檔使用的順序
+KEYS[0xDB] = "["; KEYS[0xDD] = "]"                        # 切換武器
 
 def cmd_record(h, size, hz, out):
     """不需切換視窗：持續錄下玩家物件原始位元組 + 鍵盤按鍵時間，事後再分析。"""
     u32 = ctypes.WinDLL("user32")
     print(f"開始錄製玩家物件 0x{PLAYER:X} 起 0x{size:X} 位元組到 {out}")
-    print("回到遊戲：先穩定飛 5 秒，再依序做動作（例如放起落架、收起落架、開槍、射一枚飛彈），")
-    print("每個動作之間隔 5 秒以上。結束任務或關掉遊戲就會自動停止。")
+    print("回到遊戲：先穩定飛 5 秒，再依序按 G / F / H / B / TAB(按住約 1 秒) / SPACE / [ / ]，")
+    print("每個鍵做 2~3 次、動作之間隔 3 秒以上。關掉遊戲就會自動停止。")
     t0 = time.time(); n = 0
     with open(out, "wb") as f:
-        f.write(b"FAREC1" + struct.pack("<II", PLAYER, size))
+        kn = ",".join(KEYS.values()).encode()
+        f.write(b"FAREC2" + struct.pack("<IIH", PLAYER, size, len(kn)) + kn)
         while True:
             b = read(h, PLAYER, size)
             if b is None: break
@@ -201,17 +202,26 @@ def cmd_record(h, size, hz, out):
             f.write(struct.pack("<dQ", time.time() - t0, keys) + b); n += 1
             if n % int(hz * 10) == 0: f.flush()
             time.sleep(1 / hz)
-    print(f"FA.EXE 已結束，共錄 {n} 筆。執行: python fa_probe2.py analyze --out {out}")
+    print(f"FA.EXE 已結束，共錄 {n} 筆。執行: python fa_key_analyzer.py {out}")
 
-def cmd_analyze(path, report):
+def load_rec(path):
+    """讀取錄製檔 → (addr, size, 按鍵名稱列表, 時間[], 按鍵位元遮罩[], 影格[])"""
     raw = open(path, "rb").read()
-    assert raw[:6] == b"FAREC1", "不是錄製檔"
-    addr, size = struct.unpack_from("<II", raw, 6); pos = 14; rec = 16 + size
-    ts, keys, frames = [], [], []
+    if raw[:6] == b"FAREC1":
+        addr, size = struct.unpack_from("<II", raw, 6); pos = 14; names = KEYS_V1
+    elif raw[:6] == b"FAREC2":
+        addr, size, kl = struct.unpack_from("<IIH", raw, 6)
+        names = raw[16:16 + kl].decode().split(","); pos = 16 + kl
+    else:
+        raise SystemExit("不是錄製檔")
+    rec = 16 + size; ts, keys, frames = [], [], []
     while pos + rec <= len(raw):
         t, k = struct.unpack_from("<dQ", raw, pos)
         ts.append(t); keys.append(k); frames.append(raw[pos + 16: pos + rec]); pos += rec
-    names = list(KEYS.values())
+    return addr, size, names, ts, keys, frames
+
+def cmd_analyze(path, report):
+    addr, size, names, ts, keys, frames = load_rec(path)
     lines = [f"錄製檔 {path}: {len(frames)} 筆, {ts[-1] if ts else 0:.1f} 秒, 位址 0x{addr:X} 長度 0x{size:X}", ""]
     lines.append("== 鍵盤事件 ==")
     for i in range(1, len(keys)):
@@ -241,8 +251,8 @@ def main():
     ap.add_argument("--hz", type=float, default=10)
     ap.add_argument("--out", default="objlog.csv")
     ap.add_argument("--events", default="events.csv")
-    ap.add_argument("--size", type=lambda s: int(s, 0), default=0x400,
-                    help="record 模式錄製的範圍（預設 0x400）")
+    ap.add_argument("--size", type=lambda s: int(s, 0), default=0x800,
+                    help="record 模式錄製的範圍（預設 0x800）")
     ap.add_argument("--rec", default="player_rec.bin", help="record / analyze 用的錄製檔")
     ap.add_argument("--report", default="analyze_report.txt")
     a = ap.parse_args()
