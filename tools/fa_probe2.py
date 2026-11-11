@@ -5,6 +5,8 @@ FA.EXE 記憶體探針 v2（不修改 FA.EXE）— 物件列舉、事件偵測�
   python fa_probe2.py objects            每秒列出目前所有物件（含名稱、位置、速度）
   python fa_probe2.py log                以 10Hz 記錄所有物件到 objlog.csv，
                                          並在 events.csv 記錄物件出現 / 消失（如飛彈發射、被擊毀）
+  python fa_probe2.py flight             ★ 錄製播放用 flight_日期_時間.bin（所有物件 + 玩家動作），
+                                         用 fa_replay.html 開啟播放
   python fa_probe2.py record             找「動作」欄位用（起落架、彈藥數…）。不需要切換視窗：
       先執行，再進遊戲飛行並依序做動作，每個動作間隔 5 秒以上；關遊戲即停止。
       會錄下玩家物件原始位元組與鍵盤按鍵時間到 player_rec.bin
@@ -261,9 +263,52 @@ def cmd_analyze(path, report):
     open(report, "w", encoding="utf-8").write(txt)
     print(txt); print(f"\n已寫入 {report}，把這個檔案傳給 Claude 即可。")
 
+def cmd_flight(h, hz, out):
+    """錄製播放器用的 .bin（FAFLT1）：所有物件 + 玩家動作。格式見 replay/README 或 fa_replay.html。
+
+    檔頭  b"FAFLT1"
+    區塊  b"N" u16 名稱編號, u8 長度, 名稱(latin1)             — 新類型名稱第一次出現時
+          b"F" f64 時間, u8 ctrl1, u8 ctrl2, u8 選擇值, u16 掛點數量[8], u16 物件數,
+               物件數 × (u16 索引, u8 類別, u16 名稱編號, i32 x, i32 y, i32 z,
+                         u16 航向, i16 俯仰, i16 滾轉, i32 速度)          — 原始定點值
+    """
+    names = {}; t0 = time.time(); n = 0
+    print(f"開始錄製到 {out}（{hz} 筆/秒）。關掉遊戲即停止。")
+    with open(out, "wb") as f:
+        f.write(b"FAFLT1")
+        while True:
+            pb = read(h, PLAYER, OBJ_READ)
+            ctl = read(h, CTRL1_ADDR, 2); sel = read(h, SELECT_ADDR, 1)
+            st = read(h, STATION_BASE, STATION_STRIDE * STATIONS)
+            if not (pb and ctl and sel and st): break
+            objs = [(0, pb)]
+            cnt_raw = read(h, OBJ_COUNT, 2)
+            cnt = min(struct.unpack("<H", cnt_raw)[0], MAX_OBJS) if cnt_raw else 0
+            tbl = read(h, OBJ_TABLE, 4 * cnt) if cnt else b""
+            for i in range(1, cnt):
+                p, = struct.unpack_from("<I", tbl, 4 * i)
+                if not p or p == PLAYER: continue
+                b = read(h, p, OBJ_READ)
+                if b and struct.unpack_from("<I", b, 1)[0] & 1: objs.append((i, b))
+            body = bytearray()
+            for i, b in objs:
+                tptr, = struct.unpack_from("<I", b, 5)
+                nm = type_name(h, tptr)
+                if nm not in names:
+                    names[nm] = len(names); e = nm.encode("latin1", "replace")[:255]
+                    f.write(b"N" + struct.pack("<HB", names[nm], len(e)) + e)
+                body += struct.pack("<HBH", i, b[0], names[nm]) + b[0x11:0x23] + b[0x34:0x38]
+            stn = [struct.unpack_from("<H", st, k * STATION_STRIDE)[0] for k in range(STATIONS)]
+            f.write(b"F" + struct.pack("<dBBB8HH", time.time() - t0, ctl[0], ctl[1], sel[0], *stn, len(objs)) + body)
+            n += 1
+            if n % int(hz * 5) == 0:
+                f.flush(); print(f"  {time.time() - t0:7.1f}s  {len(objs)} 個物件")
+            time.sleep(1 / hz)
+    print(f"FA.EXE 已結束，共 {n} 筆。用 fa_replay.html 開啟 {out} 播放。")
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("mode", choices=["objects", "log", "record", "analyze"])
+    ap.add_argument("mode", choices=["objects", "log", "record", "analyze", "flight"])
     ap.add_argument("--hz", type=float, default=10)
     ap.add_argument("--out", default="objlog.csv")
     ap.add_argument("--events", default="events.csv")
@@ -271,6 +316,7 @@ def main():
                     help="record 模式錄製的範圍（預設 0x800）")
     ap.add_argument("--rec", default="player_rec.bin", help="record / analyze 用的錄製檔")
     ap.add_argument("--report", default="analyze_report.txt")
+    ap.add_argument("--flight", default=None, help="flight 模式輸出檔（預設 flight_年月日_時分秒.bin）")
     a = ap.parse_args()
     if a.mode == "analyze":
         cmd_analyze(a.rec, a.report); return
@@ -278,6 +324,7 @@ def main():
     try:
         if a.mode == "objects": cmd_objects(h)
         elif a.mode == "log": cmd_log(h, a.hz, a.out, a.events)
+        elif a.mode == "flight": cmd_flight(h, a.hz, a.flight or time.strftime("flight_%Y%m%d_%H%M%S.bin"))
         else: cmd_record(h, a.size, a.hz, a.rec)
     except KeyboardInterrupt:
         pass
