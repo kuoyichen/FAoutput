@@ -3,6 +3,7 @@ FA.EXE 飛行狀態記憶體探針（驗證用，不修改 FA.EXE）
 
 用法（Windows，需與 FA.EXE 同一台機器；Python 3，32/64 位元皆可）:
     python fa_mem_probe.py            # 每 0.1 秒印出一行，並寫入 flightlog.csv
+                                      # 腳本與 FA.EXE 誰先啟動都可以；若遊戲還沒開，腳本會等待
     python fa_mem_probe.py --hz 20 --out mylog.csv
 
 在任務中對照遊戲內 HUD / 資訊框的高度、航向、速度，確認位址正確。
@@ -72,7 +73,11 @@ def main():
     ap.add_argument("--out", default="flightlog.csv")
     a = ap.parse_args()
     pid = find_pid()
-    if not pid: sys.exit("找不到 FA.EXE 程序，請先啟動遊戲")
+    if not pid:
+        print("等待 FA.EXE 啟動中…（先開腳本或先開遊戲都可以，Ctrl+C 結束）")
+        while not pid:
+            time.sleep(1); pid = find_pid()
+        print(f"偵測到 FA.EXE (PID {pid})")
     h = k32.OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, False, pid)
     if not h: sys.exit(f"OpenProcess 失敗 ({ctypes.get_last_error()})，試試以系統管理員執行")
     t0 = time.time()
