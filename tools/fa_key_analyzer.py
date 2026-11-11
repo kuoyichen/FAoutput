@@ -14,20 +14,32 @@
       一個位元組若 (1) 按鍵前穩定不動、(2) 按鍵後改變，就算一次「回應」。
       回應次數 / 按鍵次數 = 命中率；平常（沒按任何鍵時）也常變的位元組會被扣分。
 """
-import os, struct, sys
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import struct, sys
 
 WATCH = ["G", "F", "H", "B", "TAB", "SPACE", "[", "]"]
 LABEL = {"G": "起落架", "F": "襟翼", "H": "捕捉勾", "B": "煞車", "TAB": "機砲",
          "SPACE": "發射目前武器", "[": "上一個武器", "]": "下一個武器"}
 PRE, POST = 1.5, 0.8
 
+# FAREC1（舊版錄製檔）的按鍵順序；FAREC2 會把按鍵名稱存在檔頭
+KEYS_V1 = (["G", "SPACE", "ENTER", "BACKSPACE", "TAB", "B", "F", "W", "H", "L", "C", "R"]
+           + [chr(c) for c in range(0x30, 0x3A)] + [f"F{i}" for i in range(1, 13)])
+
 def load(path):
-    import ctypes
-    if not hasattr(ctypes, "WinDLL"):          # 讓分析器在非 Windows 也能執行
-        ctypes.WinDLL = lambda *a, **k: None
-    import fa_probe2
-    return fa_probe2.load_rec(path)
+    """讀取錄製檔（不依賴 fa_probe2.py 的版本）→ (addr, size, 按鍵名稱, 時間[], 按鍵遮罩[], 影格[])"""
+    raw = open(path, "rb").read()
+    if raw[:6] == b"FAREC1":
+        addr, size = struct.unpack_from("<II", raw, 6); pos = 14; names = KEYS_V1
+    elif raw[:6] == b"FAREC2":
+        addr, size, kl = struct.unpack_from("<IIH", raw, 6)
+        names = raw[16:16 + kl].decode().split(","); pos = 16 + kl
+    else:
+        raise SystemExit("不是錄製檔")
+    rec = 16 + size; ts, keys, frames = [], [], []
+    while pos + rec <= len(raw):
+        t, k = struct.unpack_from("<dQ", raw, pos)
+        ts.append(t); keys.append(k); frames.append(raw[pos + 16: pos + rec]); pos += rec
+    return addr, size, names, ts, keys, frames
 
 def presses(names, ts, keys, key):
     """回傳 [(按下索引, 放開索引)]"""
