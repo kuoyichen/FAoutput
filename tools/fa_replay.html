@@ -147,7 +147,7 @@ aside h2:first-child{margin-top:2px}
 </aside>
 
 <footer>
-  <label class="btn">開啟 .bin<input id="file" type="file" accept=".bin" hidden></label>
+  <label class="btn">開啟 .bin<input id="file" type="file" accept=".bin" hidden><input id="shapefile" type="file" accept="image/*" hidden></label>
   <button id="play" title="播放 / 暫停">▶</button>
   <select id="speed" title="播放速度">
     <option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option>
@@ -271,13 +271,22 @@ function displayName(raw){ return typeAlias[raw] || (printable(raw) ? raw : auto
 function mirror(half){ return [...half, ...half.slice(1,-1).reverse().map(([x,z])=>[-x,z])].map(([x,z])=>[x,0,z]); }
 const SHAPES = {
   fighter: { k:1.0, pts: mirror([[0,1],[.06,.78],[.11,.45],[.13,.15],[.7,-.25],[.72,-.36],[.16,-.28],[.15,-.62],[.4,-.86],[.4,-.96],[.12,-.9],[0,-.84]]) },
-  f14:     { k:1.15, pts: mirror([[0,1],[.07,.75],[.12,.5],[.2,.3],[.85,-.28],[.85,-.38],[.3,-.2],[.24,-.55],[.6,-.82],[.6,-.95],[.2,-.88],[.12,-1],[0,-.9]]) },
+  // F-14：由使用者提供的俯視剪影描出（右半邊鏡射）
+  f14:     { k:1.15, pts: mirror([[0,1],[.035,.93],[.071,.736],[.081,.36],[.102,.36],[.102,.391],[.173,.391],[.183,.289],[.376,-.096],[.376,-.127],[.822,-.655],[.792,-.787],[.274,-.452],[.234,-.452],[.254,-.563],[.528,-.909],[.528,-.97],[.497,-1],[.254,-.949],[.223,-.878],[.183,-.929],[.122,-.929],[.091,-.878],[.041,-.898],[.02,-.97],[0,-.97]]) },
   bomber:  { k:2.4, pts: mirror([[0,1],[.05,.92],[.07,.6],[.08,.28],[1.15,-.22],[1.15,-.32],[.09,-.02],[.07,-.62],[.4,-.8],[.4,-.9],[.06,-.86],[0,-1]]) },
   heavy:   { k:2.0, pts: mirror([[0,1],[.08,.9],[.1,.4],[1.0,0],[1.0,-.1],[.1,-.05],[.09,-.65],[.42,-.85],[.42,-.95],[.08,-.92],[0,-1]]) },
   heli:    { k:0.9, pts: mirror([[0,.9],[.15,.7],[.18,.3],[.12,0],[.05,-.3],[.05,-.9],[.2,-.95],[.2,-1],[0,-1]]) },
 };
+// 使用者自訂外型（由剪影圖描出，存在瀏覽器裡，以機型名稱為鍵）
+let customShapes = {}; try { customShapes = JSON.parse(localStorage.getItem("fa_shapes") || "{}"); } catch(e){}
+const saveShapes = () => { try { localStorage.setItem("fa_shapes", JSON.stringify(customShapes)); } catch(e){} };
+const customCache = new Map();
 function shapeFor(name){
-  const n = displayName(name);
+  const n = displayName(name), c = customShapes[n];
+  if (c){ let o = customCache.get(n); if (!o || o.src !== c){ o = { k: builtinShape(n).k, pts: c.map(([x,z])=>[x,0,z]), src: c }; customCache.set(n, o); } return o; }
+  return builtinShape(n);
+}
+function builtinShape(n){
   if (/B-?52|B-?1\b|B-?1B|TU-?95|TU-?160|TU-?22|TU-?16|BEAR|BLACKJACK/i.test(n)) return SHAPES.bomber;
   if (/C-?130|C-?17|KC|E-?3|E-?2|IL-?76|AN-?\d|707|747|TRANS|TANK|AWACS|P-?3/i.test(n)) return SHAPES.heavy;
   if (/F-?14|TOMCAT|MIG-?23|MIG-?27|SU-?24|F-?111|TORNADO/i.test(n)) return SHAPES.f14;
@@ -303,6 +312,9 @@ const HP_OFF = 0x0E;   // 飛機物件 +0x0E：u16 生命值（B-52 / F-14 滿�
 function load(buf, name){
   try { data = parse(buf); } catch(e){ alert(e.message); return; }
   if (!data.frames.length){ alert("檔案裡沒有資料"); return; }
+  // 開頭還在遊戲設定畫面（沒有飛機）的部分不播放
+  const first = data.frames.findIndex(f => [...f.objs.values()].some(o => o.cls === 4 && (o.x || o.y || o.z)));
+  if (first > 0) data.frames = data.frames.slice(first);
   const fr = data.frames;
   T0 = fr[0].t; T1 = fr[fr.length-1].t; now = T0;
   tracks.clear(); hidden.clear();
@@ -476,10 +488,13 @@ function buildLegend(){
   for (const g of groups.keys()) groupColor.set(g, FIXED[g] || PALETTE[ci++ % PALETTE.length]);
   $("legitems").innerHTML = [...groups].map(([g,n]) => {
     const light = ["飛彈","機砲彈","跳傘飛行員"].includes(g);
-    const ren = rawOf.has(g) && $("o_color").value==="type" ? `<span class="ren" data-raw="${encodeURIComponent(rawOf.get(g))}" title="改機型名稱">✎</span>` : "";
+    const ren = rawOf.has(g) && $("o_color").value==="type" ? `<span class="ren" data-raw="${encodeURIComponent(rawOf.get(g))}" title="改機型名稱">✎</span><span class="ren shp" data-raw="${encodeURIComponent(rawOf.get(g))}" title="用俯視剪影圖換外型（機頭朝上；按住 Shift 點擊可還原內建外型）">✈</span>` : "";
     return `<div class="it${hidden.has(g)?" off":""}" data-g="${encodeURIComponent(g)}" style="background:${groupColor.get(g)}${light?";color:#222;text-shadow:none":""}">${g}${ren}<span style="margin-left:auto;opacity:.85">${n}</span></div>`; }).join("");
   document.querySelectorAll("#legend .it").forEach(el => el.onclick = ev => {
     const rn = ev.target.closest(".ren");
+    if (rn && rn.classList.contains("shp")){ ev.stopPropagation(); const nm = displayName(decodeURIComponent(rn.dataset.raw));
+      if (ev.shiftKey){ delete customShapes[nm]; saveShapes(); draw(); return; }
+      shapeTarget = nm; $("shapefile").value = ""; $("shapefile").click(); return; }
     if (rn){ ev.stopPropagation(); const raw = decodeURIComponent(rn.dataset.raw);
       const v = prompt("這個機型的名稱（例如 F-14、B-52），外型會跟著名稱改變：", displayName(raw));
       if (v != null){ if (v.trim()) typeAlias[raw] = v.trim(); else delete typeAlias[raw]; saveAlias(); buildLegend(); renderEvents(); update(); }
@@ -487,6 +502,70 @@ function buildLegend(){
     const g = decodeURIComponent(el.dataset.g); hidden.has(g) ? hidden.delete(g) : hidden.add(g); el.classList.toggle("off"); draw(); });
 }
 const colorOf = tr => groupColor.get(groupOf(tr)) || "#ccc";
+let shapeTarget = null;
+$("shapefile").onchange = async e => {
+  const f = e.target.files[0]; if (!f || !shapeTarget) return;
+  const img = new Image(); img.src = URL.createObjectURL(f);
+  try { await img.decode(); } catch(err){ alert("讀不到這張圖片"); return; }
+  const pts = traceSilhouette(img); URL.revokeObjectURL(img.src);
+  if (!pts || pts.length < 4){ alert("描不出外型：請用單色剪影、背景乾淨、機頭朝上的俯視圖"); return; }
+  customShapes[shapeTarget] = pts; saveShapes(); draw();
+};
+// 由俯視剪影圖自動描出外型：機頭朝上，背景可為透明、淺色或深色
+function traceSilhouette(img){
+  const S = 360, sc = Math.min(1, S / Math.max(img.width, img.height));
+  const w = Math.max(8, Math.round(img.width*sc)), h = Math.max(8, Math.round(img.height*sc));
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const cx = cv.getContext("2d"); cx.drawImage(img, 0, 0, w, h);
+  const d = cx.getImageData(0, 0, w, h).data, N = w*h;
+  const lum = new Float32Array(N), al = new Uint8Array(N);
+  for (let i=0;i<N;i++){ lum[i] = 0.299*d[i*4] + 0.587*d[i*4+1] + 0.114*d[i*4+2]; al[i] = d[i*4+3]; }
+  let bt = 0, bl = 0, bn = 0;
+  const border = i => { bn++; bl += lum[i]; if (al[i] < 128) bt++; };
+  for (let x=0;x<w;x++){ border(x); border((h-1)*w+x); } for (let y=0;y<h;y++){ border(y*w); border(y*w+w-1); }
+  const transparent = bt > bn*0.5, dark = bl/bn < 128;
+  const fg = new Uint8Array(N);
+  for (let i=0;i<N;i++) fg[i] = transparent ? al[i] >= 128 : al[i] >= 128 && (dark ? lum[i] > 170 : lum[i] < 90);
+  // 最大的連通區塊
+  const lab = new Int32Array(N).fill(-1); let best = -1, bestN = 0;
+  for (let s=0;s<N;s++){ if (!fg[s] || lab[s] >= 0) continue;
+    const st = [s]; lab[s] = s; let n = 0;
+    while (st.length){ const i = st.pop(); n++; const x = i % w, y = (i / w) | 0;
+      for (const j of [x>0?i-1:-1, x<w-1?i+1:-1, y>0?i-w:-1, y<h-1?i+w:-1]) if (j >= 0 && fg[j] && lab[j] < 0){ lab[j] = s; st.push(j); } }
+    if (n > bestN){ bestN = n; best = s; } }
+  if (bestN < 50) return null;
+  // 填掉內部的洞，只留外輪廓
+  const inside = i => lab[i] === best;
+  const out = new Uint8Array(N), st = [];
+  for (let x=0;x<w;x++){ st.push(x, (h-1)*w+x); } for (let y=0;y<h;y++){ st.push(y*w, y*w+w-1); }
+  while (st.length){ const i = st.pop(); if (out[i] || inside(i)) continue; out[i] = 1; const x = i % w, y = (i / w) | 0;
+    if (x>0) st.push(i-1); if (x<w-1) st.push(i+1); if (y>0) st.push(i-w); if (y<h-1) st.push(i+w); }
+  const solid = i => i >= 0 && i < N && !out[i];
+  // Moore 鄰域邊界追蹤
+  let start = 0; while (!solid(start)) start++;
+  const dirs = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+  const at = (x,y) => x>=0 && y>=0 && x<w && y<h && solid(y*w+x);
+  let x = start % w, y = (start / w) | 0, dir = 7; const pts = [[x,y]], sx = x, sy = y;
+  for (let it=0; it<N*4; it++){
+    let k = (dir + 6) % 8, found = false;
+    for (let m=0;m<8;m++){ const dd = dirs[(k+m)%8]; if (at(x+dd[0], y+dd[1])){ x += dd[0]; y += dd[1]; dir = (k+m)%8; found = true; break; } }
+    if (!found || (x === sx && y === sy)) break;
+    pts.push([x,y]);
+  }
+  // Douglas-Peucker 簡化
+  let y0 = Infinity, y1 = -Infinity, x0 = Infinity, x1 = -Infinity;
+  for (const [px,py] of pts){ y0 = Math.min(y0,py); y1 = Math.max(y1,py); x0 = Math.min(x0,px); x1 = Math.max(x1,px); }
+  const eps = (y1 - y0) * 0.006;
+  const dp = (a, b) => { let md = 0, mi = -1; const [ax,ay] = pts[a], [bx,by] = pts[b], L = Math.hypot(bx-ax, by-ay) || 1;
+    for (let i=a+1;i<b;i++){ const dd = Math.abs((bx-ax)*(ay-pts[i][1]) - (ax-pts[i][0])*(by-ay)) / L; if (dd > md){ md = dd; mi = i; } }
+    return md > eps ? [...dp(a, mi).slice(0,-1), ...dp(mi, b)] : [a, b]; };
+  const far = pts.reduce((m,p,i) => Math.hypot(p[0]-pts[0][0], p[1]-pts[0][1]) > Math.hypot(pts[m][0]-pts[0][0], pts[m][1]-pts[0][1]) ? i : m, 0);
+  const idx = [...dp(0, far).slice(0,-1), ...dp(far, pts.length-1)];
+  // 正規化：機頭朝 +z，機身長度 2（z 從 1 到 -1），左右置中
+  const s = 2 / (y1 - y0), mx = (x0 + x1) / 2;
+  return idx.map(i => [ +((pts[i][0]-mx)*s).toFixed(3), +(1 - (pts[i][1]-y0)*s).toFixed(3) ]);
+}
+
 
 // ---------- 插值 ----------
 function ptIndex(pts, t){ let lo=0, hi=pts.length-1; if (t < pts[0].t || t > pts[hi].t + 0.15) return -1;
@@ -538,6 +617,9 @@ function rotate(v, hdg, pitch, roll){
   [y,z] = [y*Math.cos(p) - z*Math.sin(p), y*Math.sin(p) + z*Math.cos(p)];
   return [x*Math.cos(h) + z*Math.sin(h), y, -x*Math.sin(h) + z*Math.cos(h)];
 }
+const BELLY = "#f3f0e8";
+function mix(a, b, f){ const p = parseInt(a.slice(1),16), q = parseInt(b.slice(1),16), m = (s) => Math.round(((p>>s)&255)*(1-f) + ((q>>s)&255)*f);
+  return "#" + ((m(16)<<16)|(m(8)<<8)|m(0)).toString(16).padStart(6,"0"); }
 function shade(hex, k){ const n = parseInt(hex.slice(1),16); return `rgb(${Math.min(255,(n>>16)*k)|0},${Math.min(255,((n>>8)&255)*k)|0},${Math.min(255,(n&255)*k)|0})`; }
 function rgba(hex, a){ const n = parseInt(hex.slice(1),16); return `rgba(${n>>16},${(n>>8)&255},${n&255},${a})`; }
 const cssCache = {}; const getCss = n => cssCache[n] ??= getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -615,11 +697,11 @@ function clipHalf(pts, front){
   }
   return res;
 }
-const halfCache = new Map();
+const halfCache = new WeakMap();
 // 側面輪廓（機身 + 垂直尾翼），讓翻滾時從側面看也看得到
 const SIDE = [[0,.02,1],[0,.07,.8],[0,.09,.3],[0,.09,-.55],[0,.38,-.85],[0,.38,-.97],[0,.07,-1],[0,-.06,-.95],[0,-.08,-.3],[0,-.07,.6]];
-function halfShape(shp, front){ const key = shp.k + (front?"f":"r");
-  if (!halfCache.has(key)) halfCache.set(key, [clipHalf(shp.pts, front), clipHalf(SIDE, front)]); return halfCache.get(key); }
+function halfShape(shp, front){ if (!halfCache.has(shp)) halfCache.set(shp, {});
+  const c = halfCache.get(shp), key = front ? "f" : "r"; return c[key] ??= [clipHalf(shp.pts, front), clipHalf(SIDE, front)]; }
 function drawHalf(tr, s, c, size, labelOn){
   const par = tracks.get(tr.parent), shp = shapeFor(par.name), n0 = nearZ();
   const L = Math.max(70, c[2]*0.03) * size * shp.k * 1.3;
@@ -744,15 +826,21 @@ function draw(){
       const pc = shp.pts.map(v => { const r = rotate([v[0]*L, 0, v[2]*L], h, pi, s.roll); return toCam(s.x+r[0], s.y+r[1], s.z+r[2]); });
       if (pc.some(p=>p[2] < n0)) continue;
       const pp = pc.map(proj);
-      let area = 0; for (let k=0;k<pp.length;k++){ const a = pp[k], b = pp[(k+1)%pp.length]; area += a[0]*b[1]-b[0]*a[1]; }
+      // 看到的是機背還是機腹：機身向上的法線轉到相機座標，和「指向相機」的向量比較
+      const up = rotate([0,L,0], h, pi, s.roll), cu = toCam(s.x+up[0], s.y+up[1], s.z+up[2]);
+      const belly = (cu[0]-c[0])*-c[0] + (cu[1]-c[1])*-c[1] + (cu[2]-c[2])*-c[2] < 0;
       const sh = shp.pts.map(v => { const r = rotate([v[0]*L, 0, v[2]*L], h, 0, 0); return toCam(s.x+r[0], 0, s.z+r[2]); });
       if (sh.every(p=>p[2]>n0) && s.y > 50){ const sp = sh.map(proj); ctx.fillStyle = "rgba(50,25,5,.22)";
         ctx.beginPath(); ctx.moveTo(...sp[0]); for (const p of sp.slice(1)) ctx.lineTo(...p); ctx.closePath(); ctx.fill(); }
       ctx.beginPath(); ctx.moveTo(...pp[0]); for (const p of pp.slice(1)) ctx.lineTo(...p); ctx.closePath();
-      const base = dead ? "#3b3631" : col, lit = area < 0 ? 1.08 : 0.72;
+      const base = dead ? "#3b3631" : belly ? mix(col, BELLY, 0.62) : col;
       const grd = ctx.createLinearGradient(...proj(pc[0]), ...proj(pc[Math.floor(pc.length/2)]));
-      grd.addColorStop(0, shade(base, lit*1.15)); grd.addColorStop(1, shade(base, lit*0.8));
-      ctx.fillStyle = grd; ctx.fill(); ctx.strokeStyle = "rgba(20,15,10,.75)"; ctx.lineWidth = 1; ctx.stroke();
+      grd.addColorStop(0, shade(base, 1.18)); grd.addColorStop(1, shade(base, 0.9));
+      ctx.fillStyle = grd; ctx.fill();
+      ctx.strokeStyle = belly ? shade(col, 0.55) : "rgba(20,15,10,.75)"; ctx.lineWidth = belly ? 1.6 : 1; ctx.stroke();
+      if (belly && !dead){ // 機腹：機身中線
+        const a = rotate([0,0,L*0.85], h, pi, s.roll), b = rotate([0,0,-L*0.85], h, pi, s.roll);
+        line3([s.x+a[0], s.y+a[1], s.z+a[2]], [s.x+b[0], s.y+b[1], s.z+b[2]], shade(col, 0.6), 1.2); }
       if (dead){ // 冒煙
         const r = rnd(Math.round(now*10));
         for (let i=0;i<5;i++){ const q = proj(toCam(s.x+(r()-.5)*L, s.y+L*0.3+r()*L, s.z+(r()-.5)*L)); ctx.fillStyle = `rgba(40,35,30,${0.25+r()*0.25})`; ctx.beginPath(); ctx.arc(q[0],q[1],3+r()*6,0,7); ctx.fill(); }
@@ -812,7 +900,7 @@ function update(){
     $("i_spd").textContent = `${Math.round(s.spd*3600/6076)} kts`;
     $("i_pit").textContent = `${(s.vp ?? s.pitch).toFixed(1)}°`;
     $("i_hdg").textContent = `${((s.vh ?? s.hdg)+360)%360 | 0}°`;
-    $("i_hp").textContent = tr.hpMax && s.hp != null ? `損傷 ${Math.round((1-s.hp/tr.hpMax)*100)}%（${s.hp}/${tr.hpMax}）` : "—";
+    $("i_hp").textContent = tr.hpMax && s.hp != null ? `${Math.round((1-s.hp/tr.hpMax)*100)}%（${s.hp}/${tr.hpMax}）` : "—";
   } else { $("i_name").textContent = tr ? `${displayName(tr.name)}（不在場）` : "—"; }
   const pt = tracks.get(playerKey), p = pt && sampleTrack(pt, now);
   if (p){
@@ -821,7 +909,7 @@ function update(){
     $("p_spd").textContent = `${Math.round(p.spd*3600/6076)} kts`;
     $("p_hdg").textContent = `${Math.round((p.hdg+360)%360)}°`;
     $("p_att").textContent = `${p.pitch.toFixed(0)}° / ${p.roll.toFixed(0)}°`;
-    $("p_hp").textContent = pt.hpMax && p.hp != null ? `損傷 ${Math.round((1-p.hp/pt.hpMax)*100)}%（${p.hp}/${pt.hpMax}）` : "—";
+    $("p_hp").textContent = pt.hpMax && p.hp != null ? `${Math.round((1-p.hp/pt.hpMax)*100)}%（${p.hp}/${pt.hpMax}）` : "—";
   }
   const ok = a.actOk;
   $("p_thr").textContent = !ok || a.thr == null ? "—" : `${a.thr}% / ${a.rpm}%`;

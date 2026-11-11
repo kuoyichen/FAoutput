@@ -292,7 +292,7 @@ def cmd_flight(h, hz, out):
                          u16 航向, i16 俯仰, i16 滾轉, i32 速度)          — 索引 0 = 玩家
           b"R" u16 索引, u16 長度, 原始位元組                  — 緊接在 F 之後，每架飛機一筆（找生命值用）
     """
-    names = {}; seen = set(); tdump = set(); t0 = time.time(); n = 0; warned = False
+    names = {}; seen = set(); tdump = set(); t0 = None; n = 0; warned = False; waiting = False
     print(f"開始錄製到 {out}（{hz} 筆/秒）。關掉遊戲即停止。")
     with open(out, "wb") as f:
         f.write(b"FAFLT3")
@@ -307,6 +307,12 @@ def cmd_flight(h, hz, out):
                 if not p or p == PLAYER: continue
                 b = read(h, p, OBJ_READ)
                 if b and struct.unpack_from("<I", b, 1)[0] & 1: objs.append((i, p, b))
+            # 還在遊戲設定畫面（場景裡沒有飛機）就不錄，等任務開始
+            if not any(b[0] == AIRCRAFT_CLS for _, _, b in objs):
+                if not waiting: print("  等待任務開始（場景裡還沒有飛機）…"); waiting = True
+                time.sleep(0.5); continue
+            if waiting or t0 is None: print("  任務開始，錄製中"); waiting = False
+            if t0 is None: t0 = time.time()
             pl = find_player(objs)
             if pl:
                 pi, paddr, pb = pl
