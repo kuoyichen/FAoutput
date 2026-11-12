@@ -562,6 +562,8 @@ const colorOf = tr => groupColor.get(groupOf(tr)) || "#ccc";
 // 0xFC 面：u16 旗標, u8 顏色, …, u8 點數, 索引（旗標 0x400 = u16，否則 u8）
 //   旗標有 0x200 時點數在 +14；沒有的話法線是 3 個 i16，點數在 +17
 // 取最精細 LOD 的主體；附屬零件只取「機翼」（左右展開、扁平、點數 ≥ 12，例如 F-14 的可變翼）。
+// 長表頭（旗標沒有 0x200）的面：旗標低位元組只會是這些值（在整個 SH 庫裡統計過）
+const FACE_OPS = new Set([0x41,0x44,0x49,0x4C,0x51,0x54,0x59,0x5C,0x61,0x63,0x64,0x69,0x6B,0x6C,0x71,0x73,0x7C,0xCD,0xDD,0xED,0xEE,0xFE]);
 function parseSH(u8){
   const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
   let base = 0x400;
@@ -591,6 +593,7 @@ function parseSH(u8){
     for (let o=from; o<to-18; o++){
       if (c[o] !== 0xFC) continue;
       const fl = cv.getUint16(o+1,true), hl = fl & 0x200 ? 14 : 17;
+      if (fl & 0x200 ? fl & 0xF800 : !FACE_OPS.has(fl & 0xFF) || fl >= 0x1000) continue;   // 長表頭的面只認統計過的旗標，避免把資料誤當成面
       const n = c[o+hl], wide = fl & 0x400; let p = o+hl+1;
       if (n < 3 || n > 16 || p + n*(wide?2:1) > to) continue;
       const idx = []; for (let k=0;k<n;k++){ idx.push(wide ? cv.getUint16(p,true) : c[p]); p += wide?2:1; }
