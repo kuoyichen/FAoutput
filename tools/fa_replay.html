@@ -583,7 +583,8 @@ function parseSH(u8){
     const last = bufs[bufs.length-1];
     if (bufs.length === 1 && t === 0 && o < last.e && n >= 3 && maxAbs(o, n) * 4 < maxAbs(last.o, last.n)){ bufs[0] = { o, n, t:0, e }; continue; }   // 第一個是表頭裡的假 82（例如 C5），真的頂點緩衝落在它的範圍裡
     if (t === 0 && o >= last.e && (c[o-1] === 0 || c[o-1] === 0x1E)){ bufs.push({ o, n, t:-1 }); break; }   // 下一個 LOD
-    if (t/8 === last.t + last.n && o >= last.e){ bufs.push({ o, n, t: t/8, e }); }
+    const gap = t/8 - (last.t + last.n);   // 目標通常剛好接續；有些檔（F35A、Y141、SU27…）中間會跳過幾個位置
+    if (o >= last.e && (gap === 0 || gap > 0 && gap <= 64 && (c[o-1] === 0 || c[o-1] === 0x1E) && maxAbs(o, n) < 8192)){ bufs.push({ o, n, t: t/8, e }); }
   }
   if (!bufs.length) return null;
   const lod = bufs.filter(b => b.t >= 0), stop = bufs.find(b => b.t < 0)?.o ?? L;
