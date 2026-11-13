@@ -362,7 +362,9 @@ function buildMission(k){
     const key = keyOf(o); let tr = tracks.get(key);
     if (!tr){ tr = { key, idx, name:o.name, cls:o.cls, pts:[] }; tracks.set(key, tr); }
     const rw = f.raw?.get(idx), hp = rw && rw.length > 0x10 ? rw[HP_OFF] | rw[HP_OFF+1]<<8 : null;
-    tr.pts.push({ t:f.t, x:o.x, y:o.y, z:o.z, hdg:o.hdg, pitch:o.pitch, roll:o.roll, spd:o.spd, hp });
+    // 零件狀態（每架飛機的原始資料）：+0x238 起落架位置（0 = 放下，32767 = 收起），+0x16F 位元 0x40 起落架、0x80 煞車，+0x170 位元 0x01 襟翼、0x04 尾鉤
+    const ps = rw && rw.length > 0x239 ? { gp: rw[0x238] | rw[0x239] << 8, c1: rw[0x16F], c2: rw[0x170] } : {};
+    tr.pts.push({ t:f.t, x:o.x, y:o.y, z:o.z, hdg:o.hdg, pitch:o.pitch, roll:o.roll, spd:o.spd, hp, ...ps });
     if (hp != null) tr.hpMax = Math.max(tr.hpMax || 0, hp);
     if (tr.nat == null && rw && rw.length > NAT_OFF) tr.nat = rw[NAT_OFF];
   }
@@ -628,7 +630,28 @@ function parseSH(u8){
   // 第一個 LOD 的所有附屬頂點組（起落架、襟翼、空氣煞車…），以及控制它們的指令
   const subs = lod.slice(1).map((b, k) => ({ o: b.o, t: b.t, n: b.n, f: facetsIn(b.e, lod[k+2]?.o ?? stop, b.t, b.t + b.n),
     local: b.o >= 14 && c[b.o-14] === 0xFF && c[b.o-13] === 0xFF }));
-  return { v: v.map(p => p || [0,0,0]), f, parts, scale, subs, code: c, ctl: parseCtl(c, cv, subs) };
+  return { v: v.map(p => p || [0,0,0]), f, parts, scale, subs, code: c, ctl: parseCtl(c, cv, subs), imp: shImports(u8, c) };
+}
+
+// SH 的匯入表：每個控制變數其實是 FA.EXE 提供的全域變數，名字寫在匯入表裡（例如 _PLgearDown、_PLleftFlap）
+// 回傳 { 名稱: 程式裡用的位址 }（位址 = 跳板指令 ff 25 [IAT] 的位置）
+function shImports(u8, c){
+  const out = {}; if (u8[0] !== 0x4D || u8[1] !== 0x5A) return out;
+  try {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), pe = dv.getUint32(0x3C, true), ns = dv.getUint16(pe+6, true), opt = dv.getUint16(pe+20, true);
+    const secs = []; for (let i = 0; i < ns; i++){ const s = pe+24+opt+i*40; secs.push([dv.getUint32(s+12, true), Math.max(dv.getUint32(s+8, true), dv.getUint32(s+16, true)), dv.getUint32(s+20, true)]); }
+    const r2o = r => { for (const [va, sz, ro] of secs) if (r >= va && r < va + sz) return r - va + ro; return -1; };
+    const str = o => { let s = ""; while (o >= 0 && o < u8.length && u8[o]) s += String.fromCharCode(u8[o++]); return s; };
+    let d = r2o(dv.getUint32(pe+24+104, true));
+    for (; d >= 0 && dv.getUint32(d+12, true); d += 20){
+      const iat = dv.getUint32(d+16, true); let t = r2o(dv.getUint32(d, true) || iat);
+      for (let k = 0; t >= 0 && dv.getUint32(t, true); k++, t += 4){
+        const name = str(r2o(dv.getUint32(t, true)) + 2), a = iat + 4*k;
+        for (let o = 0; o < c.length - 6; o++) if (c[o] === 0xFF && c[o+1] === 0x25 && c[o+2] === (a & 255) && c[o+3] === (a >> 8 & 255) && c[o+4] === (a >> 16 & 255) && c[o+5] === (a >>> 24)){ out[name] = o + 0x1000; break; }
+      }
+    }
+  } catch(e){}
+  return out;
 }
 // SH 裡的 F0 區塊是 x86 機器碼，遊戲直接執行；常見的寫法：
 //   cmp word [變數], 值 ; jne …           → 條件（起落架放下、襟翼放下…）
@@ -799,13 +822,13 @@ function modelFor(name){
   let y0 = Infinity, y1 = -Infinity, x0 = Infinity, x1 = -Infinity, zc = 0, zmin = Infinity;
   for (const v of m.v){ y0 = Math.min(y0, v[1]); y1 = Math.max(y1, v[1]); x0 = Math.min(x0, v[0]); x1 = Math.max(x1, v[0]); zc += v[2]; zmin = Math.min(zmin, v[2]); } zc /= m.v.length;
   const len = Math.max(y1 - y0, x1 - x0, 1), sc = 2 / len, ym = (y0 + y1) / 2, V = m.v.map(v => [v[0]*sc, (v[2]-zc)*sc, (v[1]-ym)*sc]);
-  const mkFace = (idx, part) => { const P = idx.map(i => V[i]); let nx=0, ny=0, nz=0, cx=0, cy=0, cz=0;
+  const mkFace = (idx, part) => { const P = typeof idx[0] === "number" ? idx.map(i => V[i]) : idx; let nx=0, ny=0, nz=0, cx=0, cy=0, cz=0;
     for (let i=0;i<P.length;i++){ const a = P[i], b = P[(i+1)%P.length]; nx += (a[1]-b[1])*(a[2]+b[2]); ny += (a[2]-b[2])*(a[0]+b[0]); nz += (a[0]-b[0])*(a[1]+b[1]); cx += a[0]; cy += a[1]; cz += a[2]; }
     cx /= P.length; cy /= P.length; cz /= P.length; const l = Math.hypot(nx,ny,nz) || 1; nx /= l; ny /= l; nz /= l;
     if (nx*cx + ny*cy + nz*cz < 0){ nx = -nx; ny = -ny; nz = -nz; }   // 讓法線朝外
     return { P, n:[nx,ny,nz], c:[cx,cy,cz], part }; };
-  const faces = m.f.map(idx => mkFace(idx, null));
-  for (const pt of m.parts || []){
+  const faces = m.f.map(idx => mkFace(idx, null)), ctl = !!m.ctl?.blocks?.length && m.subs?.length > 0;
+  for (const pt of ctl ? [] : m.parts || []){
     // 機翼頂點是以機翼自己的轉軸為原點存的：畫的時候要先搬到外翼套上的轉軸位置
     // 使用者微調過的 F-14 SH：機翼再往上、往前一點（只針對 F14）
     const fix = k === "F14" ? { up: 4, fwd: 6 } : { up: 0, fwd: 0 };
@@ -813,7 +836,8 @@ function modelFor(name){
     for (const idx of pt.f){ const fc = mkFace(idx, part); fc.Lc = fc.P.map(q => [q[0], q[1] + zc*sc, q[2] + ym*sc]); faces.push(fc); }
   }
   // half：實際半長（呎）；lift：模型中心離底部多高（正規化單位），放在地上的物件用來墊高
-  pm = { faces, src: m, key: k, wings: (m.parts || []).length > 0, half: len / 2 * m.scale, org: [0, zc * sc, ym * sc] };
+  pm = { faces, src: m, key: k, wings: !ctl && (m.parts || []).length > 0, half: len / 2 * m.scale, org: [0, zc * sc, ym * sc],
+    ctl, cache: new Map(), mk: P => mkFace(P, null), norm: d => [d[0]*sc, (d[1]-zc)*sc, (d[2]-ym)*sc] };
   preparedModels.set(k, pm); return pm;
 }
 const LIGHT = (() => { const v = [0.35, 0.85, 0.4], l = Math.hypot(...v); return v.map(x => x/l); })();
@@ -823,6 +847,48 @@ function sweepPt(w, part, a, pv){   // w = 機翼本地座標（原點 = 轉軸�
   const t = part.side > 0 ? a : -a;
   return [pv[0] + w[0]*Math.cos(t) + w[2]*Math.sin(t), pv[1] + w[1], pv[2] + w[2]*Math.cos(t) - w[0]*Math.sin(t)];
 }
+// ===== 零件（起落架、襟翼、煞車板…）：照 SH 的控制碼和錄到的狀態放到機體上 =====
+function rotateDeg(v, hdg, pitch, roll){
+  let [x,y,z] = v; const r = roll*Math.PI/180, p = -pitch*Math.PI/180, h = hdg*Math.PI/180;
+  [x,y] = [x*Math.cos(r) - y*Math.sin(r), x*Math.sin(r) + y*Math.cos(r)];
+  [y,z] = [y*Math.cos(p) - z*Math.sin(p), y*Math.sin(p) + z*Math.cos(p)];
+  return [x*Math.cos(h) + z*Math.sin(h), y, -x*Math.sin(h) + z*Math.cos(h)];
+}
+// 零件的座標轉換：SH 頂點 (x, 前, 上) → (x, 上, 前)；有上層零件（可變翼的主翼）時再套上層的轉換
+function partTf(e){
+  let tf = v => [v[0], v[2], v[1]];
+  if (e.op === 0xC4){
+    const deg = e.f6.slice(3).map(a => a * 360 / 65536), pos = e.f6.slice(0, 3);
+    tf = v => { const r = rotateDeg([v[0], v[2], v[1]], deg[0], deg[1], deg[2]); return [pos[0] + r[0], pos[1] + r[1], pos[2] + r[2]]; };
+  }
+  if (!e.parent) return tf;
+  const up = partTf(e.parent);
+  return v => { const d = tf(v); return up([d[0], d[2], d[1]]); };
+}
+// 依錄到的狀態算出 SH 控制變數的值（名稱來自 SH 的匯入表）
+function partVars(m, s, kind){
+  const imp = m.imp || {}, out = {};
+  const onGround = s.y < 30 && s.spd < 250;
+  const gp = s.gp != null ? s.gp : onGround ? 0 : 32767;                  // 沒有原始資料：在地上就放下
+  const flaps = s.c2 != null ? s.c2 & 1 : 0;
+  const swing = Math.round(sweepFor(s.spd) * 180 / Math.PI * 65536 / 360 / 0.2656);   // F-14 的程式：方位 = v/4 + v/64
+  const val = { _PLgearDown: gp < 32767 ? 1 : 0, _PLgearPos: gp > 32767 ? 32767 : gp, _PLleftFlap: flaps ? -1 : 0, _PLrightFlap: flaps ? -1 : 0,
+    _PLbrake: s.c1 != null && s.c1 & 0x80 ? 1 : 0, _PLhook: s.c2 != null && s.c2 & 4 ? 1 : 0, _PLswingWing: Math.min(32767, swing),
+    _PLafterBurner: 0, _PLrudder: 0, _PLbayOpen: 0, _PLbayDoorPos: 0, _PLslats: 0, _PLcanardPos: 0, _PLvtOn: 0, _PLvtAngle: 0 };
+  for (const [n, va] of Object.entries(imp)) if (n in val) out[va] = val[n];
+  return out;
+}
+function partFaces(pm, s){
+  const vars = partVars(pm.src, s), key = Object.values(vars).join(",");
+  let fs = pm.cache.get(key); if (fs) return fs;
+  fs = [];
+  for (const e of evalCtl(pm.src, vars)){
+    const sub = pm.src.subs[e.part]; if (!sub) continue; const tf = partTf(e);
+    for (const idx of sub.f) fs.push(pm.mk(idx.map(i => pm.norm(tf(pm.src.v[i])))));
+  }
+  if (pm.cache.size > 64) pm.cache.clear();
+  pm.cache.set(key, fs); return fs;
+}
 // opt.belly：分機背 / 機腹顏色；opt.wings：畫可變翼；opt.org：放回 SH 原本的原點（地面物件的原點在地上）
 function drawModel(pm, s, c, L, h, pi, col, dead, opt = {}){
   const n0 = nearZ(), list = [], useWings = opt.wings && pm.wings, sw = useWings ? sweepFor(s.spd) : 0, org = opt.org || [0,0,0];
@@ -830,7 +896,8 @@ function drawModel(pm, s, c, L, h, pi, col, dead, opt = {}){
   const pxSize = L * F / c[2];
   const up = rotate([0,L,0], h, pi, roll), cu = toCam(s.x+up[0], s.y+up[1], s.z+up[2]);
   const below = belly0 && (cu[0]-c[0])*-c[0] + (cu[1]-c[1])*-c[1] + (cu[2]-c[2])*-c[2] < 0;
-  for (const f of pm.faces){
+  const faces = pm.ctl && opt.st ? pm.faces.concat(partFaces(pm, opt.st)) : pm.faces;
+  for (const f of faces){
     let P = f.P; if (f.part){ if (!useWings) continue; P = f.Lc.map(w => sweepPt(w, f.part, sw, f.part.pv0)); }
     const pc = P.map(v => { const r = rotate([(v[0]+org[0])*L, (v[1]+org[1])*L, (v[2]+org[2])*L], h, pi, roll); return toCam(s.x+r[0], s.y+r[1], s.z+r[2]); });
     if (pc.some(p => p[2] < n0)) continue;
@@ -955,7 +1022,7 @@ function sampleTrack(tr, t){
   const a = tr.pts[i], b = tr.pts[Math.min(i+1, tr.pts.length-1)];
   if (b.t - a.t > 2) return t - a.t < 0.5 ? { ...a } : null;
   const f = b.t>a.t ? Math.min(1, Math.max(0,(t-a.t)/(b.t-a.t))) : 0;
-  return { hp:a.hp, x:a.x+(b.x-a.x)*f, y:a.y+(b.y-a.y)*f, z:a.z+(b.z-a.z)*f,
+  return { hp:a.hp, gp: a.gp != null && b.gp != null ? Math.round(a.gp + (b.gp - a.gp)*f) : a.gp, c1:a.c1, c2:a.c2, x:a.x+(b.x-a.x)*f, y:a.y+(b.y-a.y)*f, z:a.z+(b.z-a.z)*f,
     hdg:lerpAng(a.hdg,b.hdg,f), pitch:lerpAng(a.pitch,b.pitch,f), roll:lerpAng(a.roll,b.roll,f), spd:a.spd+(b.spd-a.spd)*f,
     vh: a.vh!=null && b.vh!=null ? lerpAng(a.vh,b.vh,f) : a.vh, vp: a.vp!=null && b.vp!=null ? a.vp+(b.vp-a.vp)*f : a.vp };
 }
@@ -1203,7 +1270,7 @@ function draw(){
           if (sh.every(p=>p[2]>n0)){ const sp = sh.map(proj); ctx.fillStyle = "rgba(50,25,5,.22)";
             ctx.beginPath(); ctx.moveTo(...sp[0]); for (const p of sp.slice(1)) ctx.lineTo(...p); ctx.closePath(); ctx.fill(); } }
         const mcol = tr.kind==="missile" ? "#f2f2ee" : tr.kind==="pilot" ? "#f4f1e8" : col;
-        if (!drawModel(pm, s, c, L, h, pi, mcol, dead, { wings: tr.kind==="aircraft" })) continue;
+        if (!drawModel(pm, s, c, L, h, pi, mcol, dead, { wings: tr.kind==="aircraft", st: tr.kind==="aircraft" ? s : null })) continue;
       }
       if (dead) drawSmoke(s, L);
     } else if (tr.kind==="bullet"){

@@ -143,7 +143,28 @@ function parseSH(u8){
   // 第一個 LOD 的所有附屬頂點組（起落架、襟翼、空氣煞車…），以及控制它們的指令
   const subs = lod.slice(1).map((b, k) => ({ o: b.o, t: b.t, n: b.n, f: facetsIn(b.e, lod[k+2]?.o ?? stop, b.t, b.t + b.n),
     local: b.o >= 14 && c[b.o-14] === 0xFF && c[b.o-13] === 0xFF }));
-  return { v: v.map(p => p || [0,0,0]), f, parts, scale, subs, code: c, ctl: parseCtl(c, cv, subs) };
+  return { v: v.map(p => p || [0,0,0]), f, parts, scale, subs, code: c, ctl: parseCtl(c, cv, subs), imp: shImports(u8, c) };
+}
+
+// SH 的匯入表：每個控制變數其實是 FA.EXE 提供的全域變數，名字寫在匯入表裡（例如 _PLgearDown、_PLleftFlap）
+// 回傳 { 名稱: 程式裡用的位址 }（位址 = 跳板指令 ff 25 [IAT] 的位置）
+function shImports(u8, c){
+  const out = {}; if (u8[0] !== 0x4D || u8[1] !== 0x5A) return out;
+  try {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), pe = dv.getUint32(0x3C, true), ns = dv.getUint16(pe+6, true), opt = dv.getUint16(pe+20, true);
+    const secs = []; for (let i = 0; i < ns; i++){ const s = pe+24+opt+i*40; secs.push([dv.getUint32(s+12, true), Math.max(dv.getUint32(s+8, true), dv.getUint32(s+16, true)), dv.getUint32(s+20, true)]); }
+    const r2o = r => { for (const [va, sz, ro] of secs) if (r >= va && r < va + sz) return r - va + ro; return -1; };
+    const str = o => { let s = ""; while (o >= 0 && o < u8.length && u8[o]) s += String.fromCharCode(u8[o++]); return s; };
+    let d = r2o(dv.getUint32(pe+24+104, true));
+    for (; d >= 0 && dv.getUint32(d+12, true); d += 20){
+      const iat = dv.getUint32(d+16, true); let t = r2o(dv.getUint32(d, true) || iat);
+      for (let k = 0; t >= 0 && dv.getUint32(t, true); k++, t += 4){
+        const name = str(r2o(dv.getUint32(t, true)) + 2), a = iat + 4*k;
+        for (let o = 0; o < c.length - 6; o++) if (c[o] === 0xFF && c[o+1] === 0x25 && c[o+2] === (a & 255) && c[o+3] === (a >> 8 & 255) && c[o+4] === (a >> 16 & 255) && c[o+5] === (a >>> 24)){ out[name] = o + 0x1000; break; }
+      }
+    }
+  } catch(e){}
+  return out;
 }
 // SH 裡的 F0 區塊是 x86 機器碼，遊戲直接執行；常見的寫法：
 //   cmp word [變數], 值 ; jne …           → 條件（起落架放下、襟翼放下…）
@@ -423,7 +444,10 @@ function buildFaces(it){
 }
 const hex = v => (v >>> 0).toString(16).toUpperCase();
 // 預設狀態：條件變數用第一個比較值（通常是起落架放下、襟翼收起），角度變數 0
-function defaultState(m){ const vars = {}; for (const x of m.ctl.vars) vars[x.v] = x.vals.length ? x.vals[0] : 0; return { vars, off: new Set(), free: false }; }
+function defaultState(m){ const vars = {}, nm = Object.fromEntries(Object.entries(m.imp || {}).map(([n, a]) => [a, n]));
+  // 有名字的變數：起落架放下，其他（襟翼、減速板、後燃器、尾鉤…）都收起；沒名字的用第一個比較值
+  for (const x of m.ctl.vars) vars[x.v] = nm[x.v] ? (nm[x.v] === "_PLgearDown" ? 1 : 0) : x.vals.length ? x.vals[0] : 0;
+  return { vars, off: new Set(), free: false }; }
 const optsOf = x => [...new Set([0, ...x.vals, ...(x.vals.length ? [1, -1] : [])])].sort((a, b) => a - b);
 // 哪些零件在某個狀態下會被畫到（列出條件用）
 function reachable(it){
@@ -433,6 +457,11 @@ function reachable(it){
   for (const x of cvars) for (const val of optsOf(x)) tryState({ ...base, [x.v]: val }, `[${hex(x.v)}]=${val === -1 ? "FF" : val}`);
   return reach;
 }
+// SH 匯入表裡的變數名稱 → 中文說明
+const VAR_ZH = { _PLgearDown: "起落架放下", _PLgearPos: "起落架收放角度（0 = 放下）", _PLleftFlap: "左襟翼（FF = 放下）", _PLrightFlap: "右襟翼（FF = 放下）",
+  _PLbrake: "減速板", _PLhook: "尾鉤", _PLafterBurner: "後燃器", _PLrudder: "方向舵", _PLswingWing: "可變翼後掠", _PLbayOpen: "彈艙開啟", _PLbayDoorPos: "彈艙門角度",
+  _PLslats: "前緣縫翼", _PLcanardPos: "前翼角度", _PLvtOn: "向量推力", _PLvtAngle: "旋翼／推力角度" };
+function varLabel(m, v){ const n = Object.entries(m.imp || {}).find(([, a]) => a === v)?.[0]; return n ? `${VAR_ZH[n] || ""} <span style="color:var(--muted);font-weight:normal">${n}</span>` : ""; }
 function setupParts(it){
   const box = $("m_parts"); box.innerHTML = "";
   if (it.state !== "ok" || !it.m.subs?.length || !it.m.ctl.blocks.length){ return; }
@@ -443,10 +472,10 @@ function setupParts(it){
   let html = "";
   for (const x of m.ctl.vars){
     if (x.vals.length){
-      const guess = x.vals.includes(-1) ? "活動面？" : "";
+      const guess = varLabel(m, x.v) || (x.vals.includes(-1) ? "活動面？" : "");
       html += `<div class="row"><b>[${hex(x.v)}] ${guess}</b>` + optsOf(x).map(val => `<button data-v="${x.v}" data-x="${val}" class="${st.vars[x.v] === val ? "on" : ""}">${val === -1 ? "FF" : val}</button>`).join("") + `</div>`;
     }
-    if (x.ang) html += `<div class="row"><b>[${hex(x.v)}] 角度</b><input type="range" min="-32768" max="32767" step="128" value="${st.vars[x.v] ?? 0}" data-ang="${x.v}"><span class="angv">${st.vars[x.v] ?? 0}</span><button data-zero="${x.v}">歸零</button></div>`;
+    if (x.ang) html += `<div class="row"><b>[${hex(x.v)}] ${varLabel(m, x.v) || "角度"}</b><input type="range" min="-32768" max="32767" step="128" value="${st.vars[x.v] ?? 0}" data-ang="${x.v}"><span class="angv">${st.vars[x.v] ?? 0}</span><button data-zero="${x.v}">歸零</button></div>`;
   }
   html += `<div class="row"><b>零件</b><span class="plist">` + m.subs.map((sub, k) => {
     const r = reach.get(k), col = r ? (r.op === 0xC4 ? PART_COL.c4 : PART_COL.j12) : PART_COL.free;
