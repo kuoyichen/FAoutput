@@ -12,7 +12,9 @@ FA.EXE 的 SH 解譯器（指令表在 0x5183A0）：12 = 呼叫 rel16（相對�
 82 = 載入頂點 (u16 n, u16 位置×8, n×(x,y,z) i16)、FC = 面（見 sh_texture.html 的說明）。頂點表最多 900 點。
 用法：python3 sh_subdivide.py SH/F14.SH out/F14X.SH [面數上限]
 """
-import struct, sys
+import os, struct, sys
+
+MODE = os.environ.get('SH_MODE', 'subdivide')   # subdivide（正常）/ copy / pad：給 FA 實測找問題用
 
 MAX_VERT = 900
 FACE_OPS = {0x41,0x44,0x49,0x4C,0x51,0x54,0x59,0x5C,0x61,0x63,0x64,0x69,0x6B,0x6C,0x71,0x73,0x7C,0xCD,0xDD,0xED,0xEE,0xFE,0xFD,0x74}
@@ -118,9 +120,11 @@ def main():
             blk += bytes([0xFC]) + head + bytes([len(idx)]) + b''.join(struct.pack('<H', i) for i in idx)
             blk += b''.join(bytes(u) if fl & 0x100 else struct.pack('<HH', *u) for u in uv)
         blk += b'\x00\x00'
+        if MODE == 'copy': blk = bytearray(c[f['o']:f['end']]) + b'\x00\x00'; nv = []   # 測試用：只把原本的面搬過去
         if room - len(blocks) - len(blk) < 0: break
         start = tail + len(blocks); blocks += blk; nextv += len(nv); done += 1
         patches.append((f, start))
+    if MODE == 'pad': patches = []; blocks = bytearray(b'\x00' * 16); nextv = base; done = 0   # 測試用：只插入沒人用的 16 位元組
     for f, start in patches:
         o = f['o']
         patch = bytearray(b'\x12\x00') + struct.pack('<h', start - (o + 4))
