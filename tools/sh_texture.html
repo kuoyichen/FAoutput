@@ -305,6 +305,7 @@ async function fetchAny(paths){
 // ===== PIC 格式（FA 的 _XXX.PIC，格式 0 = 未壓縮 8 位元色號）=====
 // 0: u16 格式 ; 2: u32 寬 ; 6: u32 高 ; 10: u32 像素位移 ; 14: u32 像素長度 ; 18: u32 調色盤位移 ; 22: u32 調色盤長度（0 = 用遊戲的全域調色盤）
 // 0x22: u32 每列起點表位移 ; 0x26: u32 表長度（高 × 4，每列一個 u32 = 該列像素的檔案位移）
+// 注意：列是由下往上存（檔案第 0 列 = 貼圖最下面一列），SH 的 UV 以貼圖左上為原點
 function parsePIC(u8){
   const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
   const fmt = dv.getUint16(0, true), w = dv.getUint32(2, true), h = dv.getUint32(6, true), po = dv.getUint32(10, true), ps = dv.getUint32(14, true);
@@ -312,7 +313,8 @@ function parsePIC(u8){
   if (fmt !== 0 || !w || !h || w > 4096 || h > 4096) throw new Error(`PIC 格式 ${fmt}（${w}×${h}）還不支援`);
   const px = new Uint8Array(w * h);
   const rows = rowS >= 4 * h && rowO + rowS <= u8.length;
-  for (let y = 0; y < h; y++){ const s = rows ? dv.getUint32(rowO + 4*y, true) : po + y*w; px.set(u8.subarray(s, s + w), y*w); }
+  // 檔案裡的列是由下往上存的（像 BMP）：SH 的 v = 0 對應檔案最後一列，所以讀進來時上下翻轉，之後 UV 直接當像素座標用
+  for (let y = 0; y < h; y++){ const s = rows ? dv.getUint32(rowO + 4*y, true) : po + y*w; px.set(u8.subarray(s, s + w), (h - 1 - y)*w); }
   let pal = null; if (palO && palS >= 768 && palO + 768 <= u8.length) pal = palFromBytes(u8.subarray(palO, palO + palS));
   return { w, h, px, pal, fmt, po, ps, rows };
 }
@@ -503,7 +505,7 @@ async function load(name){
   try { if (pu8) pic = parsePIC(pu8); } catch(e){ $("msg").textContent = e.message; }
   cur = { name, m, pic, picName, texNames };
   if (pic) setTex(picTex, pic.w, pic.h, gl.LUMINANCE, pic.px);
-  $("texname").textContent = pic ? `　${picName}（${pic.w}×${pic.h}）` : "　找不到 " + picName;
+  $("texname").textContent = pic ? `　${picName}（${pic.w}×${pic.h}，已上下翻轉成貼圖座標）` : "　找不到 " + picName;
   buildFaces();
   if (pic || !pu8) $("msg").textContent = $("pal").value === "game" && !gamePal ? "還沒有 FA 調色盤，先用灰階顯示；按「載入 palette.PAL」選檔" : "";
 }
