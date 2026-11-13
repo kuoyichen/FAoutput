@@ -2,7 +2,10 @@
 """把 FA 的 SH 模型裡較大的貼圖面細分（1 → 4），新點的 UV 照比例內插，產生點數更多、貼圖不變的 SH。
 
 做法（不移動原本任何指令，所以原檔裡所有相對位移、x86 程式、重定位都不用改）：
-  * 新的資料放在 CODE 區段尾端（CODE 的虛擬位址可以長到 .idata 之前，F14 約有 4 KB 空間）
+  * 新的資料插在 CODE 裡的簽章 01 02 03 02 01 02 03 02 01 之前：FA.EXE 的 SH 載入程式（0x41EB1E）只複製到這個
+    簽章為止，簽章後面（匯入跳板 ff 25 …）當成變數區。所以簽章和後面的跳板整段往後移，並用 .reloc 修正所有
+    指到這段的絕對位址（第一版把資料放在簽章後面，FA 一畫外部視角就當機）
+  * CODE 的虛擬位址可以長到 .idata 之前（F14 約有 4 KB 空間）
   * 每個要細分的面：原位置改成 `12 00 rel16`（呼叫新區塊）+ `38 rel16`（跳過原本面剩下的位元組），其餘填 1E
   * 新區塊：`82 00 n target` 載入新增的點（放在頂點表 480 以後的位置），接著 4 個子面，最後 `00 00` 返回
 FA.EXE 的 SH 解譯器（指令表在 0x5183A0）：12 = 呼叫 rel16（相對於 rel16 之後）、38 = 跳躍 rel16、00 = 返回、
@@ -88,7 +91,9 @@ def main():
     cand = sorted([f for f in faces if f['uv'] and f['n'] in (3, 4) and f['end'] - f['o'] >= 7], key=area, reverse=True)
     base = max(used, 480)
     nextv = base; blocks = bytearray(); patches = []; done = 0
-    tail = len(c)
+    SIG = bytes([1, 2, 3, 2, 1, 2, 3, 2, 1])
+    tail = bytes(c).find(SIG)
+    if tail < 0: sys.exit('找不到 CODE 結尾簽章')
     for f in cand[:limit]:
         P = [V[i] for i in f['idx']]; U = f['uv']; n = f['n']
         mid = lambda a, b: tuple(round((a[k]+b[k])/2) for k in range(len(a)))
@@ -122,7 +127,39 @@ def main():
         patch += b'\x38' + struct.pack('<h', f['end'] - (o + 7))
         patch += b'\x1e' * (f['end'] - o - len(patch))
         c[o:f['end']] = patch
-    c += blocks
+    L = len(blocks)
+    c = c[:tail] + blocks + c[tail:]
+    # 重定位：位置或目標在簽章之後的都往後移 L
+    rel = next(s for s in secs if s['name'] == '.reloc')
+    rdir = pe + 24 + 96 + 8*5; rva, rsz = struct.unpack_from('<II', d, rdir)
+    ents, p = [], rel['ro'] + (rva - rel['va'])
+    while p < rel['ro'] + (rva - rel['va']) + rsz:
+        page, sz = struct.unpack_from('<II', d, p)
+        if sz < 8: break
+        for k in range((sz-8)//2):
+            e = struct.unpack_from('<H', d, p+8+2*k)[0]
+            if e >> 12: ents.append((e >> 12, page + (e & 0xFFF)))
+        p += sz
+    cut = code['va'] + tail; cend = code['va'] + code['vs']
+    new_ents = []
+    for t, r in ents:
+        if code['va'] <= r < cend:
+            if r >= cut: r += L
+            off = r - code['va']; val = struct.unpack_from('<I', c, off)[0]
+            if cut <= val < cend: struct.pack_into('<I', c, off, val + L)
+        new_ents.append((t, r))
+    # 其他區段裡指到簽章後面的絕對位址（理論上沒有，檢查一下）
+    for t, r in ents:
+        if not code['va'] <= r < cend:
+            sec = next(x for x in secs if x['va'] <= r < x['va'] + max(x['vs'], x['rs']))
+            val = struct.unpack_from('<I', d, sec['ro'] + r - sec['va'])[0]
+            if cut <= val < cend: sys.exit('有區段外的重定位指到簽章後面，未處理')
+    tbl = bytearray(); pages = {}
+    for t, r in sorted(new_ents, key=lambda x: x[1]): pages.setdefault(r & ~0xFFF, []).append((t << 12) | (r & 0xFFF))
+    for pg, es in sorted(pages.items()):
+        if len(es) % 2: es.append(0)
+        tbl += struct.pack('<II', pg, 8 + 2*len(es)) + b''.join(struct.pack('<H', e) for e in es)
+    if len(tbl) > rel['rs'] - (rva - rel['va']): sys.exit('重定位表放不下')
     # 重新組檔：CODE 變長，後面區段的檔案位置往後移（虛擬位址不變）
     falign = struct.unpack_from('<I', d, pe+24+36)[0]
     new_rs = (len(c) + falign - 1) // falign * falign
@@ -135,6 +172,11 @@ def main():
     for s in secs:
         if s['ro'] > code['ro']: struct.pack_into('<I', out, s['hdr']+20, s['ro'] + shift)
     soc = struct.unpack_from('<I', out, pe+24+4)[0]; struct.pack_into('<I', out, pe+24+4, soc + shift)
+    # 寫回新的重定位表（區段位置已經移過）
+    rel_ro = rel['ro'] + shift + (rva - rel['va'])
+    out[rel_ro:rel_ro + rsz] = b'\x00' * rsz
+    out[rel_ro:rel_ro + len(tbl)] = tbl
+    struct.pack_into('<I', out, rdir + 4, len(tbl))
     open(dst, 'wb').write(out)
     print(f'{src}: 主體 {main_n} 點，細分 {done} 個貼圖面，新增 {nextv-base} 點（頂點表用到 {nextv}/{MAX_VERT}），CODE {code["vs"]:#x} → {len(c):#x}（上限 {nxt-code["va"]:#x}）')
 
