@@ -626,44 +626,112 @@ function parseSH(u8){
   // 第一個 LOD 的所有附屬頂點組（起落架、襟翼、空氣煞車…），以及控制它們的指令
   const subs = lod.slice(1).map((b, k) => ({ o: b.o, t: b.t, n: b.n, f: facetsIn(b.e, lod[k+2]?.o ?? stop, b.t, b.t + b.n),
     local: b.o >= 14 && c[b.o-14] === 0xFF && c[b.o-13] === 0xFF }));
-  return { v: v.map(p => p || [0,0,0]), f, parts, scale, subs, ctl: parseCtl(c, cv, subs) };
+  return { v: v.map(p => p || [0,0,0]), f, parts, scale, subs, code: c, ctl: parseCtl(c, cv, subs) };
 }
-// SH 裡的 F0 區塊是 x86 機器碼，遊戲直接執行。常見的寫法：
-//   cmp word [變數], 值 ; jne 下一段      → 條件（例如起落架放下、襟翼放下）
-//   call $+5 ; pop ebx ; add ebx, n ; mov ax, [角度變數] ; sar ax, k ; (neg ax) ; mov [ebx+d], ax
-//                                          → 執行時改寫後面 C4 指令的某個欄位（起落架收放角度）
-//   push 返回位址 ; push 直譯器 ; ret      → 回到位元碼，接著執行返回位址的指令
+// SH 裡的 F0 區塊是 x86 機器碼，遊戲直接執行；常見的寫法：
+//   cmp word [變數], 值 ; jne …           → 條件（起落架放下、襟翼放下…）
+//   call $+5 ; pop ebx ; add ebx, n ; mov ax, [角度變數] ; sar/shl/add/sub/neg ; mov [ebx+d], ax
+//                                          → 執行時改寫後面 C4 指令的欄位（起落架收放、可變翼後掠角度）
+//   push 返回位址 ; push 直譯器 ; ret      → 回到位元碼，從返回位址繼續
 // 返回位址的指令：C4 00 x 上 前 方位 俯仰 滾轉 rel16 = 把頂點組放在 (x,上,前) 並旋轉後畫出；12 00 rel16 = 直接畫頂點組
+// 這裡用一個很小的 x86 模擬器照實際狀態執行，算出要畫哪些零件、放在哪裡。
+const SH_VA = 0x1000;
+function x86Run(mem, start, maxSteps = 400){
+  const dv = new DataView(mem.buffer, mem.byteOffset, mem.byteLength), L = mem.length;
+  const rd16 = va => { const o = va - SH_VA; return o >= 0 && o + 1 < L ? dv.getInt16(o, true) : 0; };
+  const rd32 = va => { const o = va - SH_VA; return o >= 0 && o + 3 < L ? dv.getInt32(o, true) : 0; };
+  const wr16 = (va, x) => { const o = va - SH_VA; if (o >= 0 && o + 1 < L) dv.setInt16(o, x, true); };
+  const s16 = x => (x << 16) >> 16;
+  let p = start, ax = 0, cx = 0, eax = 0, ebx = 0, fa = 0, fb = 0, sz = 16; const stack = [];
+  const cc = op => { const sa = sz === 8 ? (fa << 24) >> 24 : sz === 16 ? s16(fa) : fa | 0, sb = sz === 8 ? (fb << 24) >> 24 : sz === 16 ? s16(fb) : fb | 0;
+    const m = sz === 32 ? 0xFFFFFFFF : (1 << sz) - 1, ua = (fa & m) >>> 0, ub = (fb & m) >>> 0;
+    switch (op & 0xF){ case 2: return ua < ub; case 3: return ua >= ub; case 4: return sa === sb; case 5: return sa !== sb;
+      case 6: return ua <= ub; case 7: return ua > ub; case 0xC: return sa < sb; case 0xD: return sa >= sb; case 0xE: return sa <= sb; case 0xF: return sa > sb; } return null; };
+  for (let n = 0; n < maxSteps; n++){
+    const o = p - SH_VA; if (o < 0 || o >= L - 1) return null;
+    const b0 = mem[o], b1 = mem[o+1], b2 = mem[o+2];
+    if (b0 === 0x66){
+      if (b1 === 0x83 && b2 === 0x3D){ fa = rd16(rd32(p+3)); fb = (mem[o+7] << 24) >> 24; sz = 16; p += 8; continue; }
+      if (b1 === 0x81 && b2 === 0x3D){ fa = rd16(rd32(p+3)); fb = dv.getInt16(o+7, true); sz = 16; p += 9; continue; }
+      if (b1 === 0xA1){ ax = rd16(rd32(p+2)); p += 6; continue; }
+      if (b1 === 0x8B && b2 === 0xC8){ cx = ax; p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0xC1){ cx = ax; p += 3; continue; }
+      if (b1 === 0x8B && b2 === 0xC1){ ax = cx; p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0xC8){ ax = cx; p += 3; continue; }
+      if (b1 === 0xD1 && b2 === 0xF8){ ax = s16(ax) >> 1; p += 3; continue; }
+      if (b1 === 0xD1 && b2 === 0xF9){ cx = s16(cx) >> 1; p += 3; continue; }
+      if (b1 === 0xC1 && b2 === 0xF8){ ax = s16(ax) >> mem[o+3]; p += 4; continue; }
+      if (b1 === 0xC1 && b2 === 0xF9){ cx = s16(cx) >> mem[o+3]; p += 4; continue; }
+      if (b1 === 0xD1 && b2 === 0xE0){ ax = s16(ax << 1); p += 3; continue; }
+      if (b1 === 0xC1 && b2 === 0xE0){ ax = s16(ax << mem[o+3]); p += 4; continue; }
+      if ((b1 === 0x03 && b2 === 0xC1) || (b1 === 0x01 && b2 === 0xC8)){ ax = s16(ax + cx); p += 3; continue; }
+      if ((b1 === 0x2B && b2 === 0xC1) || (b1 === 0x29 && b2 === 0xC8)){ ax = s16(ax - cx); p += 3; continue; }
+      if (b1 === 0x05){ ax = s16(ax + dv.getInt16(o+2, true)); p += 4; continue; }
+      if (b1 === 0x2D){ ax = s16(ax - dv.getInt16(o+2, true)); p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xC0){ ax = s16(ax + ((mem[o+3] << 24) >> 24)); p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xE8){ ax = s16(ax - ((mem[o+3] << 24) >> 24)); p += 4; continue; }
+      if (b1 === 0x3D){ fa = ax; fb = dv.getInt16(o+2, true); sz = 16; p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xF8){ fa = ax; fb = (mem[o+3] << 24) >> 24; sz = 16; p += 4; continue; }
+      if (b1 === 0xB8){ ax = dv.getInt16(o+2, true); p += 4; continue; }
+      if (b1 === 0xF7 && b2 === 0xD8){ ax = s16(-ax); p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0x43){ wr16(ebx + ((mem[o+3] << 24) >> 24), ax); p += 4; continue; }
+      if (b1 === 0x89 && b2 === 0x83){ wr16(ebx + dv.getInt32(o+3, true), ax); p += 7; continue; }
+      if (b1 === 0xA3){ wr16(rd32(p+2), ax); p += 6; continue; }
+      return null;
+    }
+    if (b0 === 0x80 && b1 === 0x3D){ const a = rd32(p+2) - SH_VA; fa = a >= 0 && a < L ? mem[a] : 0; fb = mem[o+6]; sz = 8; p += 7; continue; }
+    if (b0 === 0x83 && b1 === 0x3D){ fa = rd32(rd32(p+2)); fb = (mem[o+6] << 24) >> 24; sz = 32; p += 7; continue; }
+    if (b0 === 0xA1){ eax = rd32(rd32(p+1)); ax = s16(eax); p += 5; continue; }
+    if (b0 >= 0x70 && b0 <= 0x7F){ const t = cc(b0); if (t == null) return null; p += 2 + (t ? (b1 << 24) >> 24 : 0); continue; }
+    if (b0 === 0x0F && b1 >= 0x80 && b1 <= 0x8F){ const t = cc(b1); if (t == null) return null; p += 6 + (t ? dv.getInt32(o+2, true) : 0); continue; }
+    if (b0 === 0xEB){ p += 2 + ((b1 << 24) >> 24); continue; }
+    if (b0 === 0xE9){ p += 5 + dv.getInt32(o+1, true); continue; }
+    if (b0 === 0xE8){ stack.push(p + 5); p += 5 + dv.getInt32(o+1, true); continue; }
+    if (b0 === 0x5B){ ebx = stack.pop() ?? 0; p += 1; continue; }
+    if (b0 === 0x53){ stack.push(ebx); p += 1; continue; }
+    if (b0 === 0x81 && b1 === 0xC3){ ebx += dv.getInt32(o+2, true); p += 6; continue; }
+    if (b0 === 0x83 && b1 === 0xC3){ ebx += (b2 << 24) >> 24; p += 3; continue; }
+    if (b0 === 0x68){ stack.push(dv.getInt32(o+1, true)); p += 5; continue; }
+    if (b0 === 0xC3){ stack.pop(); return stack.length ? stack.pop() : null; }   // push 返回位址 ; push 直譯器 ; ret → 返回位址
+    return null;
+  }
+  return null;
+}
+// 靜態掃描：找出每個 F0 區塊、比較過的變數和值、讀過的角度變數
 function parseCtl(c, cv, subs){
-  const VA = 0x1000, out = [], idxOf = new Map(); subs.forEach((s, i) => { idxOf.set(s.o, i); idxOf.set(s.o - 14, i); });
+  // 跳躍目標可能是頂點組前面的子外型表頭或其他短指令：取目標之後 16 位元組內的第一個頂點組
+  const idxOf = { get: t => { let best = null; subs.forEach((s, i) => { if (s.o >= t && s.o - t <= 16 && (best == null || s.o < subs[best].o)) best = i; }); return best ?? undefined; } };
+  const blocks = [], vars = new Map();
   for (let o = 0; o < c.length - 12; o++){
     if (c[o] !== 0xF0 || c[o+1] !== 0) continue;
-    let p = o + 2, cond = null, ang = null, popAt = -1, ebxAdd = 0, disp = null, target = null;
-    for (let g = 0; g < 16 && p < c.length - 11; g++){
-      if (c[p] === 0x66 && c[p+1] === 0x83 && c[p+2] === 0x3D){ cond = { v: cv.getUint32(p+3, true), val: (c[p+7] << 24) >> 24 }; p += 8;
-        if (c[p] === 0x75) p += 2; else if (c[p] === 0x0F && c[p+1] === 0x85) p += 6; else break; continue; }
-      if (c[p] === 0xE8 && cv.getInt32(p+1, true) === 0){ popAt = p + 5; p += 5; continue; }
-      if (c[p] === 0x5B){ p++; continue; }
-      if (c[p] === 0x81 && c[p+1] === 0xC3){ ebxAdd = cv.getInt32(p+2, true); p += 6; continue; }
-      if (c[p] === 0x83 && c[p+1] === 0xC3){ ebxAdd = (c[p+2] << 24) >> 24; p += 3; continue; }
-      if (c[p] === 0x66 && c[p+1] === 0xA1){ ang = { v: cv.getUint32(p+2, true), shift: 0, neg: false }; p += 6; continue; }
-      if (c[p] === 0x66 && c[p+1] === 0xD1 && c[p+2] === 0xF8){ if (ang) ang.shift++; p += 3; continue; }
-      if (c[p] === 0x66 && c[p+1] === 0xC1 && c[p+2] === 0xF8){ if (ang) ang.shift += c[p+3]; p += 4; continue; }
-      if (c[p] === 0x66 && c[p+1] === 0xF7 && c[p+2] === 0xD8){ if (ang) ang.neg = !ang.neg; p += 3; continue; }
-      if (c[p] === 0x66 && c[p+1] === 0x89 && c[p+2] === 0x43){ disp = (c[p+3] << 24) >> 24; p += 4; continue; }
-      if (c[p] === 0x68 && c[p+5] === 0x68 && c[p+10] === 0xC3){ target = cv.getUint32(p+1, true) - VA; break; }
-      break;
+    if (x86Run(c, o + 2 + SH_VA) == null) continue;   // 不是能執行到 ret 的程式碼
+    blocks.push(o + 2);
+    // 掃這一段直到 ret，收集變數
+    for (let p = o + 2, n = 0; p < c.length - 8 && n < 60; n++){
+      if (c[p] === 0x66 && c[p+1] === 0x83 && c[p+2] === 0x3D){ const v = cv.getUint32(p+3, true); const s = vars.get(v) || { vals: new Set(), ang: false }; s.vals.add((c[p+7] << 24) >> 24); vars.set(v, s); p += 8; continue; }
+      if (c[p] === 0x66 && c[p+1] === 0xA1){ const v = cv.getUint32(p+2, true); const s = vars.get(v) || { vals: new Set(), ang: false }; s.ang = true; vars.set(v, s); p += 6; continue; }
+      if (c[p] === 0x68 && c[p+5] === 0x68 && c[p+10] === 0xC3) break; p++;
     }
-    if (!cond || target == null || target < 0 || target > c.length - 16) continue;
-    const e = { at: o, cond, op: c[target] };
-    if (c[target] === 0xC4){
-      e.part = idxOf.get(target + 16 + cv.getInt16(target + 14, true));
-      e.pos = [cv.getInt16(target+2, true), cv.getInt16(target+4, true), cv.getInt16(target+6, true)];
-      e.rot = [cv.getInt16(target+8, true), cv.getInt16(target+10, true), cv.getInt16(target+12, true)];
-      if (ang && disp != null && popAt >= 0){ const field = (popAt + ebxAdd + disp - target - 2) / 2; if (field >= 0 && field < 6) e.anim = { field, ...ang }; }
-    } else if (c[target] === 0x12) e.part = idxOf.get(target + 4 + cv.getInt16(target + 2, true));
-    if (e.part != null) out.push(e);
   }
+  // 主體位元碼裡沒有條件的 C4（例如 B-2 的兩個零件）：目標必須剛好是某個頂點組
+  const statics = [], exact = new Map(); subs.forEach((s, i) => { exact.set(s.o, i); exact.set(s.o - 14, i); });
+  const end = subs.length ? Math.min(...subs.map(s => s.o)) : 0;
+  const pushed = new Set(); for (let o = 0; o < c.length - 5; o++) if (c[o] === 0x68) pushed.add(cv.getUint32(o + 1, true) - SH_VA);   // 有 F0 區塊會跳到的指令不算
+  for (let o = 0; o < end - 16; o++) if (c[o] === 0xC4 && c[o+1] === 0 && !pushed.has(o)){ const i = exact.get(o + 16 + cv.getInt16(o + 14, true)); if (i != null) statics.push(o); }
+  return { blocks, statics, vars: [...vars].map(([v, s]) => ({ v, vals: [...s.vals], ang: s.ang })), idxOf };
+}
+// 依狀態（變數 → 值）執行全部區塊，回傳要畫的零件：{ part, op, f6:[x,上,前,方位,俯仰,滾轉] }
+function evalCtl(m, state){
+  const c = m.code, mem = c.slice(), dv = new DataView(mem.buffer), out = [], seen = new Set();
+  for (const [v, x] of Object.entries(state)){ const o = +v - SH_VA; if (o >= 0 && o + 1 < mem.length) dv.setInt16(o, x, true); }
+  for (const b of m.ctl.blocks){
+    const r = x86Run(mem, b + SH_VA); if (r == null) continue; const t = r - SH_VA; if (t < 0 || t > mem.length - 16 || seen.has(t)) continue;
+    let part, f6 = null;
+    if (mem[t] === 0xC4){ part = m.ctl.idxOf.get(t + 16 + dv.getInt16(t + 14, true)); f6 = [0,1,2,3,4,5].map(k => dv.getInt16(t + 2 + 2*k, true)); }
+    else if (mem[t] === 0x12) part = m.ctl.idxOf.get(t + 4 + dv.getInt16(t + 2, true));
+    if (part == null) continue; seen.add(t); out.push({ part, op: mem[t], f6, at: t });
+  }
+  for (const t of m.ctl.statics || []) if (!seen.has(t)){ seen.add(t); out.push({ part: m.ctl.idxOf.get(t + 16 + dv.getInt16(t + 14, true)), op: 0xC4, f6: [0,1,2,3,4,5].map(k => dv.getInt16(t + 2 + 2*k, true)), at: t }); }
   return out;
 }
 
