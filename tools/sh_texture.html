@@ -46,9 +46,13 @@ label.ck{display:inline-flex;gap:4px;align-items:center;cursor:pointer}
     <option value="flat">不貼圖（只用面的色號）</option>
     <option value="check">棋盤格（檢查 UV 方向）</option>
   </select>
-  <label class="ck"><input type="checkbox" id="light" checked> 光影</label>
+  <select id="light" title="光影">
+    <option value="2">光影：FA 色階（面的色號在灰階 90–9B 裡加減）</option>
+    <option value="1">光影：亮度相乘</option>
+    <option value="0">不加光影（原始色號）</option>
+  </select>
   <select id="transp" title="PIC 裡色號 FF 的像素">
-    <option value="1">貼圖 FF = 露出面的色號</option>
+    <option value="1">貼圖 FF = 露出面的色號（色號 0 的面透明）</option>
     <option value="2">貼圖 FF = 透明</option>
     <option value="0">貼圖 FF 照原色</option>
   </select>
@@ -355,16 +359,21 @@ void main(){ vUV = aUV; vN = aN; vC = aC; vP = aP; gl_Position = uM * vec4(aP, 1
 const FS = `precision mediump float; varying vec2 vUV; varying vec3 vN; varying vec2 vC; varying vec3 vP;
 uniform sampler2D uPic; uniform sampler2D uPal; uniform vec2 uSize; uniform float uMode; uniform float uLight; uniform float uTransp; uniform float uSel;
 void main(){
-  float idx; bool tex = vC.y > 0.5 && uMode < 1.5;
+  float idx; bool tex = vC.y > 0.5 && uMode < 1.5, own = true;
+  float d = abs(dot(normalize(vN), normalize(vec3(0.35, 0.85, 0.4))));
   if (tex){
     vec2 t = vUV;
     if (uMode > 0.5 && uMode < 1.5){ vec2 g = floor(t / 8.0); idx = mod(g.x + g.y, 2.0) < 1.0 ? 15.0 : 240.0; }
     else idx = floor(texture2D(uPic, (floor(t) + 0.5) / uSize).r * 255.0 + 0.5);
-    if (idx > 254.5){ if (uTransp > 1.5) discard; if (uTransp > 0.5) idx = vC.x; }
+    own = false;
+    if (idx > 254.5){ if (uTransp > 1.5) discard; if (uTransp > 0.5){ if (vC.x < 0.5) discard; idx = vC.x; own = true; } }   // 面的色號 0 = 沒有底色：FF 透明（起落架、輪子、座艙罩）
   } else idx = vC.x;
+  // FA 調色盤 0x90–0x9B 是由亮到暗的灰階：面自己的色號依受光在這段裡往亮或往暗移幾格
+  if (uLight > 1.5 && own && idx >= 144.0 && idx <= 155.0) idx = clamp(idx + floor((0.75 - d) * 8.0 + 0.5), 144.0, 155.0);
   vec3 c = texture2D(uPal, vec2((idx + 0.5) / 256.0, 0.5)).rgb;
   if (uMode > 0.5 && uMode < 1.5 && vC.y > 0.5) c = mix(vec3(0.95,0.3,0.2), vec3(1.0), step(0.5, c.r)) * (0.5 + 0.5 * vec3(fract(vUV / 64.0), 0.5));
-  if (uLight > 0.5){ vec3 n = normalize(vN); float d = abs(dot(n, normalize(vec3(0.35, 0.85, 0.4)))); c *= 0.45 + 0.65 * d; }
+  if (uLight > 0.5 && uLight < 1.5) c *= 0.45 + 0.65 * d;
+  else if (uLight > 1.5 && !(own && idx >= 144.0 && idx <= 155.0)) c *= 0.7 + 0.4 * d;
   if (uSel > 0.5) c = mix(c, vec3(1.0, 0.85, 0.2), 0.55);
   gl_FragColor = vec4(c, 1.0);
 }`;
@@ -445,7 +454,7 @@ function draw(){
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, palTex); gl.uniform1i(U("uPal"), 1);
   gl.uniform2f(U("uSize"), cur.pic ? cur.pic.w : 1, cur.pic ? cur.pic.h : 1);
   const mode = $("mode").value; gl.uniform1f(U("uMode"), mode === "check" ? 1 : mode === "flat" || !cur.pic ? 2 : 0);
-  gl.uniform1f(U("uLight"), $("light").checked ? 1 : 0); gl.uniform1f(U("uTransp"), +$("transp").value);
+  gl.uniform1f(U("uLight"), +$("light").value); gl.uniform1f(U("uTransp"), +$("transp").value);
   // FA 是照順序畫面的（後畫的蓋前面），貼圖小面常常和機身面重疊在同一平面：用 polygonOffset 讓後面的面稍微往前
   gl.enable(gl.POLYGON_OFFSET_FILL);
   bindAttrs(vbo); gl.uniform1f(U("uSel"), 0);
