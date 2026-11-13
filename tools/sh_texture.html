@@ -32,7 +32,7 @@ label.ck{display:inline-flex;gap:4px;align-items:center;cursor:pointer}
 <body>
 <header>
   <h1>FA SH 貼圖測試</h1>
-  <select id="pick"><option>F14</option><option>F15</option></select>
+  <select id="pick"><option>F14</option><option>F15</option><option value="SHX/F14X">F14X（細分加點）</option><option value="SHX/F15X">F15X（細分加點）</option></select>
   <input type="text" id="other" placeholder="其他 SH…" title="輸入 SH 名稱（例如 F16）後按 Enter，會用 _名稱.PIC 當貼圖">
   <select id="pal" title="調色盤">
     <option value="game">FA 調色盤（palette.PAL）</option>
@@ -57,6 +57,7 @@ label.ck{display:inline-flex;gap:4px;align-items:center;cursor:pointer}
     <option value="0">貼圖 FF 照原色</option>
   </select>
   <label class="ck"><input type="checkbox" id="gear" checked> 起落架放下</label>
+  <label class="ck"><input type="checkbox" id="edges"> 顯示邊線</label>
   <label class="ck" title="FA 依順序畫面，後畫的蓋住前面；勾選時後面的面稍微往前，避免貼在同一平面的貼圖面閃爍"><input type="checkbox" id="order" checked> 依 SH 順序疊面</label>
   <span id="msg"></span>
   <span id="hint">拖曳旋轉・滾輪縮放・點面看資料</span>
@@ -120,6 +121,22 @@ function parseSH(u8){
   };
   const main = lod[0], mainEnd = lod[1]?.o ?? stop;
   const f = facetsIn(main.e, mainEnd, 0, main.n);
+  // 細分過的 SH（tools/shgen/sh_subdivide.py）：原本的面改成 `12 00 rel16`（呼叫）+ `38 rel16`（跳過），
+  // 被呼叫的區塊是 82 頂點緩衝 + 面 + 00 00。照 FA.EXE 的 FC 格式讀（旗標 0x60 才有法向量）
+  for (let o = main.e; o < mainEnd - 7; o++){
+    if (c[o] !== 0x12 || c[o+1] !== 0 || c[o+4] !== 0x38) continue;
+    let t = o + 4 + cv.getInt16(o+2, true); if (t < 0 || t >= L - 6 || c[t] !== 0x82) continue;
+    while (c[t] === 0x82 && c[t+1] === 0){ const n = cv.getUint16(t+2, true), tg = cv.getUint16(t+4, true) / 8;
+      for (let i = 0; i < n; i++) v[tg+i] = [cv.getInt16(t+6+6*i, true), cv.getInt16(t+8+6*i, true), cv.getInt16(t+10+6*i, true)]; t += 6 + 6*n; }
+    while (c[t] === 0xFC){
+      const fl = cv.getUint16(t+1, true); let p = t + 5 + (fl & 0x60 ? (fl & 0x200 ? 9 : 12) : 0);
+      const n = c[p++], wide = fl & 0x400, idx = [];
+      for (let k = 0; k < n; k++){ idx.push(wide ? cv.getUint16(p, true) : c[p]); p += wide ? 2 : 1; }
+      let uv = null; if (fl & 4){ uv = []; for (let k = 0; k < n; k++){ if (fl & 0x100){ uv.push([c[p], c[p+1]]); p += 2; } else { uv.push([cv.getUint16(p, true), cv.getUint16(p+2, true)]); p += 4; } } }
+      idx.uv = uv; idx.col = c[t+3]; idx.fl = fl; f.push(idx); t = p;
+    }
+    o += 6;
+  }
   if (!f.length) return null;
   let span = 0; for (let i=0;i<main.n;i++) span = Math.max(span, Math.abs(v[i][0]));
   const parts = [];
@@ -354,8 +371,8 @@ const curPal = () => $("pal").value === "gray" ? PAL_GRAY : $("pal").value === "
 // ===== WebGL =====
 const cv = $("cv"), gl = cv.getContext("webgl", { antialias: true });
 const VS = `attribute vec3 aP; attribute vec2 aUV; attribute vec3 aN; attribute vec2 aC;
-uniform mat4 uM; varying vec2 vUV; varying vec3 vN; varying vec2 vC; varying vec3 vP;
-void main(){ vUV = aUV; vN = aN; vC = aC; vP = aP; gl_Position = uM * vec4(aP, 1.0); }`;
+uniform mat4 uM; uniform float uZB; varying vec2 vUV; varying vec3 vN; varying vec2 vC; varying vec3 vP;
+void main(){ vUV = aUV; vN = aN; vC = aC; vP = aP; gl_Position = uM * vec4(aP, 1.0); gl_Position.z -= uZB * gl_Position.w; }`;
 const FS = `precision mediump float; varying vec2 vUV; varying vec3 vN; varying vec2 vC; varying vec3 vP;
 uniform sampler2D uPic; uniform sampler2D uPal; uniform vec2 uSize; uniform float uMode; uniform float uLight; uniform float uTransp; uniform float uSel;
 void main(){
@@ -382,7 +399,7 @@ function mkProg(){
   const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(p); return p;
 }
 const prog = mkProg(), U = n => gl.getUniformLocation(prog, n), A = n => gl.getAttribLocation(prog, n);
-const vbo = gl.createBuffer(), selVbo = gl.createBuffer(), picTex = gl.createTexture(), palTex = gl.createTexture();
+const vbo = gl.createBuffer(), edgeVbo = gl.createBuffer(), selVbo = gl.createBuffer(), picTex = gl.createTexture(), palTex = gl.createTexture();
 function setTex(t, w, h, fmt, data){ gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
   gl.texImage2D(gl.TEXTURE_2D, 0, fmt, w, h, 0, fmt, gl.UNSIGNED_BYTE, data);
   for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); }
@@ -421,6 +438,8 @@ function buildFaces(){
     f.cnt = data.length / 10 - f.first;
   });
   cur.tris = new Float32Array(data); cur.n = data.length / 10;
+  const ed = []; faces.forEach(f => { if (!f.draw) return; const p = f.pts; for (let k = 0; k < p.length; k++){ const q = p[k], r = p[(k+1) % p.length]; ed.push(...q, 0,0, 0,0,0, 164,0, ...r, 0,0, 0,0,0, 164,0); } });
+  cur.edges = new Float32Array(ed); cur.en = ed.length / 10; gl.bindBuffer(gl.ARRAY_BUFFER, edgeVbo); gl.bufferData(gl.ARRAY_BUFFER, cur.edges, gl.STATIC_DRAW);
   gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, cur.tris, gl.STATIC_DRAW);
   let lo = [1e9,1e9,1e9], hi = [-1e9,-1e9,-1e9]; for (const f of faces) for (const q of f.pts) for (let k = 0; k < 3; k++){ lo[k] = Math.min(lo[k], q[k]); hi[k] = Math.max(hi[k], q[k]); }
   cur.center = lo.map((x, k) => (x + hi[k]) / 2); cur.radius = Math.max(1, Math.hypot(hi[0]-lo[0], hi[1]-lo[1], hi[2]-lo[2]) / 2);
@@ -461,6 +480,7 @@ function draw(){
   const bias = $("order").checked;
   if (!bias) gl.polygonOffset(0, 0), gl.drawArrays(gl.TRIANGLES, 0, cur.n);
   else cur.faces.forEach((f, i) => { if (!f.cnt) return; gl.polygonOffset(-i * 0.004, -i * 0.5); gl.drawArrays(gl.TRIANGLES, f.first, f.cnt); });
+  if ($("edges").checked && cur.en){ gl.disable(gl.POLYGON_OFFSET_FILL); bindAttrs(edgeVbo); gl.uniform1f(U("uMode"), 2); gl.uniform1f(U("uLight"), 0); gl.uniform1f(U("uSel"), 0); gl.uniform1f(U("uZB"), 0.0008); gl.drawArrays(gl.LINES, 0, cur.en); gl.uniform1f(U("uZB"), 0); gl.enable(gl.POLYGON_OFFSET_FILL); }
   if (sel >= 0 && cur.selN){ gl.polygonOffset(-10, -4000); bindAttrs(selVbo); gl.uniform1f(U("uSel"), 1); gl.drawArrays(gl.TRIANGLES, 0, cur.selN); }
   gl.disable(gl.POLYGON_OFFSET_FILL);
 }
@@ -507,7 +527,7 @@ function pick(mx, my){
 // ===== 載入 =====
 async function load(name){
   name = name.toUpperCase().replace(/\.SH$/, ""); $("msg").textContent = "載入 " + name + "…";
-  const u8 = await fetchAny(["SH/" + name + ".SH"]); if (!u8){ $("msg").textContent = "找不到 " + name + ".SH"; return; }
+  const u8 = await fetchAny([(name.includes("/") ? "" : "SH/") + name + ".SH"]); if (!u8){ $("msg").textContent = "找不到 " + name + ".SH"; return; }
   const m = parseSH(u8); if (!m){ $("msg").textContent = name + ".SH 解析失敗"; return; }
   const texNames = shTexName(u8), picName = (texNames[0] || "_" + name + ".PIC").toUpperCase();
   let pic = null, pu8 = await fetchAny(["PIC/" + picName, "PIC/" + picName.toLowerCase(), "PIC/" + picName.replace(/^_/, "_").replace(/\.PIC$/, ".pic")]);
@@ -521,7 +541,7 @@ async function load(name){
 $("pick").onchange = () => load($("pick").value);
 $("other").onkeydown = e => { if (e.key === "Enter" && e.target.value.trim()) load(e.target.value.trim()); };
 for (const id of ["mode", "gear"]) $(id).onchange = () => cur && buildFaces();
-for (const id of ["light", "transp", "pal", "uvlines", "order"]) $(id).onchange = () => { draw(); drawTex(); };
+for (const id of ["light", "transp", "pal", "uvlines", "order", "edges"]) $(id).onchange = () => { draw(); drawTex(); };
 $("palfile").onchange = async e => { const f = e.target.files[0]; if (!f) return; const u8 = new Uint8Array(await f.arrayBuffer());
   const p = /\.lib$/i.test(f.name) ? palFromLib(u8) : palFromBytes(u8);
   if (!p){ $("msg").textContent = "讀不出調色盤：" + f.name; return; }
