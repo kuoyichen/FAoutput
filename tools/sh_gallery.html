@@ -89,13 +89,14 @@ function parseSH(u8){
   const c = u8.subarray(base), cv = new DataView(c.buffer, c.byteOffset, c.byteLength), L = c.length;
   const shift = L > 8 ? cv.getUint16(6, true) : 8, scale = shift >= 4 && shift <= 16 ? Math.pow(2, shift - 8) : 1;
   // 找第一個 LOD 的所有頂點緩衝（目標位置要剛好接續前面的點數）
-  const bufs = [];
+  const bufs = [], maxAbs = (o, n) => { let m = 0; for (let i = 0; i < 3*n; i++) m = Math.max(m, Math.abs(cv.getInt16(o + 6 + 2*i, true))); return m; };
   for (let o=0;o<L-6;o++){
     if (c[o] !== 0x82 || c[o+1] !== 0) continue;
     const n = cv.getUint16(o+2,true), t = cv.getUint16(o+4,true), e = o+6+6*n;
     if (!n || n > 4000 || t % 8 || e >= L) continue;
     if (!bufs.length){ if (t === 0 && n >= 3) bufs.push({ o, n, t:0, e }); continue; }
     const last = bufs[bufs.length-1];
+    if (bufs.length === 1 && t === 0 && o < last.e && n >= 3 && maxAbs(o, n) * 4 < maxAbs(last.o, last.n)){ bufs[0] = { o, n, t:0, e }; continue; }   // 第一個是表頭裡的假 82（例如 C5），真的頂點緩衝落在它的範圍裡
     if (t === 0 && o >= last.e && (c[o-1] === 0 || c[o-1] === 0x1E)){ bufs.push({ o, n, t:-1 }); break; }   // 下一個 LOD
     if (t/8 === last.t + last.n && o >= last.e){ bufs.push({ o, n, t: t/8, e }); }
   }
