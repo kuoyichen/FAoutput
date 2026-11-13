@@ -62,6 +62,60 @@ def main_lod(c):
         if o >= le and t//8 == lt + ln: bufs.append((o, n, t//8, e))
     return bufs
 
+def insert_blocks(d, pe, secs, code, c, tail, blocks):
+    """把 blocks 插在 CODE 的簽章（位置 tail）之前，修正重定位、區段大小與位置，回傳新的檔案內容。"""
+    L = len(blocks)
+    c = c[:tail] + blocks + c[tail:]
+    # 重定位：位置或目標在簽章之後的都往後移 L
+    rel = next(s for s in secs if s['name'] == '.reloc')
+    rdir = pe + 24 + 96 + 8*5; rva, rsz = struct.unpack_from('<II', d, rdir)
+    ents, p = [], rel['ro'] + (rva - rel['va'])
+    while p < rel['ro'] + (rva - rel['va']) + rsz:
+        page, sz = struct.unpack_from('<II', d, p)
+        if sz < 8: break
+        for k in range((sz-8)//2):
+            e = struct.unpack_from('<H', d, p+8+2*k)[0]
+            if e >> 12: ents.append((e >> 12, page + (e & 0xFFF)))
+        p += sz
+    cut = code['va'] + tail; cend = code['va'] + code['vs']
+    new_ents = []
+    for t, r in ents:
+        if code['va'] <= r < cend:
+            if r >= cut: r += L
+            off = r - code['va']; val = struct.unpack_from('<I', c, off)[0]
+            if cut <= val < cend: struct.pack_into('<I', c, off, val + L)
+        new_ents.append((t, r))
+    # 其他區段裡指到簽章後面的絕對位址（理論上沒有，檢查一下）
+    for t, r in ents:
+        if not code['va'] <= r < cend:
+            sec = next(x for x in secs if x['va'] <= r < x['va'] + max(x['vs'], x['rs']))
+            val = struct.unpack_from('<I', d, sec['ro'] + r - sec['va'])[0]
+            if cut <= val < cend: sys.exit('有區段外的重定位指到簽章後面，未處理')
+    tbl = bytearray(); pages = {}
+    for t, r in sorted(new_ents, key=lambda x: x[1]): pages.setdefault(r & ~0xFFF, []).append((t << 12) | (r & 0xFFF))
+    for pg, es in sorted(pages.items()):
+        if len(es) % 2: es.append(0)
+        tbl += struct.pack('<II', pg, 8 + 2*len(es)) + b''.join(struct.pack('<H', e) for e in es)
+    if len(tbl) > rel['rs'] - (rva - rel['va']): sys.exit('重定位表放不下')
+    # 重新組檔：CODE 變長，後面區段的檔案位置往後移（虛擬位址不變）
+    falign = struct.unpack_from('<I', d, pe+24+36)[0]
+    new_rs = (len(c) + falign - 1) // falign * falign
+    shift = new_rs - code['rs']
+    out = bytearray(d[:code['ro']]) + c + b'\x00' * (new_rs - len(c))
+    for s in sorted(secs, key=lambda s: s['ro']):
+        if s['ro'] > code['ro']: out += d[s['ro']:s['ro']+s['rs']]
+    out += d[max(s['ro']+s['rs'] for s in secs):]
+    struct.pack_into('<I', out, code['hdr']+8, len(c)); struct.pack_into('<I', out, code['hdr']+16, new_rs)
+    for s in secs:
+        if s['ro'] > code['ro']: struct.pack_into('<I', out, s['hdr']+20, s['ro'] + shift)
+    soc = struct.unpack_from('<I', out, pe+24+4)[0]; struct.pack_into('<I', out, pe+24+4, soc + shift)
+    # 寫回新的重定位表（區段位置已經移過）
+    rel_ro = rel['ro'] + shift + (rva - rel['va'])
+    out[rel_ro:rel_ro + rsz] = b'\x00' * rsz
+    out[rel_ro:rel_ro + len(tbl)] = tbl
+    struct.pack_into('<I', out, rdir + 4, len(tbl))
+    return out
+
 def main():
     src, dst = sys.argv[1], sys.argv[2]; limit = int(sys.argv[3]) if len(sys.argv) > 3 else 999
     d = bytearray(open(src, 'rb').read())
@@ -147,57 +201,8 @@ def main():
         patch += b'\x38' + struct.pack('<h', f['end'] - (o + 7))
         patch += b'\x1e' * (f['end'] - o - len(patch))
         c[o:f['end']] = patch
-    L = len(blocks)
-    c = c[:tail] + blocks + c[tail:]
-    # 重定位：位置或目標在簽章之後的都往後移 L
-    rel = next(s for s in secs if s['name'] == '.reloc')
-    rdir = pe + 24 + 96 + 8*5; rva, rsz = struct.unpack_from('<II', d, rdir)
-    ents, p = [], rel['ro'] + (rva - rel['va'])
-    while p < rel['ro'] + (rva - rel['va']) + rsz:
-        page, sz = struct.unpack_from('<II', d, p)
-        if sz < 8: break
-        for k in range((sz-8)//2):
-            e = struct.unpack_from('<H', d, p+8+2*k)[0]
-            if e >> 12: ents.append((e >> 12, page + (e & 0xFFF)))
-        p += sz
-    cut = code['va'] + tail; cend = code['va'] + code['vs']
-    new_ents = []
-    for t, r in ents:
-        if code['va'] <= r < cend:
-            if r >= cut: r += L
-            off = r - code['va']; val = struct.unpack_from('<I', c, off)[0]
-            if cut <= val < cend: struct.pack_into('<I', c, off, val + L)
-        new_ents.append((t, r))
-    # 其他區段裡指到簽章後面的絕對位址（理論上沒有，檢查一下）
-    for t, r in ents:
-        if not code['va'] <= r < cend:
-            sec = next(x for x in secs if x['va'] <= r < x['va'] + max(x['vs'], x['rs']))
-            val = struct.unpack_from('<I', d, sec['ro'] + r - sec['va'])[0]
-            if cut <= val < cend: sys.exit('有區段外的重定位指到簽章後面，未處理')
-    tbl = bytearray(); pages = {}
-    for t, r in sorted(new_ents, key=lambda x: x[1]): pages.setdefault(r & ~0xFFF, []).append((t << 12) | (r & 0xFFF))
-    for pg, es in sorted(pages.items()):
-        if len(es) % 2: es.append(0)
-        tbl += struct.pack('<II', pg, 8 + 2*len(es)) + b''.join(struct.pack('<H', e) for e in es)
-    if len(tbl) > rel['rs'] - (rva - rel['va']): sys.exit('重定位表放不下')
-    # 重新組檔：CODE 變長，後面區段的檔案位置往後移（虛擬位址不變）
-    falign = struct.unpack_from('<I', d, pe+24+36)[0]
-    new_rs = (len(c) + falign - 1) // falign * falign
-    shift = new_rs - code['rs']
-    out = bytearray(d[:code['ro']]) + c + b'\x00' * (new_rs - len(c))
-    for s in sorted(secs, key=lambda s: s['ro']):
-        if s['ro'] > code['ro']: out += d[s['ro']:s['ro']+s['rs']]
-    out += d[max(s['ro']+s['rs'] for s in secs):]
-    struct.pack_into('<I', out, code['hdr']+8, len(c)); struct.pack_into('<I', out, code['hdr']+16, new_rs)
-    for s in secs:
-        if s['ro'] > code['ro']: struct.pack_into('<I', out, s['hdr']+20, s['ro'] + shift)
-    soc = struct.unpack_from('<I', out, pe+24+4)[0]; struct.pack_into('<I', out, pe+24+4, soc + shift)
-    # 寫回新的重定位表（區段位置已經移過）
-    rel_ro = rel['ro'] + shift + (rva - rel['va'])
-    out[rel_ro:rel_ro + rsz] = b'\x00' * rsz
-    out[rel_ro:rel_ro + len(tbl)] = tbl
-    struct.pack_into('<I', out, rdir + 4, len(tbl))
+    out = insert_blocks(d, pe, secs, code, c, tail, blocks)
     open(dst, 'wb').write(out)
-    print(f'{src}: 主體 {main_n} 點，細分 {done} 個貼圖面，新增 {nextv-base} 點（頂點表用到 {nextv}/{MAX_VERT}），CODE {code["vs"]:#x} → {len(c):#x}（上限 {nxt-code["va"]:#x}）')
+    print(f'{src}: 主體 {main_n} 點，細分 {done} 個貼圖面，新增 {nextv-base} 點（頂點表用到 {nextv}/{MAX_VERT}），CODE {code["vs"]:#x} → {len(c)+len(blocks):#x}（上限 {nxt-code["va"]:#x}）')
 
 if __name__ == '__main__': main()
