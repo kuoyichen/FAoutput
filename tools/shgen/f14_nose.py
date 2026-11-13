@@ -7,7 +7,7 @@
   * 碰到搬動頂點的面都重算法向量和平面上的點（FC 面的 3×i16 法向量 + 3×i8/i16 點，順序是 x、上、前）
   * 換掉的面：一樣長就原地改寫，不一樣長就用 sh_subdivide.py 的掛勾（`12 00 rel16` 呼叫新區塊 + `38 rel16` 跳過）
   * 刪掉的面：改成 `38 rel16` 跳過
-pod（凸多面體，21 點，寬 4 呎、高 4 呎、長 17 呎，y 90～107）：FA 的 SH 是 BSP，照順序畫（後畫的蓋前面）。主體的根節點在 CODE+0x1007（0C 平面測試），
+pod（凸多面體，11 點 9 面，寬 2 呎、高 2 呎、長 9 呎，y 96～105）：FA 的 SH 是 BSP，照順序畫（後畫的蓋前面）。主體的根節點在 CODE+0x1007（0C 平面測試），
 把它換成呼叫新區塊：`06` 平面測試眼睛是否在機鼻底面（上 = -8）以下，在下面就先畫機身再畫 pod，否則先畫 pod 再畫機身。
 pod 的每個面都開背面剔除（旗標 0x40），凸物體自己不用排序。
 用法：python3 f14_nose.py SH/F14.SH SHX/F14N.SH
@@ -62,24 +62,20 @@ def face_bytes(fl, col, idx, P, uv=None):
 
 def pod():
     """回傳 (頂點, F6 法向量（x、上、前）, 面 [(旗標, 色號, 索引)])，索引從 0 起算。"""
-    ring = [(-1, -8), (1, -8), (2, -9), (2, -11), (1, -12), (-1, -12), (-2, -11), (-2, -9)]
-    sq = [(-1, -9), (1, -9), (1, -11), (-1, -11)]
+    # 頂點座標以 1 呎為單位，尺寸減半後剖面只能用五邊形：寬 2、高 2，底下一條龍骨
+    ring = [(-1, -8), (1, -8), (1, -9), (0, -10), (-1, -9)]
     V, N = [], []
     def add(p, n): V.append(p); L = sum(x*x for x in n) ** 0.5; N.append(tuple(round(x*127/L) for x in n)); return len(V) - 1
-    R = add((0, 90, -8), (0, -60, -110))
-    M = [add((x, 94, z), (x, z+10, -0.6)) for x, z in ring]
-    F = [add((x, 105, z), (x, z+10, 0.6)) for x, z in ring]
-    C = [add((x, 107, z), (x*0.4, (z+10)*0.4, 1.5)) for x, z in sq]
+    R = add((0, 96, -8), (0, -60, -110))
+    M = [add((x, 98, z), (x, z+9, -0.4)) for x, z in ring]
+    F = [add((x, 105, z), (x, z+9, 0.4)) for x, z in ring]
     body, win, fl = 0x98, 0x9B, 0x273
     faces = []
-    for k in range(1, 8):  # 環的邊 k → k+1；0→1 是貼在機鼻底面的上緣，不畫
-        a, b = k, (k+1) % 8
+    for k in range(1, 5):  # 環的邊 k → k+1；0→1 是貼在機鼻底面的上緣，不畫
+        a, b = k, (k+1) % 5
         faces.append((fl, body, [R, M[a], M[b]]))
         faces.append((fl, body, [M[a], F[a], F[b], M[b]]))
-    cham = [([F[0], F[1], C[1], C[0]]), ([F[1], F[2], C[1]]), ([F[2], F[3], C[2], C[1]]), ([F[3], F[4], C[2]]),
-            ([F[4], F[5], C[3], C[2]]), ([F[5], F[6], C[3]]), ([F[6], F[7], C[0], C[3]]), ([F[7], F[0], C[0]])]
-    faces += [(fl, body, q) for q in cham]
-    faces.append((0x271, win, list(C)))    # 前面的窗：單色、不用 Gouraud
+    faces.append((0x271, win, list(F)))    # 前面的窗：單色、不用 Gouraud
     # 繞向：FA 的面在 (x,y,z) 下 ΣP×P 朝內；不對就反轉
     cen = [sum(p[k] for p in V) / len(V) for k in range(3)]
     out = []
