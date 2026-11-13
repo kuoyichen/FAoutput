@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
-"""F-14 機鼻修正：讓機鼻左右對稱，並在機鼻下加 TCS/IRST pod。從原始 SH/F14.SH 產生 SHX/F14N.SH。
+"""F-14 機鼻重畫：從原始 SH/F14.SH 產生 SHX/F14N.SH。做法說明見 skill/SH_edit_note.MD。
 
-原檔的機鼻上半部右邊比左邊寬 1 呎，拓樸也不一樣（左邊多一個五邊形和兩個小三角形）；右下則比左下多一道折線。
-這裡把左上半改成右上半的鏡像、右下改成左下的鏡像：
-  * 搬動頂點座標：直接改 82 頂點緩衝裡的值，並把 F6 每點光影的法向量換成對應點的鏡像
-  * 碰到搬動頂點的面都重算法向量和平面上的點（FC 面的 3×i16 法向量 + 3×i8/i16 點，順序是 x、上、前）
-  * 換掉的面：一樣長就原地改寫，不一樣長就用 sh_subdivide.py 的掛勾（`12 00 rel16` 呼叫新區塊 + `38 rel16` 跳過）
-  * 刪掉的面：改成 `38 rel16` 跳過
-pod（凸多面體，11 點 9 面，寬 2 呎、高 2 呎、長 9 呎，y 96～105）：FA 的 SH 是 BSP，照順序畫（後畫的蓋前面）。主體的根節點在 CODE+0x1007（0C 平面測試），
-把它換成呼叫新區塊：`06` 平面測試眼睛是否在機鼻底面（上 = -8）以下，在下面就先畫機身再畫 pod，否則先畫 pod 再畫機身。
-pod 的每個面都開背面剔除（旗標 0x40），凸物體自己不用排序。
+  * y=95 接合環（機身往前接機鼻的那一圈 13 點）修圓，駕駛艙前緣左邊照右邊鏡像，碰到的面重算法向量
+  * 原本 y ≥ 95 的機鼻面（30 個）全部改成 `38 rel16` 跳過；左側機砲口的兩個小貼圖搬到新機鼻區塊最後畫
+  * 新機鼻：接合環照比例縮小成 5 個環圈（STATIONS），再接到機鼻尖，每個新點都有 F6 光影
+  * 機鼻下 pod（凸多面體，11 點 9 面，寬 2 呎、高 2 呎、長 9 呎，y 96～105）
+  * 畫面順序：主體 BSP 根節點（CODE+0x1007）換成呼叫新區塊，先用 06 測試眼睛在 y=95 前或後決定機身和機鼻/pod 的先後，
+    再測試眼睛是否在機鼻底面（上 = -8）以下決定機鼻和 pod 的先後
 用法：python3 f14_nose.py SH/F14.SH SHX/F14N.SH
 """
 import os, struct, sys
@@ -22,15 +19,56 @@ POD_BASE = 480         # pod 頂點放在頂點表的位置（零件用到 470�
 
 # 左上半照右上半鏡像：頂點 ← 鏡像來源
 MIRROR_V = {60: 61, 162: 169, 63: 62, 157: 163, 76: 94, 210: 171, 214: 174}
-# 換掉的面（偏移：新的頂點順序；None = 刪掉）。順序都已經考慮鏡像後要反轉繞向
-REPLACE = {
-    0x2B29: [212, 278, 168, 162],       # 左上五邊形 → 右邊 [169,168,278,172] 的鏡像
-    0x2B3D: [210, 212, 162],            # 左上 → 右邊 [169,172,171] 的鏡像
-    0x2C75: None, 0x2BC1: None,         # 左上多出來的兩個小三角形
-    0x2EAE: 'mirror:0x3121',            # 右下兩個面 → 左下 [269,229,332,331] 的鏡像
-    0x2F2C: None,
-}
-MIRROR_IDX = {269: 277, 229: 202, 332: 263, 331: 276}
+
+
+NOSE_BASE = 500        # 新機鼻頂點放在頂點表的位置
+# y=95 接合環（機身往前接機鼻的那一圈），從上中央順時針（從前面看）一圈 13 點：(左右頂點) → 新位置 (x, z)，左邊 x 取負
+RING95 = {(72,): (0, 7), (169, 162): (3, 7), (61, 60): (3, 7), (171, 210): (6, 4), (170, 211): (7, 2),
+          (202, 229): (6, -5), (263, 332): (4, -7), (290, 333): (2, -8)}
+RING_ORDER = [72, 169, 171, 170, 202, 263, 290, 333, 332, 229, 211, 210, 162]
+GUN_DECALS = (0x2AFC, 0x2FA2)          # 左側機砲口的小貼圖（色號 0 透明）
+# 機鼻剖面：y、縮放（相對 y=95 環）、底線高度。底線到 y=107 保持 -8（pod 貼在下面），再往機鼻尖慢慢抬高
+STATIONS = [(101, 0.95, -8), (107, 0.84, -8), (112, 0.70, -7), (117, 0.53, -6), (121, 0.34, -5)]
+TIP = (0, 125, -4)
+
+
+def nose(V):
+    """回傳 (新頂點, F6 法向量, 面 [(旗標, 色號, 索引)], y=95 環的 F6 [(頂點, 法向量)])。
+    每一環都是 y=95 環照比例縮小（剖面形狀一樣），環和環之間接四邊形，最後一環接到機鼻尖。"""
+    base = [V[i] for i in RING_ORDER]; c0 = -0.5
+    NV, NN = [], []
+    def nrm(x, z, c, slope):
+        v = (x, z - c, slope * (abs(x) + abs(z - c) + 1)); L = sum(t*t for t in v) ** 0.5 or 1
+        return tuple(round(t*127/L) for t in v)
+    rings = [[i for i in RING_ORDER]]
+    for y, s, zb in STATIONS:
+        cz = zb + 7.5 * s; r = []
+        for (x, _, z) in base:
+            NV.append((round(x*s), y, round(cz + (z - c0)*s))); NN.append(nrm(x*s, cz + (z - c0)*s, cz, 0.25 + (y-95)/40))
+            r.append(('n', len(NV)-1))
+        rings.append(r)
+    NV.append(TIP); NN.append((0, -10, 126)); tip = ('n', len(NV)-1)
+    ring0 = [(i, nrm(V[i][0], V[i][2], c0, 0.2)) for i in RING_ORDER]
+    ids = lambda r: r if isinstance(r, int) else NOSE_BASE + r[1]
+    faces, n = [], len(RING_ORDER)
+    for a, b in zip(rings, rings[1:]):
+        for k in range(n):
+            faces.append((0x273, 0x98, [ids(a[k]), ids(a[(k+1) % n]), ids(b[(k+1) % n]), ids(b[k])]))
+    for k in range(n):
+        faces.append((0x273, 0x98, [ids(rings[-1][k]), ids(rings[-1][(k+1) % n]), ids(tip)]))
+    # 繞向：FA 的面在 (x,y,z) 下 ΣP×P 朝內；以機鼻中心軸判斷
+    allv = dict(V); allv.update({NOSE_BASE+k: v for k, v in enumerate(NV)})
+    out = []
+    for fl, col, idx in faces:
+        P = [allv[i] for i in idx]; m = [0, 0, 0]
+        for k in range(len(P)):
+            p, q = P[k], P[(k+1) % len(P)]
+            m[0] += p[1]*q[2]-p[2]*q[1]; m[1] += p[2]*q[0]-p[0]*q[2]; m[2] += p[0]*q[1]-p[1]*q[0]
+        cy = sum(p[1] for p in P) / len(P); cz = -0.5 - 3.5 * (cy - 95) / 30
+        fc = [sum(p[0] for p in P) / len(P), 0.3, sum(p[2] for p in P) / len(P) - cz]
+        if sum(m[k]*fc[k] for k in range(3)) > 0: idx = idx[::-1]
+        out.append((fl, col, idx))
+    return NV, NN, out, ring0
 
 
 def normal_point(P, fl):
@@ -113,61 +151,68 @@ def main():
                 sum(a*b for a, b in zip(normal_point([V[i] for i in f['idx']], f['fl'])[0], struct.unpack_from('<hhh', f['head'], 4))) > 0)
     print(f'法向量公式和原檔同方向：{agree}/{sum(1 for f in faces.values() if f["fl"] & 0x60)} 個面')
 
-    # 1. 搬頂點（左上半 = 右上半鏡像）
-    for i, s in MIRROR_V.items():
-        x, y, z = V[s]; V[i] = (-x, y, z); struct.pack_into('<hhh', c, o0+6+6*i, *V[i])
-        if i in F6 and s in F6:
-            col = c[F6[s]+3]; nx, nu, nf = struct.unpack_from('<bbb', c, F6[s]+4)
-            c[F6[i]+3] = col; struct.pack_into('<bbb', c, F6[i]+4, -nx, nu, nf)
-    # 2. 碰到搬動頂點的面重算法向量
+    # 1. 搬頂點：駕駛艙前緣左邊照右邊鏡像，y=95 接合環修圓
+    for i, s_ in MIRROR_V.items():
+        x, y, z = V[s_]; V[i] = (-x, y, z)
+    for ids, (x, z) in RING95.items():
+        for k, i in enumerate(ids): V[i] = ((x, -x)[k], 95, z) if k < 2 else None
+    for i in range(main_n): struct.pack_into('<hhh', c, o0+6+6*i, *V[i])
+    moved = set(MIRROR_V) | {i for ids in RING95 for i in ids}
+    # 2. 機鼻（y ≥ 95 的面）全部拿掉，機砲口的小貼圖搬到新機鼻區塊裡（在機鼻之後畫）
+    front = [f for f in faces.values() if all(V[i][1] >= 95 for i in f['idx'])]
+    decals = [bytes(c[f['o']:f['end']]) for f in front if f['o'] in GUN_DECALS]
+    for f in front:
+        o, e = f['o'], f['end']; c[o:e] = b'\x38' + struct.pack('<h', e - (o + 3)) + b'\x1e' * (e - o - 3)
+    # 3. 碰到搬動頂點的面重算法向量
     for f in faces.values():
-        if f['o'] in REPLACE or not f['fl'] & 0x60 or not set(f['idx']) & set(MIRROR_V): continue
+        if f in front or not f['fl'] & 0x60 or not set(f['idx']) & moved: continue
         nrm, pt = normal_point([V[i] for i in f['idx']], f['fl'])
         struct.pack_into('<hhh', c, f['o']+5, *nrm)
         struct.pack_into('<bbb' if f['fl'] & 0x200 else '<hhh', c, f['o']+11, *pt)
-    # 3. 換掉 / 刪掉的面
-    tail = bytes(c).find(SIG); blocks = bytearray(); hooks = []
-    def hook(o, end, blk):
-        hooks.append((o, end, tail + len(blocks))); blocks.extend(blk)
-    for o, new in REPLACE.items():
-        f = faces[o]; col = struct.unpack_from('<H', c, o+3)[0]
-        if new is None:
-            c[o:f['end']] = b'\x38' + struct.pack('<h', f['end'] - (o + 3)) + b'\x1e' * (f['end'] - o - 3); continue
-        uv = None
-        if isinstance(new, str):
-            m = faces[int(new.split(':')[1], 16)]
-            new = [MIRROR_IDX[i] for i in m['idx']][::-1]; uv = m['uv'][::-1] if m['uv'] else None
-            fl = (f['fl'] & ~0x100) | (m['fl'] & 0x100)
-        else:
-            fl = f['fl']
-        b = face_bytes(fl & ~0x400, col, new, [V[i] for i in new], uv)
-        if len(b) == f['end'] - o: c[o:f['end']] = b
-        else: hook(o, f['end'], b + b'\x00\x00')
-    # 4. pod：根節點換成呼叫新區塊
-    assert c[ROOT] == 0x0C and c[ROOT+1] == 0 and c[ROOT+14] == 0x38, '根節點不是預期的 0C … 38'
+    # 4. 新機鼻
+    NV, NN, NF, ring0 = nose(V)
+    allv = dict(V); allv.update({NOSE_BASE+k: v for k, v in enumerate(NV)})
+    def vid(r): return r if isinstance(r, int) and r < 1000 else NOSE_BASE + r[1]
+    noseb = bytearray(struct.pack('<BBHH', 0x82, 0, len(NV), NOSE_BASE*8))
+    for v in NV: noseb += struct.pack('<hhh', *v)
+    for k, n in enumerate(NN): noseb += struct.pack('<BHBbbb', 0xF6, NOSE_BASE+k, 0x98, *n)
+    for i, n in ring0: noseb += struct.pack('<BHBbbb', 0xF6, i, 0x98, *n)
+    nf = 0
+    for fl, col, idx in NF:
+        P = [allv[i] for i in idx]
+        q = [k for k in range(len(P)) if P[k] != P[k-1]]        # 四捨五入後重疊的點拿掉
+        idx = [idx[k] for k in q]; P = [P[k] for k in q]
+        if len(set(P)) < 3: continue
+        noseb += face_bytes(fl, col, idx, P); nf += 1
+    for b in decals: noseb += b
+    noseb += b'\x00\x00'
+    # 5. pod
     PV, PN, PF = pod()
-    TA = ROOT + 12 + struct.unpack_from('<h', c, ROOT+10)[0]; TB = ROOT + 14 + struct.unpack_from('<h', c, ROOT+12)[0]
-    S = tail + len(blocks)
-    A = S + 18 + 2; root = bytearray(c[ROOT:ROOT+10]) + struct.pack('<hh', TA - (A+12), TB - (A+14)) + b'\x00\x00'
-    B = A + len(root)
-    node = struct.pack('<BB6h', 0x06, 0, 0, 0, -16384, 8, 0, 0) + struct.pack('<hh', A - (S+16), B - (S+18)) + b'\x00\x00'
     podb = bytearray(struct.pack('<BBHH', 0x82, 0, len(PV), POD_BASE*8))
     for v in PV: podb += struct.pack('<hhh', *v)
     for k, n in enumerate(PN): podb += struct.pack('<BHBbbb', 0xF6, POD_BASE+k, 0x98, *n)
-    allv = dict(V); allv.update({POD_BASE+k: v for k, v in enumerate(PV)})
+    allv.update({POD_BASE+k: v for k, v in enumerate(PV)})
     for fl, col, idx in PF:
         ids = [POD_BASE+i for i in idx]; podb += face_bytes(fl, col, ids, [allv[i] for i in ids])
     podb += b'\x00\x00'
-    hook(ROOT, ROOT+14, node + root + podb)
-    for o, end, start in hooks:
-        patch = bytearray(b'\x12\x00') + struct.pack('<h', start - (o + 4))
-        patch += b'\x38' + struct.pack('<h', end - (o + 7))
-        c[o:end] = patch + b'\x1e' * (end - o - len(patch))
+    # 6. 根節點換成呼叫新區塊：
+    #    S:  06 眼睛在 y=95 前面？ 是 → 先機身 BODY 再 NP；否 → 先 NP 再機身
+    #    NP: 06 眼睛在機鼻底面（上 = -8）以下？ 是 → 先機鼻再 pod；否 → 先 pod 再機鼻
+    assert c[ROOT] == 0x0C and c[ROOT+1] == 0 and c[ROOT+14] == 0x38, '根節點不是預期的 0C … 38'
+    tail = bytes(c).find(SIG)
+    TA = ROOT + 12 + struct.unpack_from('<h', c, ROOT+10)[0]; TB = ROOT + 14 + struct.unpack_from('<h', c, ROOT+12)[0]
+    S = tail; BODY = S + 20; NP = BODY + 16; NOSE = NP + 20; POD = NOSE + len(noseb)
+    def node(at, n, d, a, b):   # 06 00 n1 d1 n2 d2 n3 d3 relA relB 00 00
+        return struct.pack('<BB6h', 0x06, 0, n[0], d[0], n[1], d[1], n[2], d[2]) + struct.pack('<hh', a - (at+16), b - (at+18)) + b'\x00\x00'
+    body = bytearray(c[ROOT:ROOT+10]) + struct.pack('<hh', TA - (BODY+12), TB - (BODY+14)) + b'\x00\x00'
+    blocks = node(S, (0, 0, 16384), (0, 0, -95), BODY, NP) + body + node(NP, (0, -16384, 0), (0, 8, 0), NOSE, POD) + noseb + podb
+    patch = bytearray(b'\x12\x00') + struct.pack('<h', S - (ROOT + 4)) + b'\x38' + struct.pack('<h', ROOT + 14 - (ROOT + 7))
+    c[ROOT:ROOT+14] = patch + b'\x1e' * (14 - len(patch))
     room = nxt - code['va'] - len(c)
     if len(blocks) > room: sys.exit(f'空間不夠：需要 {len(blocks)}，只有 {room}')
+    if NOSE_BASE + len(NV) > 900: sys.exit('頂點表超過 900')
     out = insert_blocks(d, pe, secs, code, c, tail, blocks)
     open(dst, 'wb').write(out)
-    print(f'{dst}: 搬動 {len(MIRROR_V)} 點、換掉/刪掉 {len(REPLACE)} 個面；pod {len(PV)} 點 {len(PF)} 面；新增 {len(blocks)} 位元組（空間 {room}）')
-
+    print(f'{dst}: 拿掉機鼻 {len(front)} 面；新機鼻 {len(NV)} 點 {nf} 面（+機砲口貼圖 {len(decals)}）；pod {len(PV)} 點 {len(PF)} 面；新增 {len(blocks)} 位元組（空間 {room}）')
 
 if __name__ == '__main__': main()
