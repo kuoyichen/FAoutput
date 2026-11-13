@@ -4,7 +4,7 @@
   * y=95 接合環（機身往前接機鼻的那一圈 13 點）修圓，駕駛艙前緣左邊照右邊鏡像，碰到的面重算法向量
   * 原本 y ≥ 95 的機鼻面（30 個）全部改成 `38 rel16` 跳過；左側機砲口的兩個小貼圖搬到新機鼻區塊最後畫
   * 新機鼻：接合環照實機側視和俯視線型縮成 6 個環圈（STATIONS），再接到機鼻尖，每個新點都有 F6 光影
-  * 機鼻下 pod（凸多面體，11 點 9 面，寬 2 呎、高 2 呎、長 9 呎，y 89～98）
+  * 機鼻下 pod（凸多面體，11 點 9 面，寬 2 呎、高 2 呎、長 9 呎，y 96～105）
   * 畫面順序：主體 BSP 根節點（CODE+0x1007）換成呼叫新區塊，先用 06 測試眼睛在 y=95 前或後決定機身和機鼻/pod 的先後，
     再測試眼睛是否在機鼻底面（上 = -8）以下決定機鼻和 pod 的先後
 用法：python3 f14_nose.py SH/F14.SH SHX/F14N.SH
@@ -28,10 +28,10 @@ RING95 = {(72,): (0, 7), (169, 162): (3, 7), (61, 60): (3, 7), (171, 210): (6, 4
 RING_ORDER = [72, 169, 171, 170, 202, 263, 290, 333, 332, 229, 211, 210, 162]
 GUN_DECALS = (0x2AFC, 0x2FA2)          # 左側機砲口的小貼圖（色號 0 透明）
 # 機鼻側面和俯視的線型（照實機側視圖）：從 y=95 到機鼻尖，t = (y-95)/30
-#   上緣 z = 尖端 + 10·r(t, 0.6)，下緣 z = 尖端 - 5·r(t, 0.5)，半寬 = 7·r(t, 0.6)，r(t,a) = (1-t)(1+a·t)
-#   都是凸的尖拱線：上緣接著擋風玻璃前的下斜一路彎下來，下緣從機鼻下方一路往上收到尖端，尖端在中線偏下
+#   上緣 z = 尖端 + 12·r(t, 0.6)，半寬 = 7·r(t, 0.6)，r(t,a) = (1-t)(1+a·t)：凸的尖拱線，接著擋風玻璃前的下斜一路彎下來
+#   下緣 z = 尖端 - 3·√(1-t²)：實機雷達罩下緣幾乎是水平的，到接近尖端才往上收；尖端偏低（約在機身高度下方 1/5）
 STATIONS = [100, 105, 110, 115, 119, 122]
-TIP = (0, 125, -3)
+TIP = (0, 125, -5)
 def r_(t, a): return (1 - t) * (1 + a * t)
 
 
@@ -45,7 +45,7 @@ def nose(V):
         return tuple(round(t*127/L) for t in v)
     rings = [[i for i in RING_ORDER]]
     for y in STATIONS:
-        t = (y - 95) / 30; top = TIP[2] + 10 * r_(t, 0.6); bot = TIP[2] - 5 * r_(t, 0.5); ws = r_(t, 0.6)
+        t = (y - 95) / 30; top = TIP[2] + 12 * r_(t, 0.6); bot = TIP[2] - 3 * (1 - t*t) ** 0.5; ws = r_(t, 0.6)
         cz = (top + bot) / 2; r = []
         for (x, _, z) in base:
             u = (z + 8) / 15; X, Z = x * ws, bot + u * (top - bot)
@@ -69,7 +69,7 @@ def nose(V):
         for k in range(len(P)):
             p, q = P[k], P[(k+1) % len(P)]
             m[0] += p[1]*q[2]-p[2]*q[1]; m[1] += p[2]*q[0]-p[0]*q[2]; m[2] += p[0]*q[1]-p[1]*q[0]
-        cy = sum(p[1] for p in P) / len(P); cz = -0.5 - 2.5 * (cy - 95) / 30
+        cy = sum(p[1] for p in P) / len(P); cz = -0.5 - 4.5 * (cy - 95) / 30
         fc = [sum(p[0] for p in P) / len(P), 0.3, sum(p[2] for p in P) / len(P) - cz]
         if sum(m[k]*fc[k] for k in range(3)) > 0: idx = idx[::-1]
         out.append((fl, col, idx))
@@ -109,9 +109,9 @@ def pod():
     ring = [(-1, -8), (1, -8), (1, -9), (0, -10), (-1, -9)]
     V, N = [], []
     def add(p, n): V.append(p); L = sum(x*x for x in n) ** 0.5; N.append(tuple(round(x*127/L) for x in n)); return len(V) - 1
-    R = add((0, 89, -8), (0, -60, -110))
-    M = [add((x, 91, z), (x, z+9, -0.4)) for x, z in ring]
-    F = [add((x, 98, z), (x, z+9, 0.4)) for x, z in ring]
+    R = add((0, 96, -8), (0, -60, -110))
+    M = [add((x, 98, z), (x, z+9, -0.4)) for x, z in ring]
+    F = [add((x, 105, z), (x, z+9, 0.4)) for x, z in ring]
     body, win, fl = 0x98, 0x9B, 0x273
     faces = []
     for k in range(1, 5):  # 環的邊 k → k+1；0→1 是貼在機鼻底面的上緣，不畫
