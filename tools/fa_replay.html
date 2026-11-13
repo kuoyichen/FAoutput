@@ -600,7 +600,7 @@ function parseSH(u8){
       if (n < 3 || n > 16 || p + n*(wide?2:1) > to) continue;
       const idx = []; for (let k=0;k<n;k++){ idx.push(wide ? cv.getUint16(p,true) : c[p]); p += wide?2:1; }
       if (idx.some(i => i < lo || i >= hi || !v[i]) || new Set(idx).size < n) continue;
-      f.push(idx);
+      f.push(idx); o = p - 1;   // 跳過這個面的資料，免得在它的索引裡又讀出假的面（F5EV 右側的三角形）
     }
     return f;
   };
