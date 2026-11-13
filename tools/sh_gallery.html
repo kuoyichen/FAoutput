@@ -110,7 +110,7 @@ function parseSH(u8){
     for (let o=from; o<to-18; o++){
       if (c[o] !== 0xFC) continue;
       const fl = cv.getUint16(o+1,true), hl = fl & 0x200 ? 14 : 17;
-      if (fl & 0x200 ? fl & 0xF000 : !FACE_OPS.has(fl & 0xFF) || fl >= 0x1000) continue;   // 長表頭的面只認統計過的旗標，避免把資料誤當成面
+      if (fl & 0x200 ? fl & 0xF000 || !FACE_OPS.has(fl & 0xFF) && (fl & 0xFF) !== 0xFD && (fl & 0xFF) !== 0x74 : !FACE_OPS.has(fl & 0xFF) || fl >= 0x1000) continue;   // 短表頭也只認統計過的旗標（再加上 F-14 用的 FD、74）；SPE 尾翼前的假三角形是 7F   // 長表頭的面只認統計過的旗標，避免把資料誤當成面
       const n = c[o+hl], wide = fl & 0x400; let p = o+hl+1;
       if (n < 3 || n > 16 || p + n*(wide?2:1) > to) continue;
       const idx = []; for (let k=0;k<n;k++){ idx.push(wide ? cv.getUint16(p,true) : c[p]); p += wide?2:1; }
