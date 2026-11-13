@@ -122,12 +122,13 @@ function parseSH(u8){
   const main = lod[0], mainEnd = lod[1]?.o ?? stop;
   const f = facetsIn(main.e, mainEnd, 0, main.n);
   // 細分過的 SH（tools/shgen/sh_subdivide.py）：原本的面改成 `12 00 rel16`（呼叫）+ `38 rel16`（跳過），
-  // 被呼叫的區塊是 82 頂點緩衝 + 面 + 00 00。照 FA.EXE 的 FC 格式讀（旗標 0x60 才有法向量）
+  // 被呼叫的區塊是 82 頂點緩衝 + F6 每點光影 + 面 + 00 00。照 FA.EXE 的 FC 格式讀（旗標 0x60 才有法向量）
   for (let o = main.e; o < mainEnd - 7; o++){
     if (c[o] !== 0x12 || c[o+1] !== 0 || c[o+4] !== 0x38) continue;
     let t = o + 4 + cv.getInt16(o+2, true); if (t < 0 || t >= L - 6 || c[t] !== 0x82) continue;
     while (c[t] === 0x82 && c[t+1] === 0){ const n = cv.getUint16(t+2, true), tg = cv.getUint16(t+4, true) / 8;
       for (let i = 0; i < n; i++) v[tg+i] = [cv.getInt16(t+6+6*i, true), cv.getInt16(t+8+6*i, true), cv.getInt16(t+10+6*i, true)]; t += 6 + 6*n; }
+    while (c[t] === 0xF6) t += 7;   // 每點光影 F6 idx16 色號 nx ny nz
     while (c[t] === 0xFC){
       const fl = cv.getUint16(t+1, true); let p = t + 5 + (fl & 0x60 ? (fl & 0x200 ? 9 : 12) : 0);
       const n = c[p++], wide = fl & 0x400, idx = [];
