@@ -362,8 +362,9 @@ function buildMission(k){
     const key = keyOf(o); let tr = tracks.get(key);
     if (!tr){ tr = { key, idx, name:o.name, cls:o.cls, pts:[] }; tracks.set(key, tr); }
     const rw = f.raw?.get(idx), hp = rw && rw.length > 0x10 ? rw[HP_OFF] | rw[HP_OFF+1]<<8 : null;
-    // 零件狀態（每架飛機的原始資料）：+0x238 起落架位置（0 = 放下，32767 = 收起），+0x16F 位元 0x40 起落架、0x80 煞車，+0x170 位元 0x01 襟翼、0x04 尾鉤
-    const ps = rw && rw.length > 0x239 ? { gp: rw[0x238] | rw[0x239] << 8, c1: rw[0x16F], c2: rw[0x170] } : {};
+    // 零件狀態（每架飛機的原始資料）：+0x238 起落架位置（0 = 放下，32767 = 收起），+0x1A1 可變翼後掠（0 = 展開，32767 = 全後掠），
+    // +0x16F 位元 0x20 後燃器、0x40 起落架、0x80 煞車，+0x170 位元 0x01 襟翼、0x04 尾鉤
+    const ps = rw && rw.length > 0x239 ? { gp: rw[0x238] | rw[0x239] << 8, sw: (rw[0x1A1] | rw[0x1A2] << 8) << 16 >> 16, c1: rw[0x16F], c2: rw[0x170] } : {};
     tr.pts.push({ t:f.t, x:o.x, y:o.y, z:o.z, hdg:o.hdg, pitch:o.pitch, roll:o.roll, spd:o.spd, hp, ...ps });
     if (hp != null) tr.hpMax = Math.max(tr.hpMax || 0, hp);
     if (tr.nat == null && rw && rw.length > NAT_OFF) tr.nat = rw[NAT_OFF];
@@ -871,10 +872,10 @@ function partVars(m, s, kind){
   const onGround = s.y < 30 && s.spd < 250;
   const gp = s.gp != null ? s.gp : onGround ? 0 : 32767;                  // 沒有原始資料：在地上就放下
   const flaps = s.c2 != null ? s.c2 & 1 : 0;
-  const swing = Math.round(sweepFor(s.spd) * 180 / Math.PI * 65536 / 360 / 0.2656);   // F-14 的程式：方位 = v/4 + v/64
+  const swing = s.sw != null ? Math.max(0, s.sw) : Math.round(sweepFor(s.spd) * 180 / Math.PI * 65536 / 360 / 0.2656);   // 沒有原始資料才用速度推算（F-14 的程式：方位 = v/4 + v/64）
   const val = { _PLgearDown: gp < 32767 ? 1 : 0, _PLgearPos: gp > 32767 ? 32767 : gp, _PLleftFlap: flaps ? -1 : 0, _PLrightFlap: flaps ? -1 : 0,
     _PLbrake: s.c1 != null && s.c1 & 0x80 ? 1 : 0, _PLhook: s.c2 != null && s.c2 & 4 ? 1 : 0, _PLswingWing: Math.min(32767, swing),
-    _PLafterBurner: 0, _PLrudder: 0, _PLbayOpen: 0, _PLbayDoorPos: 0, _PLslats: 0, _PLcanardPos: 0, _PLvtOn: 0, _PLvtAngle: 0 };
+    _PLafterBurner: s.c1 != null && s.c1 & 0x20 ? 1 : 0, _PLrudder: 0, _PLbayOpen: 0, _PLbayDoorPos: 0, _PLslats: 0, _PLcanardPos: 0, _PLvtOn: 0, _PLvtAngle: 0 };
   for (const [n, va] of Object.entries(imp)) if (n in val) out[va] = val[n];
   return out;
 }
@@ -1022,7 +1023,7 @@ function sampleTrack(tr, t){
   const a = tr.pts[i], b = tr.pts[Math.min(i+1, tr.pts.length-1)];
   if (b.t - a.t > 2) return t - a.t < 0.5 ? { ...a } : null;
   const f = b.t>a.t ? Math.min(1, Math.max(0,(t-a.t)/(b.t-a.t))) : 0;
-  return { hp:a.hp, gp: a.gp != null && b.gp != null ? Math.round(a.gp + (b.gp - a.gp)*f) : a.gp, c1:a.c1, c2:a.c2, x:a.x+(b.x-a.x)*f, y:a.y+(b.y-a.y)*f, z:a.z+(b.z-a.z)*f,
+  return { hp:a.hp, gp: a.gp != null && b.gp != null ? Math.round(a.gp + (b.gp - a.gp)*f) : a.gp, sw: a.sw != null && b.sw != null ? Math.round(a.sw + (b.sw - a.sw)*f) : a.sw, c1:a.c1, c2:a.c2, x:a.x+(b.x-a.x)*f, y:a.y+(b.y-a.y)*f, z:a.z+(b.z-a.z)*f,
     hdg:lerpAng(a.hdg,b.hdg,f), pitch:lerpAng(a.pitch,b.pitch,f), roll:lerpAng(a.roll,b.roll,f), spd:a.spd+(b.spd-a.spd)*f,
     vh: a.vh!=null && b.vh!=null ? lerpAng(a.vh,b.vh,f) : a.vh, vp: a.vp!=null && b.vp!=null ? a.vp+(b.vp-a.vp)*f : a.vp };
 }
