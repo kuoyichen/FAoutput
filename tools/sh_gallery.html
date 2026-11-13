@@ -32,6 +32,15 @@ button:hover,label.btn:hover{border-color:var(--muted)}
 #modal canvas{width:100%;aspect-ratio:4/3;display:block;cursor:grab;touch-action:none;background:radial-gradient(#2a323c,#181d23);border-radius:6px}
 #modal .bar{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
 #modal .bar b{font-family:ui-monospace,Consolas,monospace;font-size:16px}
+#m_parts{margin-top:8px;font-size:12px;max-height:30vh;overflow:auto}
+#m_parts .row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0}
+#m_parts .row b{min-width:110px;font-weight:600}
+#m_parts button{padding:2px 9px;font-size:12px}
+#m_parts button.on{border-color:var(--accent);color:var(--accent)}
+#m_parts input[type=range]{flex:1;min-width:140px}
+#m_parts .plist{display:flex;flex-direction:column;gap:2px;color:var(--muted)}
+#m_parts .plist label{display:flex;gap:6px;align-items:center;cursor:pointer}
+#m_parts .sw{display:inline-block;width:10px;height:10px;border-radius:2px}
 #flagbar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);padding:8px 16px;display:flex;gap:10px;align-items:center}
 #flaglist{flex:1;font-family:ui-monospace,Consolas,monospace;color:var(--bad);overflow:auto;white-space:nowrap}
 #hint{color:var(--muted);font-size:12px}
@@ -63,6 +72,7 @@ button:hover,label.btn:hover{border-color:var(--muted)}
   <div class="bar"><b id="m_name"></b><span id="m_info" style="color:var(--muted)"></span><span style="flex:1"></span>
     <label><input type="checkbox" id="m_axes" checked> 座標軸</label><button id="m_flag">有問題</button><button id="m_close">關閉</button></div>
   <canvas id="m_cv"></canvas>
+  <div id="m_parts"></div>
 </div></div>
 <script>
 "use strict";
@@ -128,7 +138,48 @@ function parseSH(u8){
     const piv = g ? [g[0], g[1]] : [0, 0];
     parts.push({ f: pf, wing: true, side, pivot: [piv[0], piv[1], 0] });
   }
-  return { v: v.map(p => p || [0,0,0]), f, parts, scale };
+  // 第一個 LOD 的所有附屬頂點組（起落架、襟翼、空氣煞車…），以及控制它們的指令
+  const subs = lod.slice(1).map((b, k) => ({ o: b.o, t: b.t, n: b.n, f: facetsIn(b.e, lod[k+2]?.o ?? stop, b.t, b.t + b.n),
+    local: b.o >= 14 && c[b.o-14] === 0xFF && c[b.o-13] === 0xFF }));
+  return { v: v.map(p => p || [0,0,0]), f, parts, scale, subs, ctl: parseCtl(c, cv, subs) };
+}
+// SH 裡的 F0 區塊是 x86 機器碼，遊戲直接執行。常見的寫法：
+//   cmp word [變數], 值 ; jne 下一段      → 條件（例如起落架放下、襟翼放下）
+//   call $+5 ; pop ebx ; add ebx, n ; mov ax, [角度變數] ; sar ax, k ; (neg ax) ; mov [ebx+d], ax
+//                                          → 執行時改寫後面 C4 指令的某個欄位（起落架收放角度）
+//   push 返回位址 ; push 直譯器 ; ret      → 回到位元碼，接著執行返回位址的指令
+// 返回位址的指令：C4 00 x 上 前 方位 俯仰 滾轉 rel16 = 把頂點組放在 (x,上,前) 並旋轉後畫出；12 00 rel16 = 直接畫頂點組
+function parseCtl(c, cv, subs){
+  const VA = 0x1000, out = [], idxOf = new Map(); subs.forEach((s, i) => { idxOf.set(s.o, i); idxOf.set(s.o - 14, i); });
+  for (let o = 0; o < c.length - 12; o++){
+    if (c[o] !== 0xF0 || c[o+1] !== 0) continue;
+    let p = o + 2, cond = null, ang = null, popAt = -1, ebxAdd = 0, disp = null, target = null;
+    for (let g = 0; g < 16 && p < c.length - 11; g++){
+      if (c[p] === 0x66 && c[p+1] === 0x83 && c[p+2] === 0x3D){ cond = { v: cv.getUint32(p+3, true), val: (c[p+7] << 24) >> 24 }; p += 8;
+        if (c[p] === 0x75) p += 2; else if (c[p] === 0x0F && c[p+1] === 0x85) p += 6; else break; continue; }
+      if (c[p] === 0xE8 && cv.getInt32(p+1, true) === 0){ popAt = p + 5; p += 5; continue; }
+      if (c[p] === 0x5B){ p++; continue; }
+      if (c[p] === 0x81 && c[p+1] === 0xC3){ ebxAdd = cv.getInt32(p+2, true); p += 6; continue; }
+      if (c[p] === 0x83 && c[p+1] === 0xC3){ ebxAdd = (c[p+2] << 24) >> 24; p += 3; continue; }
+      if (c[p] === 0x66 && c[p+1] === 0xA1){ ang = { v: cv.getUint32(p+2, true), shift: 0, neg: false }; p += 6; continue; }
+      if (c[p] === 0x66 && c[p+1] === 0xD1 && c[p+2] === 0xF8){ if (ang) ang.shift++; p += 3; continue; }
+      if (c[p] === 0x66 && c[p+1] === 0xC1 && c[p+2] === 0xF8){ if (ang) ang.shift += c[p+3]; p += 4; continue; }
+      if (c[p] === 0x66 && c[p+1] === 0xF7 && c[p+2] === 0xD8){ if (ang) ang.neg = !ang.neg; p += 3; continue; }
+      if (c[p] === 0x66 && c[p+1] === 0x89 && c[p+2] === 0x43){ disp = (c[p+3] << 24) >> 24; p += 4; continue; }
+      if (c[p] === 0x68 && c[p+5] === 0x68 && c[p+10] === 0xC3){ target = cv.getUint32(p+1, true) - VA; break; }
+      break;
+    }
+    if (!cond || target == null || target < 0 || target > c.length - 16) continue;
+    const e = { at: o, cond, op: c[target] };
+    if (c[target] === 0xC4){
+      e.part = idxOf.get(target + 16 + cv.getInt16(target + 14, true));
+      e.pos = [cv.getInt16(target+2, true), cv.getInt16(target+4, true), cv.getInt16(target+6, true)];
+      e.rot = [cv.getInt16(target+8, true), cv.getInt16(target+10, true), cv.getInt16(target+12, true)];
+      if (ang && disp != null && popAt >= 0){ const field = (popAt + ebxAdd + disp - target - 2) / 2; if (field >= 0 && field < 6) e.anim = { field, ...ang }; }
+    } else if (c[target] === 0x12) e.part = idxOf.get(target + 4 + cv.getInt16(target + 2, true));
+    if (e.part != null) out.push(e);
+  }
+  return out;
 }
 
 // ===== SH 載入：瀏覽器快取 → 選的資料夾 → ../SH/（用網頁伺服器開時）→ GitHub =====
@@ -182,15 +233,15 @@ function render(cv, it, axes){
     const x1 = x*cy - z*sy, z1 = x*sy + z*cy; return [x1, y*cp + z1*sp, -y*sp + z1*cp + D]; };   // 和播放器同一套相機：pitch > 0 = 從上往下看
   const pr = q => [W/2 + q[0]*F/q[2], H/2 - q[1]*F/q[2]];
   const mode = $("mode").value, list = [];
-  P.faces.forEach((f, i) => { const q = f.map(cam); if (q.some(p => p[2] < 1)) return;
+  (it.faces || P.faces).forEach((f, i) => { const q = f.map(cam); if (q.some(p => p[2] < 1)) return;
     let nx=0,ny=0,nz=0; for (let j=0;j<f.length;j++){ const a=f[j], b=f[(j+1)%f.length]; nx += (a[1]-b[1])*(a[2]+b[2]); ny += (a[2]-b[2])*(a[0]+b[0]); nz += (a[0]-b[0])*(a[1]+b[1]); }
-    const l = Math.hypot(nx,ny,nz) || 1; list.push({ q, d: q.reduce((s,p)=>s+p[2],0)/q.length, lam: Math.abs((nx*LIGHT[0]+ny*LIGHT[1]+nz*LIGHT[2])/l), i }); });
+    const l = Math.hypot(nx,ny,nz) || 1; list.push({ q, d: q.reduce((s,p)=>s+p[2],0)/q.length, lam: Math.abs((nx*LIGHT[0]+ny*LIGHT[1]+nz*LIGHT[2])/l), i, col: f.col }); });
   list.sort((a,b) => b.d - a.d);
-  for (const { q, lam, i } of list){
+  for (const { q, lam, i, col } of list){
     const pp = q.map(pr); ctx.beginPath(); ctx.moveTo(...pp[0]); for (const p of pp.slice(1)) ctx.lineTo(...p); ctx.closePath();
     if (mode === "wire"){ ctx.strokeStyle = "rgba(120,190,255,.75)"; ctx.lineWidth = 0.8; ctx.stroke(); continue; }
     const k = 0.55 + 0.6*lam;
-    ctx.fillStyle = mode === "face" ? hue(i) : `rgb(${70*k|0},${150*k|0},${235*k|0})`; ctx.globalAlpha = mode === "face" ? 0.92 : 1; ctx.fill(); ctx.globalAlpha = 1;
+    ctx.fillStyle = mode === "face" ? hue(i) : col ? `rgb(${col[0]*k|0},${col[1]*k|0},${col[2]*k|0})` : `rgb(${70*k|0},${150*k|0},${235*k|0})`; ctx.globalAlpha = mode === "face" ? 0.92 : 1; ctx.fill(); ctx.globalAlpha = 1;
     ctx.strokeStyle = "rgba(10,20,35,.45)"; ctx.lineWidth = 0.6; ctx.stroke();
   }
   if (mode === "wire"){ ctx.fillStyle = "#ffd54a"; for (const p of P.verts){ const q = cam(p); if (q[2] < 1) continue; const s = pr(q); ctx.fillRect(s[0]-1, s[1]-1, 2, 2); } }
@@ -262,13 +313,81 @@ $("clear").onclick = () => { if (confirm("清除所有標記？")){ flags.clear(
 $("dir").onchange = e => { for (const f of e.target.files) if (/\.sh$/i.test(f.name)) dirFiles.set(f.name.toUpperCase().replace(/\.SH$/, ""), f);
   for (const it of items) if (dirFiles.has(it.k)){ dirFiles.get(it.k).arrayBuffer().then(b => { const u8 = new Uint8Array(b); idbPut(it.k, u8); setParsed(it, u8); }); } };
 
+// ===== 附屬零件（起落架、襟翼、煞車…）：照 SH 裡的指令放到機體上 =====
+// 播放器的旋轉（角度單位：度）：先滾轉、再俯仰、再方位
+function rotateDeg(v, hdg, pitch, roll){
+  let [x,y,z] = v; const r = roll*Math.PI/180, p = -pitch*Math.PI/180, h = hdg*Math.PI/180;
+  [x,y] = [x*Math.cos(r) - y*Math.sin(r), x*Math.sin(r) + y*Math.cos(r)];
+  [y,z] = [y*Math.cos(p) - z*Math.sin(p), y*Math.sin(p) + z*Math.cos(p)];
+  return [x*Math.cos(h) + z*Math.sin(h), y, -x*Math.sin(h) + z*Math.cos(h)];
+}
+const PART_COL = { c4: [235,150,60], j12: [90,200,120], free: [150,150,150] };
+// 依目前狀態組出要畫的面：主體 + 條件成立的零件
+function buildFaces(it){
+  const m = it.m, st = it.pst, faces = [];
+  for (const idx of m.f) faces.push(idx.map(i => [m.v[i][0], m.v[i][2], m.v[i][1]]));
+  const drawn = new Set();
+  for (const e of m.ctl){
+    if ((st.vars[e.cond.v] ?? 0) !== e.cond.val || st.off.has(e.part)) continue;
+    const sub = m.subs[e.part]; drawn.add(e.part);
+    let tf = v => [v[0], v[2], v[1]], col = PART_COL.j12;
+    if (e.op === 0xC4){
+      const f6 = [...e.pos, ...e.rot];
+      if (e.anim){ let a = (st.vars[e.anim.v] ?? 0) >> e.anim.shift; if (e.anim.neg) a = -a; f6[e.anim.field] = a; }
+      const deg = f6.slice(3).map(a => a * 360 / 65536), pos = f6.slice(0, 3);   // pos = (x, 上, 前)
+      tf = v => { const r = rotateDeg([v[0], v[2], v[1]], deg[0], deg[1], deg[2]); return [pos[0] + r[0], pos[1] + r[1], pos[2] + r[2]]; };
+      col = PART_COL.c4;
+    }
+    for (const idx of sub.f){ const f = idx.map(i => tf(m.v[i])); f.col = col; faces.push(f); }
+  }
+  if (st.free) m.subs.forEach((sub, k) => { if (drawn.has(k) || st.off.has(k) || m.ctl.some(e => e.part === k)) return;
+    for (const idx of sub.f){ const f = idx.map(i => [m.v[i][0], m.v[i][2], m.v[i][1]]); f.col = PART_COL.free; faces.push(f); } });
+  return faces;
+}
+const hex = v => (v >>> 0).toString(16).toUpperCase();
+function setupParts(it){
+  const box = $("m_parts"); box.innerHTML = "";
+  if (it.state !== "ok" || !it.m.subs?.length){ it.faces = null; return; }
+  const m = it.m;
+  if (!it.pst){
+    // 預設：每個條件變數用第一次比較的值（起落架 = 放下、襟翼 = 收起），角度 0
+    const vars = {}; for (const e of m.ctl) if (!(e.cond.v in vars)) vars[e.cond.v] = e.cond.val;
+    for (const e of m.ctl) if (e.anim && !(e.anim.v in vars)) vars[e.anim.v] = 0;
+    it.pst = { vars, off: new Set(), free: false };
+  }
+  const st = it.pst, redraw = () => { it.faces = buildFaces(it); render($("m_cv"), it, $("m_axes").checked); };
+  // 條件變數：每個比較過的值一個按鈕
+  const condVars = new Map(); for (const e of m.ctl){ const s = condVars.get(e.cond.v) || { vals: new Set(), parts: new Set(), c4: false }; s.vals.add(e.cond.val); s.parts.add(e.part); if (e.op === 0xC4) s.c4 = true; condVars.set(e.cond.v, s); }
+  const animVars = new Map(); for (const e of m.ctl) if (e.anim) animVars.set(e.anim.v, e.anim);
+  let html = "";
+  for (const [v, s] of condVars){
+    const vals = [...s.vals]; if (!vals.includes(0)) vals.unshift(0);
+    const guess = s.c4 && animVars.size ? "起落架？" : vals.includes(-1) ? "襟翼／煞車？" : "";
+    html += `<div class="row"><b>[${hex(v)}] ${guess}</b>` + vals.map(x => `<button data-v="${v}" data-x="${x}" class="${st.vars[v] === x ? "on" : ""}">${x === -1 ? "FF" : x}</button>`).join("") +
+      `<span style="color:var(--muted)">→ 零件 ${[...s.parts].sort((a,b)=>a-b).join("、")}</span></div>`;
+  }
+  for (const [v, a] of animVars) html += `<div class="row"><b>[${hex(v)}] 角度</b><input type="range" min="-32768" max="32767" step="256" value="${st.vars[v] ?? 0}" data-ang="${v}"><span class="angv">${st.vars[v] ?? 0}</span></div>`;
+  html += `<div class="row"><b>零件</b><span class="plist">` + m.subs.map((sub, k) => {
+    const e = m.ctl.find(x => x.part === k), col = e ? (e.op === 0xC4 ? PART_COL.c4 : PART_COL.j12) : PART_COL.free;
+    const how = e ? (e.op === 0xC4 ? `C4 位置(${e.pos.join(",")})${e.anim ? " 會轉動" : ""}` : "原地") + ` 條件 [${hex(e.cond.v)}]=${e.cond.val === -1 ? "FF" : e.cond.val}` : "沒有指令控制";
+    return `<label title="@${sub.o.toString(16)} ${sub.n} 點 ${sub.f.length} 面"><input type="checkbox" data-p="${k}" ${st.off.has(k) ? "" : "checked"}><span class="sw" style="background:rgb(${col})"></span>${k}：${how}</label>`; }).join("") + `</span></div>`;
+  if (m.subs.some((_, k) => !m.ctl.some(e => e.part === k))) html += `<div class="row"><label><input type="checkbox" id="p_free" ${st.free ? "checked" : ""}> 也畫沒有指令控制的零件（原始座標，灰色）</label></div>`;
+  html += `<div class="row" style="color:var(--muted)">橘色 = C4 放置的零件，綠色 = 原地畫的零件。</div>`;
+  box.innerHTML = html;
+  box.querySelectorAll("button[data-v]").forEach(b => b.onclick = () => { st.vars[b.dataset.v] = +b.dataset.x; setupParts(it); });
+  box.querySelectorAll("input[data-ang]").forEach(r => r.oninput = () => { st.vars[r.dataset.ang] = +r.value; r.nextElementSibling.textContent = r.value; redraw(); });
+  box.querySelectorAll("input[data-p]").forEach(cb => cb.onchange = () => { const k = +cb.dataset.p; cb.checked ? st.off.delete(k) : st.off.add(k); redraw(); });
+  const fr = $("p_free"); if (fr) fr.onchange = () => { st.free = fr.checked; redraw(); };
+  redraw();
+}
+
 // ===== 放大檢視 =====
 let mItem = null; const mcv = $("m_cv");
 attachControls(mcv, () => mItem, () => render(mcv, mItem, $("m_axes").checked));
 function openModal(it){ mItem = it; $("modal").classList.add("show"); $("m_name").textContent = it.k + ".SH";
   $("m_info").textContent = it.state === "ok" ? `${it.m.v.length} 頂點・${it.m.f.length} 面${it.m.parts.length ? `・${it.m.parts.length} 個可變翼零件` : ""}・比例 ×${it.m.scale}・約 長 ${it.p.size[1]}・寬 ${it.p.size[0]}・高 ${it.p.size[2]} 呎` : "";
-  renderFlags(); requestAnimationFrame(() => render(mcv, it, $("m_axes").checked)); }
-$("m_close").onclick = () => { $("modal").classList.remove("show"); if (mItem) render(mItem.cv, mItem); mItem = null; };
+  renderFlags(); setupParts(it); requestAnimationFrame(() => render(mcv, it, $("m_axes").checked)); }
+$("m_close").onclick = () => { $("modal").classList.remove("show"); if (mItem){ mItem.faces = null; render(mItem.cv, mItem); } mItem = null; };
 $("modal").onclick = e => { if (e.target === $("modal")) $("m_close").onclick(); };
 $("m_axes").onchange = () => mItem && render(mcv, mItem, $("m_axes").checked);
 $("m_flag").onclick = () => { if (!mItem) return; flags.has(mItem.k) ? flags.delete(mItem.k) : flags.add(mItem.k); saveFlags(); };

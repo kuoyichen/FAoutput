@@ -623,7 +623,48 @@ function parseSH(u8){
     const piv = g ? [g[0], g[1]] : [0, 0];
     parts.push({ f: pf, wing: true, side, pivot: [piv[0], piv[1], 0] });
   }
-  return { v: v.map(p => p || [0,0,0]), f, parts, scale };
+  // 第一個 LOD 的所有附屬頂點組（起落架、襟翼、空氣煞車…），以及控制它們的指令
+  const subs = lod.slice(1).map((b, k) => ({ o: b.o, t: b.t, n: b.n, f: facetsIn(b.e, lod[k+2]?.o ?? stop, b.t, b.t + b.n),
+    local: b.o >= 14 && c[b.o-14] === 0xFF && c[b.o-13] === 0xFF }));
+  return { v: v.map(p => p || [0,0,0]), f, parts, scale, subs, ctl: parseCtl(c, cv, subs) };
+}
+// SH 裡的 F0 區塊是 x86 機器碼，遊戲直接執行。常見的寫法：
+//   cmp word [變數], 值 ; jne 下一段      → 條件（例如起落架放下、襟翼放下）
+//   call $+5 ; pop ebx ; add ebx, n ; mov ax, [角度變數] ; sar ax, k ; (neg ax) ; mov [ebx+d], ax
+//                                          → 執行時改寫後面 C4 指令的某個欄位（起落架收放角度）
+//   push 返回位址 ; push 直譯器 ; ret      → 回到位元碼，接著執行返回位址的指令
+// 返回位址的指令：C4 00 x 上 前 方位 俯仰 滾轉 rel16 = 把頂點組放在 (x,上,前) 並旋轉後畫出；12 00 rel16 = 直接畫頂點組
+function parseCtl(c, cv, subs){
+  const VA = 0x1000, out = [], idxOf = new Map(); subs.forEach((s, i) => { idxOf.set(s.o, i); idxOf.set(s.o - 14, i); });
+  for (let o = 0; o < c.length - 12; o++){
+    if (c[o] !== 0xF0 || c[o+1] !== 0) continue;
+    let p = o + 2, cond = null, ang = null, popAt = -1, ebxAdd = 0, disp = null, target = null;
+    for (let g = 0; g < 16 && p < c.length - 11; g++){
+      if (c[p] === 0x66 && c[p+1] === 0x83 && c[p+2] === 0x3D){ cond = { v: cv.getUint32(p+3, true), val: (c[p+7] << 24) >> 24 }; p += 8;
+        if (c[p] === 0x75) p += 2; else if (c[p] === 0x0F && c[p+1] === 0x85) p += 6; else break; continue; }
+      if (c[p] === 0xE8 && cv.getInt32(p+1, true) === 0){ popAt = p + 5; p += 5; continue; }
+      if (c[p] === 0x5B){ p++; continue; }
+      if (c[p] === 0x81 && c[p+1] === 0xC3){ ebxAdd = cv.getInt32(p+2, true); p += 6; continue; }
+      if (c[p] === 0x83 && c[p+1] === 0xC3){ ebxAdd = (c[p+2] << 24) >> 24; p += 3; continue; }
+      if (c[p] === 0x66 && c[p+1] === 0xA1){ ang = { v: cv.getUint32(p+2, true), shift: 0, neg: false }; p += 6; continue; }
+      if (c[p] === 0x66 && c[p+1] === 0xD1 && c[p+2] === 0xF8){ if (ang) ang.shift++; p += 3; continue; }
+      if (c[p] === 0x66 && c[p+1] === 0xC1 && c[p+2] === 0xF8){ if (ang) ang.shift += c[p+3]; p += 4; continue; }
+      if (c[p] === 0x66 && c[p+1] === 0xF7 && c[p+2] === 0xD8){ if (ang) ang.neg = !ang.neg; p += 3; continue; }
+      if (c[p] === 0x66 && c[p+1] === 0x89 && c[p+2] === 0x43){ disp = (c[p+3] << 24) >> 24; p += 4; continue; }
+      if (c[p] === 0x68 && c[p+5] === 0x68 && c[p+10] === 0xC3){ target = cv.getUint32(p+1, true) - VA; break; }
+      break;
+    }
+    if (!cond || target == null || target < 0 || target > c.length - 16) continue;
+    const e = { at: o, cond, op: c[target] };
+    if (c[target] === 0xC4){
+      e.part = idxOf.get(target + 16 + cv.getInt16(target + 14, true));
+      e.pos = [cv.getInt16(target+2, true), cv.getInt16(target+4, true), cv.getInt16(target+6, true)];
+      e.rot = [cv.getInt16(target+8, true), cv.getInt16(target+10, true), cv.getInt16(target+12, true)];
+      if (ang && disp != null && popAt >= 0){ const field = (popAt + ebxAdd + disp - target - 2) / 2; if (field >= 0 && field < 6) e.anim = { field, ...ang }; }
+    } else if (c[target] === 0x12) e.part = idxOf.get(target + 4 + cv.getInt16(target + 2, true));
+    if (e.part != null) out.push(e);
+  }
+  return out;
 }
 
 // ---------- SH 外型庫 ----------
