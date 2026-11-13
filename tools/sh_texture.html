@@ -32,7 +32,7 @@ label.ck{display:inline-flex;gap:4px;align-items:center;cursor:pointer}
 <body>
 <header>
   <h1>FA SH 貼圖測試</h1>
-  <select id="pick"><option>F14</option><option>F15</option><option value="SHX/F14X">F14X（細分加點）</option><option value="SHX/F15X">F15X（細分加點）</option></select>
+  <select id="pick"><option>F14</option><option>F15</option><option value="SHX/F14X">F14X（細分加點）</option><option value="SHX/F15X">F15X（細分加點）</option><option value="SHX/F14N">F14N（機鼻對稱＋pod）</option></select>
   <input type="text" id="other" placeholder="其他 SH…" title="輸入 SH 名稱（例如 F16）後按 Enter，會用 _名稱.PIC 當貼圖">
   <select id="pal" title="調色盤">
     <option value="game">FA 調色盤（palette.PAL）</option>
@@ -121,21 +121,32 @@ function parseSH(u8){
   };
   const main = lod[0], mainEnd = lod[1]?.o ?? stop;
   const f = facetsIn(main.e, mainEnd, 0, main.n);
-  // 細分過的 SH（tools/shgen/sh_subdivide.py）：原本的面改成 `12 00 rel16`（呼叫）+ `38 rel16`（跳過），
-  // 被呼叫的區塊是 82 頂點緩衝 + F6 每點光影 + 面 + 00 00。照 FA.EXE 的 FC 格式讀（旗標 0x60 才有法向量）
+  // 改過的 SH（tools/shgen/sh_subdivide.py、f14_nose.py）：原本的面或節點改成 `12 00 rel16`（呼叫）+ `38 rel16`（跳過），
+  // 被呼叫的區塊裡有 82 頂點緩衝、F6 每點光影、FC 面、06/0C 平面測試（只跟往後的分支，往前的是原本的 BSP）、00 00 返回
+  const faceAt = t => {
+    const fl = cv.getUint16(t+1, true); let p = t + 5 + (fl & 0x60 ? (fl & 0x200 ? 9 : 12) : 0);
+    const n = c[p++], wide = fl & 0x400, idx = [];
+    for (let k = 0; k < n; k++){ idx.push(wide ? cv.getUint16(p, true) : c[p]); p += wide ? 2 : 1; }
+    let uv = null; if (fl & 4){ uv = []; for (let k = 0; k < n; k++){ if (fl & 0x100){ uv.push([c[p], c[p+1]]); p += 2; } else { uv.push([cv.getUint16(p, true), cv.getUint16(p+2, true)]); p += 4; } } }
+    idx.uv = uv; idx.col = c[t+3]; idx.fl = fl; f.push(idx); return p;
+  };
+  const block = (t, from, seen) => {
+    for (let guard = 0; guard < 2000 && t > 0 && t < L - 2 && !seen.has(t); guard++){
+      seen.add(t);
+      if (c[t] === 0x82 && c[t+1] === 0){ const n = cv.getUint16(t+2, true), tg = cv.getUint16(t+4, true) / 8;
+        for (let i = 0; i < n; i++) v[tg+i] = [cv.getInt16(t+6+6*i, true), cv.getInt16(t+8+6*i, true), cv.getInt16(t+10+6*i, true)]; t += 6 + 6*n; }
+      else if (c[t] === 0xF6) t += 7;
+      else if (c[t] === 0xFC) t = faceAt(t);
+      else if ((c[t] === 0x06 || c[t] === 0x0C) && c[t+1] === 0){ const k = c[t] === 0x06 ? 14 : 10;
+        for (const [r, e] of [[t+k, t+k+2], [t+k+2, t+k+4]]){ const g = e + cv.getInt16(r, true); if (g > from) block(g, from, seen); }
+        t += k + 4; }
+      else return;
+    }
+  };
   for (let o = main.e; o < mainEnd - 7; o++){
     if (c[o] !== 0x12 || c[o+1] !== 0 || c[o+4] !== 0x38) continue;
-    let t = o + 4 + cv.getInt16(o+2, true); if (t < 0 || t >= L - 6 || c[t] !== 0x82) continue;
-    while (c[t] === 0x82 && c[t+1] === 0){ const n = cv.getUint16(t+2, true), tg = cv.getUint16(t+4, true) / 8;
-      for (let i = 0; i < n; i++) v[tg+i] = [cv.getInt16(t+6+6*i, true), cv.getInt16(t+8+6*i, true), cv.getInt16(t+10+6*i, true)]; t += 6 + 6*n; }
-    while (c[t] === 0xF6) t += 7;   // 每點光影 F6 idx16 色號 nx ny nz
-    while (c[t] === 0xFC){
-      const fl = cv.getUint16(t+1, true); let p = t + 5 + (fl & 0x60 ? (fl & 0x200 ? 9 : 12) : 0);
-      const n = c[p++], wide = fl & 0x400, idx = [];
-      for (let k = 0; k < n; k++){ idx.push(wide ? cv.getUint16(p, true) : c[p]); p += wide ? 2 : 1; }
-      let uv = null; if (fl & 4){ uv = []; for (let k = 0; k < n; k++){ if (fl & 0x100){ uv.push([c[p], c[p+1]]); p += 2; } else { uv.push([cv.getUint16(p, true), cv.getUint16(p+2, true)]); p += 4; } } }
-      idx.uv = uv; idx.col = c[t+3]; idx.fl = fl; f.push(idx); t = p;
-    }
+    const t = o + 4 + cv.getInt16(o+2, true); if (t <= mainEnd || t >= L - 6 || ![0x82, 0xFC, 0x06].includes(c[t])) continue;
+    block(t, t - 1, new Set());
     o += 6;
   }
   if (!f.length) return null;
