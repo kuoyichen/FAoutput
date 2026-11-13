@@ -729,9 +729,13 @@ function evalCtl(m, state){
     let part, f6 = null;
     if (mem[t] === 0xC4){ part = m.ctl.idxOf.get(t + 16 + dv.getInt16(t + 14, true)); f6 = [0,1,2,3,4,5].map(k => dv.getInt16(t + 2 + 2*k, true)); }
     else if (mem[t] === 0x12) part = m.ctl.idxOf.get(t + 4 + dv.getInt16(t + 2, true));
-    if (part == null) continue; seen.add(t); out.push({ part, op: mem[t], f6, at: t });
+    if (part == null) continue; seen.add(t); out.push({ part, op: mem[t], f6, at: t, blk: b });
   }
   for (const t of m.ctl.statics || []) if (!seen.has(t)){ seen.add(t); out.push({ part: m.ctl.idxOf.get(t + 16 + dv.getInt16(t + 14, true)), op: 0xC4, f6: [0,1,2,3,4,5].map(k => dv.getInt16(t + 2 + 2*k, true)), at: t }); }
+  // 區塊若寫在某個 C4 零件的指令範圍裡（例如可變翼主翼後面的襟翼），它畫的零件跟著那個零件一起移動、旋轉
+  const subs = m.subs, owner = o => { for (let k = subs.length - 1; k >= 0; k--) if (subs[k].o <= o) return o < (subs[k+1]?.o ?? subs[k].o + 0x2000) ? k : null; return null; };
+  for (const e of out){ if (e.blk == null) continue; const k = owner(e.blk); if (k == null || k === e.part) continue;
+    const p = out.find(x => x.part === k && x.op === 0xC4); if (p) e.parent = p; }
   return out;
 }
 

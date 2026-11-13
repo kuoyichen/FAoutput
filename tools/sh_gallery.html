@@ -244,9 +244,13 @@ function evalCtl(m, state){
     let part, f6 = null;
     if (mem[t] === 0xC4){ part = m.ctl.idxOf.get(t + 16 + dv.getInt16(t + 14, true)); f6 = [0,1,2,3,4,5].map(k => dv.getInt16(t + 2 + 2*k, true)); }
     else if (mem[t] === 0x12) part = m.ctl.idxOf.get(t + 4 + dv.getInt16(t + 2, true));
-    if (part == null) continue; seen.add(t); out.push({ part, op: mem[t], f6, at: t });
+    if (part == null) continue; seen.add(t); out.push({ part, op: mem[t], f6, at: t, blk: b });
   }
   for (const t of m.ctl.statics || []) if (!seen.has(t)){ seen.add(t); out.push({ part: m.ctl.idxOf.get(t + 16 + dv.getInt16(t + 14, true)), op: 0xC4, f6: [0,1,2,3,4,5].map(k => dv.getInt16(t + 2 + 2*k, true)), at: t }); }
+  // 區塊若寫在某個 C4 零件的指令範圍裡（例如可變翼主翼後面的襟翼），它畫的零件跟著那個零件一起移動、旋轉
+  const subs = m.subs, owner = o => { for (let k = subs.length - 1; k >= 0; k--) if (subs[k].o <= o) return o < (subs[k+1]?.o ?? subs[k].o + 0x2000) ? k : null; return null; };
+  for (const e of out){ if (e.blk == null) continue; const k = owner(e.blk); if (k == null || k === e.part) continue;
+    const p = out.find(x => x.part === k && x.op === 0xC4); if (p) e.parent = p; }
   return out;
 }
 
@@ -391,18 +395,24 @@ function rotateDeg(v, hdg, pitch, roll){
 }
 const PART_COL = { c4: [235,150,60], j12: [90,200,120], free: [150,150,150] };
 // 依目前狀態組出要畫的面：主體 + 照 SH 指令算出來要畫的零件
+// 零件的座標轉換：輸入 SH 頂點 (x, 前, 上)，輸出顯示座標 (x, 上, 前)；有上層零件（例如主翼）時再套上層的轉換
+function partTf(e){
+  let tf = v => [v[0], v[2], v[1]];
+  if (e.op === 0xC4){
+    const deg = e.f6.slice(3).map(a => a * 360 / 65536), pos = e.f6.slice(0, 3);   // pos = (x, 上, 前)；角度 = 方位、俯仰、滾轉
+    tf = v => { const r = rotateDeg([v[0], v[2], v[1]], deg[0], deg[1], deg[2]); return [pos[0] + r[0], pos[1] + r[1], pos[2] + r[2]]; };
+  }
+  if (!e.parent) return tf;
+  const up = partTf(e.parent);
+  return v => { const d = tf(v); return up([d[0], d[2], d[1]]); };
+}
 function buildFaces(it){
   const m = it.m, st = it.pst, faces = [];
   for (const idx of m.f) faces.push(idx.map(i => [m.v[i][0], m.v[i][2], m.v[i][1]]));
   const drawn = new Set(); it.drawn = drawn;
   for (const e of evalCtl(m, st.vars)){
     if (st.off.has(e.part) || drawn.has(e.part)) continue; drawn.add(e.part);
-    const sub = m.subs[e.part]; let tf = v => [v[0], v[2], v[1]], col = PART_COL.j12;
-    if (e.op === 0xC4){
-      const deg = e.f6.slice(3).map(a => a * 360 / 65536), pos = e.f6.slice(0, 3);   // pos = (x, 上, 前)；角度 = 方位、俯仰、滾轉
-      tf = v => { const r = rotateDeg([v[0], v[2], v[1]], deg[0], deg[1], deg[2]); return [pos[0] + r[0], pos[1] + r[1], pos[2] + r[2]]; };
-      col = PART_COL.c4;
-    }
+    const sub = m.subs[e.part], tf = partTf(e), col = e.op === 0xC4 || e.parent ? PART_COL.c4 : PART_COL.j12;
     for (const idx of sub.f){ const f = idx.map(i => tf(m.v[i])); f.col = col; faces.push(f); }
   }
   if (st.free) m.subs.forEach((sub, k) => { if (drawn.has(k) || st.off.has(k) || it.reach?.has(k)) return;
