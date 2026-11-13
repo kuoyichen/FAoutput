@@ -7,7 +7,8 @@
     指到這段的絕對位址（第一版把資料放在簽章後面，FA 一畫外部視角就當機）
   * CODE 的虛擬位址可以長到 .idata 之前（F14 約有 4 KB 空間）
   * 每個要細分的面：原位置改成 `12 00 rel16`（呼叫新區塊）+ `38 rel16`（跳過原本面剩下的位元組），其餘填 1E
-  * 新區塊：`82 00 n target` 載入新增的點（放在頂點表 480 以後的位置），接著 4 個子面，最後 `00 00` 返回
+  * 新區塊：`82 00 n target` 載入新增的點（放在頂點表 480 以後的位置），每個新點一筆 `F6 idx16 色號 nx ny nz`
+    （每點光影，法向量取兩端點平均），接著 4 個子面，最後 `00 00` 返回
 FA.EXE 的 SH 解譯器（指令表在 0x5183A0）：12 = 呼叫 rel16（相對於 rel16 之後）、38 = 跳躍 rel16、00 = 返回、
 82 = 載入頂點 (u16 n, u16 位置×8, n×(x,y,z) i16)、FC = 面（見 sh_texture.html 的說明）。頂點表最多 900 點。
 用法：python3 sh_subdivide.py SH/F14.SH out/F14X.SH [面數上限]
@@ -73,9 +74,13 @@ def main():
     stop = next((b[0] for b in bufs if b[2] < 0), None) or (bufs[1][0] if len(bufs) > 1 else len(c))
     used = max(b[2] + b[1] for b in bufs if b[2] >= 0)
     V = {}
+    SH = {}   # 每點光影：F6 idx16 色號 nx ny nz（i8 法向量），寫入頂點表每點 +7 的亮度，給 Gouraud 底色（面旗標 0x02）用
     for (o, n, t, e) in bufs:
         if t < 0: continue
         for k in range(n): V[t+k] = struct.unpack_from('<hhh', c, o+6+6*k)
+        p = e
+        while p + 7 <= len(c) and c[p] == 0xF6:
+            i, col = struct.unpack_from('<HB', c, p+1); SH[i] = (col, struct.unpack_from('<bbb', c, p+4)); p += 7
     # 主體 LOD 裡有貼圖、只用主體點的面
     faces, o = [], main_e
     while o < stop - 6:
@@ -114,6 +119,17 @@ def main():
                     ([e, m1, cc, m2], [nu[4], nu[1], U[2], nu[2]]), ([m3, e, m2, dd], [nu[3], nu[4], nu[2], U[3]])]
         blk = bytearray(struct.pack('<BBHH', 0x82, 0, len(nv), ids[0]*8))
         for p in nv: blk += struct.pack('<hhh', *p)
+        # 新點也要有 F6 光影，否則頂點表 +7 是上一個物件留下的值，Gouraud 底色變成亂碼（FA 實測：貼圖白色處全是雜訊）
+        fn = struct.unpack_from('<hhh', f['head'], 4) if f['fl'] & 0x60 else (0, 0, 127)
+        def shade(vs_):
+            cols = [SH[i][0] for i in vs_ if i in SH]
+            ns = [SH[i][1] for i in vs_ if i in SH] or [fn]
+            v = [sum(q[k] for q in ns) for k in range(3)]; L = max(1e-9, sum(x*x for x in v) ** 0.5)
+            return (cols[0] if cols else f['col'] & 0xFF), tuple(max(-127, min(127, round(x*127/L))) for x in v)
+        I = f['idx']
+        srcs = [[I[k], I[(k+1) % n]] for k in range(n)] + ([list(I)] if n == 4 else [])
+        for vid, vs_ in zip(ids, srcs):
+            col, nn = shade(vs_); blk += struct.pack('<BHBbbb', 0xF6, vid, col, *nn)
         fl = f['fl'] | 0x400
         for idx, uv in subs:
             head = bytearray(f['head']); struct.pack_into('<H', head, 0, fl)
