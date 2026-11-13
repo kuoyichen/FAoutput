@@ -183,7 +183,7 @@ def rebuild(d, pe, secs, code, nc, delta, new_relocs):
         if off >= R1: off += delta
         val = struct.unpack_from('<I', nc, off)[0] - cva
         if R0 <= val < R1: sys.exit(f'reloc at {off:#x} points into the replaced region')
-        if val >= R1: struct.pack_into('<I', nc, off, val + delta + cva)
+        if R1 <= val < code['vs']: struct.pack_into('<I', nc, off, val + delta + cva)   # CODE targets only (IAT stays)
         out_r.append(off + cva)
     out_r += [o + cva for o in new_relocs]
     tbl = bytearray(); pages = {}
