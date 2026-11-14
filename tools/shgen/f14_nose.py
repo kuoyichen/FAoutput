@@ -3,13 +3,14 @@
 
   * y=95 接合環（機身往前接機鼻的那一圈 13 點）修圓，駕駛艙前緣左邊照右邊鏡像，碰到的面重算法向量
   * 原本 y ≥ 95 的機鼻面（30 個）全部改成 `38 rel16` 跳過；左側機砲口的兩個小貼圖搬到新機鼻區塊最後畫
-  * 新機鼻：接合環照實機側視和俯視線型縮成 6 個環圈（STATIONS），再接到機鼻尖，每個新點都有 F6 光影
+  * 新機鼻 v2：照實機側面照片的線型（尖端在機身中線附近），超橢圓剖面 10 圈（16→4 點），每條經線在前後 1 呎內挑四捨五入誤差最小的點，
+    所以上、下、側面輪廓是順的；F6 用曲面的解析法向量（Gouraud 光影平滑）；機砲口貼圖角點搬到新表面上；CODE 不夠時自動 grow_vas
   * 機鼻下 pod（凸多面體，11 點 9 面，寬 2 呎、高 2 呎、長 9 呎，y 96～105）
   * 畫面順序：主體 BSP 根節點（CODE+0x1007）換成呼叫新區塊，先用 06 測試眼睛在 y=95 前或後決定機身和機鼻/pod 的先後，
     再測試眼睛是否在機鼻底面（上 = -8）以下決定機鼻和 pod 的先後
 用法：python3 f14_nose.py SH/F14.SH SHX/F14N.SH
 """
-import os, struct, sys
+import math, os, struct, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sh_subdivide import pe_sections, parse_face, main_lod, FACE_OPS, insert_blocks
 
@@ -27,53 +28,118 @@ RING95 = {(72,): (0, 7), (169, 162): (3, 7), (61, 60): (3, 7), (171, 210): (6, 4
           (202, 229): (6, -5), (263, 332): (4, -7), (290, 333): (2, -8)}
 RING_ORDER = [72, 169, 171, 170, 202, 263, 290, 333, 332, 229, 211, 210, 162]
 GUN_DECALS = (0x2AFC, 0x2FA2)          # 左側機砲口的小貼圖（色號 0 透明）
-# 機鼻側面和俯視的線型（照實機側視圖）：從 y=95 到機鼻尖，t = (y-95)/30
-#   上緣 z = 尖端 + 12·r(t, 0.6)，半寬 = 7·r(t, 0.6)，r(t,a) = (1-t)(1+a·t)：凸的尖拱線，接著擋風玻璃前的下斜一路彎下來
-#   下緣 z = 尖端 - 3·√(1-t²)：實機雷達罩下緣幾乎是水平的，到接近尖端才往上收；尖端偏低（約在機身高度下方 1/5）
-STATIONS = [100, 105, 110, 115, 119, 122]
-TIP = (0, 125, -5)
-def r_(t, a): return (1 - t) * (1 + a * t)
+GUN_VERTS = (158, 161, 216, 217)       # 這兩個貼圖在 y>95 的角點
+# 機鼻線型 v2（2026-11-14，照 Kuoyi 給的實機側面照片重畫）：t = (y-95)/30，y=95 是接合環，y=125 是尖端
+#   尖端 z=-2：大約在機身中線（y=95 環上緣 7、下緣 -8，中線 -0.5）；照片量出來尖端在高度的 0.6～0.65
+#   上緣 z = 尖端 + 9·(1-t)(1+0.5t)：接近直線的尖拱，起點斜率和後面機身差不多，所以接得順
+#   下緣 z = 尖端 - 6·(1-t³)：前段幾乎水平，靠近尖端才往上收（照片量到 t=0.54 時還有 0.84、t=0.76 時 0.59）
+#   半寬 = 7·(1-t)(1+0.6t)；剖面是超橢圓 |x/w|^2.4 + |(z-c)/h|^2.4 = 1，n=2.4 時和 y=95 環幾乎一樣
+#   頂點座標只能是整數（1 呎），所以每個點都在附近的整數格點裡挑「離曲面最近」的那一個（y 可以前後差 1），
+#   光影（F6）用曲面的解析法向量，Gouraud 會把小面之間的差異抹平
+TIP = (0, 125, -2)
+N_SE = 2.4
+RINGS = [(98, 16), (101, 16), (104, 16), (107, 16), (110, 16), (113, 12), (116, 12), (119, 8), (121, 8), (123, 4)]
+def prof(t):
+    top = TIP[2] + (7 - TIP[2]) * (1 - t) * (1 + 0.5 * t)
+    bot = TIP[2] - (TIP[2] + 8) * (1 - t ** 3)
+    return top, bot, 7 * (1 - t) * (1 + 0.6 * t)
+def _s(v, e): return math.copysign(abs(v) ** e, v)
+def surf(t, phi):
+    """曲面上的點 (x, y, z)；phi 從上中央 0 開始，往 x>0 那邊轉，π 是下中央。"""
+    top, bot, w = prof(t); c, h = (top + bot) / 2, (top - bot) / 2
+    return (w * _s(math.sin(phi), 2 / N_SE), 95 + 30 * t, c + h * _s(math.cos(phi), 2 / N_SE))
+def implicit(x, y, z):
+    t = min(max((y - 95) / 30, -0.2), 0.985); top, bot, w = prof(t); c, h = (top + bot) / 2, (top - bot) / 2
+    r = ((abs(x) / w) ** N_SE + (abs(z - c) / h) ** N_SE) ** (1 / N_SE)
+    return (r - 1) * min(w, h)            # 大約是到曲面的距離（呎），外面為正
+def grad(x, y, z, e=0.05):
+    g = [(implicit(x+e, y, z) - implicit(x-e, y, z)), (implicit(x, y+e, z) - implicit(x, y-e, z)), (implicit(x, y, z+e) - implicit(x, y, z-e))]
+    L = sum(v*v for v in g) ** 0.5 or 1
+    return [v / L for v in g]
+def f6(g):      # 曲面法向量 (x, y, z) → F6 的 i8 (x, 上, 前)
+    return (round(g[0]*127), round(g[2]*127), round(g[1]*127))
+def snap(t, phi):
+    """沿著這條經線（固定 phi）在名義 y 的前後 1 呎內挑一個 y，讓曲面點四捨五入後的誤差最小。
+    每條經線上的點都幾乎正好在曲面上，所以從側面、上面、下面看的輪廓線是順的；環不一定在同一個 y 平面上，
+    但 FA 用 F6 做 Gouraud 光影，小面怎麼切看不出來。"""
+    y0 = round(95 + 30 * t); best = None
+    for Y in (y0 - 1, y0, y0 + 1):
+        if not 96 <= Y <= 124: continue
+        x, _, z = surf((Y - 95) / 30, phi)
+        X = 0 if abs(math.sin(phi)) < 1e-9 else round(x); Z = round(z)
+        cost = abs(X - x) + abs(Z - z) + 0.15 * abs(Y - y0)
+        if best is None or cost < best[0]: best = (cost, (X, Y, Z))
+    return best[1]
 
 
 def nose(V):
     """回傳 (新頂點, F6 法向量, 面 [(旗標, 色號, 索引)], y=95 環的 F6 [(頂點, 法向量)])。
-    每一環都是 y=95 環照比例縮小（剖面形狀一樣），環和環之間接四邊形，最後一環接到機鼻尖。"""
-    base = [V[i] for i in RING_ORDER]; c0 = -0.5
+    y=95 環（13 點）→ 10 圈新環（16 → 4 點，照大小遞減）→ 尖端；相鄰兩圈依角度縫起來，對得上的是四邊形，其餘是三角形。"""
     NV, NN = [], []
-    def nrm(x, z, c, slope):
-        v = (x, z - c, slope * (abs(x) + abs(z - c) + 1)); L = sum(t*t for t in v) ** 0.5 or 1
-        return tuple(round(t*127/L) for t in v)
-    rings = [[i for i in RING_ORDER]]
-    for y in STATIONS:
-        t = (y - 95) / 30; top = TIP[2] + 12 * r_(t, 0.6); bot = TIP[2] - 3 * (1 - t*t) ** 0.5; ws = r_(t, 0.6)
-        cz = (top + bot) / 2; r = []
-        for (x, _, z) in base:
-            u = (z + 8) / 15; X, Z = x * ws, bot + u * (top - bot)
-            NV.append((round(X), y, round(Z))); NN.append(nrm(X, Z, cz, 0.3 + t))
-            r.append(('n', len(NV)-1))
+    def phi_of(x, z, c=-0.5):
+        a = math.atan2(x / 7, (z - c) / 7.5); return a % (2 * math.pi)
+    rings = [[(i, phi_of(V[i][0], V[i][2])) for i in RING_ORDER]]
+    for y, m in RINGS:
+        t = (y - 95) / 30; half = []
+        for k in range(m // 2 + 1):
+            phi = 2 * math.pi * k / m; half.append((snap(t, phi), phi))
+        pts = half + [((-p[0], p[1], p[2]), 2 * math.pi - phi) for p, phi in half[-2:0:-1]]
+        r = []
+        for p, phi in pts:
+            if r and NV[r[-1][0][1]] == p: continue
+            NV.append(p); NN.append(f6(grad(*p))); r.append((('n', len(NV) - 1), phi))
+        while len(r) > 1 and NV[r[-1][0][1]] == NV[r[0][0][1]]: r.pop()
         rings.append(r)
-    NV.append(TIP); NN.append((0, -10, 126)); tip = ('n', len(NV)-1)
-    ring0 = [(i, nrm(V[i][0], V[i][2], c0, 0.2)) for i in RING_ORDER]
+    NV.append(TIP); NN.append((0, 8, 127)); tip = ('n', len(NV) - 1)
+    ring0 = [(i, f6(grad(V[i][0], 95, V[i][2]))) for i in RING_ORDER]
     ids = lambda r: r if isinstance(r, int) else NOSE_BASE + r[1]
-    faces, n = [], len(RING_ORDER)
-    for a, b in zip(rings, rings[1:]):
-        for k in range(n):
-            faces.append((0x273, 0x98, [ids(a[k]), ids(a[(k+1) % n]), ids(b[(k+1) % n]), ids(b[k])]))
-    for k in range(n):
-        faces.append((0x273, 0x98, [ids(rings[-1][k]), ids(rings[-1][(k+1) % n]), ids(tip)]))
-    # 繞向：FA 的面在 (x,y,z) 下 ΣP×P 朝內；以機鼻中心軸判斷
-    allv = dict(V); allv.update({NOSE_BASE+k: v for k, v in enumerate(NV)})
-    out = []
-    for fl, col, idx in faces:
-        P = [allv[i] for i in idx]; m = [0, 0, 0]
+    allv = dict(V); allv.update({NOSE_BASE + k: v for k, v in enumerate(NV)})
+    faces = []
+    def add(idx):
+        idx = [ids(i) for i in idx]; P = [allv[i] for i in idx]
+        q = [k for k in range(len(P)) if P[k] != P[k-1]]
+        idx = [idx[k] for k in q]; P = [P[k] for k in q]
+        if len(set(P)) < 3: return
+        if len(P) == 4:          # 不平的四邊形切成兩個三角形（沿較短的對角線）
+            n = [0, 0, 0]
+            for k in range(3):
+                p, q_ = P[k], P[(k+1) % 3]
+                n[0] += p[1]*q_[2]-p[2]*q_[1]; n[1] += p[2]*q_[0]-p[0]*q_[2]; n[2] += p[0]*q_[1]-p[1]*q_[0]
+            L = sum(v*v for v in n) ** 0.5
+            off = abs(sum(n[k]*(P[3][k]-P[0][k]) for k in range(3))) / L if L else 9
+            if off > 0.2:
+                d02 = sum((P[0][k]-P[2][k])**2 for k in range(3)); d13 = sum((P[1][k]-P[3][k])**2 for k in range(3))
+                if d02 <= d13: add2([idx[0], idx[1], idx[2]]); add2([idx[0], idx[2], idx[3]])
+                else: add2([idx[0], idx[1], idx[3]]); add2([idx[1], idx[2], idx[3]])
+                return
+        add2(idx)
+    def add2(idx):
+        P = [allv[i] for i in idx]
+        n = [0, 0, 0]
         for k in range(len(P)):
-            p, q = P[k], P[(k+1) % len(P)]
-            m[0] += p[1]*q[2]-p[2]*q[1]; m[1] += p[2]*q[0]-p[0]*q[2]; m[2] += p[0]*q[1]-p[1]*q[0]
-        cy = sum(p[1] for p in P) / len(P); cz = -0.5 - 4.5 * (cy - 95) / 30
-        fc = [sum(p[0] for p in P) / len(P), 0.3, sum(p[2] for p in P) / len(P) - cz]
-        if sum(m[k]*fc[k] for k in range(3)) > 0: idx = idx[::-1]
-        out.append((fl, col, idx))
-    return NV, NN, out, ring0
+            p, q_ = P[k], P[(k+1) % len(P)]
+            n[0] += p[1]*q_[2]-p[2]*q_[1]; n[1] += p[2]*q_[0]-p[0]*q_[2]; n[2] += p[0]*q_[1]-p[1]*q_[0]
+        if sum(v*v for v in n) < 1e-6: return
+        cen = [sum(p[k] for p in P) / len(P) for k in range(3)]
+        g = grad(*cen)
+        if sum(n[k]*g[k] for k in range(3)) > 0: idx = idx[::-1]      # FA：ΣP×P 朝內
+        faces.append((0x273, 0x98, idx))
+    TWO = 2 * math.pi
+    for A, B in zip(rings, rings[1:]):
+        i = j = 0; na, nb = len(A), len(B)
+        while i < na or j < nb:
+            pa = A[(i+1) % na][1] if i + 1 < na else TWO
+            pb = B[(j+1) % nb][1] if j + 1 < nb else TWO
+            a0, a1, b0, b1 = A[i % na][0], A[(i+1) % na][0], B[j % nb][0], B[(j+1) % nb][0]
+            if i >= na: add([a0, b1, b0]); j += 1
+            elif j >= nb: add([a0, a1, b0]); i += 1
+            elif abs(pa - pb) < 1e-6: add([a0, a1, b1, b0]); i += 1; j += 1
+            elif pa < pb: add([a0, a1, b0]); i += 1
+            else: add([a0, b1, b0]); j += 1
+    last = rings[-1]
+    for k in range(len(last)):
+        add([last[k][0], last[(k+1) % len(last)][0], tip])
+    return NV, NN, faces, ring0
 
 
 def normal_point(P, fl):
@@ -133,9 +199,9 @@ def pod():
     return V, N, out
 
 
-def main():
-    src, dst = sys.argv[1], sys.argv[2]
-    d = bytearray(open(src, 'rb').read())
+def build(d, log=print):
+    """回傳 (新檔案或 None（CODE 放不下）, 需要的位元組, 空間)。"""
+    d = bytearray(d)
     pe, opt, secs = pe_sections(d)
     code = next(s for s in secs if s['name'] == 'CODE'); nxt = min(s['va'] for s in secs if s['va'] > code['va'])
     c = bytearray(d[code['ro']:code['ro']+code['vs']])
@@ -154,7 +220,7 @@ def main():
     # 檢查法向量公式：和原檔每個面存的法向量同方向
     agree = sum(1 for f in faces.values() if f['fl'] & 0x60 and
                 sum(a*b for a, b in zip(normal_point([V[i] for i in f['idx']], f['fl'])[0], struct.unpack_from('<hhh', f['head'], 4))) > 0)
-    print(f'法向量公式和原檔同方向：{agree}/{sum(1 for f in faces.values() if f["fl"] & 0x60)} 個面')
+    log(f'法向量公式和原檔同方向：{agree}/{sum(1 for f in faces.values() if f["fl"] & 0x60)} 個面')
 
     # 1. 搬頂點：駕駛艙前緣左邊照右邊鏡像，y=95 接合環修圓
     for i, s_ in MIRROR_V.items():
@@ -165,7 +231,17 @@ def main():
     moved = set(MIRROR_V) | {i for ids in RING95 for i in ids}
     # 2. 機鼻（y ≥ 95 的面）全部拿掉，機砲口的小貼圖搬到新機鼻區塊裡（在機鼻之後畫）
     front = [f for f in faces.values() if all(V[i][1] >= 95 for i in f['idx'])]
-    decals = [bytes(c[f['o']:f['end']]) for f in front if f['o'] in GUN_DECALS]
+    # 機砲口貼圖的角點搬到新機鼻表面上（原本在 x=-7，新機鼻在 y=99 只剩 6 呎寬），再重算它們的法向量
+    for i in GUN_VERTS:
+        x, y, z = V[i]; t = (y - 95) / 30; top, bot, w = prof(t); cc, h = (top + bot) / 2, (top - bot) / 2
+        V[i] = (-round(w * max(0, 1 - abs((z - cc) / h) ** N_SE) ** (1 / N_SE)), y, z)
+        struct.pack_into('<hhh', c, o0+6+6*i, *V[i])
+    decals = []
+    for f in front:
+        if f['o'] not in GUN_DECALS: continue
+        b = bytearray(c[f['o']:f['end']]); nrm, pt = normal_point([V[i] for i in f['idx']], f['fl'])
+        struct.pack_into('<hhh', b, 5, *nrm); struct.pack_into('<bbb' if f['fl'] & 0x200 else '<hhh', b, 11, *pt)
+        decals.append(bytes(b))
     for f in front:
         o, e = f['o'], f['end']; c[o:e] = b'\x38' + struct.pack('<h', e - (o + 3)) + b'\x1e' * (e - o - 3)
     # 3. 碰到搬動頂點的面重算法向量
@@ -214,10 +290,25 @@ def main():
     patch = bytearray(b'\x12\x00') + struct.pack('<h', S - (ROOT + 4)) + b'\x38' + struct.pack('<h', ROOT + 14 - (ROOT + 7))
     c[ROOT:ROOT+14] = patch + b'\x1e' * (14 - len(patch))
     room = nxt - code['va'] - len(c)
-    if len(blocks) > room: sys.exit(f'空間不夠：需要 {len(blocks)}，只有 {room}')
     if NOSE_BASE + len(NV) > 900: sys.exit('頂點表超過 900')
+    if len(blocks) > room: return None, len(blocks), room
     out = insert_blocks(d, pe, secs, code, c, tail, blocks)
+    log(f'拿掉機鼻 {len(front)} 面；新機鼻 {len(NV)} 點 {nf} 面（+機砲口貼圖 {len(decals)}）；pod {len(PV)} 點 {len(PF)} 面；新增 {len(blocks)} 位元組（空間 {room}）')
+    return out, len(blocks), room
+
+
+def main():
+    src, dst = sys.argv[1], sys.argv[2]
+    d = open(src, 'rb').read()
+    out, need, room = build(d, log=lambda *a: None)
+    if out is None:     # CODE 放不下：把 .idata/.reloc/$$DOSX 的 VA 往後移（第 8 節），再重做一次
+        delta = (need - room + 0xFFF) // 0x1000 * 0x1000
+        print(f'CODE 空間不夠（需要 {need}，只有 {room}），後面的區段往後移 {delta:#x}')
+        from f18g_growler import grow_vas
+        out, need, room = build(grow_vas(d, delta))
+    else:
+        out, need, room = build(d)
     open(dst, 'wb').write(out)
-    print(f'{dst}: 拿掉機鼻 {len(front)} 面；新機鼻 {len(NV)} 點 {nf} 面（+機砲口貼圖 {len(decals)}）；pod {len(PV)} 點 {len(PF)} 面；新增 {len(blocks)} 位元組（空間 {room}）')
+    print('寫出', dst)
 
 if __name__ == '__main__': main()
