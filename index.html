@@ -1,5 +1,548 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>F/A-18 Showcase</title>
-<meta http-equiv="refresh" content="0; url=tools/f18_showcase.html">
-<link rel="canonical" href="tools/f18_showcase.html"></head>
-<body><a href="tools/f18_showcase.html">F/A-18 Showcase</a></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAshion</title>
+<meta name="description" content="FAshion: designing and refining .SH shapes for Fighters Anthology.">
+<style>
+:root{ --bg:#0e1216; --card:#161c22; --line:#26303a; --text:#e2e8ee; --muted:#8a96a4; --accent:#ffd54a; --cyan:#6fd3ff; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:inherit}
+/* top bar */
+#bar{position:fixed;inset:0 0 auto 0;z-index:20;display:flex;align-items:center;gap:14px;padding:12px 18px;background:linear-gradient(#0e1216e6,#0e121600)}
+#bar .logo{font-weight:800;font-size:19px;letter-spacing:.5px;text-decoration:none}
+#bar .logo b{color:var(--accent)}
+#burger{margin-left:auto;width:42px;height:42px;border-radius:10px;border:1px solid var(--line);background:#161c22cc;cursor:pointer;display:grid;place-items:center;padding:0}
+#burger span{display:block;width:20px;height:2px;background:var(--text);border-radius:2px;box-shadow:0 -6px 0 var(--text),0 6px 0 var(--text)}
+#burger:hover{border-color:var(--muted)}
+/* drawer */
+#scrim{position:fixed;inset:0;z-index:30;background:#0008;opacity:0;pointer-events:none;transition:opacity .2s}
+#menu{position:fixed;top:0;right:0;bottom:0;z-index:31;width:min(320px,86vw);background:var(--card);border-left:1px solid var(--line);transform:translateX(100%);transition:transform .25s ease;padding:18px;overflow-y:auto}
+body.open #scrim{opacity:1;pointer-events:auto}
+body.open #menu{transform:none}
+#menu .top{display:flex;align-items:center;margin-bottom:14px}
+#menu .top b{font-size:17px}
+#close{margin-left:auto;background:none;border:0;color:var(--muted);font-size:26px;line-height:1;cursor:pointer}
+#menu h3{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin:18px 0 6px;font-weight:600}
+#menu a,#menu .soon{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;text-decoration:none}
+#menu a:hover{background:#ffffff0d}
+#menu .soon{color:var(--muted);cursor:default}
+#menu .soon i{margin-left:auto;font-style:normal;font-size:11px;border:1px solid var(--line);border-radius:20px;padding:1px 8px}
+#menu .ico{width:20px;text-align:center;opacity:.85}
+/* hero */
+#hero{position:relative;height:100vh;min-height:520px;max-height:1000px;overflow:hidden;background:radial-gradient(ellipse at 60% 45%,#24303c 0%,#141a20 55%,#0e1216 100%)}
+#hero::after{content:"";position:absolute;inset:auto 0 0 0;height:120px;background:linear-gradient(#0e121600,var(--bg));pointer-events:none}
+#grid{position:absolute;inset:0;opacity:.25;background-image:linear-gradient(#6fd3ff22 1px,transparent 1px),linear-gradient(90deg,#6fd3ff22 1px,transparent 1px);background-size:48px 48px;mask-image:radial-gradient(ellipse at 50% 50%,#000 20%,transparent 75%);-webkit-mask-image:radial-gradient(ellipse at 50% 50%,#000 20%,transparent 75%)}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+#title{position:absolute;left:clamp(16px,6vw,80px);bottom:clamp(70px,14vh,150px);z-index:2;max-width:560px;pointer-events:none}
+#title h1{margin:0;font-size:clamp(46px,9vw,96px);line-height:1;font-weight:800;letter-spacing:-1px}
+#title h1 b{color:var(--accent)}
+#title p{margin:12px 0 0;font-size:clamp(15px,2vw,19px);color:#c4ccd5}
+#title .tag{display:inline-flex;gap:16px;margin-top:16px;font-size:12px;color:var(--muted);letter-spacing:.4px}
+#title .tag span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+#title .tag .t::before{background:linear-gradient(135deg,#8c949c,#5b6168)}
+#title .tag .w::before{border:1px solid var(--cyan)}
+#status{position:absolute;right:18px;bottom:22px;z-index:2;font-size:12px;color:var(--muted)}
+/* releases */
+main{max-width:980px;margin:0 auto;padding:8px 16px 60px}
+main h2{font-size:24px;margin:0 0 4px}
+main .sub{color:var(--muted);margin:0 0 20px}
+.rel{display:grid;grid-template-columns:132px minmax(0,1fr);gap:18px;padding:20px;background:var(--card);border:1px solid var(--line);border-radius:14px;text-decoration:none;transition:border-color .15s,transform .15s}
+.rel:hover{border-color:var(--accent);transform:translateY(-2px)}
+.rel time{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.rel .no{display:block;font-size:34px;font-weight:800;color:var(--accent);line-height:1.1;margin-top:4px}
+.rel h3{margin:0;font-size:20px}
+.rel p{margin:6px 0 10px;color:#c4ccd5}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips span{font-size:12px;border:1px solid var(--line);border-radius:20px;padding:2px 10px;color:var(--muted)}
+.rel .go{display:inline-block;margin-top:12px;color:var(--accent);font-weight:600}
+.next{margin-top:14px;padding:16px 20px;border:1px dashed var(--line);border-radius:14px;color:var(--muted)}
+footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+@media (max-width:600px){ .rel{grid-template-columns:1fr;gap:6px} .rel .no{display:inline;font-size:20px;margin-left:8px} #status{display:none} }
+</style>
+</head>
+<body>
+<div id="bar">
+  <a class="logo" href="./">FA<b>shion</b></a>
+  <button id="burger" aria-label="Open menu" aria-expanded="false"><span></span></button>
+</div>
+<div id="scrim"></div>
+<nav id="menu" aria-label="Site menu">
+  <div class="top"><b>FA<span style="color:var(--accent)">shion</span></b><button id="close" aria-label="Close menu">×</button></div>
+  <h3>Site</h3>
+  <a href="#top"><span class="ico">⌂</span>Home</a>
+  <a href="#releases"><span class="ico">★</span>Releases</a>
+  <h3>Releases</h3>
+  <a href="tools/f18_showcase.html"><span class="ico">✈</span>F/A-18 Showcase</a>
+  <h3>Tools</h3>
+  <a href="tools/sh_gallery.html"><span class="ico">▦</span>SH Shape Gallery</a>
+  <a href="tools/fa_replay.html"><span class="ico">▶</span>Flight Replay</a>
+  <h3>Coming soon</h3>
+  <div class="soon"><span class="ico">✎</span>New F-14 Tomcat<i>soon</i></div>
+  <div class="soon"><span class="ico">◩</span>Texture (PIC) viewer<i>soon</i></div>
+  <div class="soon"><span class="ico">⬢</span>3D model to SH converter<i>soon</i></div>
+  <div class="soon"><span class="ico">⬇</span>Download library<i>soon</i></div>
+  <div class="soon"><span class="ico">?</span>About &amp; install guide<i>soon</i></div>
+</nav>
+
+<section id="hero"><a id="top"></a>
+  <div id="grid"></div>
+  <canvas id="cv"></canvas>
+  <div id="title">
+    <h1>FA<b>shion</b></h1>
+    <p>Designing and refining aircraft shapes for <em>Fighters Anthology</em>. New and improved .SH models, ready to drop into your game.</p>
+    <div class="tag"><span class="t">Textured</span><span class="w">Shape (no texture)</span></div>
+  </div>
+  <div id="status">Loading F-14…</div>
+</section>
+
+<main id="releases">
+  <h2>Releases</h2>
+  <p class="sub">Each release is a set of reworked models with an interactive 3D viewer and downloads.</p>
+  <a class="rel" href="tools/f18_showcase.html">
+    <div><time datetime="2026-11-14">Nov 14, 2026</time><span class="no">#1</span></div>
+    <div>
+      <h3>F/A-18 Hornet family</h3>
+      <p>Reshaped Hornets and new Super Hornets, two Blue Angels schemes and a brand-new EA-18G Growler with jamming pods. View each one in 3D with gear, flaps, hook and speed brake, then download the SH and PIC files.</p>
+      <div class="chips"><span>F/A-18C</span><span>F/A-18D</span><span>F/A-18E</span><span>F/A-18F</span><span>Blue Angels E</span><span>Blue Angels F</span><span>EA-18G Growler</span></div>
+      <span class="go">Open the F/A-18 Showcase →</span>
+    </div>
+  </a>
+  <div class="next">Next up: a rebuilt F-14 Tomcat. Watch this space.</div>
+</main>
+<footer>FAshion is a fan project for Jane's Fighters Anthology. Models and tools are on <a href="https://github.com/kuoyichen/FAoutput">GitHub</a>.</footer>
+
+<script>
+"use strict";
+// ===== SH parser, part control and PIC reader (shared with tools/f18_showcase.html) =====
+const FACE_OPS = new Set([0x41,0x44,0x49,0x4C,0x51,0x54,0x59,0x5C,0x61,0x63,0x64,0x69,0x6B,0x6C,0x71,0x73,0x7C,0xCD,0xDD,0xED,0xEE,0xFE]);
+function parseSH(u8){
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  let base = 0x400;
+  if (u8[0] === 0x4D && u8[1] === 0x5A){
+    const pe = dv.getUint32(0x3C, true), ns = dv.getUint16(pe+6, true), opt = dv.getUint16(pe+20, true);
+    for (let i=0;i<ns;i++){ const s = pe+24+opt+i*40; if (String.fromCharCode(...u8.subarray(s, s+4)) === "CODE"){ base = dv.getUint32(s+20, true); break; } }
+  }
+  const c = u8.subarray(base), cv = new DataView(c.buffer, c.byteOffset, c.byteLength), L = c.length;
+  const shift = L > 8 ? cv.getUint16(6, true) : 8, scale = shift >= 4 && shift <= 16 ? Math.pow(2, shift - 8) : 1;
+  // Find every vertex buffer of the first LOD (each target must follow on from the previous count)
+  const bufs = [], maxAbs = (o, n) => { let m = 0; for (let i = 0; i < 3*n; i++) m = Math.max(m, Math.abs(cv.getInt16(o + 6 + 2*i, true))); return m; };
+  for (let o=0;o<L-6;o++){
+    if (c[o] !== 0x82 || c[o+1] !== 0) continue;
+    const n = cv.getUint16(o+2,true), t = cv.getUint16(o+4,true), e = o+6+6*n;
+    if (!n || n > 4000 || t % 8 || e >= L) continue;
+    if (!bufs.length){ if (t === 0 && n >= 3) bufs.push({ o, n, t:0, e }); continue; }
+    const last = bufs[bufs.length-1];
+    if (bufs.length === 1 && t === 0 && o < last.e && n >= 3 && maxAbs(o, n) * 4 < maxAbs(last.o, last.n)){ bufs[0] = { o, n, t:0, e }; continue; }   // the first one was a fake 82 inside the header (e.g. C5); the real buffer lies inside its range
+    if (t === 0 && o >= last.e && (c[o-1] === 0 || c[o-1] === 0x1E)){ bufs.push({ o, n, t:-1 }); break; }   // next LOD
+    const gap = t/8 - (last.t + last.n);   // targets usually follow on; some files (F35A, Y141, SU27…) skip a few slots
+    if (o >= last.e && (gap === 0 || gap > 0 && gap <= 64 && (c[o-1] === 0 || c[o-1] === 0x1E) && maxAbs(o, n) < 8192)){ bufs.push({ o, n, t: t/8, e }); }
+  }
+  if (!bufs.length) return null;
+  const lod = bufs.filter(b => b.t >= 0), stop = bufs.find(b => b.t < 0)?.o ?? L;
+  const v = [];
+  for (const b of lod) for (let i=0;i<b.n;i++) v[b.t+i] = [cv.getInt16(b.o+6+6*i,true), cv.getInt16(b.o+8+6*i,true), cv.getInt16(b.o+10+6*i,true)];
+  const facetsIn = (from, to, lo, hi) => {
+    const f = [];
+    for (let o=from; o<to-18; o++){
+      if (c[o] !== 0xFC) continue;
+      const fl = cv.getUint16(o+1,true), hl = fl & 0x200 ? 14 : 17;
+      if (fl & 0x200 ? fl & 0xF000 || !FACE_OPS.has(fl & 0xFF) && (fl & 0xFF) !== 0xFD && (fl & 0xFF) !== 0x74 : !FACE_OPS.has(fl & 0xFF) || fl >= 0x1000) continue;   // only accept known flag bytes (plus FD and 74 used by the F-14), so data is not misread as faces; the fake triangle in front of the SPE tail is 7F
+      const n = c[o+hl], wide = fl & 0x400; let p = o+hl+1;
+      if (n < 3 || n > 16 || p + n*(wide?2:1) > to) continue;
+      const idx = []; for (let k=0;k<n;k++){ idx.push(wide ? cv.getUint16(p,true) : c[p]); p += wide?2:1; }
+      if (idx.some(i => i < lo || i >= hi || !v[i]) || new Set(idx).size < n) continue;
+      // Texture coords: flag 0x04 = has UVs (pixel coords in the PIC); 0x100 = 1 byte per coord, otherwise 2 bytes
+      let uv = null;
+      if (fl & 4){ uv = []; for (let k=0;k<n;k++){ if (fl & 0x100){ uv.push([c[p], c[p+1]]); p += 2; } else { uv.push([cv.getUint16(p,true), cv.getUint16(p+2,true)]); p += 4; } } }
+      idx.uv = uv; idx.col = c[o+3]; idx.fl = fl;
+      f.push(idx); o = p - 1;   // skip this face's data so no fake face is read from its indices (the right-hand triangle on F5EV)
+    }
+    return f;
+  };
+  const main = lod[0], mainEnd = lod[1]?.o ?? stop;
+  const f = facetsIn(main.e, mainEnd, 0, main.n);
+  // Edited SH files (tools/shgen/sh_subdivide.py, f14_nose.py): an original face or node becomes `12 00 rel16` (call) + `38 rel16` (skip);
+  // the called block holds an 82 vertex buffer, F6 per-vertex shading, FC faces, 06/0C plane tests (follow forward branches only; backward ones are the original BSP) and 00 00 return
+  const faceAt = t => {
+    const fl = cv.getUint16(t+1, true); let p = t + 5 + (fl & 0x60 ? (fl & 0x200 ? 9 : 12) : 0);
+    const n = c[p++], wide = fl & 0x400, idx = [];
+    for (let k = 0; k < n; k++){ idx.push(wide ? cv.getUint16(p, true) : c[p]); p += wide ? 2 : 1; }
+    let uv = null; if (fl & 4){ uv = []; for (let k = 0; k < n; k++){ if (fl & 0x100){ uv.push([c[p], c[p+1]]); p += 2; } else { uv.push([cv.getUint16(p, true), cv.getUint16(p+2, true)]); p += 4; } } }
+    idx.uv = uv; idx.col = c[t+3]; idx.fl = fl; f.push(idx); return p;
+  };
+  // C4 00 x up fwd hdg pitch roll rel16 inside a hooked block (f18g_growler.py): draw the part at an offset (rotation 0).
+  // Each placement gets its own vertex slots, so one shared part can be drawn several times.
+  const placePart = (t, pos) => {
+    if (c[t] !== 0x82 || c[t+1] !== 0) return;
+    const n = cv.getUint16(t+2, true), tg = cv.getUint16(t+4, true) / 8, base = Math.max(v.length, 1000);
+    for (let i = 0; i < n; i++) v[base+i] = [cv.getInt16(t+6+6*i, true) + pos[0], cv.getInt16(t+8+6*i, true) + pos[2], cv.getInt16(t+10+6*i, true) + pos[1]];
+    let p = t + 6 + 6*n; while (c[p] === 0xF6) p += 7;
+    // faces, and 06 plane nodes inside the part (store/pylon order): follow both branches
+    const walk = (p, depth) => {
+      for (let g = 0; g < 500 && p > t && p < L - 2; g++){
+        if (c[p] === 0xFC){ p = faceAt(p); const idx = f[f.length-1]; for (let k = 0; k < idx.length; k++) if (idx[k] >= tg && idx[k] < tg + n) idx[k] = base + idx[k] - tg; }
+        else if (c[p] === 0x06 && c[p+1] === 0 && depth < 8){ walk(p + 16 + cv.getInt16(p+14, true), depth+1); walk(p + 18 + cv.getInt16(p+16, true), depth+1); p += 18; }
+        else return;
+      }
+    };
+    walk(p, 0);
+  };
+  const block = (t, from, seen) => {
+    for (let guard = 0; guard < 2000 && t > 0 && t < L - 2 && !seen.has(t); guard++){
+      seen.add(t);
+      if (c[t] === 0x82 && c[t+1] === 0){ const n = cv.getUint16(t+2, true), tg = cv.getUint16(t+4, true) / 8;
+        for (let i = 0; i < n; i++) v[tg+i] = [cv.getInt16(t+6+6*i, true), cv.getInt16(t+8+6*i, true), cv.getInt16(t+10+6*i, true)]; t += 6 + 6*n; }
+      else if (c[t] === 0xF6) t += 7;
+      else if (c[t] === 0xFC) t = faceAt(t);
+      else if (c[t] === 0xC4 && c[t+1] === 0){ placePart(t + 16 + cv.getInt16(t+14, true), [0,1,2].map(k => cv.getInt16(t+2+2*k, true))); t += 16; }
+      else if ((c[t] === 0x06 || c[t] === 0x0C) && c[t+1] === 0){ const k = c[t] === 0x06 ? 14 : 10;
+        for (const [r, e] of [[t+k, t+k+2], [t+k+2, t+k+4]]){ const g = e + cv.getInt16(r, true); if (g > from) block(g, from, seen); }
+        t += k + 4; }
+      else return;
+    }
+  };
+  for (let o = main.e; o < mainEnd - 7; o++){
+    if (c[o] !== 0x12 || c[o+1] !== 0 || c[o+4] !== 0x38) continue;
+    const t = o + 4 + cv.getInt16(o+2, true); if (t <= mainEnd || t >= L - 6 || ![0x82, 0xFC, 0x06].includes(c[t])) continue;
+    block(t, t - 1, new Set());
+    o += 6;
+  }
+  if (!f.length) return null;
+  let span = 0; for (let i=0;i<main.n;i++) span = Math.max(span, Math.abs(v[i][0]));
+  const parts = [];
+  for (let k=1;k<lod.length;k++){
+    const b = lod[k], to = lod[k+1]?.o ?? stop; if (b.n < 12) continue;
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (let i=0;i<b.n;i++){ const p = v[b.t+i]; x0 = Math.min(x0,p[0]); x1 = Math.max(x1,p[0]); z0 = Math.min(z0,p[2]); z1 = Math.max(z1,p[2]); }
+    const ax = Math.max(Math.abs(x0), Math.abs(x1));
+    if (ax < span*0.6 || z1 - z0 > (x1 - x0)*0.5) continue;
+    const pf = facetsIn(b.e, to, b.t, b.t + b.n); if (!pf.length) continue;
+    const pts = []; for (let i=0;i<b.n;i++) pts.push(v[b.t+i]);
+    // pivot: the outermost leading corner of the wing glove (main-body vertex within the wing chord, farthest from the fuselage and most forward)
+    const side = Math.sign(x0 + x1), tipX = side > 0 ? x1 : -x0;
+    const ys = pts.map(p => p[1]), wy0 = Math.min(...ys), wy1 = Math.max(...ys), lenY = 2*span;
+    let g = null; for (let i=0;i<main.n;i++){ const p = v[i], ax2 = p[0]*side;
+      if (ax2 > 0 && ax2 < tipX*0.6 && p[1] >= wy0 && p[1] <= wy1 + 0.15*lenY && (!g || ax2 > g[0]*side || (ax2 === g[0]*side && p[1] > g[1]))) g = p; }
+    const piv = g ? [g[0], g[1]] : [0, 0];
+    parts.push({ f: pf, wing: true, side, pivot: [piv[0], piv[1], 0] });
+  }
+  // all sub-part vertex sets of the first LOD (gear, flaps, speed brake…) and the code that controls them
+  const subs = lod.slice(1).map((b, k) => ({ o: b.o, t: b.t, n: b.n, f: facetsIn(b.e, lod[k+2]?.o ?? stop, b.t, b.t + b.n),
+    local: b.o >= 14 && c[b.o-14] === 0xFF && c[b.o-13] === 0xFF }));
+  return { v: v.map(p => p || [0,0,0]), f, parts, scale, subs, code: c, ctl: parseCtl(c, cv, subs), imp: shImports(u8, c) };
+}
+
+// SH import table: each control variable is a global provided by FA.EXE, named in the import table (e.g. _PLgearDown, _PLleftFlap)
+// returns { name: address used by the code } (address = location of the ff 25 [IAT] thunk)
+function shImports(u8, c){
+  const out = {}; if (u8[0] !== 0x4D || u8[1] !== 0x5A) return out;
+  try {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), pe = dv.getUint32(0x3C, true), ns = dv.getUint16(pe+6, true), opt = dv.getUint16(pe+20, true);
+    const secs = []; for (let i = 0; i < ns; i++){ const s = pe+24+opt+i*40; secs.push([dv.getUint32(s+12, true), Math.max(dv.getUint32(s+8, true), dv.getUint32(s+16, true)), dv.getUint32(s+20, true)]); }
+    const r2o = r => { for (const [va, sz, ro] of secs) if (r >= va && r < va + sz) return r - va + ro; return -1; };
+    const str = o => { let s = ""; while (o >= 0 && o < u8.length && u8[o]) s += String.fromCharCode(u8[o++]); return s; };
+    let d = r2o(dv.getUint32(pe+24+104, true));
+    for (; d >= 0 && dv.getUint32(d+12, true); d += 20){
+      const iat = dv.getUint32(d+16, true); let t = r2o(dv.getUint32(d, true) || iat);
+      for (let k = 0; t >= 0 && dv.getUint32(t, true); k++, t += 4){
+        const name = str(r2o(dv.getUint32(t, true)) + 2), a = iat + 4*k;
+        for (let o = 0; o < c.length - 6; o++) if (c[o] === 0xFF && c[o+1] === 0x25 && c[o+2] === (a & 255) && c[o+3] === (a >> 8 & 255) && c[o+4] === (a >> 16 & 255) && c[o+5] === (a >>> 24)){ out[name] = o + 0x1000; break; }
+      }
+    }
+  } catch(e){}
+  return out;
+}
+// F0 blocks in an SH are raw x86 code that the game runs directly. Common patterns:
+//   cmp word [var], value ; jne …        → condition (gear down, flaps down…)
+//   call $+5 ; pop ebx ; add ebx, n ; mov ax, [angle var] ; sar/shl/add/sub/neg ; mov [ebx+d], ax
+//                                          → patches a field of the following C4 op at run time (gear retraction, swing-wing sweep)
+//   push retAddr ; push interpreter ; ret → back to the bytecode, continuing at retAddr
+// The op at retAddr: C4 00 x up fwd hdg pitch roll rel16 = place the vertex set at (x, up, fwd), rotate and draw; 12 00 rel16 = draw it in place
+// A tiny x86 emulator runs these for a given state to work out which parts to draw and where.
+const SH_VA = 0x1000;
+function x86Run(mem, start, maxSteps = 400){
+  const dv = new DataView(mem.buffer, mem.byteOffset, mem.byteLength), L = mem.length;
+  const rd16 = va => { const o = va - SH_VA; return o >= 0 && o + 1 < L ? dv.getInt16(o, true) : 0; };
+  const rd32 = va => { const o = va - SH_VA; return o >= 0 && o + 3 < L ? dv.getInt32(o, true) : 0; };
+  const wr16 = (va, x) => { const o = va - SH_VA; if (o >= 0 && o + 1 < L) dv.setInt16(o, x, true); };
+  const s16 = x => (x << 16) >> 16;
+  let p = start, ax = 0, cx = 0, eax = 0, ebx = 0, fa = 0, fb = 0, sz = 16; const stack = [];
+  const cc = op => { const sa = sz === 8 ? (fa << 24) >> 24 : sz === 16 ? s16(fa) : fa | 0, sb = sz === 8 ? (fb << 24) >> 24 : sz === 16 ? s16(fb) : fb | 0;
+    const m = sz === 32 ? 0xFFFFFFFF : (1 << sz) - 1, ua = (fa & m) >>> 0, ub = (fb & m) >>> 0;
+    switch (op & 0xF){ case 2: return ua < ub; case 3: return ua >= ub; case 4: return sa === sb; case 5: return sa !== sb;
+      case 6: return ua <= ub; case 7: return ua > ub; case 0xC: return sa < sb; case 0xD: return sa >= sb; case 0xE: return sa <= sb; case 0xF: return sa > sb; } return null; };
+  for (let n = 0; n < maxSteps; n++){
+    const o = p - SH_VA; if (o < 0 || o >= L - 1) return null;
+    const b0 = mem[o], b1 = mem[o+1], b2 = mem[o+2];
+    if (b0 === 0x66){
+      if (b1 === 0x83 && b2 === 0x3D){ fa = rd16(rd32(p+3)); fb = (mem[o+7] << 24) >> 24; sz = 16; p += 8; continue; }
+      if (b1 === 0x81 && b2 === 0x3D){ fa = rd16(rd32(p+3)); fb = dv.getInt16(o+7, true); sz = 16; p += 9; continue; }
+      if (b1 === 0xA1){ ax = rd16(rd32(p+2)); p += 6; continue; }
+      if (b1 === 0x8B && b2 === 0xC8){ cx = ax; p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0xC1){ cx = ax; p += 3; continue; }
+      if (b1 === 0x8B && b2 === 0xC1){ ax = cx; p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0xC8){ ax = cx; p += 3; continue; }
+      if (b1 === 0xD1 && b2 === 0xF8){ ax = s16(ax) >> 1; p += 3; continue; }
+      if (b1 === 0xD1 && b2 === 0xF9){ cx = s16(cx) >> 1; p += 3; continue; }
+      if (b1 === 0xC1 && b2 === 0xF8){ ax = s16(ax) >> mem[o+3]; p += 4; continue; }
+      if (b1 === 0xC1 && b2 === 0xF9){ cx = s16(cx) >> mem[o+3]; p += 4; continue; }
+      if (b1 === 0xD1 && b2 === 0xE0){ ax = s16(ax << 1); p += 3; continue; }
+      if (b1 === 0xC1 && b2 === 0xE0){ ax = s16(ax << mem[o+3]); p += 4; continue; }
+      if ((b1 === 0x03 && b2 === 0xC1) || (b1 === 0x01 && b2 === 0xC8)){ ax = s16(ax + cx); p += 3; continue; }
+      if ((b1 === 0x2B && b2 === 0xC1) || (b1 === 0x29 && b2 === 0xC8)){ ax = s16(ax - cx); p += 3; continue; }
+      if (b1 === 0x05){ ax = s16(ax + dv.getInt16(o+2, true)); p += 4; continue; }
+      if (b1 === 0x2D){ ax = s16(ax - dv.getInt16(o+2, true)); p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xC0){ ax = s16(ax + ((mem[o+3] << 24) >> 24)); p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xE8){ ax = s16(ax - ((mem[o+3] << 24) >> 24)); p += 4; continue; }
+      if (b1 === 0x3D){ fa = ax; fb = dv.getInt16(o+2, true); sz = 16; p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xF8){ fa = ax; fb = (mem[o+3] << 24) >> 24; sz = 16; p += 4; continue; }
+      if (b1 === 0xB8){ ax = dv.getInt16(o+2, true); p += 4; continue; }
+      if (b1 === 0xF7 && b2 === 0xD8){ ax = s16(-ax); p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0x43){ wr16(ebx + ((mem[o+3] << 24) >> 24), ax); p += 4; continue; }
+      if (b1 === 0x89 && b2 === 0x83){ wr16(ebx + dv.getInt32(o+3, true), ax); p += 7; continue; }
+      if (b1 === 0xA3){ wr16(rd32(p+2), ax); p += 6; continue; }
+      return null;
+    }
+    if (b0 === 0x80 && b1 === 0x3D){ const a = rd32(p+2) - SH_VA; fa = a >= 0 && a < L ? mem[a] : 0; fb = mem[o+6]; sz = 8; p += 7; continue; }
+    if (b0 === 0x83 && b1 === 0x3D){ fa = rd32(rd32(p+2)); fb = (mem[o+6] << 24) >> 24; sz = 32; p += 7; continue; }
+    if (b0 === 0xA1){ eax = rd32(rd32(p+1)); ax = s16(eax); p += 5; continue; }
+    if (b0 >= 0x70 && b0 <= 0x7F){ const t = cc(b0); if (t == null) return null; p += 2 + (t ? (b1 << 24) >> 24 : 0); continue; }
+    if (b0 === 0x0F && b1 >= 0x80 && b1 <= 0x8F){ const t = cc(b1); if (t == null) return null; p += 6 + (t ? dv.getInt32(o+2, true) : 0); continue; }
+    if (b0 === 0xEB){ p += 2 + ((b1 << 24) >> 24); continue; }
+    if (b0 === 0xE9){ p += 5 + dv.getInt32(o+1, true); continue; }
+    if (b0 === 0xE8){ stack.push(p + 5); p += 5 + dv.getInt32(o+1, true); continue; }
+    if (b0 === 0x5B){ ebx = stack.pop() ?? 0; p += 1; continue; }
+    if (b0 === 0x53){ stack.push(ebx); p += 1; continue; }
+    if (b0 === 0x81 && b1 === 0xC3){ ebx += dv.getInt32(o+2, true); p += 6; continue; }
+    if (b0 === 0x83 && b1 === 0xC3){ ebx += (b2 << 24) >> 24; p += 3; continue; }
+    if (b0 === 0x68){ stack.push(dv.getInt32(o+1, true)); p += 5; continue; }
+    if (b0 === 0xC3){ stack.pop(); return stack.length ? stack.pop() : null; }   // push retAddr ; push interpreter ; ret → retAddr
+    return null;
+  }
+  return null;
+}
+// Static scan: find every F0 block, the variables and values it compares, and the angle variables it reads
+function parseCtl(c, cv, subs){
+  // a jump target may be a sub-shape header or short op before the vertex set: take the first vertex set within 16 bytes
+  const idxOf = { get: t => { let best = null; subs.forEach((s, i) => { if (s.o >= t && s.o - t <= 16 && (best == null || s.o < subs[best].o)) best = i; }); return best ?? undefined; } };
+  const blocks = [], vars = new Map();
+  for (let o = 0; o < c.length - 12; o++){
+    if (c[o] !== 0xF0 || c[o+1] !== 0) continue;
+    if (x86Run(c, o + 2 + SH_VA) == null) continue;   // not code that runs through to ret
+    blocks.push(o + 2);
+    // scan this block up to ret, collecting variables
+    for (let p = o + 2, n = 0; p < c.length - 8 && n < 60; n++){
+      if (c[p] === 0x66 && c[p+1] === 0x83 && c[p+2] === 0x3D){ const v = cv.getUint32(p+3, true); const s = vars.get(v) || { vals: new Set(), ang: false }; s.vals.add((c[p+7] << 24) >> 24); vars.set(v, s); p += 8; continue; }
+      if (c[p] === 0x66 && c[p+1] === 0xA1){ const v = cv.getUint32(p+2, true); const s = vars.get(v) || { vals: new Set(), ang: false }; s.ang = true; vars.set(v, s); p += 6; continue; }
+      if (c[p] === 0x68 && c[p+5] === 0x68 && c[p+10] === 0xC3) break; p++;
+    }
+  }
+  // unconditional C4s in the main bytecode (e.g. the two B-2 parts): the target must be exactly a vertex set
+  const statics = [], exact = new Map(); subs.forEach((s, i) => { exact.set(s.o, i); exact.set(s.o - 14, i); });
+  const end = subs.length ? Math.min(...subs.map(s => s.o)) : 0;
+  const pushed = new Set(); for (let o = 0; o < c.length - 5; o++) if (c[o] === 0x68) pushed.add(cv.getUint32(o + 1, true) - SH_VA);   // ops that an F0 block returns to do not count
+  for (let o = 0; o < end - 16; o++) if (c[o] === 0xC4 && c[o+1] === 0 && !pushed.has(o)){ const i = exact.get(o + 16 + cv.getInt16(o + 14, true)); if (i != null) statics.push(o); }
+  return { blocks, statics, vars: [...vars].map(([v, s]) => ({ v, vals: [...s.vals], ang: s.ang })), idxOf };
+}
+// Run every block for a state (var → value) and return the parts to draw: { part, op, f6:[x, up, fwd, hdg, pitch, roll] }
+function evalCtl(m, state){
+  const c = m.code, mem = c.slice(), dv = new DataView(mem.buffer), out = [], seen = new Set();
+  for (const [v, x] of Object.entries(state)){ const o = +v - SH_VA; if (o >= 0 && o + 1 < mem.length) dv.setInt16(o, x, true); }
+  for (const b of m.ctl.blocks){
+    const r = x86Run(mem, b + SH_VA); if (r == null) continue; const t = r - SH_VA; if (t < 0 || t > mem.length - 16 || seen.has(t)) continue;
+    let part, f6 = null;
+    if (mem[t] === 0xC4){ part = m.ctl.idxOf.get(t + 16 + dv.getInt16(t + 14, true)); f6 = [0,1,2,3,4,5].map(k => dv.getInt16(t + 2 + 2*k, true)); }
+    else if (mem[t] === 0x12) part = m.ctl.idxOf.get(t + 4 + dv.getInt16(t + 2, true));
+    if (part == null) continue; seen.add(t); out.push({ part, op: mem[t], f6, at: t, blk: b });
+  }
+  for (const t of m.ctl.statics || []) if (!seen.has(t)){ seen.add(t); out.push({ part: m.ctl.idxOf.get(t + 16 + dv.getInt16(t + 14, true)), op: 0xC4, f6: [0,1,2,3,4,5].map(k => dv.getInt16(t + 2 + 2*k, true)), at: t }); }
+  // a block that sits inside a C4 part's code (e.g. flaps behind a swing wing) draws its part in that part's frame
+  const subs = m.subs, owner = o => { for (let k = subs.length - 1; k >= 0; k--) if (subs[k].o <= o) return o < (subs[k+1]?.o ?? subs[k].o + 0x2000) ? k : null; return null; };
+  for (const e of out){ if (e.blk == null) continue; const k = owner(e.blk); if (k == null || k === e.part) continue;
+    const p = out.find(x => x.part === k && x.op === 0xC4); if (p) e.parent = p; }
+  return out;
+}
+
+// ===== SH loading: browser cache → picked folder → ../SH/ (when served over HTTP) → GitHub =====
+
+function rotateDeg(v, hdg, pitch, roll){
+  let [x,y,z] = v; const r = roll*Math.PI/180, p = -pitch*Math.PI/180, h = hdg*Math.PI/180;
+  [x,y] = [x*Math.cos(r) - y*Math.sin(r), x*Math.sin(r) + y*Math.cos(r)];
+  [y,z] = [y*Math.cos(p) - z*Math.sin(p), y*Math.sin(p) + z*Math.cos(p)];
+  return [x*Math.cos(h) + z*Math.sin(h), y, -x*Math.sin(h) + z*Math.cos(h)];
+}
+function partTf(e){
+  let tf = v => [v[0], v[2], v[1]];
+  if (e.op === 0xC4){
+    const deg = e.f6.slice(3).map(a => a * 360 / 65536), pos = e.f6.slice(0, 3);   // pos = (x, up, fwd); angles = heading, pitch, roll
+    tf = v => { const r = rotateDeg([v[0], v[2], v[1]], deg[0], deg[1], deg[2]); return [pos[0] + r[0], pos[1] + r[1], pos[2] + r[2]]; };
+  }
+  if (!e.parent) return tf;
+  const up = partTf(e.parent);
+  return v => { const d = tf(v); return up([d[0], d[2], d[1]]); };
+}
+function parsePIC(u8){
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const fmt = dv.getUint16(0, true), w = dv.getUint32(2, true), h = dv.getUint32(6, true), po = dv.getUint32(10, true), ps = dv.getUint32(14, true);
+  const palO = dv.getUint32(18, true), palS = dv.getUint32(22, true), rowO = dv.getUint32(0x22, true), rowS = dv.getUint32(0x26, true);
+  if (fmt !== 0 || !w || !h || w > 4096 || h > 4096) throw new Error(`PIC format ${fmt} (${w}×${h}) is not supported`);
+  const px = new Uint8Array(w * h);
+  const rows = rowS >= 4 * h && rowO + rowS <= u8.length;
+  // rows are stored bottom-up (like BMP): SH v = 0 is the last file row, so flip on load and use UVs directly as pixel coords
+  for (let y = 0; y < h; y++){ const s = rows ? dv.getUint32(rowO + 4*y, true) : po + y*w; px.set(u8.subarray(s, s + w), (h - 1 - y)*w); }
+  let pal = null; if (palO && palS >= 768 && palO + 768 <= u8.length) pal = palFromBytes(u8.subarray(palO, palO + palS));
+  return { w, h, px, pal, fmt, po, ps, rows };
+}
+// Palette: 768-byte RGB (×4 if 6-bit VGA), RIFF PAL or JASC-PAL text; in a LIB, look for a 768-byte 6-bit palette
+function palFromBytes(u8){
+  const txt = String.fromCharCode(...u8.subarray(0, 8));
+  if (txt.startsWith("JASC-PAL")){ const n = new TextDecoder().decode(u8).trim().split(/\s+/).slice(3).map(Number), p = new Uint8Array(768); p.set(n.slice(0, 768)); return p; }
+  if (txt.startsWith("RIFF")){ const p = new Uint8Array(768); for (let i = 0; i < 256; i++) for (let k = 0; k < 3; k++) p[3*i+k] = u8[24 + 4*i + k] || 0; return p; }
+  if (u8.length < 768) return null;
+  const p = u8.slice(0, 768); let mx = 0; for (const b of p) mx = Math.max(mx, b);
+  if (mx < 64) for (let i = 0; i < 768; i++) p[i] = p[i] << 2 | p[i] >> 4;
+  return p;
+}
+const PAL_GRAY_HOME = (() => { const p = new Uint8Array(768); for (let i = 0; i < 256; i++) p[3*i] = p[3*i+1] = p[3*i+2] = i; return p; })();
+
+// ===== Homepage: F-14 hero, rear half textured, front half bare shape =====
+const $ = id => document.getElementById(id);
+const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
+async function fetchAny(paths){
+  const urls = [];
+  if (/^https?:$/.test(location.protocol)) for (const p of paths) urls.push(new URL(p, location.href).href);
+  for (const p of paths) urls.push(REMOTE + p);
+  for (const u of urls){ try { const r = await fetch(u); if (r.ok) return new Uint8Array(await r.arrayBuffer()); } catch(e){} }
+  return null;
+}
+function shTexName(u8){
+  for (let i = 0; i < u8.length - 16; i++) if (u8[i] === 0xE2 && u8[i+1] === 0){ let s = ""; for (let k = 2; k < 16 && u8[i+k]; k++) s += String.fromCharCode(u8[i+k]); if (/^[\w-]+\.PIC$/i.test(s)) return s.toUpperCase(); }
+  return null;
+}
+
+// menu
+{ const open = o => { document.body.classList.toggle("open", o); $("burger").setAttribute("aria-expanded", o); };
+  $("burger").onclick = () => open(true); $("close").onclick = () => open(false); $("scrim").onclick = () => open(false);
+  document.querySelectorAll("#menu a").forEach(a => a.addEventListener("click", () => open(false)));
+  addEventListener("keydown", e => { if (e.key === "Escape") open(false); }); }
+
+const cv = $("cv"), gl = cv.getContext("webgl", { antialias: true, alpha: true, premultipliedAlpha: false });
+const VS = `attribute vec3 aP; attribute vec2 aUV; attribute vec3 aN; attribute vec2 aC;
+uniform mat4 uM; uniform float uZB; varying vec2 vUV; varying vec3 vN; varying vec2 vC; varying vec3 vP;
+void main(){ vUV = aUV; vN = aN; vC = aC; vP = aP; gl_Position = uM * vec4(aP, 1.0); gl_Position.z -= uZB * gl_Position.w; }`;
+// uSplit = forward coordinate of the cut; uDir = +1/-1 so that "front" is uDir*(z - uSplit) > 0
+const FS = `precision mediump float; varying vec2 vUV; varying vec3 vN; varying vec2 vC; varying vec3 vP;
+uniform sampler2D uPic; uniform sampler2D uPal; uniform vec2 uSize; uniform float uSplit; uniform float uDir; uniform float uEdge; uniform float uHasPic; uniform float uR;
+void main(){
+  float s = uDir * (vP.z - uSplit);
+  float d = abs(dot(normalize(vN), normalize(vec3(0.35, 0.85, 0.4))));
+  if (uEdge > 0.5){ if (s < 0.0) discard; gl_FragColor = vec4(0.44, 0.83, 1.0, 0.55); return; }
+  if (s > 0.0){
+    // front: bare shape, no texture. Cool blueprint grey, lit by the face normal
+    vec3 c = mix(vec3(0.10, 0.15, 0.20), vec3(0.42, 0.52, 0.60), d);
+    if (s < uR * 0.012) c = mix(c, vec3(1.0, 0.84, 0.29), 0.9);   // glowing seam at the cut
+    gl_FragColor = vec4(c, 1.0); return;
+  }
+  float idx = vC.x; bool own = true;
+  if (vC.y > 0.5 && uHasPic > 0.5){
+    float t = floor(texture2D(uPic, (floor(vUV) + 0.5) / uSize).r * 255.0 + 0.5);
+    if (t > 254.5){ if (vC.x < 0.5) discard; } else { idx = t; own = false; }
+  }
+  if (own && idx >= 144.0 && idx <= 155.0) idx = clamp(idx + floor((0.75 - d) * 8.0 + 0.5), 144.0, 155.0);
+  vec3 c = texture2D(uPal, vec2((idx + 0.5) / 256.0, 0.5)).rgb;
+  if (!(own && idx >= 144.0 && idx <= 155.0)) c *= 0.7 + 0.4 * d;
+  gl_FragColor = vec4(c, 1.0);
+}`;
+function mkProg(){
+  const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+  const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(p); return p;
+}
+const prog = mkProg(), U = n => gl.getUniformLocation(prog, n), A = n => gl.getAttribLocation(prog, n);
+const vbo = gl.createBuffer(), edgeVbo = gl.createBuffer(), picTex = gl.createTexture(), palTex = gl.createTexture();
+function setTex(t, w, h, fmt, data){ gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, fmt, w, h, 0, fmt, gl.UNSIGNED_BYTE, data);
+  for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); }
+setTex(picTex, 1, 1, gl.LUMINANCE, new Uint8Array([0]));
+
+let cur = null;
+const view = { yaw: 0.9, pitch: 0.42 };
+function ctlState(m){ const vars = {}, nm = Object.fromEntries(Object.entries(m.imp || {}).map(([n, a]) => [a, n]));
+  const on = { _PLgearDown: 0, _PLgearPos: 32767, _PLswingWing: 9000 };   // gear up, wings partly swept
+  for (const x of m.ctl.vars) vars[x.v] = nm[x.v] ? (on[nm[x.v]] ?? 0) : x.vals.length ? x.vals[0] : 0;
+  return vars; }
+function build(m){
+  const faces = [], add = (idx, tf) => faces.push({ pts: idx.map(i => tf(m.v[i])), uv: idx.uv, col: idx.col });
+  // F14.SH faces 288 and 291 are the afterburner flames; FA only draws them with the burner lit
+  m.f.forEach((idx, i) => { if (!(m.f.length === 292 && (i === 288 || i === 291))) add(idx, v => [v[0], v[2], v[1]]); });
+  const drawn = new Set();
+  for (const e of evalCtl(m, ctlState(m))){ if (drawn.has(e.part)) continue; drawn.add(e.part); const tf = partTf(e); for (const idx of m.subs[e.part].f) add(idx, tf); }
+  const data = [], ed = [];
+  faces.forEach(f => { const p = f.pts; let nx = 0, ny = 0, nz = 0;
+    for (let k = 0; k < p.length; k++){ const q = p[k], r = p[(k+1) % p.length]; nx += (q[1]-r[1])*(q[2]+r[2]); ny += (q[2]-r[2])*(q[0]+r[0]); nz += (q[0]-r[0])*(q[1]+r[1]); }
+    f.first = data.length / 10;
+    for (let k = 1; k < p.length - 1; k++) for (const j of [0, k, k+1]){ const q = p[j], uv = f.uv ? f.uv[j] : [0, 0]; data.push(q[0], q[1], q[2], uv[0], uv[1], nx, ny, nz, f.col, f.uv ? 1 : 0); }
+    f.cnt = data.length / 10 - f.first;
+    for (let k = 0; k < p.length; k++){ const q = p[k], r = p[(k+1) % p.length]; ed.push(...q, 0,0, 0,0,0, 0,0, ...r, 0,0, 0,0,0, 0,0); } });
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, edgeVbo); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ed), gl.STATIC_DRAW);
+  let lo = [1e9,1e9,1e9], hi = [-1e9,-1e9,-1e9]; for (const f of faces) for (const q of f.pts) for (let k = 0; k < 3; k++){ lo[k] = Math.min(lo[k], q[k]); hi[k] = Math.max(hi[k], q[k]); }
+  return { faces, en: ed.length / 10, center: lo.map((x, k) => (x + hi[k]) / 2), radius: Math.max(1, Math.hypot(hi[0]-lo[0], hi[1]-lo[1], hi[2]-lo[2]) / 2), lo, hi };
+}
+function mul(a, b){ const o = new Array(16); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++){ let s = 0; for (let k = 0; k < 4; k++) s += a[k*4+j] * b[i*4+k]; o[i*4+j] = s; } return o; }
+function matrix(){
+  const w = cv.width, h = cv.height, r = cur.radius, f = 1 / Math.tan(0.5 * 0.6), asp = w / h;
+  // fit the plane to the narrower side; on wide screens move it right of the title
+  const dist = r * (asp < 1 ? 2.9 / asp : 2.35), near = Math.max(dist - r * 2, dist * 0.02), far = dist + r * 2;
+  const P = [f / asp,0,0,0, 0,f,0,0, 0,0,(far+near)/(near-far),-1, 0,0,2*far*near/(near-far),0];
+  const cy = Math.cos(view.yaw), sy = Math.sin(view.yaw), cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
+  const R = [cy, sy*sp, -sy*cp, 0,  0, cp, sp, 0,  sy, -cy*sp, cy*cp, 0,  0, 0, 0, 1];
+  const T = [1,0,0,0, 0,1,0,0, 0,0,1,0, -cur.center[0], -cur.center[1], -cur.center[2], 1];
+  const sx = asp > 1.25 ? r * 0.5 : 0, syo = asp > 1.25 ? r * 0.12 : r * 0.3;
+  const V = [1,0,0,0, 0,1,0,0, 0,0,1,0, sx,syo,-dist,1];
+  return mul(P, mul(V, mul(R, T)));
+}
+function resize(){ const d = Math.min(2, devicePixelRatio || 1), w = Math.round(cv.clientWidth * d), h = Math.round(cv.clientHeight * d); if (cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; } }
+function bindAttrs(buf){ gl.bindBuffer(gl.ARRAY_BUFFER, buf); for (const [n, sz, off] of [["aP",3,0],["aUV",2,12],["aN",3,20],["aC",2,32]]){ const l = A(n); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, 40, off); } }
+function draw(){
+  resize(); gl.viewport(0, 0, cv.width, cv.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  if (!cur) return;
+  gl.useProgram(prog); gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
+  gl.uniformMatrix4fv(U("uM"), false, matrix());
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, picTex); gl.uniform1i(U("uPic"), 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, palTex); gl.uniform1i(U("uPal"), 1);
+  gl.uniform2f(U("uSize"), cur.pic ? cur.pic.w : 1, cur.pic ? cur.pic.h : 1); gl.uniform1f(U("uHasPic"), cur.pic ? 1 : 0);
+  gl.uniform1f(U("uSplit"), cur.split); gl.uniform1f(U("uDir"), cur.dir); gl.uniform1f(U("uR"), cur.radius);
+  gl.uniform1f(U("uEdge"), 0); gl.uniform1f(U("uZB"), 0);
+  gl.enable(gl.POLYGON_OFFSET_FILL); bindAttrs(vbo);
+  cur.faces.forEach((f, i) => { if (!f.cnt) return; gl.polygonOffset(-i * 0.004, -i * 0.5); gl.drawArrays(gl.TRIANGLES, f.first, f.cnt); });
+  gl.disable(gl.POLYGON_OFFSET_FILL);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  bindAttrs(edgeVbo); gl.uniform1f(U("uEdge"), 1); gl.uniform1f(U("uZB"), 0.0006); gl.drawArrays(gl.LINES, 0, cur.en);
+  gl.disable(gl.BLEND);
+}
+addEventListener("resize", () => cur && draw());
+(async () => {
+  try {
+    const [u8, palU8] = await Promise.all([fetchAny(["SH/F14.SH"]), fetchAny(["PIC/PALETTE.PAL"])]);
+    if (!u8) throw new Error("Could not load F14.SH");
+    const m = parseSH(u8); if (!m) throw new Error("Could not parse F14.SH");
+    const pal = palU8 ? palFromBytes(palU8) : null, rgb = new Uint8Array(768); rgb.set(pal || PAL_GRAY_HOME); setTex(palTex, 256, 1, gl.RGB, rgb);
+    const picName = shTexName(u8) || "_F14.PIC"; let pic = null;
+    try { const p8 = await fetchAny(["PIC/" + picName]); if (p8) pic = parsePIC(p8); } catch(e){}
+    if (pic) setTex(picTex, pic.w, pic.h, gl.LUMINANCE, pic.px);
+    const b = build(m);
+    // nose direction: the end of the forward axis with the smaller cross-section (fewer vertices near the tip)
+    const zs = b.faces.flatMap(f => f.pts.map(q => q[2])), len = b.hi[2] - b.lo[2];
+    const nearHi = zs.filter(z => z > b.hi[2] - len * 0.15).length, nearLo = zs.filter(z => z < b.lo[2] + len * 0.15).length;
+    cur = { ...b, pic, dir: nearHi < nearLo ? 1 : -1, split: b.center[2] };
+    $("status").textContent = "F14.SH · " + m.v.length + " vertices · " + b.faces.length + " faces";
+    let last = 0; const tick = t => { if (last) view.yaw += (t - last) * 0.00018; last = t; draw(); requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  } catch(e){ $("status").textContent = e.message; }
+})();
+</script>
+</body>
+</html>
