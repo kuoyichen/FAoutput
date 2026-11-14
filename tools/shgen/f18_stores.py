@@ -132,10 +132,57 @@ def name_table():
     return t + b'\x00' * 4
 
 
-def sub_bytes(sub_at, thunk_at):
+DEBUG_LEGEND = {'found weapon/tank': TANK, 'no object (default)': AIM9, 'count < rank': AAM, 'type pointer 0': ARM,
+                'class not 7/8': LGB, 'name pointer 0': BOMB}
+
+
+def debug_src(src):
+    """Diagnostic routine: every exit returns its own kind (see DEBUG_LEGEND) instead of the store kind."""
+    # explicit rewrites, in order of appearance
+    src = src.replace('''        mov esi, dword ptr [esi]
+        test esi, esi
+        je NONE''', '''        mov esi, dword ptr [esi]
+        test esi, esi
+        je NTD''')
+    src = src.replace('''        cmp byte ptr [esi], 7
+        jne NONE''', '''        cmp byte ptr [esi], 7
+        jne NCLS''')
+    src = src.replace('''        mov esi, dword ptr [esi + 5]
+        test esi, esi
+        je NONE''', '''        mov esi, dword ptr [esi + 5]
+        test esi, esi
+        je NNAME''')
+    src = src.replace('jb NONE', 'jb NCNT')
+    src = src.replace('''    DEFAULT:
+        mov eax, edi
+        shr eax, 16
+        movzx eax, al
+        jmp OUT''', '''    DEFAULT:
+        mov eax, %d
+        jmp OUT
+    NCNT:
+        mov eax, %d
+        jmp OUT
+    NTD:
+        mov eax, %d
+        jmp OUT
+    NCLS:
+        mov eax, %d
+        jmp OUT
+    NNAME:
+        mov eax, %d
+        jmp OUT''' % (AIM9, AAM, ARM, LGB, BOMB))
+    src = src.replace('''        mov ecx, dword ptr [esi]
+        mov dl, byte ptr [esi + 4]
+        jmp LOOKUP''', '''        mov eax, %d
+        jmp OUT''' % TANK)
+    return src
+
+
+def sub_bytes(sub_at, thunk_at, debug=False):
     """Shared routine (offsets are CODE offsets; VA = 0x1000 + offset).  Entry: [esp] = slot table
     (i16 per kind, relative to the table), [esp+4] = station | rank << 8 | default kind << 16."""
-    head = asm('''
+    src = '''
         pop ebx
         pop eax
         push ecx
@@ -205,7 +252,10 @@ def sub_bytes(sub_at, thunk_at):
         pop edx
         pop ecx
         push eax
-    ''' % TANK)
+    ''' % TANK
+    if debug:   # each exit draws a different shape, to see in game where the check stops
+        src = debug_src(src)
+    head = asm(src)
     # LOOKUP (5 nops) becomes a jmp to the name lookup placed after the head (it needs the table address)
     tbl = name_table()
     look = asm('''
@@ -257,7 +307,7 @@ def find_thunk(c, tail):
     return hits.most_common(1)[0][0]
 
 
-def build(d, static=False):
+def build(d, static=False, debug=False):
     d = bytearray(d)
     pe, opt, secs = pe_sections(d)
     code = next(s for s in secs if s['name'] == 'CODE'); nxt = min(s['va'] for s in secs if s['va'] > code['va'])
@@ -307,7 +357,7 @@ def build(d, static=False):
             at[('L', s, kd)] = p; p += 18             # C4 + 00 00
     at['EMPTY'] = p; p += 2
     at['SUB'] = p
-    sub, _ = sub_bytes(0, 0)
+    sub, _ = sub_bytes(0, 0, debug)
     sub_len = len(sub) if not static else 0
     p += sub_len
     relocs = []
@@ -362,7 +412,7 @@ def build(d, static=False):
     blk += b'\x00\x00'
     if not static:
         assert len(blk) == at['SUB'] - tail
-        sub, rel = sub_bytes(at['SUB'], thunk_new)
+        sub, rel = sub_bytes(at['SUB'], thunk_new, debug)
         relocs = [at['SUB'] - tail + rel]
         assert len(sub) == sub_len
         blk += sub
@@ -377,18 +427,18 @@ def build(d, static=False):
     return insert_blocks(d, pe, secs, code, c, tail, bytes(blk), relocs), len(blk), room, at
 
 
-def make(d, static=False):
-    out, need, room, at = build(d, static)
+def make(d, static=False, debug=False):
+    out, need, room, at = build(d, static, debug)
     if out is None:
         delta = (need - room + 0xFFF) // 0x1000 * 0x1000
         print(f'moving .idata/.reloc/$$DOSX up by {delta:#x} to make room')
-        out, need, room, at = build(grow_vas(d, delta), static)
+        out, need, room, at = build(grow_vas(d, delta), static, debug)
     return out, at
 
 
 def main():
     src, dst = sys.argv[1], sys.argv[2]
-    out, _ = make(open(src, 'rb').read(), '--static' in sys.argv)
+    out, _ = make(open(src, 'rb').read(), '--static' in sys.argv, '--debug' in sys.argv)
     open(dst, 'wb').write(out)
     print('wrote', dst)
 
