@@ -234,12 +234,16 @@ def sub_bytes(sub_at, thunk_at):
     # layout: head | jmp thunk | call over table | table | lookup | jmp OUT
     nop_at = head.index(b'\x90' * 5); out_at = nop_at + 5
     b = bytearray(head)
-    b += b'\xe9' + struct.pack('<i', thunk_at - (sub_at + len(b) + 5))
+    # return to the bytecode the way FA's own F0 blocks do: push do_start_interp; ret.  The pushed value is the
+    # thunk's VA and needs a relocation: FA's loader copies CODE only up to the signature and points relocations
+    # that hit a thunk at the real target, so a relative jump to the thunk would land on nothing.
+    reloc_at = len(b) + 1
+    b += b'\x68' + struct.pack('<I', 0x1000 + thunk_at) + b'\xc3'
     look_start = len(b)
     b[nop_at:nop_at+5] = b'\xe9' + struct.pack('<i', look_start - (nop_at + 5))
     b += b'\xe8' + struct.pack('<i', len(tbl)) + tbl + look
     b += b'\xe9' + struct.pack('<i', out_at - (len(b) + 5))
-    return bytes(b)
+    return bytes(b), reloc_at
 
 
 # ---------------------------------------------------------------- SH build
@@ -303,9 +307,10 @@ def build(d, static=False):
             at[('L', s, kd)] = p; p += 18             # C4 + 00 00
     at['EMPTY'] = p; p += 2
     at['SUB'] = p
-    sub = sub_bytes(0, 0)
+    sub, _ = sub_bytes(0, 0)
     sub_len = len(sub) if not static else 0
     p += sub_len
+    relocs = []
     for k in parts: at[k] = p; p += len(parts[k])
     L = p - tail                                      # inserted length; thunk moves by L
     thunk_new = thunk_old + L
@@ -357,7 +362,8 @@ def build(d, static=False):
     blk += b'\x00\x00'
     if not static:
         assert len(blk) == at['SUB'] - tail
-        sub = sub_bytes(at['SUB'], thunk_new)
+        sub, rel = sub_bytes(at['SUB'], thunk_new)
+        relocs = [at['SUB'] - tail + rel]
         assert len(sub) == sub_len
         blk += sub
     for k in parts: blk += parts[k]
@@ -368,7 +374,7 @@ def build(d, static=False):
     print({str(k): len(v) for k, v in parts.items()}, 'total', len(blk), 'room', room, 'max part verts', nv,
           'sub', sub_len, 'thunk', hex(thunk_old), '->', hex(thunk_new))
     if len(blk) > room: return None, len(blk), room, at
-    return insert_blocks(d, pe, secs, code, c, tail, bytes(blk)), len(blk), room, at
+    return insert_blocks(d, pe, secs, code, c, tail, bytes(blk), relocs), len(blk), room, at
 
 
 def make(d, static=False):
