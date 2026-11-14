@@ -27,10 +27,12 @@ label.ck{display:inline-flex;gap:4px;align-items:center;cursor:pointer}
 #hint{color:var(--muted);font-size:12px}
 #msg{color:var(--accent)}
 @media (max-width:760px){ #main{grid-template-columns:1fr;padding:8px} header{padding:8px} }
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
 </style>
 </head>
 <body>
 <header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
   <h1>FA SH 貼圖測試</h1>
   <select id="pick"><option>F14</option><option>F15</option><option value="SHX/F14X">F14X（細分加點）</option><option value="SHX/F15X">F15X（細分加點）</option><option value="SHX/F14N">F14N（機鼻對稱＋pod）</option><option value="SHX/F14G">F14G（GLB 新機身）</option></select>
   <input type="text" id="other" placeholder="其他 SH…" title="輸入 SH 名稱（例如 F16）後按 Enter，會用 _名稱.PIC 當貼圖">
