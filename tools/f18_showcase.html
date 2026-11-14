@@ -568,6 +568,8 @@ const VAR = [
     note: "由 F/A-18C 手工調整頂點：機身加長、機翼與 LEX 放大、翼根拉直，並重算法向量與翼尖凝結尾位置。" },
   { sh: "F18F", name: "F/A-18F", sub: "雙座 Super Hornet", len: "60.3 ft（18.4 m）", span: "44.7 ft（13.6 m）", h: "16.0 ft（4.9 m）",
     note: "把 F/A-18E 的外型變化套到原廠雙座模型，保留雙座座艙；使用獨立的 _F18F.PIC 貼圖。" },
+  { sh: "F18T", name: "F/A-18E Blue Angels", sub: "藍天使塗裝", len: "60.3 ft（18.4 m）", span: "44.7 ft（13.6 m）", h: "16.0 ft（4.9 m）",
+    note: "外型與 F/A-18E 相同，機背加大一塊黃色區域，使用 _F18T.PIC 藍天使塗裝；法向量已重算，頂點未動。" },
 ];
 function showSpec(v){
   $("spec").innerHTML = `<h2>${v.name}　<span style="color:var(--muted);font-weight:normal;font-size:12px">${v.sub}・${v.sh}.SH</span></h2>
