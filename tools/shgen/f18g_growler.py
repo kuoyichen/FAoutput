@@ -224,8 +224,11 @@ def build(d):
     tail = bytes(c).find(SIG)
 
     # layout: nodes and leaves first, then the part bodies
-    order = ['PR', 'PRT', 'PL', 'PLT', 'PYR', 'PYL', 'PC', 'BODY', 'MID', 'LG', 'RG'] + list(leaves)
+    GF, GE = 0x3068, 0x3087      # last face before the right-gear F0 chain (right main gear, then nose gear) in the body run
+    assert c[GF] == 0xFC and c[GE] == 0xF0, 'unexpected bytes at the gear hook'
+    order = ['PR', 'PRT', 'PL', 'PLT', 'PYR', 'PYL', 'BODY', 'MID', 'GH', 'LG', 'RG'] + list(leaves)
     size = {k: 20 for k in order}
+    size['GH'] = GE - GF + 2 * 16 + 2
     size.update({k: 16 * len(v) + 2 for k, v in leaves.items()})
     at, p = {}, tail
     for k in order: at[k] = p; p += size[k]
@@ -251,17 +254,28 @@ def build(d):
     # pylons sit between store and wing, so they can only be seen from below the wing: drawn after the body
     # only then (pure height test at the wing, up < 2), before the stores so a store still covers its pylon
     blk += node('PYR', (0, -16384, 0), (0, -2, 0), 'PYL', 'RPY')
-    blk += node('PYL', (0, -16384, 0), (0, -2, 0), 'PC', 'LPY')
-    blk += node('PC', (0, -16384, 0), (0, 9, 0), 'BODY', 'C')
+    blk += node('PYL', (0, -16384, 0), (0, -2, 0), 'BODY', 'LPY')
     # The main wheels are not split by the root but by the node at TA (right-gear subtree A, left-gear subtree
     # B, far side first; found with a tree walk).  The centerline pod is drawn between that node's two halves
     # (MID: same plane, B' = pod then B or B then pod), so from the side it covers the upper part of the far
-    # main wheel while the near wheel is drawn over it.  From below PC draws it once more, last.
+    # main wheel while the near wheel is drawn over it.
+    # The right gear sits in the long body run, after the belly faces.  GH redraws the pod just before the
+    # right-gear chain (the face at GF is replaced by a call to GH, which draws that face, then the pod):
+    # eye right: belly, pod, near right wheel over it; eye left: the far right wheel covers it, and MID then
+    # draws the pod again after the whole A half, before the near left wheel.  This also keeps the pod over
+    # the belly from below without a separate 'from below' copy (which covered the near wheel near the ground).
     assert c[TA] == 0x06 and c[TA+1] == 0, 'TA is not a plane node'
     TAB = TA + 18 + struct.unpack_from('<h', c, TA+16)[0]; at['TAB'] = TAB
     o = at['BODY']; blk += bytes(c[ROOT:ROOT+14]) + struct.pack('<hh', TA - (o+16), TB - (o+18)) + b'\x00\x00'
     o = at['MID']; blk += bytes(c[TA:TA+14]) + struct.pack('<hh', at['C'] - (o+16), TAB - (o+18)) + b'\x00\x00'
     struct.pack_into('<h', c, TA+16, at['MID'] - (TA+18))
+    o = at['GH']; blk += bytes(c[GF:GE])
+    for j, (pt, pos) in enumerate(leaves['C']):
+        q = o + (GE - GF) + 16 * j
+        blk += struct.pack('<BB6h', 0xC4, 0, *pos, 0, 0, 0) + struct.pack('<h', at['P' + pt] - (q+16))
+    blk += b'\x00\x00'
+    hook = b'\x12\x00' + struct.pack('<h', at['GH'] - (GF+4)) + b'\x38' + struct.pack('<h', GE - (GF+7))
+    c[GF:GE] = hook + b'\x1e' * (GE - GF - len(hook))
     blk += node('LG', X, (33, 0, 0), 'Lalq', 'Ltank')        # farther store first
     blk += node('RG', X, (-33, 0, 0), 'Rtank', 'Ralq')
     for k, items in leaves.items():
