@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FA SH 外型檢視</title>
+<title>FA SH Shape Gallery</title>
 <style>
 :root{ --bg:#14181d; --card:#1d232b; --line:#2e3742; --text:#dde3ea; --muted:#8b96a5; --accent:#ffd54a; --bad:#ff6a50; --ok:#5fd38d; }
 *{box-sizing:border-box}
@@ -13,8 +13,12 @@ header h1{font-size:16px;margin:0 8px 0 0;font-weight:600}
 button,select,input[type=search],label.btn{background:#262e38;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 10px;font:inherit;cursor:pointer}
 input[type=search]{cursor:text;width:150px}
 button:hover,label.btn:hover{border-color:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;border-radius:0;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button.on{background:#3a3220;color:var(--accent)}
 #stat{color:var(--muted)}
-#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;padding:12px 16px 80px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;padding:12px 16px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
 .card.flag{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad)}
 .card canvas{width:100%;aspect-ratio:1/1;display:block;cursor:grab;touch-action:none;background:radial-gradient(#2a323c,#181d23)}
@@ -25,26 +29,37 @@ button:hover,label.btn:hover{border-color:var(--muted)}
 .card .acts{display:flex;gap:6px;padding:0 8px 7px}
 .card .acts button{padding:2px 8px;font-size:12px}
 .card .acts button.on{border-color:var(--bad);color:var(--bad)}
+.card .tag{font-size:11px;color:var(--accent)}
 .card.fail canvas{opacity:.35}
+details.sec{margin:8px 16px;border:1px solid var(--line);border-radius:8px;background:#171c22}
+details.sec>summary{cursor:pointer;padding:10px 14px;font-size:15px;font-weight:600;list-style:none;display:flex;gap:10px;align-items:center}
+details.sec>summary::before{content:"▸";color:var(--muted)}
+details.sec[open]>summary::before{content:"▾"}
+details.sec>summary small{color:var(--muted);font-weight:normal;font-size:12px}
+details.sec .grid{padding-top:0}
 #modal{position:fixed;inset:0;z-index:20;background:rgba(5,8,12,.85);display:none;align-items:center;justify-content:center}
 #modal.show{display:flex}
-#modal .box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;width:min(92vw,820px)}
-#modal canvas{width:100%;aspect-ratio:4/3;display:block;cursor:grab;touch-action:none;background:radial-gradient(#2a323c,#181d23);border-radius:6px}
+#modal .box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;width:min(94vw,900px);max-height:96vh;overflow:auto}
+#m_cv{width:100%;aspect-ratio:16/9;max-height:56vh;display:block;cursor:grab;touch-action:none;background:radial-gradient(#2a323c,#181d23);border-radius:6px}
 #modal .bar{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
 #modal .bar b{font-family:ui-monospace,Consolas,monospace;font-size:16px}
-#m_parts{margin-top:8px;font-size:12px;max-height:30vh;overflow:auto}
+#m_rel{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:12px;align-items:center}
+#m_rel button{padding:2px 8px;font-size:12px;font-family:ui-monospace,Consolas,monospace}
+#m_rel button.on{border-color:var(--accent);color:var(--accent)}
+#m_parts{margin-top:8px;font-size:12px}
+#m_parts h3{font-size:13px;margin:6px 0 4px}
 #m_parts .row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0}
-#m_parts .row b{min-width:110px;font-weight:600}
+#m_parts .row b{min-width:150px;font-weight:600}
 #m_parts button{padding:2px 9px;font-size:12px}
 #m_parts button.on{border-color:var(--accent);color:var(--accent)}
 #m_parts input[type=range]{flex:1;min-width:140px}
-#m_parts .plist{display:flex;flex-direction:column;gap:2px;color:var(--muted)}
-#m_parts .plist label{display:flex;gap:6px;align-items:center;cursor:pointer}
-#m_parts .sw{display:inline-block;width:10px;height:10px;border-radius:2px}
-#flagbar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);padding:8px 16px;display:flex;gap:10px;align-items:center}
+#m_parts .plist{display:flex;flex-wrap:wrap;gap:2px 14px;color:var(--muted)}
+#m_parts .plist label{display:flex;gap:4px;align-items:center;cursor:pointer}
+#m_parts details summary{cursor:pointer;color:var(--muted);margin-top:6px}
+#flagbar{position:sticky;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);padding:8px 16px;display:flex;gap:10px;align-items:center;margin-top:12px}
 #flaglist{flex:1;font-family:ui-monospace,Consolas,monospace;color:var(--bad);overflow:auto;white-space:nowrap}
 #hint{color:var(--muted);font-size:12px}
-@media (max-width:600px){ #grid{grid-template-columns:repeat(2,1fr);gap:8px;padding:8px} header{padding:8px} }
+@media (max-width:600px){ .grid{grid-template-columns:repeat(2,1fr);gap:8px;padding:8px} header{padding:8px} details.sec{margin:8px} }
 a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
 </style>
 <script src="fashion_i18n.js"></script>
@@ -52,36 +67,36 @@ a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spa
 <body>
 <header>
   <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
-  <h1>FA SH 外型檢視</h1>
-  <input type="search" id="q" placeholder="搜尋檔名…">
+  <h1>FA SH Shape Gallery</h1>
+  <input type="search" id="q" placeholder="Search file names…">
+  <span class="seg" id="modes" title="Display mode"><button data-m="wire">Wireframe</button><button data-m="flat">Flat</button><button data-m="tex">Textured</button></span>
   <select id="show">
-    <option value="ok">只看解得出的</option>
-    <option value="all">全部</option>
-    <option value="fail">只看解不出的</option>
-    <option value="flag">只看標記有問題的</option>
+    <option value="ok">Parsed only</option>
+    <option value="all">All</option>
+    <option value="fail">Failed only</option>
+    <option value="flag">Flagged only</option>
   </select>
-  <select id="mode" title="上色方式">
-    <option value="solid">單色＋光影</option>
-    <option value="face">每個面不同色（看面怎麼拼）</option>
-    <option value="wire">線框＋頂點</option>
-  </select>
-  <label class="btn">選擇 SH 資料夾<input id="dir" type="file" webkitdirectory multiple hidden></label>
+  <label class="btn" title="Use SH / PIC files from a folder on this computer instead of the site">Choose SH / PIC folder<input id="dir" type="file" webkitdirectory multiple hidden></label>
   <span id="langSlot"></span>
-  <span id="stat">載入中…</span>
-  <span id="hint">拖曳旋轉・滾輪縮放・雙擊放大</span>
+  <span id="stat">Loading…</span>
+  <span id="hint">Drag to rotate · wheel to zoom · double-click to enlarge and move parts</span>
 </header>
-<div id="grid"></div>
-<div id="flagbar"><span>有問題：</span><span id="flaglist">（按卡片上的「有問題」標記，清單會出現在這裡）</span><button id="copy">複製清單</button><button id="clear">清除</button></div>
+<div class="grid" id="grid"></div>
+<details class="sec" id="sec_wreck"><summary><span>Destroyed wreckage</span> <small id="n_wreck"></small></summary><div class="grid" id="grid_wreck"></div></details>
+<details class="sec" id="sec_shadow"><summary><span>Shadows</span> <small id="n_shadow"></small></summary><div class="grid" id="grid_shadow"></div></details>
+<div id="flagbar"><span>Flagged:</span><span id="flaglist"></span><button id="copy">Copy list</button><button id="clear">Clear</button></div>
 <div id="modal"><div class="box">
   <div class="bar"><b id="m_name"></b><span id="m_info" style="color:var(--muted)"></span><span style="flex:1"></span>
-    <label><input type="checkbox" id="m_axes" checked> 座標軸</label><button id="m_flag">有問題</button><button id="m_close">關閉</button></div>
+    <label><input type="checkbox" id="m_axes" checked> Axes</label><button id="m_flag">Problem</button><button id="m_close">Close</button></div>
   <canvas id="m_cv"></canvas>
+  <div id="m_rel"></div>
   <div id="m_parts"></div>
 </div></div>
 <script>
 "use strict";
-// ===== SH 解析（和 fa_replay.html 同一份） =====
-// 長表頭（旗標沒有 0x200）的面：旗標低位元組只會是這些值（在整個 SH 庫裡統計過）
+const SH_GROUPS = {"main": "A10 A1G A26IN A310 A340 A37 A4 A47 A6 A6B A7 A8 AA105 AA105B AA11B AA35 AA35B AA85 AA85B AAAM AAML AC130 ACRID ADV AEGIS AEMP AFO AH1 AIDC ALAMO ALPHA ALPHB ALZ AM39 AM9X AMOS AMRAM AMSKI AN12A AN74 APA APHID APL APLL APTB1 APTLA APTLB APTLC APTM APTOLD ARBK ARCHR AS12 AS30 ASA5 AST ASTE ASTF ASTV ATF ATL ATOLL AUR AV8 AV8TNT AWACS B1 B2 B52 B5G B70 B707 B747 BAHA BARA BARG BARKSA BARKSB BASE BAST BELK BLD1 BLD2 BLD3 BLI BMP2 BNK1 BNK2 BNK3 BNK4 BNK5 BNK6 BNK7 BNK8 BNK9 BOR BR1END BR1MID BR2END BR2MID BR3END BR3MID BRD1 BRD2 BRD3 BRD4 BRDEND BRDMID BTR70 BUC BUD BULLET BUNKB BUSH1 BUSH2 BUSH3 BUSH4 C130 C17 C1G C5 C6 CAMEL CAPTL CARGO CAST CATGUY CB87 CB89 CDEG CGRP1 CGRP2 CGRP3 CH47 CHAFF CHAP CHIN CIM CITY1 CITY2 CITY3 CITY4 CITYCE CLEM CLEMT CLOUD1 CLOUDS CMHQ1 CMHQ2 COB COLTWR COMM1 COMM2 CONT1 CONT2 CONT3 CRANE CRATE CRATER CRATS1 CRATS2 CRATS3 CROPA CROPB CTOWR CTWR1 CTWR2 CTYBKA CTYBKB CTYBKC CTYBKD CTYBKE CTYBKF CTYBKG CYC DA1 DA2 DARE DARK DBK5 DBK6 DBK8 DD1 DD2 DE1 DE2 DE2E DEBRIS DEM DEST DKHOS1 DKHOS2 DOCK1 DRAK DTSTRP DURAN E111 E20 E2C EIFFEL EJECT ESSE EXO EXP F1000 F104 F105 F10A F10D F10G F111 F117 F14 F15 F15E F15I F15J F16 F16E F16F F18 F18C F18E F18F F18G F18T F18U F22 F22N F250 F26 F29 F2H F31 F31E F31F F31V F31W F35A F4 F4B F4D F4E F4G F4J F4X F500 F51 F5E F5EE F5EV F8 F84 F86 F89 F9F5 FACT1 FACTD FBC FCTYA FCTYB FGO1 FGO2 FGR1 FGR2 FGY1 FGY2 FIR FIRE FISH FLARE FSX FUEL GAD GAIN GASK GAUNT GAZ GAZE GAZV GB27 GB28 GECKO GOA GOBLET GOPH GRAIL GREM GRI GROVA GROVB GROVC GROVD GROVPA GROVPB GROVPC GUIDE HANGAR HANGR HANGRB HARM HARPN HAV HAWK HAWKS HERM HGRP1 HGRP2 HGRP3 HILT HIND HINE HIP HND_TL HOKUM HOKUT HOOCH HORMNE HOUS HOUSB HQ2J HQ61 HUMVEE I18 IL28B IL76 IL96 IND1 IND2 INVN IOWA J7E J7FBD J8F JAG JGR JH7 JSTRS JSTRT JUNK JXP K27PL K27PM KC135 KEDGE KERRY KFIR KIEV KIKBK KIN KING KIROV KITT KITTT KLINOK KNX KRIV KRIVAK KUZN LCAC LCU1 LI2 LPD LYN M1 M113 M117 M15 M17 M19 M1975 M2 M20 M20E M21F M21J M2C M2D M3 M3V M53 M55 MAVRK MEATB MERC MERCH1 MF1 MFB MFD MFG MI27M MICA MICRO MICROM MIF1 MIG21 MIG23 MIG25 MIG27 MIG29 MIG2F MIG2M MIG2V MIG31 MIG32 MIS MISTRK MK20 MK81 MK82 MK82A MK83 MK84 MM72 MN1 MOON MOOSEA MOOSEB MOSKV MOTH MOTHB MPD MR3 MR3E MR4 MR5 MRG MTCAMO MTF2 MTO MULEA MULEB MULEC NIKES NIMZ NIMZT NRD NRT_T1 NUCCT NUCOB NUCRD OLEK OLEKMA OSCAR P3C PAKFA PAVE PHENX PL10 PL7 PL8 PLMGA PLMGB PLMGC PLTDWN PMIS PMORN PRDR1 PRDR2 PSTR Q5 QUE R44 RA5C RAF RAFE RAFF RAFG RAFH RAH RBK2 RBK5 RBOAT REA REACTB REACTR REB REC REDCR REDOM RELAY RES1 RES2 RF1 RIG1 RIG2 RLD RLDM RNWY1 RNWY2 RNWY3 RNWY3A RNWY4 RNWY5 RNWY5A RNWY6 RNWY6A RNWY7 RNWY7A ROAD ROAD2 ROAD4 ROADC ROCK ROCKA ROCKB ROCKBA ROCKBB ROCKBC ROCKBD ROCKBE ROCKC ROCKD ROCKE ROCKET RPA RPB RPC RUNNER RUNWAY S17 S2TRK S37 S3VIK S71 SA13 SA14 SA15 SA19 SA2 SA3 SA3M SA3SIT SA5 SA6 SA6LTR SA6M SA6SFR SA7 SA9 SACR SACRAM SAN11 SARAN SCD SCDM SCDN SEAH SEAHR SEAI SEAJ SESHDW SFR SFRV SGRP1 SGRP2 SH3 SH60 SHELT SIDE SIDEB SIDEM SIDEP SILO SL100 SLAM SLUM01 SLUM02 SMOKE SNAKE SOLDIER SOVR SPAR SPARW SPD SPE SRDR1 SRDR2 STARS STARS_A STARS_B STARS_C STARS_D STGR STORE SU15 SU24 SU25 SU27 SU27C SU27F SU27G SU27J SU27V SU2D SU2G SU30K SU34 SU35 SU35B SU35C SU35G SU37 SU7 SUN SUPPLY SWATR SWNGR T50 T69 T72 T80 T90 TANKER TENT1 TICON TIG TKY_TW TOR TOWER TRACER TREEA TREEB TREEC TREED TROOPS TRUCK TRUCKB TSR TU16 TU160 TU22 TU26 TU95 TWNBKA TWNBKB TWNBKC TWNBKD TWNBKE TWNBKF U2DR UH1 UH60 V22 V23 VIG VOM WASP WASPT WAVE1 WAVE2 WNDMLL WTRBUF XCLEM XKITT XNIMZ XWASP Y141 YA38 ZIF31 ZSU23 ZSU30 ZSU57", "wreck": "A10_A A10_B A10_C A10_D A310_A A310_B A310_C A310_D A37_A A37_B A37_C A37_D A4_A A4_B A4_C A4_D A6B_A A6B_B A6B_C A6B_D A6_A A6_B A6_C A6_D A7_A A7_B A7_C A7_D AAA_A AC130_A AC130_B AC130_C AC130_D AEGIS_A AFO_A AFO_B AFO_C AFO_D AIDC_A AIDC_B AIDC_C AIDC_D ALPHA_A ALPHA_B ALPHA_C ALPHA_D AN74_A AN74_B AN74_C AN74_D APA_A APA_B APA_C APA_D ARBK_A ASTE_A ASTE_B ASTE_C ASTE_D ASTF_A ASTF_B ASTF_C ASTF_D ASTV_A ASTV_B ASTV_C ASTV_D AST_A AST_B AST_C AST_D ATL_A ATL_B ATL_C ATL_D AUR_A AUR_B AUR_C AUR_D AV8_A AV8_B AV8_C AV8_D AWACS_A AWACS_B AWACS_C AWACS_D B1_A B1_B B1_C B1_D B2_A B2_B B2_C B2_D B52_A B52_B B52_C B52_D B707_A B707_B B707_C B707_D B747_A B747_B B747_C B747_D BAHA_A BAHA_B BAHA_C BAHA_D BARG_A BAST_A BAST_B BAST_C BAST_D BELK_A BLI_A BLI_B BLI_C BLI_D BOR_A BUC_A BUC_B BUC_C BUC_D C130_A C130_B C130_C C130_D C17_A C17_B C17_C C17_D C5_A C5_B C5_C C5_D CARGO_A CDEG_A CH47_A CH47_B CH47_C CH47_D CIM_A CLEM_A COB_A COB_B COB_C COB_D CYC_A DA1_A DA1_B DA1_C DA1_D DA2_A DA2_B DA2_C DA2_D DARE_A DARK_A DARK_B DARK_C DARK_D DD1_A DD1_B DD1_C DD1_D DD2_A DD2_B DD2_C DD2_D DE1_A DE1_B DE1_C DE1_D DE2E_A DE2E_B DE2E_C DE2E_D DE2_A DE2_B DE2_C DE2_D DRAK_A DRAK_B DRAK_C DRAK_D E20_A E20_B E20_C E20_D E2C_A E2C_B E2C_C E2C_D ESSE_A F104_A F104_B F104_C F104_D F105_A F105_B F105_C F105_D F111_A F111_B F111_C F111_D F117_A F117_B F117_C F117_D F14_A F14_B F14_C F14_D F15E_A F15E_B F15E_C F15E_D F15J_A F15J_B F15J_C F15J_D F15_A F15_B F15_C F15_D F16E_A F16E_B F16E_C F16E_D F16F_A F16F_B F16F_C F16F_D F16_A F16_B F16_C F16_D F18C_A F18C_B F18C_C F18C_D F18_A F18_B F18_C F18_D F22N_A F22N_B F22N_C F22N_D F22_A F22_B F22_C F22_D F26_A F26_B F26_C F26_D F29_A F29_B F29_C F29_D F31E_A F31E_B F31E_C F31E_D F31F_A F31F_B F31F_C F31F_D F31V_A F31V_B F31V_C F31V_D F31_A F31_B F31_C F31_D F4E_A F4E_B F4E_C F4E_D F4J_A F4J_B F4J_C F4J_D F4_A F4_B F4_C F4_D F5EE_A F5EE_B F5EE_C F5EE_D F5EV_A F5EV_B F5EV_C F5EV_D F5E_A F5E_B F5E_C F5E_D F8_A F8_B F8_C F8_D FISH_A FSX_A FSX_B FSX_C FSX_D GAZE_A GAZE_B GAZE_C GAZE_D GAZV_A GAZV_B GAZV_C GAZV_D GAZ_A GAZ_B GAZ_C GAZ_D GRI_A GRI_B GRI_C GRI_D HERM_A HIND_A HIND_B HIND_C HIND_D HIP_A HIP_B HIP_C HIP_D HOKUM_A HOKUM_B HOKUM_C HOKUM_D IL76_A IL76_B IL76_C IL76_D IL96_A IL96_B IL96_C IL96_D INVN_A IOWA_A J7E_A J7E_B J7E_C J7E_D JAG_A JAG_B JAG_C JAG_D JGR_A JSTRS_A JSTRS_B JSTRS_C JSTRS_D JUNK_A JXP_A KC135_A KC135_B KC135_C KC135_D KFIR_A KFIR_B KFIR_C KFIR_D KIEV_A KIN_A KIN_B KIN_C KIN_D KIROV_A KITT_A KNX_A KRIV_A KUZN_A LCAC_A LCU1_A LYN_A LYN_B LYN_C LYN_D M17_A M17_B M17_C M17_D M20E_A M20E_B M20E_C M20E_D M20_A M20_B M20_C M20_D M21F_A M21F_B M21F_C M21F_D MERC_A MF1_A MF1_B MF1_C MF1_D MIF1_A MIF1_B MIF1_C MIF1_D MIG21_A MIG21_B MIG21_C MIG21_D MIG23_A MIG23_B MIG23_C MIG23_D MIG25_A MIG25_B MIG25_C MIG25_D MIG27_A MIG27_B MIG27_C MIG27_D MIG29_A MIG29_B MIG29_C MIG29_D MIG2M_A MIG2M_B MIG2M_C MIG2M_D MIG2V_A MIG2V_B MIG2V_C MIG2V_D MIG31_A MIG31_B MIG31_C MIG31_D MOSKV_A MOTH_A MOTH_B MOTH_C MOTH_D MR3E_A MR3E_B MR3E_C MR3E_D MR3_A MR3_B MR3_C MR3_D MR5_A MR5_B MR5_C MR5_D NIMZ_A OLEK_A OSCAR_A P3C_A P3C_B P3C_C P3C_D PMORN_A Q5_A Q5_B Q5_C Q5_D QUE_A QUE_B QUE_C QUE_D RAFE_A RAFE_B RAFE_C RAFE_D RAFF_A RAFF_B RAFF_C RAFF_D RAF_A RAF_B RAF_C RAF_D RAH_A RAH_B RAH_C RAH_D RBOAT_A REDCR_A RIG2_A SACR_A SAM_A SARAN_A SCDN_A SCDN_B SCDN_C SCDN_D SEAH_A SEAH_B SEAH_C SEAH_D SESHDW_A SFRV_A SFRV_B SFRV_C SFRV_D SFR_A SFR_B SFR_C SFR_D SH3_A SH3_B SH3_C SH3_D SH60_A SH60_B SH60_C SH60_D SL100_A SOVR_A SPE_A SPE_B SPE_C SPE_D SU24_A SU24_B SU24_C SU24_D SU25_A SU25_B SU25_C SU25_D SU27C_A SU27C_B SU27C_C SU27C_D SU27V_A SU27V_B SU27V_C SU27V_D SU27_A SU27_B SU27_C SU27_D SU34_A SU34_B SU34_C SU34_D SU35B_A SU35B_B SU35B_C SU35B_D SU35_A SU35_B SU35_C SU35_D SU37_A SU37_B SU37_C SU37_D SU7_A SU7_B SU7_C SU7_D T69_A TANK_A TICON_A TIG_A TIG_B TIG_C TIG_D TOR_A TOR_B TOR_C TOR_D TU160_A TU160_B TU160_C TU160_D TU22_A TU22_B TU22_C TU22_D TU26_A TU26_B TU26_C TU26_D TU95_A TU95_B TU95_C TU95_D UH60_A UH60_B UH60_C UH60_D V22_A V22_B V22_C V22_D VEHI_A VIG_A VIG_B VIG_C VIG_D WASP_A Y141_A Y141_B Y141_C Y141_D", "shadow": "A10_S A310_S A37_S A4_S A6B_S A6_S A7_S AC130_S AFO_S AIDC_S ALPHA_S AN74_S APA_S ASTE_S ASTF_S ASTV_S AST_S ATL_S AUR_S AV8_S AWACS_S B1_S B2_S B52_S B707_S B747_S BAHA_S BAST_S BLI_S BUC_S C130_S C17_S C5_S CH47_S COB_S DA1_S DA2_S DARK_S DD1_S DD2_S DE1_S DE2E_S DE2_S DRAK_S E20_S E2C_S EJECT_S F104_S F105_S F111_S F117_S F14_S F15E_S F15J_S F15_S F16E_S F16F_S F16_S F18C_S F18_S F22N_S F22_S F26_S F29_S F31E_S F31F_S F31V_S F31_S F4E_S F4J_S F4_S F5EE_S F5EV_S F5E_S F8_S FSX_S GAZE_S GAZV_S GAZ_S GRI_S HIND_S HIP_S HOKUM_S IL76_S IL96_S J7E_S JAG_S JSTRS_S KC135_S KFIR_S KIN_S LYN_S M17_S M20E_S M20_S M21F_S MF1_S MIF1_S MIG21_S MIG23_S MIG25_S MIG27_S MIG29_S MIG2M_S MIG2V_S MIG31_S MOTH_S MR3E_S MR3_S MR5_S P3C_S Q5_S QUE_S RAFE_S RAFF_S RAF_S RAH_S SCDN_S SEAHR_S SEAH_S SFRV_S SFR_S SH3_S SH60_S SPE_S SU24_S SU25_S SU27C_S SU27V_S SU27_S SU34_S SU35B_S SU35_S SU37_S SU7_S TIG_S TOR_S TU160_S TU22_S TU26_S TU95_S UH60_S V22_S VIG_S Y141_S"};
+for (const k in SH_GROUPS) SH_GROUPS[k] = SH_GROUPS[k].split(' ');
+const PIC_INDEX = "_A10.PIC _A10_A.PIC _A10_B.PIC _A10_C.PIC _A10_D.PIC _A1G.PIC _A26IN.PIC _A310.PIC _A310_A.PIC _A310_B.PIC _A310_C.PIC _A310_D.PIC _A340.PIC _A37.PIC _A37_A.PIC _A37_B.PIC _A37_C.PIC _A37_D.PIC _A4.PIC _A47.PIC _A4_A.PIC _A4_B.PIC _A4_C.PIC _A4_D.PIC _A6.PIC _A6B.PIC _A6B_A.PIC _A6B_B.PIC _A6B_C.PIC _A6B_D.PIC _A6_A.PIC _A6_B.PIC _A6_C.PIC _A6_D.PIC _A7.PIC _A7_A.PIC _A7_B.PIC _A7_C.PIC _A7_D.PIC _A8.PIC _AA105.PIC _AA105B.PIC _AA11B.PIC _AA35.PIC _AA35B.PIC _AA85.PIC _AA85B.PIC _AAAM.PIC _AAA_A.PIC _AAML.PIC _AC130.PIC _AC130_A.PIC _AC130_B.PIC _AC130_C.PIC _AC130_D.PIC _ACRID.PIC _ADV.PIC _AEGIS.PIC _AEMP.PIC _AFO.PIC _AFO_A.PIC _AFO_B.PIC _AFO_C.PIC _AFO_D.PIC _AH1.PIC _AIDC.PIC _AIDC_A.PIC _AIDC_B.PIC _AIDC_C.PIC _AIDC_D.PIC _ALAMO.PIC _ALPHA.PIC _ALPHA_A.PIC _ALPHA_B.PIC _ALPHA_C.PIC _ALPHA_D.PIC _ALPHB.PIC _ALZ.PIC _AM39.PIC _AM9X.PIC _AMOS.PIC _AMRAM.PIC _AMSKI.PIC _AN12A.PIC _AN74.PIC _AN74_A.PIC _AN74_B.PIC _AN74_C.PIC _AN74_D.PIC _APA.PIC _APA_A.PIC _APA_B.PIC _APA_C.PIC _APA_D.PIC _APHID.PIC _APL.PIC _APLL.PIC _APTB1.PIC _APTLA.PIC _APTLB.PIC _APTLC.PIC _APTM.PIC _APTOLD.PIC _ARBK.PIC _ARBK_A.PIC _ARCHR.PIC _AS12.PIC _AS30.PIC _ASA5.PIC _AST.PIC _ASTE.PIC _ASTE_A.PIC _ASTE_B.PIC _ASTE_C.PIC _ASTE_D.PIC _ASTF.PIC _ASTF_A.PIC _ASTF_B.PIC _ASTF_C.PIC _ASTF_D.PIC _ASTV.PIC _ASTV_A.PIC _ASTV_B.PIC _ASTV_C.PIC _ASTV_D.PIC _AST_A.PIC _AST_B.PIC _AST_C.PIC _AST_D.PIC _ATF.PIC _ATL.PIC _ATL_A.PIC _ATL_B.PIC _ATL_C.PIC _ATL_D.PIC _ATOLL.PIC _AUR.PIC _AUR_A.PIC _AUR_B.PIC _AUR_C.PIC _AUR_D.PIC _AV8.PIC _AV8TNT.PIC _AV8_A.PIC _AV8_B.PIC _AV8_C.PIC _AV8_D.PIC _AWACS.PIC _AWACS_A.PIC _AWACS_B.PIC _AWACS_C.PIC _AWACS_D.PIC _B1.PIC _B1_A.PIC _B1_B.PIC _B1_C.PIC _B1_D.PIC _B2.PIC _B2_A.PIC _B2_B.PIC _B2_C.PIC _B2_D.PIC _B52.PIC _B52_A.PIC _B52_B.PIC _B52_C.PIC _B52_D.PIC _B5G.PIC _B70.PIC _B707.PIC _B707_A.PIC _B707_B.PIC _B707_C.PIC _B707_D.PIC _B747.PIC _B747_A.PIC _B747_B.PIC _B747_C.PIC _B747_D.PIC _BAHA.PIC _BAHA_A.PIC _BAHA_B.PIC _BAHA_C.PIC _BAHA_D.PIC _BARA.PIC _BARG.PIC _BARG_A.PIC _BARG_D.PIC _BARKSA.PIC _BARKSAD.PIC _BARKSB.PIC _BARKSBD.PIC _BASE.PIC _BAST.PIC _BAST_A.PIC _BAST_B.PIC _BAST_C.PIC _BAST_D.PIC _BELK.PIC _BELK_A.PIC _BLD1.PIC _BLD1D.PIC _BLD2.PIC _BLD2D.PIC _BLD3.PIC _BLD3D.PIC _BLI.PIC _BLI_A.PIC _BLI_B.PIC _BLI_C.PIC _BLI_D.PIC _BMP2.PIC _BNK1.PIC _BNK1D.PIC _BNK2.PIC _BNK2D.PIC _BNK3.PIC _BNK3D.PIC _BNK4.PIC _BNK4D.PIC _BNK5.PIC _BNK5D.PIC _BNK6.PIC _BNK6D.PIC _BNK7.PIC _BNK7D.PIC _BNK8.PIC _BNK8D.PIC _BNK9.PIC _BNK9D.PIC _BOR.PIC _BOR_A.PIC _BR1END.PIC _BR1MID.PIC _BR1MIDD.PIC _BR2END.PIC _BR2MID.PIC _BR2MIDD.PIC _BR3END.PIC _BR3MID.PIC _BR3MIDD.PIC _BRD1.PIC _BRD1D.PIC _BRD2.PIC _BRD2D.PIC _BRD3.PIC _BRD3D.PIC _BRD4.PIC _BRD4D.PIC _BRDEND.PIC _BRDMID.PIC _BRDMIDD.PIC _BTR70.PIC _BUC.PIC _BUC_A.PIC _BUC_B.PIC _BUC_C.PIC _BUC_D.PIC _BUD.PIC _BUNKB.PIC _BUNKBD.PIC _BUSH1.PIC _BUSH2.PIC _BUSH3.PIC _BUSH4.PIC _C130.PIC _C130_A.PIC _C130_B.PIC _C130_C.PIC _C130_D.PIC _C17.PIC _C17_A.PIC _C17_B.PIC _C17_C.PIC _C17_D.PIC _C1G.PIC _C5.PIC _C5_A.PIC _C5_B.PIC _C5_C.PIC _C5_D.PIC _C6.PIC _CAMEL.PIC _CAPTL.PIC _CARGO.PIC _CARGO_A.PIC _CAST.PIC _CDEG.PIC _CDEG_A.PIC _CGRP1.PIC _CGRP2.PIC _CGRP3.PIC _CH47.PIC _CH47_A.PIC _CH47_B.PIC _CH47_C.PIC _CH47_D.PIC _CHAP.PIC _CHIN.PIC _CIM.PIC _CIM_A.PIC _CITY1.PIC _CITY2.PIC _CITY3.PIC _CITYCE.PIC _CLEM.PIC _CLEMT.PIC _CLEMT_A.PIC _CLEM_A.PIC _CLOUD1.PIC _CMHQ1.PIC _CMHQ1_A.PIC _CMHQ2.PIC _CMHQ2D.PIC _COB.PIC _COB_A.PIC _COB_B.PIC _COB_C.PIC _COB_D.PIC _COLTWR.PIC _COLTWRD.PIC _COMM1.PIC _COMM2.PIC _CONT1.PIC _CONT2.PIC _CONT3.PIC _CRANE.PIC _CRANED.PIC _CRATE.PIC _CRATS1.PIC _CRATS2.PIC _CRATS3.PIC _CROPA.PIC _CROPB.PIC _CTOWR.PIC _CTOWRD.PIC _CTWR1.PIC _CTWR1_A.PIC _CTWR2.PIC _CTWR2D.PIC _CTYBKA.PIC _CTYBKB.PIC _CTYBKC.PIC _CTYBKD.PIC _CTYBKE.PIC _CTYBKF.PIC _CTYBKG.PIC _CYC.PIC _CYC_A.PIC _DA1.PIC _DA1_A.PIC _DA1_B.PIC _DA1_C.PIC _DA1_D.PIC _DA2.PIC _DA2_A.PIC _DA2_B.PIC _DA2_C.PIC _DA2_D.PIC _DARE.PIC _DARE_A.PIC _DARK.PIC _DARK_A.PIC _DARK_B.PIC _DARK_C.PIC _DARK_D.PIC _DBK5.PIC _DBK6.PIC _DBK8.PIC _DD1.PIC _DD1_A.PIC _DD1_B.PIC _DD1_C.PIC _DD1_D.PIC _DD2.PIC _DD2_A.PIC _DD2_B.PIC _DD2_C.PIC _DD2_D.PIC _DE1.PIC _DE1_A.PIC _DE1_B.PIC _DE1_C.PIC _DE1_D.PIC _DE2.PIC _DE2E.PIC _DE2E_A.PIC _DE2E_B.PIC _DE2E_C.PIC _DE2E_D.PIC _DE2_A.PIC _DE2_B.PIC _DE2_C.PIC _DE2_D.PIC _DEM.PIC _DEST.PIC _DKHOS1.PIC _DKHOS1D.PIC _DKHOS2.PIC _DKHOS2D.PIC _DOCK1.PIC _DOCK1D.PIC _DRAK.PIC _DRAK_A.PIC _DRAK_B.PIC _DRAK_C.PIC _DRAK_D.PIC _DTSTRP.PIC _E111.PIC _E20.PIC _E20_A.PIC _E20_B.PIC _E20_C.PIC _E20_D.PIC _E2C.PIC _E2C_A.PIC _E2C_B.PIC _E2C_C.PIC _E2C_D.PIC _EIFFEL.PIC _EIFFELD.PIC _EJECTA.PIC _EJECTB.PIC _EJECTC.PIC _EJECTD.PIC _ESSE.PIC _ESSE_A.PIC _EXO.PIC _F104.PIC _F104_A.PIC _F104_B.PIC _F104_C.PIC _F104_D.PIC _F105.PIC _F105_A.PIC _F105_B.PIC _F105_C.PIC _F105_D.PIC _F10A.PIC _F10D.PIC _F10G.PIC _F111.PIC _F111_A.PIC _F111_B.PIC _F111_C.PIC _F111_D.PIC _F117.PIC _F117_A.PIC _F117_B.PIC _F117_C.PIC _F117_D.PIC _F14.PIC _F14_A.PIC _F14_B.PIC _F14_C.PIC _F14_D.PIC _F15.PIC _F15E.PIC _F15E_A.PIC _F15E_B.PIC _F15E_C.PIC _F15E_D.PIC _F15I.PIC _F15J.PIC _F15J_A.PIC _F15J_B.PIC _F15J_C.PIC _F15J_D.PIC _F15_A.PIC _F15_B.PIC _F15_C.PIC _F15_D.PIC _F16.PIC _F16E.PIC _F16E_A.PIC _F16E_B.PIC _F16E_C.PIC _F16E_D.PIC _F16F.PIC _F16F_A.PIC _F16F_B.PIC _F16F_C.PIC _F16F_D.PIC _F16_A.PIC _F16_B.PIC _F16_C.PIC _F16_D.PIC _F18.PIC _F18C.PIC _F18C_A.PIC _F18C_B.PIC _F18C_C.PIC _F18C_D.PIC _F18E.PIC _F18F.PIC _F18G.PIC _F18T.PIC _F18U.PIC _F18_A.PIC _F18_B.PIC _F18_C.PIC _F18_D.PIC _F22.PIC _F22N.PIC _F22N_A.PIC _F22N_B.PIC _F22N_C.PIC _F22N_D.PIC _F22_A.PIC _F22_B.PIC _F22_C.PIC _F26.PIC _F26_A.PIC _F26_B.PIC _F26_C.PIC _F26_D.PIC _F29.PIC _F29_A.PIC _F29_B.PIC _F29_C.PIC _F29_D.PIC _F2H.PIC _F31.PIC _F31E.PIC _F31E_A.PIC _F31E_B.PIC _F31E_C.PIC _F31E_D.PIC _F31F.PIC _F31F_A.PIC _F31F_B.PIC _F31F_C.PIC _F31F_D.PIC _F31V.PIC _F31V_A.PIC _F31V_B.PIC _F31V_C.PIC _F31V_D.PIC _F31W.PIC _F31_A.PIC _F31_B.PIC _F31_C.PIC _F31_D.PIC _F35A.PIC _F4.PIC _F4B.PIC _F4D.PIC _F4E.PIC _F4E_A.PIC _F4E_B.PIC _F4E_C.PIC _F4E_D.PIC _F4G.PIC _F4J.PIC _F4J_A.PIC _F4J_B.PIC _F4J_C.PIC _F4J_D.PIC _F4X.PIC _F4_A.PIC _F4_B.PIC _F4_C.PIC _F4_D.PIC _F51.PIC _F5E.PIC _F5EE.PIC _F5EE_A.PIC _F5EE_B.PIC _F5EE_C.PIC _F5EE_D.PIC _F5EV.PIC _F5EV_A.PIC _F5EV_B.PIC _F5EV_C.PIC _F5EV_D.PIC _F5E_A.PIC _F5E_B.PIC _F5E_C.PIC _F5E_D.PIC _F8.PIC _F84.PIC _F86.PIC _F89.PIC _F8_A.PIC _F8_B.PIC _F8_C.PIC _F8_D.PIC _F9F5.PIC _FACT1.PIC _FACT1_A.PIC _FACTD.PIC _FACTD_A.PIC _FBC.PIC _FCTYA.PIC _FCTYAD.PIC _FCTYB.PIC _FGO1.PIC _FGO2.PIC _FGR1.PIC _FGR2.PIC _FGY1.PIC _FGY2.PIC _FIR.PIC _FISH.PIC _FISH_A.PIC _FSX.PIC _FSX_A.PIC _FSX_B.PIC _FSX_C.PIC _FSX_D.PIC _FUEL.PIC _FUELD.PIC _GAD.PIC _GAIN.PIC _GASK.PIC _GAUNT.PIC _GAZ.PIC _GAZE.PIC _GAZE_A.PIC _GAZE_B.PIC _GAZE_C.PIC _GAZE_D.PIC _GAZV.PIC _GAZV_A.PIC _GAZV_B.PIC _GAZV_C.PIC _GAZV_D.PIC _GAZ_A.PIC _GAZ_B.PIC _GAZ_C.PIC _GAZ_D.PIC _GECKO.PIC _GOA.PIC _GOBLET.PIC _GOPH.PIC _GRAIL.PIC _GREM.PIC _GRI.PIC _GRI_A.PIC _GRI_B.PIC _GRI_C.PIC _GRI_D.PIC _GROVA.PIC _GROVB.PIC _GROVC.PIC _GROVD.PIC _GROVPA.PIC _GROVPB.PIC _GROVPC.PIC _GUIDE.PIC _HANGAR.PIC _HANGARD.PIC _HANGR.PIC _HANGRB.PIC _HANGRBD.PIC _HANGRD.PIC _HARM.PIC _HARPN.PIC _HAV.PIC _HAWK.PIC _HAWKS.PIC _HERM.PIC _HERM_A.PIC _HGRP1.PIC _HGRP2.PIC _HGRP3.PIC _HILT.PIC _HILTD.PIC _HIND.PIC _HIND_A.PIC _HIND_B.PIC _HIND_C.PIC _HIND_D.PIC _HINE.PIC _HIP.PIC _HIP_A.PIC _HIP_B.PIC _HIP_C.PIC _HIP_D.PIC _HND_TL.PIC _HND_TLD.PIC _HOKUM.PIC _HOKUM_A.PIC _HOKUM_B.PIC _HOKUM_C.PIC _HOKUM_D.PIC _HOKUT.PIC _HOOCH.PIC _HORMNE.PIC _HOUS.PIC _HOUSB.PIC _HQ2J.PIC _HQ61.PIC _HUMVEE.PIC _I18.PIC _IL28B.PIC _IL76.PIC _IL76_A.PIC _IL76_B.PIC _IL76_C.PIC _IL76_D.PIC _IL96.PIC _IL96_A.PIC _IL96_B.PIC _IL96_C.PIC _IL96_D.PIC _IND1.PIC _IND2.PIC _INVN.PIC _INVN_A.PIC _IOWA.PIC _IOWA_A.PIC _J7E.PIC _J7E_A.PIC _J7E_B.PIC _J7E_C.PIC _J7E_D.PIC _J7FBD.PIC _J8F.PIC _JAG.PIC _JAG_A.PIC _JAG_B.PIC _JAG_C.PIC _JAG_D.PIC _JGR.PIC _JGR_A.PIC _JH7.PIC _JSTRS.PIC _JSTRS_A.PIC _JSTRS_B.PIC _JSTRS_C.PIC _JSTRS_D.PIC _JSTRT.PIC _JUNK.PIC _JUNK_A.PIC _JXP.PIC _JXP_A.PIC _K27PL.PIC _KC135.PIC _KC135_A.PIC _KC135_B.PIC _KC135_C.PIC _KC135_D.PIC _KEDGE.PIC _KERRY.PIC _KFIR.PIC _KFIR_A.PIC _KFIR_B.PIC _KFIR_C.PIC _KFIR_D.PIC _KIEV.PIC _KIEV_A.PIC _KIKBK.PIC _KIN.PIC _KING.PIC _KIN_A.PIC _KIN_B.PIC _KIN_C.PIC _KIN_D.PIC _KIROV.PIC _KIROV_A.PIC _KITT.PIC _KITTT.PIC _KITTTD.PIC _KITT_A.PIC _KLINOK.PIC _KNX.PIC _KNX_A.PIC _KRIV.PIC _KRIVAK.PIC _KRIV_A.PIC _KUZN.PIC _KUZN_A.PIC _LCAC.PIC _LCU1.PIC _LCU1_A.PIC _LI2.PIC _LPD.PIC _LYN.PIC _LYN_A.PIC _LYN_B.PIC _LYN_D.PIC _M1.PIC _M113.PIC _M15.PIC _M17.PIC _M17_A.PIC _M17_B.PIC _M17_C.PIC _M17_D.PIC _M19.PIC _M1975.PIC _M2.PIC _M20.PIC _M20E.PIC _M20E_A.PIC _M20E_B.PIC _M20E_C.PIC _M20E_D.PIC _M20_A.PIC _M20_B.PIC _M20_C.PIC _M20_D.PIC _M21F.PIC _M21F_A.PIC _M21F_B.PIC _M21F_C.PIC _M21F_D.PIC _M21J.PIC _M2C.PIC _M2D.PIC _M3.PIC _M3V.PIC _M53.PIC _M55.PIC _MAVRK.PIC _MEATB.PIC _MERC.PIC _MERCH1.PIC _MERC_A.PIC _MF1.PIC _MF1_A.PIC _MF1_B.PIC _MF1_C.PIC _MF1_D.PIC _MFB.PIC _MFD.PIC _MFG.PIC _MI27M.PIC _MICA.PIC _MICRO.PIC _MICROD.PIC _MICROM.PIC _MICROMD.PIC _MIF1.PIC _MIF1_A.PIC _MIF1_B.PIC _MIF1_C.PIC _MIF1_D.PIC _MIG21.PIC _MIG21_A.PIC _MIG21_B.PIC _MIG21_C.PIC _MIG21_D.PIC _MIG23.PIC _MIG23_A.PIC _MIG23_B.PIC _MIG23_C.PIC _MIG23_D.PIC _MIG25.PIC _MIG25_A.PIC _MIG25_B.PIC _MIG25_C.PIC _MIG25_D.PIC _MIG27.PIC _MIG27_A.PIC _MIG27_B.PIC _MIG27_C.PIC _MIG27_D.PIC _MIG29.PIC _MIG29_A.PIC _MIG29_B.PIC _MIG29_C.PIC _MIG29_D.PIC _MIG2F.PIC _MIG2M.PIC _MIG2M_A.PIC _MIG2M_B.PIC _MIG2M_C.PIC _MIG2M_D.PIC _MIG2V.PIC _MIG2V_A.PIC _MIG2V_B.PIC _MIG2V_C.PIC _MIG2V_D.PIC _MIG31.PIC _MIG31_A.PIC _MIG31_B.PIC _MIG31_C.PIC _MIG31_D.PIC _MIG32.PIC _MIS.PIC _MISTRK.PIC _MK20.PIC _MK82A.PIC _MM72.PIC _MN1.PIC _MOON.PIC _MOOSEA.PIC _MOOSEB.PIC _MOSKV.PIC _MOSKV_A.PIC _MOTH.PIC _MOTH_A.PIC _MOTH_B.PIC _MOTH_C.PIC _MOTH_D.PIC _MPD.PIC _MR3.PIC _MR3E.PIC _MR3E_A.PIC _MR3E_B.PIC _MR3E_C.PIC _MR3E_D.PIC _MR3_A.PIC _MR3_B.PIC _MR3_C.PIC _MR3_D.PIC _MR4.PIC _MR5.PIC _MR5_A.PIC _MR5_B.PIC _MR5_C.PIC _MR5_D.PIC _MRG.PIC _MTCAMO.PIC _MTF2.PIC _MTO.PIC _MTOD.PIC _MULEA.PIC _MULEB.PIC _MULEC.PIC _NIKES.PIC _NIMZ.PIC _NIMZT.PIC _NIMZT_A.PIC _NIMZ_A.PIC _NRD.PIC _NRT_T1.PIC _NRT_T1D.PIC _NUCCT.PIC _NUCCT_A.PIC _NUCOB.PIC _NUCOB_A.PIC _NUCRD.PIC _NUCRD_A.PIC _OLEK.PIC _OLEKMA.PIC _OLEK_A.PIC _OSCAR.PIC _P3C.PIC _P3C_A.PIC _P3C_B.PIC _P3C_C.PIC _P3C_D.PIC _PAKFA.PIC _PHENX.PIC _PL10.PIC _PL7.PIC _PL8.PIC _PLMGA.PIC _PLMGB.PIC _PLMGC.PIC _PLTDWN.PIC _PMIS.PIC _PMORN.PIC _PRDR1.PIC _PRDR1_A.PIC _PRDR2.PIC _PRDR2_A.PIC _PSTR.PIC _Q5.PIC _Q5_A.PIC _Q5_B.PIC _Q5_C.PIC _Q5_D.PIC _QUE.PIC _QUE_A.PIC _QUE_B.PIC _QUE_C.PIC _QUE_D.PIC _R44.PIC _RA5C.PIC _RAF.PIC _RAFE.PIC _RAFE_A.PIC _RAFE_B.PIC _RAFE_C.PIC _RAFE_D.PIC _RAFF.PIC _RAFF_A.PIC _RAFF_B.PIC _RAFF_C.PIC _RAFF_D.PIC _RAFG.PIC _RAFH.PIC _RAF_A.PIC _RAF_B.PIC _RAF_C.PIC _RAF_D.PIC _RAH.PIC _RAH_A.PIC _RAH_B.PIC _RAH_C.PIC _RAH_D.PIC _RBOAT.PIC _RBOAT_A.PIC _REA.PIC _REACTB.PIC _REACTR.PIC _REB.PIC _REC.PIC _REDCR.PIC _REDCR_A.PIC _REDOMD.PIC _RELAY.PIC _RELAYD.PIC _RES1.PIC _RES2.PIC _RF1.PIC _RIG1.PIC _RIG1D.PIC _RIG2.PIC _RIG2_A.PIC _RLD.PIC _RLDM.PIC _RNWY1.PIC _RNWY2.PIC _RNWY3.PIC _RNWY3A.PIC _RNWY4.PIC _RNWY5.PIC _RNWY5A.PIC _RNWY6.PIC _RNWY6A.PIC _RNWY7.PIC _RNWY7A.PIC _ROAD.PIC _ROAD2.PIC _ROAD4.PIC _ROADC.PIC _ROCK.PIC _ROCKA.PIC _ROCKB.PIC _ROCKBA.PIC _ROCKBB.PIC _ROCKBC.PIC _ROCKBD.PIC _ROCKBE.PIC _ROCKC.PIC _ROCKD.PIC _ROCKE.PIC _RPA.PIC _RPB.PIC _RPC.PIC _RUNNER.PIC _RUNWAY.PIC _S17.PIC _S2TRK.PIC _S37.PIC _S3VIK.PIC _S71.PIC _SA13.PIC _SA14.PIC _SA15.PIC _SA19.PIC _SA2.PIC _SA2D.PIC _SA2D_2.PIC _SA2D_3.PIC _SA2_2.PIC _SA2_3.PIC _SA3.PIC _SA3M.PIC _SA3SIT.PIC _SA5.PIC _SA5_2.PIC _SA5_3.PIC _SA6.PIC _SA6LTR.PIC _SA6M.PIC _SA6SFR.PIC _SA7.PIC _SA9.PIC _SACR.PIC _SACRAM.PIC _SACR_A.PIC _SAM_A.PIC _SAN11.PIC _SARAN.PIC _SCD.PIC _SCDM.PIC _SCDN.PIC _SCDN_A.PIC _SCDN_B.PIC _SCDN_C.PIC _SCDN_D.PIC _SEAH.PIC _SEAHR.PIC _SEAH_A.PIC _SEAH_B.PIC _SEAH_C.PIC _SEAH_D.PIC _SEAI.PIC _SEAJ.PIC _SESHDW.PIC _SFR.PIC _SFRV.PIC _SFRV_A.PIC _SFRV_B.PIC _SFRV_C.PIC _SFRV_D.PIC _SFR_A.PIC _SFR_B.PIC _SFR_C.PIC _SFR_D.PIC _SGRP1.PIC _SGRP2.PIC _SH3.PIC _SH3_A.PIC _SH3_B.PIC _SH3_C.PIC _SH3_D.PIC _SH60.PIC _SH60_A.PIC _SH60_B.PIC _SH60_C.PIC _SH60_D.PIC _SHELT.PIC _SHELTD.PIC _SIDE.PIC _SIDEB.PIC _SIDEM.PIC _SIDEP.PIC _SILO.PIC _SILOD.PIC _SL100.PIC _SL100_A.PIC _SLAM.PIC _SLUM01.PIC _SLUM02.PIC _SOVR.PIC _SOVR_A.PIC _SPAR.PIC _SPARW.PIC _SPD.PIC _SPE.PIC _SPE_A.PIC _SPE_B.PIC _SPE_C.PIC _SPE_D.PIC _SRDR1.PIC _SRDR2.PIC _STGR.PIC _STORE.PIC _STORED.PIC _SU15.PIC _SU24.PIC _SU24_A.PIC _SU24_B.PIC _SU24_C.PIC _SU24_D.PIC _SU25.PIC _SU25_A.PIC _SU25_B.PIC _SU25_C.PIC _SU25_D.PIC _SU27.PIC _SU27C.PIC _SU27C_A.PIC _SU27C_B.PIC _SU27C_C.PIC _SU27C_D.PIC _SU27G.PIC _SU27J.PIC _SU27V.PIC _SU27V_A.PIC _SU27V_B.PIC _SU27V_C.PIC _SU27V_D.PIC _SU27_A.PIC _SU27_B.PIC _SU27_C.PIC _SU27_D.PIC _SU2D.PIC _SU2G.PIC _SU30K.PIC _SU34.PIC _SU34_A.PIC _SU34_B.PIC _SU34_C.PIC _SU34_D.PIC _SU35.PIC _SU35B.PIC _SU35B_A.PIC _SU35B_B.PIC _SU35B_C.PIC _SU35B_D.PIC _SU35C.PIC _SU35G.PIC _SU35_A.PIC _SU35_B.PIC _SU35_C.PIC _SU35_D.PIC _SU37.PIC _SU37_A.PIC _SU37_B.PIC _SU37_C.PIC _SU37_D.PIC _SU7.PIC _SU7_A.PIC _SU7_B.PIC _SU7_C.PIC _SU7_D.PIC _SUPPLY.PIC _SWATR.PIC _SWNGR.PIC _T50.PIC _T69.PIC _T69_A.PIC _T72.PIC _T80.PIC _T90.PIC _TANKER.PIC _TANK_A.PIC _TENT1.PIC _TICON.PIC _TICON_A.PIC _TIG.PIC _TIG_A.PIC _TIG_B.PIC _TIG_C.PIC _TIG_D.PIC _TKY_TW.PIC _TKY_TWD.PIC _TOR.PIC _TOR_A.PIC _TOR_B.PIC _TOR_C.PIC _TOR_D.PIC _TOWER.PIC _TOWERD.PIC _TREEA.PIC _TREEB.PIC _TREEC.PIC _TREED.PIC _TROOPS.PIC _TROOPSD.PIC _TRUCK.PIC _TRUCKB.PIC _TSR.PIC _TU16.PIC _TU160.PIC _TU160_A.PIC _TU160_B.PIC _TU160_C.PIC _TU160_D.PIC _TU22.PIC _TU22_A.PIC _TU22_B.PIC _TU22_C.PIC _TU22_D.PIC _TU26.PIC _TU26_A.PIC _TU26_B.PIC _TU26_C.PIC _TU26_D.PIC _TU95.PIC _TU95_A.PIC _TU95_B.PIC _TU95_C.PIC _TU95_D.PIC _TWNBKA.PIC _TWNBKB.PIC _TWNBKC.PIC _TWNBKD.PIC _TWNBKE.PIC _TWNBKF.PIC _U2DR.PIC _UH1.PIC _UH60.PIC _UH60_A.PIC _UH60_B.PIC _UH60_C.PIC _UH60_D.PIC _V22.PIC _V22_A.PIC _V22_B.PIC _V22_C.PIC _V22_D.PIC _VEHI_A.PIC _VIG.PIC _VIG_A.PIC _VIG_B.PIC _VIG_C.PIC _VIG_D.PIC _VOM.PIC _WASP.PIC _WASPT.PIC _WASPT_A.PIC _WASP_A.PIC _WNDMLL.PIC _WNDMLLD.PIC _WTRBUF.PIC _XCLEM.PIC _XKITT.PIC _XNIMZ.PIC _XWASP.PIC _Y141.PIC _Y141_A.PIC _Y141_B.PIC _Y141_C.PIC _Y141_D.PIC _YA38.PIC _ZIF31.PIC _ZSU23.PIC _ZSU30.PIC _ZSU57.PIC _su27f.PIC".split(' ');
 const FACE_OPS = new Set([0x41,0x44,0x49,0x4C,0x51,0x54,0x59,0x5C,0x61,0x63,0x64,0x69,0x6B,0x6C,0x71,0x73,0x7C,0xCD,0xDD,0xED,0xEE,0xFE]);
 function parseSH(u8){
   const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
@@ -119,12 +134,62 @@ function parseSH(u8){
       if (n < 3 || n > 16 || p + n*(wide?2:1) > to) continue;
       const idx = []; for (let k=0;k<n;k++){ idx.push(wide ? cv.getUint16(p,true) : c[p]); p += wide?2:1; }
       if (idx.some(i => i < lo || i >= hi || !v[i]) || new Set(idx).size < n) continue;
+      // 貼圖座標：旗標 0x04 = 有 UV（PIC 裡的像素座標）；0x100 = 每個座標 1 位元組，否則 2 位元組
+      let uv = null;
+      if (fl & 4){ uv = []; for (let k=0;k<n;k++){ if (fl & 0x100){ uv.push([c[p], c[p+1]]); p += 2; } else { uv.push([cv.getUint16(p,true), cv.getUint16(p+2,true)]); p += 4; } } }
+      idx.uv = uv; idx.col = c[o+3]; idx.fl = fl;
       f.push(idx); o = p - 1;   // 跳過這個面的資料，免得在它的索引裡又讀出假的面（F5EV 右側的三角形）
     }
     return f;
   };
   const main = lod[0], mainEnd = lod[1]?.o ?? stop;
   const f = facetsIn(main.e, mainEnd, 0, main.n);
+  // 改過的 SH（tools/shgen/sh_subdivide.py、f14_nose.py）：原本的面或節點改成 `12 00 rel16`（呼叫）+ `38 rel16`（跳過），
+  // 被呼叫的區塊裡有 82 頂點緩衝、F6 每點光影、FC 面、06/0C 平面測試（只跟往後的分支，往前的是原本的 BSP）、00 00 返回
+  const faceAt = t => {
+    const fl = cv.getUint16(t+1, true); let p = t + 5 + (fl & 0x60 ? (fl & 0x200 ? 9 : 12) : 0);
+    const n = c[p++], wide = fl & 0x400, idx = [];
+    for (let k = 0; k < n; k++){ idx.push(wide ? cv.getUint16(p, true) : c[p]); p += wide ? 2 : 1; }
+    let uv = null; if (fl & 4){ uv = []; for (let k = 0; k < n; k++){ if (fl & 0x100){ uv.push([c[p], c[p+1]]); p += 2; } else { uv.push([cv.getUint16(p, true), cv.getUint16(p+2, true)]); p += 4; } } }
+    idx.uv = uv; idx.col = c[t+3]; idx.fl = fl; f.push(idx); return p;
+  };
+  // C4 00 x up fwd hdg pitch roll rel16 inside a hooked block (f18g_growler.py): draw the part at an offset (rotation 0).
+  // Each placement gets its own vertex slots, so one shared part can be drawn several times.
+  const placePart = (t, pos) => {
+    if (c[t] !== 0x82 || c[t+1] !== 0) return;
+    const n = cv.getUint16(t+2, true), tg = cv.getUint16(t+4, true) / 8, base = Math.max(v.length, 1000);
+    for (let i = 0; i < n; i++) v[base+i] = [cv.getInt16(t+6+6*i, true) + pos[0], cv.getInt16(t+8+6*i, true) + pos[2], cv.getInt16(t+10+6*i, true) + pos[1]];
+    let p = t + 6 + 6*n; while (c[p] === 0xF6) p += 7;
+    // faces, and 06 plane nodes inside the part (store/pylon order): follow both branches
+    const walk = (p, depth) => {
+      for (let g = 0; g < 500 && p > t && p < L - 2; g++){
+        if (c[p] === 0xFC){ p = faceAt(p); const idx = f[f.length-1]; for (let k = 0; k < idx.length; k++) if (idx[k] >= tg && idx[k] < tg + n) idx[k] = base + idx[k] - tg; }
+        else if (c[p] === 0x06 && c[p+1] === 0 && depth < 8){ walk(p + 16 + cv.getInt16(p+14, true), depth+1); walk(p + 18 + cv.getInt16(p+16, true), depth+1); p += 18; }
+        else return;
+      }
+    };
+    walk(p, 0);
+  };
+  const block = (t, from, seen) => {
+    for (let guard = 0; guard < 2000 && t > 0 && t < L - 2 && !seen.has(t); guard++){
+      seen.add(t);
+      if (c[t] === 0x82 && c[t+1] === 0){ const n = cv.getUint16(t+2, true), tg = cv.getUint16(t+4, true) / 8;
+        for (let i = 0; i < n; i++) v[tg+i] = [cv.getInt16(t+6+6*i, true), cv.getInt16(t+8+6*i, true), cv.getInt16(t+10+6*i, true)]; t += 6 + 6*n; }
+      else if (c[t] === 0xF6) t += 7;
+      else if (c[t] === 0xFC) t = faceAt(t);
+      else if (c[t] === 0xC4 && c[t+1] === 0){ placePart(t + 16 + cv.getInt16(t+14, true), [0,1,2].map(k => cv.getInt16(t+2+2*k, true))); t += 16; }
+      else if ((c[t] === 0x06 || c[t] === 0x0C) && c[t+1] === 0){ const k = c[t] === 0x06 ? 14 : 10;
+        for (const [r, e] of [[t+k, t+k+2], [t+k+2, t+k+4]]){ const g = e + cv.getInt16(r, true); if (g > from) block(g, from, seen); }
+        t += k + 4; }
+      else return;
+    }
+  };
+  for (let o = main.e; o < mainEnd - 7; o++){
+    if (c[o] !== 0x12 || c[o+1] !== 0 || c[o+4] !== 0x38) continue;
+    const t = o + 4 + cv.getInt16(o+2, true); if (t <= mainEnd || t >= L - 6 || ![0x82, 0xFC, 0x06].includes(c[t])) continue;
+    block(t, t - 1, new Set());
+    o += 6;
+  }
   if (!f.length) return null;
   let span = 0; for (let i=0;i<main.n;i++) span = Math.max(span, Math.abs(v[i][0]));
   const parts = [];
@@ -147,7 +212,7 @@ function parseSH(u8){
   // 第一個 LOD 的所有附屬頂點組（起落架、襟翼、空氣煞車…），以及控制它們的指令
   const subs = lod.slice(1).map((b, k) => ({ o: b.o, t: b.t, n: b.n, f: facetsIn(b.e, lod[k+2]?.o ?? stop, b.t, b.t + b.n),
     local: b.o >= 14 && c[b.o-14] === 0xFF && c[b.o-13] === 0xFF }));
-  return { v: v.map(p => p || [0,0,0]), f, parts, scale, subs, code: c, ctl: parseCtl(c, cv, subs), imp: shImports(u8, c) };
+  return { v: Array.from(v, p => p || [0,0,0]), f, parts, scale, subs, code: c, ctl: parseCtl(c, cv, subs), imp: shImports(u8, c) };
 }
 
 // SH 的匯入表：每個控制變數其實是 FA.EXE 提供的全域變數，名字寫在匯入表裡（例如 _PLgearDown、_PLleftFlap）
@@ -282,149 +347,13 @@ function evalCtl(m, state){
 }
 
 // ===== SH 載入：瀏覽器快取 → 選的資料夾 → ../SH/（用網頁伺服器開時）→ GitHub =====
-const SH_INDEX = "A10 A1G A26IN A310 A340 A37 A4 A47 A6 A6B A7 A8 AA105 AA105B AA11B AA35 AA35B AA85 AA85B AAAM AAA_A AAML AC130 ACRID ADV AEGIS AEGIS_A AEMP AFO AH1 AIDC ALAMO ALPHA ALPHB ALZ AM39 AM9X AMOS AMRAM AMSKI AN12A AN74 APA APHID APL APLL APTB1 APTLA APTLB APTLC APTM APTOLD ARBK ARBK_A ARCHR AS12 AS30 ASA5 AST ASTE ASTF ASTV ATF ATL ATOLL AUR AV8 AV8TNT AWACS B1 B2 B52 B5G B70 B707 B747 BAHA BARA BARG BARG_A BARKSA BARKSB BASE BAST BELK BELK_A BLD1 BLD2 BLD3 BLI BMP2 BNK1 BNK2 BNK3 BNK4 BNK5 BNK6 BNK7 BNK8 BNK9 BOR BOR_A BR1END BR1MID BR2END BR2MID BR3END BR3MID BRD1 BRD2 BRD3 BRD4 BRDEND BRDMID BTR70 BUC BUD BULLET BUNKB BUSH1 BUSH2 BUSH3 BUSH4 C130 C17 C1G C5 C6 CAMEL CAPTL CARGO CARGO_A CAST CATGUY CB87 CB89 CDEG CDEG_A CGRP1 CGRP2 CGRP3 CH47 CHAFF CHAP CHIN CIM CIM_A CITY1 CITY2 CITY3 CITY4 CITYCE CLEM CLEMT CLEM_A CLOUD1 CLOUDS CMHQ1 CMHQ2 COB COLTWR COMM1 COMM2 CONT1 CONT2 CONT3 CRANE CRATE CRATER CRATS1 CRATS2 CRATS3 CROPA CROPB CTOWR CTWR1 CTWR2 CTYBKA CTYBKB CTYBKC CTYBKD CTYBKE CTYBKF CTYBKG CYC CYC_A DA1 DA2 DARE DARE_A DARK DBK5 DBK6 DBK8 DD1 DD2 DE1 DE2 DE2E DEBRIS DEM DEST DKHOS1 DKHOS2 DOCK1 DRAK DTSTRP DURAN E111 E20 E2C EIFFEL EJECT EJECT_S ESSE ESSE_A EXO EXP F1000 F104 F105 F10A F10D F10G F111 F117 F14 F14_S F15 F15E F15I F15J F15_S F16 F16E F16F F18 F18C F18E F18T F22 F22N F250 F26 F29 F2H F31 F31E F31F F31V F31W F35A F4 F4B F4D F4E F4G F4J F4X F500 F51 F5E F5EE F5EV F5EV_S F8 F84 F86 F89 F9F5 FACT1 FACTD FBC FCTYA FCTYB FGO1 FGO2 FGR1 FGR2 FGY1 FGY2 FIR FIRE FISH FISH_A FLARE FSX FUEL GAD GAIN GASK GAUNT GAZ GAZE GAZV GB27 GB28 GECKO GOA GOBLET GOPH GRAIL GREM GRI GROVA GROVB GROVC GROVD GROVPA GROVPB GROVPC GUIDE HANGAR HANGR HANGRB HARM HARPN HAV HAWK HAWKS HERM HERM_A HGRP1 HGRP2 HGRP3 HILT HIND HINE HIP HND_TL HOKUM HOKUT HOOCH HORMNE HOUS HOUSB HQ2J HQ61 HUMVEE I18 IL28B IL76 IL96 IND1 IND2 INVN INVN_A IOWA IOWA_A J7E J7FBD J8F JAG JGR JGR_A JH7 JSTRS JSTRT JUNK JUNK_A JXP JXP_A K27PL K27PM KC135 KEDGE KERRY KFIR KIEV KIEV_A KIKBK KIN KING KIROV KIROV_A KITT KITTT KITT_A KLINOK KNX KNX_A KRIV KRIVAK KRIV_A KUZN KUZN_A LCAC LCAC_A LCU1 LCU1_A LI2 LPD LYN M1 M113 M117 M15 M17 M19 M1975 M2 M20 M20E M21F M21J M2C M2D M3 M3V M53 M55 MAVRK MEATB MERC MERCH1 MERC_A MF1 MFB MFD MFG MI27M MICA MICRO MICROM MIF1 MIG21 MIG23 MIG25 MIG27 MIG29 MIG2F MIG2M MIG2V MIG31 MIG32 MIS MISTRK MK20 MK81 MK82 MK82A MK83 MK84 MM72 MN1 MOON MOOSEA MOOSEB MOSKV MOSKV_A MOTH MOTHB MPD MR3 MR3E MR4 MR5 MRG MTCAMO MTF2 MTO MULEA MULEB MULEC NIKES NIMZ NIMZT NIMZ_A NRD NRT_T1 NUCCT NUCOB NUCRD OLEK OLEKMA OLEK_A OSCAR OSCAR_A P3C PAKFA PAVE PHENX PL10 PL7 PL8 PLMGA PLMGB PLMGC PLTDWN PMIS PMORN PMORN_A PRDR1 PRDR2 PSTR Q5 QUE R44 RA5C RAF RAFE RAFF RAFG RAFH RAH RBK2 RBK5 RBOAT RBOAT_A REA REACTB REACTR REB REC REDCR REDCR_A REDOM RELAY RES1 RES2 RF1 RIG1 RIG2 RIG2_A RLD RLDM RNWY1 RNWY2 RNWY3 RNWY3A RNWY4 RNWY5 RNWY5A RNWY6 RNWY6A RNWY7 RNWY7A ROAD ROAD2 ROAD4 ROADC ROCK ROCKA ROCKB ROCKBA ROCKBB ROCKBC ROCKBD ROCKBE ROCKC ROCKD ROCKE ROCKET RPA RPB RPC RUNNER RUNWAY S17 S2TRK S37 S3VIK S71 SA13 SA14 SA15 SA19 SA2 SA3 SA3M SA3SIT SA5 SA6 SA6LTR SA6M SA6SFR SA7 SA9 SACR SACRAM SACR_A SAM_A SAN11 SARAN SARAN_A SCD SCDM SCDN SCDN_A SCDN_B SCDN_C SCDN_D SCDN_S SEAH SEAHR SEAHR_S SEAI SEAJ SESHDW SESHDW_A SFR SFRV SGRP1 SGRP2 SH3 SH60 SHELT SIDE SIDEB SIDEM SIDEP SILO SL100 SL100_A SLAM SLUM01 SLUM02 SMOKE SNAKE SOLDIER SOVR SOVR_A SPAR SPARW SPD SPE SRDR1 SRDR2 STARS STARS_A STARS_B STARS_C STARS_D STGR STORE SU15 SU24 SU25 SU27 SU27C SU27F SU27G SU27J SU27V SU2D SU2G SU30K SU34 SU35 SU35B SU35C SU35G SU37 SU7 SUN SUPPLY SWATR SWNGR T50 T69 T69_A T72 T80 T90 TANKER TANK_A TENT1 TICON TICON_A TIG TKY_TW TOR TOWER TRACER TREEA TREEB TREEC TREED TROOPS TRUCK TRUCKB TSR TU16 TU160 TU22 TU22_A TU22_B TU22_C TU22_D TU22_S TU26 TU95 TWNBKA TWNBKB TWNBKC TWNBKD TWNBKE TWNBKF U2DR UH1 UH60 V22 V23 VEHI_A VIG VOM WASP WASPT WASP_A WAVE1 WAVE2 WNDMLL WTRBUF XCLEM XKITT XNIMZ XWASP Y141 YA38 ZIF31 ZSU23 ZSU30 ZSU57".split(" ");
-const SH_REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/SH/";
-const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
-FAI18N.register({"FA SH Shape Gallery": "FA SH 外型檢視", "Parsed only": "只看解得出的", "All": "全部", "Failed only": "只看解不出的", "Flagged only": "只看標記有問題的", "Solid + lighting": "單色＋光影", "A colour per face (see how faces fit)": "每個面不同色（看面怎麼拼）", "Wireframe + vertices": "線框＋頂點", "Choose SH folder": "選擇 SH 資料夾", "Loading…": "載入中…", "Drag to rotate · wheel to zoom · double-click to enlarge": "拖曳旋轉・滾輪縮放・雙擊放大", "Flagged:": "有問題：", "(Press “Problem” on a card to flag it; the list shows up here)": "（按卡片上的「有問題」標記，清單會出現在這裡）", "Copy list": "複製清單", "Clear": "清除", "Axes": "座標軸", "Problem": "有問題", "Close": "關閉", "Search file names…": "搜尋檔名…", "Colouring": "上色方式", "FAshion home": "FAshion 首頁"});
-$("langSlot").append(FAI18N.picker()); FAI18N.apply(); FAI18N.onChange(() => location.reload()); document.title = L("FA SH Shape Gallery", "FA SH 外型檢視");
-let idbP = null;
-function idb(){ return idbP ??= new Promise((res, rej) => { try { const r = indexedDB.open("fa_replay", 1);
-  r.onupgradeneeded = () => r.result.createObjectStore("sh"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); } catch(e){ rej(e); } }); }
-async function idbGet(k){ try { const db = await idb(); return await new Promise(res => { const q = db.transaction("sh").objectStore("sh").get(k); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); } catch(e){ return null; } }
-async function idbPut(k, u8){ try { const db = await idb(); db.transaction("sh", "readwrite").objectStore("sh").put(u8, k); } catch(e){} }
-const dirFiles = new Map();
-async function fetchSH(k){
-  if (dirFiles.has(k)) return new Uint8Array(await dirFiles.get(k).arrayBuffer());
-  const c = await idbGet(k); if (c) return c;
-  const urls = []; if (/^https?:$/.test(location.protocol)) urls.push(new URL("../SH/" + k + ".SH", location.href).href);
-  urls.push(SH_REMOTE + encodeURIComponent(k) + ".SH");
-  for (const u of urls){ try { const r = await fetch(u); if (r.ok){ const u8 = new Uint8Array(await r.arrayBuffer()); idbPut(k, u8); return u8; } } catch(e){} }
-  return null;
-}
 
-// ===== 每個 SH 的狀態 =====
-let flags = new Set(); try { flags = new Set(JSON.parse(localStorage.getItem("fa_sh_flags") || "[]")); } catch(e){}
-const saveFlags = () => { try { localStorage.setItem("fa_sh_flags", JSON.stringify([...flags])); } catch(e){} renderFlags(); };
-const items = SH_INDEX.map(k => ({ k, state: "wait", m: null, view: { yaw: -0.7, pitch: 0.45, zoom: 1 } }));
-const byKey = new Map(items.map(it => [it.k, it]));
-
-// 模型 → 顯示座標（x 右、y 上、z 前），零件（可變翼）搬到轉軸、展開位置
-function prep(m){
-  const V = m.v.map(v => [v[0], v[2], v[1]]), faces = [];
-  for (const idx of m.f) faces.push(idx.map(i => V[i]));
-  if (!m.ctl.blocks.length) for (const pt of m.parts || []) for (const idx of pt.f) faces.push(idx.map(i => { const v = m.v[i]; return [v[0] + pt.pivot[0], v[2] + pt.pivot[2], v[1] + pt.pivot[1]]; }));
-  let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity,z0=Infinity,z1=-Infinity;
-  for (const f of faces) for (const p of f){ x0=Math.min(x0,p[0]); x1=Math.max(x1,p[0]); y0=Math.min(y0,p[1]); y1=Math.max(y1,p[1]); z0=Math.min(z0,p[2]); z1=Math.max(z1,p[2]); }
-  const c = [(x0+x1)/2, (y0+y1)/2, (z0+z1)/2]; let r = 1;
-  for (const f of faces) for (const p of f) r = Math.max(r, Math.hypot(p[0]-c[0], p[1]-c[1], p[2]-c[2]));
-  const verts = m.v.map(v => [v[0], v[2], v[1]]);
-  return { faces, c, r, verts, size: [x1-x0, z1-z0, y1-y0].map(d => Math.round(d * m.scale)) };
-}
-const LIGHT = (() => { const v = [0.35, 0.85, 0.4], l = Math.hypot(...v); return v.map(x => x/l); })();
-const hue = i => `hsl(${(i*137.508)%360},60%,58%)`;
-function render(cv, it, axes){
-  const ctx = cv.getContext("2d"), dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
-  if (cv.width !== Math.round(W*dpr)){ cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr); }
-  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
-  if (it.state !== "ok"){ ctx.fillStyle = "#8b96a5"; ctx.font = "12px system-ui"; ctx.textAlign = "center";
-    ctx.fillText(it.state === "wait" || it.state === "loading" ? L("Loading…", "載入中…") : it.state === "missing" ? L("Cannot read file", "讀不到檔案") : L("Cannot parse shape", "解不出外型"), W/2, H/2); return; }
-  const P = it.p, v = it.view, cy = Math.cos(v.yaw), sy = Math.sin(v.yaw), cp = Math.cos(v.pitch), sp = Math.sin(v.pitch);
-  const D = P.r * 3.2, F = Math.min(W, H) * 1.45 * v.zoom;
-  const cam = p => { const x = p[0]-P.c[0], y = p[1]-P.c[1], z = p[2]-P.c[2];
-    const x1 = x*cy - z*sy, z1 = x*sy + z*cy; return [x1, y*cp + z1*sp, -y*sp + z1*cp + D]; };   // 和播放器同一套相機：pitch > 0 = 從上往下看
-  const pr = q => [W/2 + q[0]*F/q[2], H/2 - q[1]*F/q[2]];
-  const mode = $("mode").value, list = [];
-  (it.faces || P.faces).forEach((f, i) => { const q = f.map(cam); if (q.some(p => p[2] < 1)) return;
-    let nx=0,ny=0,nz=0; for (let j=0;j<f.length;j++){ const a=f[j], b=f[(j+1)%f.length]; nx += (a[1]-b[1])*(a[2]+b[2]); ny += (a[2]-b[2])*(a[0]+b[0]); nz += (a[0]-b[0])*(a[1]+b[1]); }
-    const l = Math.hypot(nx,ny,nz) || 1; list.push({ q, d: q.reduce((s,p)=>s+p[2],0)/q.length, lam: Math.abs((nx*LIGHT[0]+ny*LIGHT[1]+nz*LIGHT[2])/l), i, col: f.col }); });
-  list.sort((a,b) => b.d - a.d);
-  for (const { q, lam, i, col } of list){
-    const pp = q.map(pr); ctx.beginPath(); ctx.moveTo(...pp[0]); for (const p of pp.slice(1)) ctx.lineTo(...p); ctx.closePath();
-    if (mode === "wire"){ ctx.strokeStyle = "rgba(120,190,255,.75)"; ctx.lineWidth = 0.8; ctx.stroke(); continue; }
-    const k = 0.55 + 0.6*lam;
-    ctx.fillStyle = mode === "face" ? hue(i) : col ? `rgb(${col[0]*k|0},${col[1]*k|0},${col[2]*k|0})` : `rgb(${70*k|0},${150*k|0},${235*k|0})`; ctx.globalAlpha = mode === "face" ? 0.92 : 1; ctx.fill(); ctx.globalAlpha = 1;
-    ctx.strokeStyle = "rgba(10,20,35,.45)"; ctx.lineWidth = 0.6; ctx.stroke();
-  }
-  if (mode === "wire"){ ctx.fillStyle = "#ffd54a"; for (const p of P.verts){ const q = cam(p); if (q[2] < 1) continue; const s = pr(q); ctx.fillRect(s[0]-1, s[1]-1, 2, 2); } }
-  if (axes){ // 座標軸：紅 = 右（x）、綠 = 上（z）、藍 = 前（y，機頭）
-    const o = cam(P.c), L = P.r*0.6;
-    for (const [d, col, t] of [[[L,0,0],"#ff5050",FAI18N.L("R","右")],[[0,L,0],"#50e070",FAI18N.L("U","上")],[[0,0,L],"#5aa0ff",FAI18N.L("F","前")]]){
-      const e = cam([P.c[0]+d[0], P.c[1]+d[1], P.c[2]+d[2]]); if (o[2] < 1 || e[2] < 1) continue;
-      const a = pr(o), b = pr(e); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke();
-      ctx.fillStyle = col; ctx.font = "12px system-ui"; ctx.fillText(t, b[0]+3, b[1]-3); } }
-}
-function attachControls(cv, getIt, redraw){
-  let drag = null;
-  cv.addEventListener("pointerdown", e => { cv.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY }; });
-  cv.addEventListener("pointermove", e => { if (!drag) return; const it = getIt(); if (!it) return;
-    it.view.yaw += (e.clientX - drag.x) * 0.01; it.view.pitch = Math.max(-1.55, Math.min(1.55, it.view.pitch + (e.clientY - drag.y) * 0.01));
-    drag = { x: e.clientX, y: e.clientY }; redraw(); });
-  cv.addEventListener("pointerup", () => drag = null);
-  cv.addEventListener("wheel", e => { e.preventDefault(); const it = getIt(); if (!it) return; it.view.zoom = Math.max(0.2, Math.min(12, it.view.zoom * Math.exp(-e.deltaY*0.0015))); redraw(); }, { passive: false });
-}
-
-// ===== 卡片 =====
-const grid = $("grid");
-for (const it of items){
-  const el = document.createElement("div"); el.className = "card"; it.el = el;
-  el.innerHTML = `<canvas></canvas><div class="meta"><span class="nm">${it.k}</span><span class="info"></span></div><div class="acts"><button class="fl">${L("Problem", "有問題")}</button><button class="big">${L("Enlarge", "放大")}</button><button class="rs">${L("Reset", "重設")}</button></div>`;
-  it.cv = el.querySelector("canvas"); it.info = el.querySelector(".info");
-  attachControls(it.cv, () => it, () => render(it.cv, it));
-  it.cv.addEventListener("dblclick", () => openModal(it));
-  el.querySelector(".big").onclick = () => openModal(it);
-  el.querySelector(".rs").onclick = () => { it.view = { yaw: -0.7, pitch: 0.45, zoom: 1 }; render(it.cv, it); };
-  el.querySelector(".fl").onclick = () => { flags.has(it.k) ? flags.delete(it.k) : flags.add(it.k); saveFlags(); };
-  grid.appendChild(el);
-}
-function setParsed(it, u8){
-  it.m = null; it.p = null;
-  if (!u8){ it.state = "missing"; }
-  else { try { it.m = parseSH(u8); } catch(e){ it.m = null; } it.state = it.m ? "ok" : "bad"; if (it.m){ it.p = prep(it.m); if (it.m.ctl.blocks.length && it.m.subs.length){ it.pst = defaultState(it.m); it.faces = buildFaces(it); } } }
-  it.el.classList.toggle("fail", it.state !== "ok");
-  it.info.textContent = it.state === "ok" ? L(`${it.m.f.length} faces${it.m.subs.length ? ` + ${it.m.subs.length} parts` : ""} · L${it.p.size[1]} W${it.p.size[0]} H${it.p.size[2]} ft`, `${it.m.f.length} 面${it.m.subs.length ? `＋${it.m.subs.length} 零件` : ""}・長${it.p.size[1]} 寬${it.p.size[0]} 高${it.p.size[2]} 呎`) : it.state === "missing" ? L("Unreadable", "讀不到") : L("Not parsed", "解不出");
-  render(it.cv, it); filter(); stat();
-}
-// 依可見範圍載入，避免一次下載 700 多個檔
-let active = 0; const queue = [];
-function pump(){ while (active < 8 && queue.length){ const it = queue.shift(); active++; it.state = "loading";
-  fetchSH(it.k).then(u8 => setParsed(it, u8)).finally(() => { active--; pump(); }); } }
-const io = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting){ const it = items.find(x => x.el === e.target); if (it && it.state === "wait"){ queue.push(it); pump(); } } }, { rootMargin: "600px" });
-for (const it of items) io.observe(it.el);
-// 「只看解得出的」需要知道全部的結果：背景慢慢把其餘的也載完
-setTimeout(function bg(){ const rest = items.filter(i => i.state === "wait"); for (const it of rest.slice(0, 16)){ queue.push(it); it.state = "queued"; } pump(); if (rest.length) setTimeout(bg, 400); }, 1500);
-
-function filter(){
-  const q = $("q").value.trim().toUpperCase(), show = $("show").value;
-  for (const it of items){
-    let vis = !q || it.k.includes(q);
-    if (show === "ok") vis &&= it.state !== "bad" && it.state !== "missing";
-    if (show === "fail") vis &&= it.state === "bad" || it.state === "missing";
-    if (show === "flag") vis &&= flags.has(it.k);
-    it.el.style.display = vis ? "" : "none";
-    it.el.classList.toggle("flag", flags.has(it.k)); it.el.querySelector(".fl").classList.toggle("on", flags.has(it.k));
-  }
-}
-function stat(){ const ok = items.filter(i => i.state === "ok").length, bad = items.filter(i => i.state === "bad").length, miss = items.filter(i => i.state === "missing").length;
-  const done = ok + bad + miss; $("stat").textContent = L(`${SH_INDEX.length} SH: ${ok} parsed, ${bad} failed${miss ? `, ${miss} unreadable` : ""}${done < SH_INDEX.length ? ` (${done} loaded)` : ""}`, `${SH_INDEX.length} 個 SH：解得出 ${ok}、解不出 ${bad}${miss ? `、讀不到 ${miss}` : ""}${done < SH_INDEX.length ? `（已載入 ${done}）` : ""}`); }
-function renderFlags(){ const l = [...flags].sort(); $("flaglist").textContent = l.length ? l.join(" ") : L("(Press “Problem” on a card to flag it; the list shows up here)", "（按卡片上的「有問題」標記，清單會出現在這裡）"); filter(); $("m_flag").classList.toggle("on", !!mItem && flags.has(mItem.k)); }
-$("q").oninput = filter; $("show").onchange = filter;
-$("mode").onchange = () => { for (const it of items) if (it.el.style.display !== "none") render(it.cv, it); if (mItem) render($("m_cv"), mItem, $("m_axes").checked); };
-$("copy").onclick = async () => { const t = [...flags].sort().join(" "); try { await navigator.clipboard.writeText(t); $("copy").textContent = L("Copied", "已複製"); setTimeout(() => $("copy").textContent = L("Copy list", "複製清單"), 1200); } catch(e){ prompt(L("Copy this:", "複製這串："), t); } };
-$("clear").onclick = () => { if (confirm(L("Clear all flags?", "清除所有標記？"))){ flags.clear(); saveFlags(); } };
-$("dir").onchange = e => { for (const f of e.target.files) if (/\.sh$/i.test(f.name)) dirFiles.set(f.name.toUpperCase().replace(/\.SH$/, ""), f);
-  for (const it of items) if (dirFiles.has(it.k)){ dirFiles.get(it.k).arrayBuffer().then(b => { const u8 = new Uint8Array(b); idbPut(it.k, u8); setParsed(it, u8); }); } };
-
-// ===== 附屬零件（起落架、襟翼、煞車…）：照 SH 裡的指令放到機體上 =====
-// 播放器的旋轉（角度單位：度）：先滾轉、再俯仰、再方位
 function rotateDeg(v, hdg, pitch, roll){
   let [x,y,z] = v; const r = roll*Math.PI/180, p = -pitch*Math.PI/180, h = hdg*Math.PI/180;
   [x,y] = [x*Math.cos(r) - y*Math.sin(r), x*Math.sin(r) + y*Math.cos(r)];
   [y,z] = [y*Math.cos(p) - z*Math.sin(p), y*Math.sin(p) + z*Math.cos(p)];
   return [x*Math.cos(h) + z*Math.sin(h), y, -x*Math.sin(h) + z*Math.cos(h)];
 }
-const PART_COL = { c4: [235,150,60], j12: [90,200,120], free: [150,150,150] };
-// 依目前狀態組出要畫的面：主體 + 照 SH 指令算出來要畫的零件
-// 零件的座標轉換：輸入 SH 頂點 (x, 前, 上)，輸出顯示座標 (x, 上, 前)；有上層零件（例如主翼）時再套上層的轉換
 function partTf(e){
   let tf = v => [v[0], v[2], v[1]];
   if (e.op === 0xC4){
@@ -435,82 +364,366 @@ function partTf(e){
   const up = partTf(e.parent);
   return v => { const d = tf(v); return up([d[0], d[2], d[1]]); };
 }
-function buildFaces(it){
-  const m = it.m, st = it.pst, faces = [];
-  for (const idx of m.f) faces.push(idx.map(i => [m.v[i][0], m.v[i][2], m.v[i][1]]));
-  const drawn = new Set(); it.drawn = drawn;
-  for (const e of evalCtl(m, st.vars)){
-    if (st.off.has(e.part) || drawn.has(e.part)) continue; drawn.add(e.part);
-    const sub = m.subs[e.part], tf = partTf(e), col = e.op === 0xC4 || e.parent ? PART_COL.c4 : PART_COL.j12;
-    for (const idx of sub.f){ const f = idx.map(i => tf(m.v[i])); f.col = col; faces.push(f); }
-  }
-  if (st.free) m.subs.forEach((sub, k) => { if (drawn.has(k) || st.off.has(k) || it.reach?.has(k)) return;
-    for (const idx of sub.f){ const f = idx.map(i => [m.v[i][0], m.v[i][2], m.v[i][1]]); f.col = PART_COL.free; faces.push(f); } });
-  return faces;
+
+// ===== PIC 格式（FA 的 _XXX.PIC，格式 0 = 未壓縮 8 位元色號）=====
+// 0: u16 格式 ; 2: u32 寬 ; 6: u32 高 ; 10: u32 像素位移 ; 14: u32 像素長度 ; 18: u32 調色盤位移 ; 22: u32 調色盤長度（0 = 用遊戲的全域調色盤）
+// 0x22: u32 每列起點表位移 ; 0x26: u32 表長度（高 × 4，每列一個 u32 = 該列像素的檔案位移）
+// 注意：列是由下往上存（檔案第 0 列 = 貼圖最下面一列），SH 的 UV 以貼圖左上為原點
+function parsePIC(u8){
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const fmt = dv.getUint16(0, true), w = dv.getUint32(2, true), h = dv.getUint32(6, true), po = dv.getUint32(10, true), ps = dv.getUint32(14, true);
+  const palO = dv.getUint32(18, true), palS = dv.getUint32(22, true), rowO = dv.getUint32(0x22, true), rowS = dv.getUint32(0x26, true);
+  if (fmt !== 0 || !w || !h || w > 4096 || h > 4096) throw new Error(L(`PIC format ${fmt} (${w}×${h}) is not supported yet`, `PIC 格式 ${fmt}（${w}×${h}）還不支援`));
+  const px = new Uint8Array(w * h);
+  const rows = rowS >= 4 * h && rowO + rowS <= u8.length;
+  // 檔案裡的列是由下往上存的（像 BMP）：SH 的 v = 0 對應檔案最後一列，所以讀進來時上下翻轉，之後 UV 直接當像素座標用
+  for (let y = 0; y < h; y++){ const s = rows ? dv.getUint32(rowO + 4*y, true) : po + y*w; px.set(u8.subarray(s, s + w), (h - 1 - y)*w); }
+  let pal = null; if (palO && palS >= 768 && palO + 768 <= u8.length) pal = palFromBytes(u8.subarray(palO, palO + palS));
+  return { w, h, px, pal, fmt, po, ps, rows };
 }
+// 調色盤：768 位元組 RGB（VGA 6 位元的話 ×4）、RIFF PAL、JASC-PAL 文字檔；LIB 檔則在裡面找 768 位元組的 6 位元調色盤
+function palFromBytes(u8){
+  const txt = String.fromCharCode(...u8.subarray(0, 8));
+  if (txt.startsWith("JASC-PAL")){ const n = new TextDecoder().decode(u8).trim().split(/\s+/).slice(3).map(Number), p = new Uint8Array(768); p.set(n.slice(0, 768)); return p; }
+  if (txt.startsWith("RIFF")){ const p = new Uint8Array(768); for (let i = 0; i < 256; i++) for (let k = 0; k < 3; k++) p[3*i+k] = u8[24 + 4*i + k] || 0; return p; }
+  if (u8.length < 768) return null;
+  const p = u8.slice(0, 768); let mx = 0; for (const b of p) mx = Math.max(mx, b);
+  if (mx < 64) for (let i = 0; i < 768; i++) p[i] = p[i] << 2 | p[i] >> 4;
+  return p;
+}
+
+// ===== Page setup =====
+const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
+FAI18N.register({"FA SH Shape Gallery": "FA SH 外型檢視", "Search file names…": "搜尋檔名…", "Display mode": "顯示方式", "Wireframe": "網格", "Flat": "平面", "Textured": "貼圖",
+  "Parsed only": "只看解得出的", "All": "全部", "Failed only": "只看解不出的", "Flagged only": "只看標記有問題的",
+  "Choose SH / PIC folder": "選擇 SH／PIC 資料夾", "Use SH / PIC files from a folder on this computer instead of the site": "改用這台電腦資料夾裡的 SH／PIC 檔",
+  "Loading…": "載入中…", "Drag to rotate · wheel to zoom · double-click to enlarge and move parts": "拖曳旋轉・滾輪縮放・雙擊放大並操作活動零件",
+  "Destroyed wreckage": "擊毀殘骸", "Shadows": "陰影", "Flagged:": "有問題：", "Copy list": "複製清單", "Clear": "清除", "Axes": "座標軸", "Problem": "有問題", "Close": "關閉", "FAshion home": "FAshion 首頁"});
+$("langSlot").append(FAI18N.picker()); FAI18N.apply(); FAI18N.onChange(() => location.reload()); document.title = L("FA SH Shape Gallery", "FA SH 外型檢視");
+
+const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
+const PIC_FILE = new Map(PIC_INDEX.map(n => [n.toUpperCase(), n]));   // upper-case name → file name in PIC/ (GitHub is case-sensitive)
+const dirSH = new Map(), dirPIC = new Map();
+async function fetchFile(dir, name){
+  const urls = [];
+  if (/^https?:$/.test(location.protocol)) urls.push(new URL(`../${dir}/${encodeURIComponent(name)}`, location.href).href);
+  urls.push(REMOTE + dir + "/" + encodeURIComponent(name));
+  for (const u of urls){ try { const r = await fetch(u); if (r.ok) return new Uint8Array(await r.arrayBuffer()); } catch(e){} }
+  return null;
+}
+async function fetchSH(k){ if (dirSH.has(k)) return new Uint8Array(await dirSH.get(k).arrayBuffer()); return fetchFile("SH", k + ".SH"); }
+async function fetchPIC(n){ if (dirPIC.has(n)) return new Uint8Array(await dirPIC.get(n).arrayBuffer()); const f = PIC_FILE.get(n); return f ? fetchFile("PIC", f) : null; }
+function shTexName(u8){   // E2 00 + 14-byte file name switches the texture (F14.SH: "_f14.PIC")
+  for (let i = 0; i < u8.length - 16; i++) if (u8[i] === 0xE2 && u8[i+1] === 0){ let s = ""; for (let k = 2; k < 16 && u8[i+k]; k++) s += String.fromCharCode(u8[i+k]); if (/^[\w-]+\.PIC$/i.test(s)) return s.toUpperCase(); }
+  return null;
+}
+
+// ===== Palette =====
+const PAL_GRAY = (() => { const p = new Uint8Array(768); for (let i = 0; i < 256; i++) p[3*i] = p[3*i+1] = p[3*i+2] = i; return p; })();
+let pal = PAL_GRAY;
+
+// ===== One shared WebGL renderer; each card copies its picture out of it =====
+const GLC = document.createElement("canvas"); GLC.width = GLC.height = 512;
+const gl = GLC.getContext("webgl", { antialias: true, preserveDrawingBuffer: true });
+const VS = `attribute vec3 aP; attribute vec2 aUV; attribute vec3 aN; attribute vec2 aC; attribute float aI;
+uniform mat4 uM; uniform float uOB; varying vec2 vUV; varying vec3 vN; varying vec2 vC;
+void main(){ vUV = aUV; vN = aN; vC = aC; gl_Position = uM * vec4(aP, 1.0); gl_Position.z -= aI * uOB * gl_Position.w; }`;
+// uMode 0 = texture, 2 = face colours only, 3 = wire colour. Faces with colour 0 have no base colour: texel FF is transparent there.
+const FS = `precision mediump float; varying vec2 vUV; varying vec3 vN; varying vec2 vC;
+uniform sampler2D uPic; uniform sampler2D uPal; uniform vec2 uSize; uniform float uMode;
+void main(){
+  if (uMode > 2.5){ gl_FragColor = vec4(0.47, 0.75, 1.0, 1.0); return; }
+  float idx; bool own = true;
+  float d = abs(dot(normalize(vN), normalize(vec3(0.35, 0.85, 0.4))));
+  if (vC.y > 0.5 && uMode < 0.5){
+    idx = floor(texture2D(uPic, (floor(vUV) + 0.5) / uSize).r * 255.0 + 0.5); own = false;
+    if (idx > 254.5){ if (vC.x < 0.5) discard; idx = vC.x; own = true; }
+  } else idx = vC.x;
+  // FA palette 0x90-0x9B is a light-to-dark grey ramp: shade a face's own grey by moving along it
+  bool ramp = own && idx >= 144.0 && idx <= 155.0;
+  if (ramp) idx = clamp(idx + floor((0.75 - d) * 8.0 + 0.5), 144.0, 155.0);
+  vec3 c = texture2D(uPal, vec2((idx + 0.5) / 256.0, 0.5)).rgb;
+  if (!ramp) c *= 0.7 + 0.4 * d;
+  gl_FragColor = vec4(c, 1.0);
+}`;
+const prog = (() => { const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+  const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(p); return p; })();
+const UL = {}, U = n => UL[n] ??= gl.getUniformLocation(prog, n), AT = {}; for (const n of ["aP","aUV","aN","aC","aI"]) AT[n] = gl.getAttribLocation(prog, n);
+function setTex(t, w, h, fmt, data){ gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, fmt, w, h, 0, fmt, gl.UNSIGNED_BYTE, data);
+  for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); }
+const palTex = gl.createTexture(), noTex = gl.createTexture(); setTex(noTex, 1, 1, gl.LUMINANCE, new Uint8Array([0]));
+const setPal = p => { pal = p; const rgb = new Uint8Array(768); rgb.set(p.subarray(0, 768)); setTex(palTex, 256, 1, gl.RGB, rgb); };
+setPal(PAL_GRAY);
+
+// PIC textures, loaded once per file and shared by every SH that uses them
+const pics = new Map();   // name → { st: "loading"|"ok"|"none", tex, w, h, users:Set }
+function getPic(name, it){
+  let p = pics.get(name);
+  if (!p){ p = { st: "loading", users: new Set() }; pics.set(name, p);
+    fetchPIC(name).then(u8 => { try { const r = u8 && parsePIC(u8); if (r){ p.tex = gl.createTexture(); setTex(p.tex, r.w, r.h, gl.LUMINANCE, r.px); p.w = r.w; p.h = r.h; p.st = "ok"; } else p.st = "none"; } catch(e){ p.st = "none"; }
+      for (const u of p.users) redrawItem(u); p.users.clear(); }); }
+  if (p.st === "loading" && it) p.users.add(it);
+  return p;
+}
+
+// ===== Geometry: body faces + moving parts placed by the SH control code =====
 const hex = v => (v >>> 0).toString(16).toUpperCase();
-// 預設狀態：條件變數用第一個比較值（通常是起落架放下、襟翼收起），角度變數 0
 function defaultState(m){ const vars = {}, nm = Object.fromEntries(Object.entries(m.imp || {}).map(([n, a]) => [a, n]));
-  // 有名字的變數：起落架放下，其他（襟翼、減速板、後燃器、尾鉤…）都收起；沒名字的用第一個比較值
+  // named vars: gear down, everything else (flaps, brake, afterburner, hook…) stowed; unnamed: first compared value
   for (const x of m.ctl.vars) vars[x.v] = nm[x.v] ? (nm[x.v] === "_PLgearDown" ? 1 : 0) : x.vals.length ? x.vals[0] : 0;
   return { vars, off: new Set(), free: false }; }
+function buildFaces(it){
+  const m = it.m, st = it.pst, faces = [], add = (idx, tf) => faces.push({ pts: idx.map(i => tf(m.v[i])), uv: idx.uv, col: idx.col });
+  const flip = v => [v[0], v[2], v[1]];
+  for (const idx of m.f) add(idx, flip);
+  const drawn = new Set(); it.drawn = drawn;
+  if (m.ctl.blocks.length || m.ctl.statics?.length){
+    for (const e of evalCtl(m, st.vars)){
+      if (st.off.has(e.part) || drawn.has(e.part)) continue; drawn.add(e.part);
+      const tf = partTf(e); for (const idx of m.subs[e.part].f) add(idx, tf);
+    }
+    if (st.free) m.subs.forEach((sub, k) => { if (!drawn.has(k) && !st.off.has(k) && !it.reach?.has(k)) for (const idx of sub.f) add(idx, flip); });
+  } else for (const pt of m.parts || []) for (const idx of pt.f) add(idx, v => [v[0] + pt.pivot[0], v[2] + pt.pivot[2], v[1] + pt.pivot[1]]);
+  return faces;
+}
+function upload(it){
+  const faces = buildFaces(it), data = [], ed = [];
+  let lo = [1e9,1e9,1e9], hi = [-1e9,-1e9,-1e9];
+  faces.forEach((f, fi) => {
+    const p = f.pts; let nx = 0, ny = 0, nz = 0;
+    for (let k = 0; k < p.length; k++){ const q = p[k], r = p[(k+1) % p.length]; nx += (q[1]-r[1])*(q[2]+r[2]); ny += (q[2]-r[2])*(q[0]+r[0]); nz += (q[0]-r[0])*(q[1]+r[1]);
+      ed.push(...q, 0,0, 0,0,1, 0,0, 0, ...r, 0,0, 0,0,1, 0,0, 0); for (let j = 0; j < 3; j++){ lo[j] = Math.min(lo[j], q[j]); hi[j] = Math.max(hi[j], q[j]); } }
+    for (let k = 1; k < p.length - 1; k++) for (const j of [0, k, k+1]){ const q = p[j], uv = f.uv ? f.uv[j] : [0, 0]; data.push(q[0], q[1], q[2], uv[0], uv[1], nx, ny, nz, f.col, f.uv ? 1 : 0, fi); }
+  });
+  const g = it.g ??= { vbo: gl.createBuffer(), ebo: gl.createBuffer() };
+  gl.bindBuffer(gl.ARRAY_BUFFER, g.vbo); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW); g.n = data.length / 11;
+  gl.bindBuffer(gl.ARRAY_BUFFER, g.ebo); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ed), gl.STATIC_DRAW); g.en = ed.length / 11;
+  // the view is framed on the default pose, so moving parts does not make the model jump around
+  if (!it.frame){ it.frame = { c: lo.map((x, k) => (x + hi[k]) / 2), r: Math.max(1, Math.hypot(hi[0]-lo[0], hi[1]-lo[1], hi[2]-lo[2]) / 2) };
+    it.size = [hi[0]-lo[0], hi[2]-lo[2], hi[1]-lo[1]].map(d => Math.round(d * it.m.scale)); }
+  it.nFaces = faces.length; it.nTex = faces.filter(f => f.uv).length;
+}
+function mul(a, b){ const o = new Array(16); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++){ let s = 0; for (let k = 0; k < 4; k++) s += a[k*4+j] * b[i*4+k]; o[i*4+j] = s; } return o; }
+function matrix(w, h, fr, view){
+  const r = fr.r, dist = r * 2.9 / view.zoom, f = 1 / Math.tan(0.5 * 0.7), near = Math.max(dist - r * 2, dist * 0.02), far = dist + r * 2;
+  const P = [f * h / w,0,0,0, 0,f,0,0, 0,0,(far+near)/(near-far),-1, 0,0,2*far*near/(near-far),0];
+  const cy = Math.cos(view.yaw), sy = Math.sin(view.yaw), cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
+  const R = [cy, sy*sp, -sy*cp, 0,  0, cp, sp, 0,  sy, -cy*sp, cy*cp, 0,  0, 0, 0, 1];
+  const T = [1,0,0,0, 0,1,0,0, 0,0,1,0, -fr.c[0], -fr.c[1], -fr.c[2], 1];
+  return mul(P, mul([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,-dist,1], mul(R, T)));
+}
+let MODE = "tex"; try { const s = localStorage.getItem("fa_gallery_mode"); if (["wire","flat","tex"].includes(s)) MODE = s; } catch(e){}
+function bindAttrs(buf){ gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  for (const [n, sz, off] of [["aP",3,0],["aUV",2,12],["aN",3,20],["aC",2,32],["aI",1,40]]){ const l = AT[n]; if (l < 0) continue; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, 44, off); } }
+// draw an item into a 2D canvas
+function paint(cv, it, axes){
+  const ctx = cv.getContext("2d"), dpr = Math.min(2, window.devicePixelRatio || 1), W = cv.clientWidth, H = cv.clientHeight;
+  if (!W || !H) return;
+  const w = Math.round(W*dpr), h = Math.round(H*dpr);
+  if (cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; }
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0, 0, w, h);
+  if (it.state !== "ok"){ ctx.fillStyle = "#8b96a5"; ctx.font = `${12*dpr}px system-ui`; ctx.textAlign = "center";
+    ctx.fillText(it.state === "missing" ? L("Cannot read file", "讀不到檔案") : it.state === "bad" ? L("Cannot parse shape", "解不出外型") : L("Loading…", "載入中…"), w/2, h/2); return; }
+  if (!it.g) upload(it);
+  if (GLC.width < w || GLC.height < h){ GLC.width = Math.max(GLC.width, w); GLC.height = Math.max(GLC.height, h); }
+  const M = matrix(w, h, it.frame, it.view);
+  gl.viewport(0, 0, w, h); gl.enable(gl.SCISSOR_TEST); gl.scissor(0, 0, w, h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.useProgram(prog); gl.disable(gl.CULL_FACE); gl.uniformMatrix4fv(U("uM"), false, M);
+  let pic = null; if (MODE === "tex" && it.pic){ const p = getPic(it.pic, it); if (p.st === "ok") pic = p; }
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, pic ? pic.tex : noTex); gl.uniform1i(U("uPic"), 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, palTex); gl.uniform1i(U("uPal"), 1);
+  gl.uniform2f(U("uSize"), pic ? pic.w : 1, pic ? pic.h : 1);
+  if (MODE === "wire"){ gl.disable(gl.DEPTH_TEST); gl.uniform1f(U("uMode"), 3); gl.uniform1f(U("uOB"), 0); bindAttrs(it.g.ebo); gl.drawArrays(gl.LINES, 0, it.g.en); }
+  else { gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.uniform1f(U("uMode"), pic ? 0 : 2);
+    // FA paints faces in SH order (later ones cover earlier ones): nudge later faces forward so coplanar decals do not flicker
+    gl.uniform1f(U("uOB"), 4e-7); bindAttrs(it.g.vbo); gl.drawArrays(gl.TRIANGLES, 0, it.g.n); }
+  gl.disable(gl.SCISSOR_TEST);
+  ctx.drawImage(GLC, 0, GLC.height - h, w, h, 0, 0, w, h);
+  if (axes){ // red = right (x), green = up, blue = forward (nose)
+    const pr = q => { const x = M[0]*q[0]+M[4]*q[1]+M[8]*q[2]+M[12], y = M[1]*q[0]+M[5]*q[1]+M[9]*q[2]+M[13], ww = M[3]*q[0]+M[7]*q[1]+M[11]*q[2]+M[15]; return ww > 0 ? [(x/ww*0.5+0.5)*w, (0.5-y/ww*0.5)*h] : null; };
+    const c = it.frame.c, len = it.frame.r * 0.6, o = pr(c);
+    for (const [d, col, t] of [[[len,0,0],"#ff5050",L("R","右")],[[0,len,0],"#50e070",L("U","上")],[[0,0,len],"#5aa0ff",L("F","前")]]){
+      const e = pr([c[0]+d[0], c[1]+d[1], c[2]+d[2]]); if (!o || !e) continue;
+      ctx.strokeStyle = col; ctx.lineWidth = 2*dpr; ctx.beginPath(); ctx.moveTo(...o); ctx.lineTo(...e); ctx.stroke();
+      ctx.fillStyle = col; ctx.font = `${12*dpr}px system-ui`; ctx.fillText(t, e[0]+3*dpr, e[1]-3*dpr); } }
+}
+function attachControls(cv, getIt, redraw){
+  let drag = null;
+  cv.addEventListener("pointerdown", e => { cv.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY }; });
+  cv.addEventListener("pointermove", e => { if (!drag) return; const it = getIt(); if (!it) return;
+    it.view.yaw += (e.clientX - drag.x) * 0.01; it.view.pitch = Math.max(-1.55, Math.min(1.55, it.view.pitch + (e.clientY - drag.y) * 0.01));
+    drag = { x: e.clientX, y: e.clientY }; redraw(); });
+  cv.addEventListener("pointerup", () => drag = null);
+  cv.addEventListener("wheel", e => { e.preventDefault(); const it = getIt(); if (!it) return; it.view.zoom = Math.max(0.2, Math.min(15, it.view.zoom * Math.exp(-e.deltaY*0.0015))); redraw(); }, { passive: false });
+}
+
+// ===== Groups: main list, destroyed wreckage (_A.._D), shadows (_S) =====
+let flags = new Set(); try { flags = new Set(JSON.parse(localStorage.getItem("fa_sh_flags") || "[]")); } catch(e){}
+const saveFlags = () => { try { localStorage.setItem("fa_sh_flags", JSON.stringify([...flags])); } catch(e){} renderFlags(); };
+const VIEW0 = () => ({ yaw: -0.7, pitch: 0.4, zoom: 1 });
+const items = [], byKey = new Map();
+for (const [grp, list] of [["main", SH_GROUPS.main], ["wreck", SH_GROUPS.wreck], ["shadow", SH_GROUPS.shadow]])
+  for (const k of list){ const it = { k, grp, state: "wait", m: null, view: VIEW0() }; items.push(it); byKey.set(k, it); }
+const baseOf = k => k.replace(/_([A-DS])$/, "");
+const related = k => { const b = baseOf(k); return [b, ...["A","B","C","D","S"].map(s => b + "_" + s)].filter(n => byKey.has(n)); };
+$("n_wreck").textContent = L(`${SH_GROUPS.wreck.length} SH · damaged airframes shown when a unit is destroyed`, `${SH_GROUPS.wreck.length} 個 SH・被擊毀時顯示的損壞機體`);
+$("n_shadow").textContent = L(`${SH_GROUPS.shadow.length} SH · ground shadows`, `${SH_GROUPS.shadow.length} 個 SH・地面陰影`);
+
+const visible = new Set();
+function redrawItem(it){ if (visible.has(it) && it.el.style.display !== "none") paint(it.cv, it); if (mItem === it) paint($("m_cv"), it, $("m_axes").checked); }
+for (const it of items){
+  const el = document.createElement("div"); el.className = "card"; it.el = el;
+  el.innerHTML = `<canvas></canvas><div class="meta"><span class="nm">${it.k}</span><span class="info"></span></div><div class="acts"><button class="big">${L("Enlarge", "放大")}</button><button class="rs">${L("Reset", "重設")}</button><button class="fl">${L("Problem", "有問題")}</button></div>`;
+  it.cv = el.querySelector("canvas"); it.info = el.querySelector(".info");
+  attachControls(it.cv, () => it, () => paint(it.cv, it));
+  it.cv.addEventListener("dblclick", () => openModal(it));
+  el.querySelector(".big").onclick = () => openModal(it);
+  el.querySelector(".rs").onclick = () => { it.view = VIEW0(); paint(it.cv, it); };
+  el.querySelector(".fl").onclick = () => { flags.has(it.k) ? flags.delete(it.k) : flags.add(it.k); saveFlags(); };
+  $(it.grp === "main" ? "grid" : "grid_" + it.grp).appendChild(el);
+}
+function setParsed(it, u8){
+  it.m = null; it.g = null; it.frame = null; it.pst = null; it.reachInfo = null;
+  if (!u8) it.state = "missing";
+  else { try { it.m = parseSH(u8); } catch(e){ it.m = null; } it.state = it.m ? "ok" : "bad"; }
+  if (it.m){ it.pst = defaultState(it.m); const t = shTexName(u8) || `_${it.k}.PIC`; it.pic = PIC_FILE.has(t) || dirPIC.has(t) ? t : null;
+    try { upload(it); } catch(e){ console.error(it.k, e); it.state = "bad"; } }
+  it.el.classList.toggle("fail", it.state !== "ok");
+  it.info.textContent = it.state === "ok" ? L(`${it.nFaces} faces${it.m.subs.length ? ` · ${it.m.subs.length} parts` : ""} · L${it.size[1]} W${it.size[0]} ft`, `${it.nFaces} 面${it.m.subs.length ? `・${it.m.subs.length} 零件` : ""}・長${it.size[1]} 寬${it.size[0]} 呎`) : it.state === "missing" ? L("Unreadable", "讀不到") : L("Not parsed", "解不出");
+  redrawItem(it); filterOne(it); statSoon();
+}
+// load what is on screen first, then the rest of the main list in the background
+let active = 0; const queue = [];
+function want(it){ if (it.state === "wait"){ it.state = "queued"; queue.push(it); pump(); } }
+function pump(){ while (active < 8 && queue.length){ const it = queue.shift(); active++; it.state = "loading";
+  fetchSH(it.k).then(u8 => setParsed(it, u8)).catch(() => setParsed(it, null)).finally(() => { active--; pump(); }); } }
+const io = new IntersectionObserver(es => { for (const e of es){ const it = e.target._it; if (!it) continue;
+  if (e.isIntersecting){ visible.add(it); if (it.state === "wait") { queue.unshift(it); it.state = "queued"; pump(); } else if (it.state !== "queued" && it.state !== "loading") paint(it.cv, it); } else visible.delete(it); } }, { rootMargin: "400px" });
+for (const it of items){ it.el._it = it; io.observe(it.el); }
+setTimeout(function bg(){ const rest = items.filter(i => i.grp === "main" && i.state === "wait"); for (const it of rest.slice(0, 12)) want(it); if (rest.length) setTimeout(bg, 500); }, 1500);
+
+function filterOne(it){
+  const q = $("q").value.trim().toUpperCase(), show = $("show").value;
+  let vis = !q || it.k.includes(q);
+  if (show === "ok") vis &&= it.state !== "bad" && it.state !== "missing";
+  if (show === "fail") vis &&= it.state === "bad" || it.state === "missing";
+  if (show === "flag") vis &&= flags.has(it.k);
+  const was = it.el.style.display !== "none";
+  it.el.style.display = vis ? "" : "none";
+  it.el.classList.toggle("flag", flags.has(it.k)); it.el.querySelector(".fl").classList.toggle("on", flags.has(it.k));
+  if (vis && !was && visible.has(it)) paint(it.cv, it);
+}
+function filter(){ for (const it of items) filterOne(it);
+  const q = $("q").value.trim().toUpperCase();   // a search that only matches wreckage / shadows opens that section
+  if (q) for (const g of ["wreck", "shadow"]) if (items.some(it => it.grp === g && it.k.includes(q)) && !items.some(it => it.grp === "main" && it.k.includes(q))) $("sec_" + g).open = true; }
+let statT = 0; const statSoon = () => { if (!statT) statT = setTimeout(() => { statT = 0; stat(); }, 200); };
+function stat(){ const main = items.filter(i => i.grp === "main"), ok = main.filter(i => i.state === "ok").length, bad = main.filter(i => i.state === "bad").length, miss = main.filter(i => i.state === "missing").length, done = ok + bad + miss;
+  $("stat").textContent = L(`${main.length} shapes (+${SH_GROUPS.wreck.length} wreckage, ${SH_GROUPS.shadow.length} shadows): ${ok} parsed, ${bad} failed${miss ? `, ${miss} unreadable` : ""}${done < main.length ? ` (${done} loaded)` : ""}`,
+    `${main.length} 個外型（另有殘骸 ${SH_GROUPS.wreck.length}、陰影 ${SH_GROUPS.shadow.length}）：解得出 ${ok}、解不出 ${bad}${miss ? `、讀不到 ${miss}` : ""}${done < main.length ? `（已載入 ${done}）` : ""}`); }
+function renderFlags(){ const l = [...flags].sort(); $("flaglist").textContent = l.length ? l.join(" ") : L("(press “Problem” on a card to flag it)", "（按卡片上的「有問題」標記）"); for (const it of items) filterOne(it); $("m_flag").classList.toggle("on", !!mItem && flags.has(mItem.k)); }
+$("q").oninput = filter; $("show").onchange = filter;
+function setMode(m){ MODE = m; try { localStorage.setItem("fa_gallery_mode", m); } catch(e){}
+  for (const b of $("modes").children) b.classList.toggle("on", b.dataset.m === m);
+  for (const it of visible) if (it.el.style.display !== "none") paint(it.cv, it); if (mItem) paint($("m_cv"), mItem, $("m_axes").checked); }
+for (const b of $("modes").children) b.onclick = () => setMode(b.dataset.m);
+for (const b of $("modes").children) b.classList.toggle("on", b.dataset.m === MODE);
+$("copy").onclick = async () => { const t = [...flags].sort().join(" "); try { await navigator.clipboard.writeText(t); $("copy").textContent = L("Copied", "已複製"); setTimeout(() => $("copy").textContent = L("Copy list", "複製清單"), 1200); } catch(e){ prompt(L("Copy this:", "複製這串："), t); } };
+$("clear").onclick = () => { if (confirm(L("Clear all flags?", "清除所有標記？"))){ flags.clear(); saveFlags(); } };
+$("dir").onchange = async e => {
+  for (const f of e.target.files){ const n = f.name.toUpperCase();
+    if (n.endsWith(".SH")) dirSH.set(n.slice(0, -3), f); else if (n.endsWith(".PIC")) dirPIC.set(n, f);
+    else if (n === "PALETTE.PAL") setPal(palFromBytes(new Uint8Array(await f.arrayBuffer()))); }
+  for (const n of dirPIC.keys()){ const p = pics.get(n); if (p?.tex) gl.deleteTexture(p.tex); pics.delete(n); }
+  for (const it of items) if (dirSH.has(it.k)) dirSH.get(it.k).arrayBuffer().then(b => setParsed(it, new Uint8Array(b))); else if (it.state === "ok") redrawItem(it); };
+
+// ===== Moving parts (gear, flaps, speed brake, swing wings…) =====
 const optsOf = x => [...new Set([0, ...x.vals, ...(x.vals.length ? [1, -1] : [])])].sort((a, b) => a - b);
-// 哪些零件在某個狀態下會被畫到（列出條件用）
-function reachable(it){
+function reachable(it){   // which parts get drawn in some state, and when
   const m = it.m, reach = new Map(), base = defaultState(m).vars, cvars = m.ctl.vars.filter(x => x.vals.length);
   const tryState = (st, label) => { for (const e of evalCtl(m, st)) if (!reach.has(e.part)) reach.set(e.part, { label, op: e.op }); };
   tryState(base, L("default", "預設"));
-  for (const x of cvars) for (const val of optsOf(x)) tryState({ ...base, [x.v]: val }, `[${hex(x.v)}]=${val === -1 ? "FF" : val}`);
+  for (const x of cvars) for (const val of optsOf(x)) tryState({ ...base, [x.v]: val }, `${varName(m, x.v) || "[" + hex(x.v) + "]"} = ${val === -1 ? "FF" : val}`);
   return reach;
 }
-// SH 匯入表裡的變數名稱 → 中文說明
-const VAR_EN = { _PLgearDown: "Gear down", _PLgearPos: "Gear position (0 = down)", _PLleftFlap: "Left flap (FF = down)", _PLrightFlap: "Right flap (FF = down)", _PLbrake: "Speed brake", _PLhook: "Tailhook", _PLafterBurner: "Afterburner", _PLrudder: "Rudder", _PLswingWing: "Wing sweep", _PLbayOpen: "Bay open", _PLbayDoorPos: "Bay door angle", _PLslats: "Slats", _PLcanardPos: "Canard angle", _PLvtOn: "Vectored thrust", _PLvtAngle: "Rotor / thrust angle" };
-const VAR_ZH = { _PLgearDown: "起落架放下", _PLgearPos: "起落架收放角度（0 = 放下）", _PLleftFlap: "左襟翼（FF = 放下）", _PLrightFlap: "右襟翼（FF = 放下）",
-  _PLbrake: "減速板", _PLhook: "尾鉤", _PLafterBurner: "後燃器", _PLrudder: "方向舵", _PLswingWing: "可變翼後掠", _PLbayOpen: "彈艙開啟", _PLbayDoorPos: "彈艙門角度",
-  _PLslats: "前緣縫翼", _PLcanardPos: "前翼角度", _PLvtOn: "向量推力", _PLvtAngle: "旋翼／推力角度" };
-function varLabel(m, v){ const n = Object.entries(m.imp || {}).find(([, a]) => a === v)?.[0]; return n ? `${(FAI18N.lang === "zh" ? VAR_ZH[n] : VAR_EN[n]) || ""} <span style="color:var(--muted);font-weight:normal">${n}</span>` : ""; }
+const VAR_EN = { _PLgearDown: "Landing gear", _PLgearPos: "Gear position", _PLleftFlap: "Left flap", _PLrightFlap: "Right flap", _PLbrake: "Speed brake", _PLhook: "Tailhook", _PLafterBurner: "Afterburner", _PLrudder: "Rudder", _PLswingWing: "Wing sweep", _PLbayOpen: "Weapon bay", _PLbayDoorPos: "Bay door angle", _PLslats: "Slats", _PLcanardPos: "Canard angle", _PLvtOn: "Vectored thrust", _PLvtAngle: "Rotor / thrust angle" };
+const VAR_ZH = { _PLgearDown: "起落架", _PLgearPos: "起落架收放", _PLleftFlap: "左襟翼", _PLrightFlap: "右襟翼", _PLbrake: "減速板", _PLhook: "尾鉤", _PLafterBurner: "後燃器", _PLrudder: "方向舵", _PLswingWing: "可變翼後掠", _PLbayOpen: "彈艙", _PLbayDoorPos: "彈艙門角度", _PLslats: "前緣縫翼", _PLcanardPos: "前翼角度", _PLvtOn: "向量推力", _PLvtAngle: "旋翼／推力角度" };
+const impName = (m, v) => Object.entries(m.imp || {}).find(([, a]) => a === +v)?.[0];
+const varName = (m, v) => { const n = impName(m, v); return n ? (FAI18N.lang === "zh" ? VAR_ZH[n] : VAR_EN[n]) || n : ""; };
+// friendly button labels for the common on/off variables
+function valLabel(n, val){
+  const on = val !== 0, sw = (a, b, c, d) => L(on ? a : b, on ? c : d);
+  if (n === "_PLgearDown") return sw("Down", "Up", "放下", "收起");
+  if (n === "_PLleftFlap" || n === "_PLrightFlap" || n === "_PLslats") return sw("Down", "Up", "放下", "收起");
+  if (n === "_PLbrake" || n === "_PLbayOpen") return sw("Open", "Closed", "打開", "關閉");
+  if (n === "_PLhook") return sw("Down", "Up", "放下", "收起");
+  if (n === "_PLafterBurner" || n === "_PLvtOn") return sw("On", "Off", "開", "關");
+  if (n === "_PLrudder") return val === 0 ? L("Centre", "置中") : val > 0 ? L("Right", "右") : L("Left", "左");
+  return val === -1 ? "FF" : String(val);
+}
 function setupParts(it){
   const box = $("m_parts"); box.innerHTML = "";
-  if (it.state !== "ok" || !it.m.subs?.length || !it.m.ctl.blocks.length){ return; }
-  const m = it.m; it.pst ??= defaultState(m); const st = it.pst;
-  const reach = it.reachInfo ??= reachable(it); it.reach = new Set(reach.keys());
-  const redraw = () => { it.faces = buildFaces(it); render($("m_cv"), it, $("m_axes").checked);
+  if (it.state !== "ok" || !it.m.subs?.length || !(it.m.ctl.blocks.length || it.m.ctl.statics?.length)) return;
+  const m = it.m, st = it.pst; const reach = it.reachInfo ??= reachable(it); it.reach = new Set(reach.keys());
+  const redraw = () => { upload(it); paint($("m_cv"), it, $("m_axes").checked); paint(it.cv, it);
     box.querySelectorAll("input[data-p]").forEach(cb => cb.parentElement.style.opacity = it.drawn.has(+cb.dataset.p) ? 1 : 0.5); };
-  let html = "";
-  for (const x of m.ctl.vars){
-    if (x.vals.length){
-      const guess = varLabel(m, x.v) || (x.vals.includes(-1) ? L("moving surface?", "活動面？") : "");
-      html += `<div class="row"><b>[${hex(x.v)}] ${guess}</b>` + optsOf(x).map(val => `<button data-v="${x.v}" data-x="${val}" class="${st.vars[x.v] === val ? "on" : ""}">${val === -1 ? "FF" : val}</button>`).join("") + `</div>`;
-    }
-    if (x.ang) html += `<div class="row"><b>[${hex(x.v)}] ${varLabel(m, x.v) || L("angle", "角度")}</b><input type="range" min="-32768" max="32767" step="128" value="${st.vars[x.v] ?? 0}" data-ang="${x.v}"><span class="angv">${st.vars[x.v] ?? 0}</span><button data-zero="${x.v}">${L("Zero", "歸零")}</button></div>`;
-  }
-  html += `<div class="row"><b>${L("Parts", "零件")}</b><span class="plist">` + m.subs.map((sub, k) => {
-    const r = reach.get(k), col = r ? (r.op === 0xC4 ? PART_COL.c4 : PART_COL.j12) : PART_COL.free;
-    const how = r ? L(`${r.op === 0xC4 ? "C4 placed" : "drawn in place"}, shown when: ${r.label}`, `${r.op === 0xC4 ? "C4 放置" : "原地畫"}，出現條件：${r.label}`) : L("no code draws it", "沒有指令會畫它");
-    return `<label title="@${sub.o.toString(16)} ${sub.n} ${L("pts", "點")} ${sub.f.length} ${L("faces", "面")}"><input type="checkbox" data-p="${k}" ${st.off.has(k) ? "" : "checked"}><span class="sw" style="background:rgb(${col})"></span>${k}：${how}</label>`; }).join("") + `</span></div>`;
-  if (m.subs.some((_, k) => !reach.has(k))) html += `<div class="row"><label><input type="checkbox" id="p_free" ${st.free ? "checked" : ""}> ${L("Also draw parts no code controls (raw coordinates, grey)", "也畫沒有指令控制的零件（原始座標，灰色）")}</label></div>`;
-  html += `<div class="row" style="color:var(--muted)">${L("Orange = parts placed by C4, green = parts drawn in place; parts not drawn in the current state are faded.", "橘色 = C4 放置的零件，綠色 = 原地畫的零件；目前狀態下沒畫出的零件會變淡。")}</div>`;
+  let html = "", named = m.ctl.vars.filter(x => impName(m, x.v)), other = m.ctl.vars.filter(x => !impName(m, x.v));
+  const row = x => {
+    const n = impName(m, x.v), label = varName(m, x.v) || `[${hex(x.v)}]${x.vals.includes(-1) ? " " + L("moving surface?", "活動面？") : ""}`;
+    let h = "";
+    const opts = n && n !== "_PLrudder" && n !== "_PLgearPos" && n !== "_PLbayDoorPos" ? [0, x.vals.find(v => v !== 0) ?? 1] : n === "_PLrudder" ? [-1, 0, 1] : optsOf(x);
+    if (x.vals.length) h += `<div class="row"><b title="${n || hex(x.v)}">${label}</b>` + opts.map(val => `<button data-v="${x.v}" data-x="${val}" class="${(n && n !== "_PLrudder" ? (st.vars[x.v] !== 0) === (val !== 0) : st.vars[x.v] === val) ? "on" : ""}">${n ? valLabel(n, val) : val === -1 ? "FF" : val}</button>`).join("") + `</div>`;
+    if (x.ang){ const r = n === "_PLgearPos" || n === "_PLbayDoorPos" ? [0, 32767] : [-32768, 32767];
+      h += `<div class="row"><b title="${n || hex(x.v)}">${x.vals.length ? "" : label}${x.vals.length ? L("angle", "角度") : ""}</b><input type="range" min="${r[0]}" max="${r[1]}" step="128" value="${st.vars[x.v] ?? 0}" data-ang="${x.v}"><span class="angv">${st.vars[x.v] ?? 0}</span><button data-zero="${x.v}">${L("Zero", "歸零")}</button></div>`; }
+    return h; };
+  html += `<h3>${L("Moving parts", "活動零件")}</h3>` + named.map(row).join("");
+  if (other.length) html += (named.length ? `<details><summary>${L("Other control variables (unnamed)", "其他控制變數（沒有名稱）")}</summary>` : "") + other.map(row).join("") + (named.length ? "</details>" : "");
+  html += `<details><summary>${L(`Part list (${m.subs.length})`, `零件清單（${m.subs.length}）`)}</summary><div class="row"><span class="plist">` + m.subs.map((sub, k) => {
+    const r = reach.get(k), how = r ? L(`shown when ${r.label}`, `出現條件：${r.label}`) : L("no code draws it", "沒有指令會畫它");
+    return `<label title="@${sub.o.toString(16)} · ${sub.n} ${L("pts", "點")} · ${sub.f.length} ${L("faces", "面")} · ${how}"><input type="checkbox" data-p="${k}" ${st.off.has(k) ? "" : "checked"}>${k}</label>`; }).join("") + `</span></div>`;
+  if (m.subs.some((_, k) => !reach.has(k))) html += `<div class="row"><label><input type="checkbox" id="p_free" ${st.free ? "checked" : ""}> ${L("Also draw parts no code controls (raw coordinates)", "也畫沒有指令控制的零件（原始座標）")}</label></div>`;
+  html += `<div class="row"><button id="p_reset">${L("Reset parts", "零件重設")}</button></div></details>`;
   box.innerHTML = html;
-  box.querySelectorAll("button[data-v]").forEach(b => b.onclick = () => { st.vars[b.dataset.v] = +b.dataset.x; setupParts(it); render(it.cv, it); });
+  box.querySelectorAll("button[data-v]").forEach(b => b.onclick = () => { st.vars[b.dataset.v] = +b.dataset.x;
+    // the gear switch also moves the gear angle, as FA does when the gear goes up or down
+    if (impName(m, b.dataset.v) === "_PLgearDown" && m.imp._PLgearPos != null && m.ctl.vars.some(x => x.v === m.imp._PLgearPos)) st.vars[m.imp._PLgearPos] = +b.dataset.x ? 0 : 32767;
+    setupParts(it); });
   box.querySelectorAll("input[data-ang]").forEach(r => r.oninput = () => { st.vars[r.dataset.ang] = +r.value; r.nextElementSibling.textContent = r.value; redraw(); });
   box.querySelectorAll("button[data-zero]").forEach(b => b.onclick = () => { st.vars[b.dataset.zero] = 0; setupParts(it); });
   box.querySelectorAll("input[data-p]").forEach(cb => cb.onchange = () => { const k = +cb.dataset.p; cb.checked ? st.off.delete(k) : st.off.add(k); redraw(); });
   const fr = $("p_free"); if (fr) fr.onchange = () => { st.free = fr.checked; redraw(); };
+  $("p_reset").onclick = () => { it.pst = defaultState(m); setupParts(it); };
+  box.querySelectorAll("details").forEach((d, i) => { d.open = !!it.openDet?.[i]; d.ontoggle = () => { (it.openDet ??= [])[i] = d.open; }; });
   redraw();
 }
-// ===== 放大檢視 =====
+
+// ===== Enlarged view =====
 let mItem = null; const mcv = $("m_cv");
-attachControls(mcv, () => mItem, () => render(mcv, mItem, $("m_axes").checked));
+attachControls(mcv, () => mItem, () => paint(mcv, mItem, $("m_axes").checked));
 function openModal(it){ mItem = it; $("modal").classList.add("show"); $("m_name").textContent = it.k + ".SH";
-  $("m_info").textContent = it.state === "ok" ? L(`${it.m.v.length} vertices · ${it.m.f.length} faces${it.m.subs.length ? ` · ${it.m.subs.length} parts` : ""} · scale ×${it.m.scale} · about L ${it.p.size[1]} · W ${it.p.size[0]} · H ${it.p.size[2]} ft`, `${it.m.v.length} 頂點・${it.m.f.length} 面${it.m.subs.length ? `・${it.m.subs.length} 個零件` : ""}・比例 ×${it.m.scale}・約 長 ${it.p.size[1]}・寬 ${it.p.size[0]}・高 ${it.p.size[2]} 呎`) : "";
-  renderFlags(); setupParts(it); requestAnimationFrame(() => render(mcv, it, $("m_axes").checked)); }
-$("m_close").onclick = () => { $("modal").classList.remove("show"); if (mItem) render(mItem.cv, mItem); mItem = null; };
+  want(it);
+  const info = () => { $("m_info").textContent = it.state === "ok" ? L(`${it.m.v.length} vertices · ${it.nFaces} faces (${it.nTex} textured)${it.m.subs.length ? ` · ${it.m.subs.length} parts` : ""} · L ${it.size[1]} · W ${it.size[0]} · H ${it.size[2]} ft${it.pic ? " · " + it.pic : ""}`, `${it.m.v.length} 頂點・${it.nFaces} 面（${it.nTex} 有貼圖）${it.m.subs.length ? `・${it.m.subs.length} 個零件` : ""}・長 ${it.size[1]}・寬 ${it.size[0]}・高 ${it.size[2]} 呎${it.pic ? "・" + it.pic : ""}`) : ""; };
+  info();
+  const rel = related(it.k);
+  $("m_rel").innerHTML = rel.length > 1 ? `<span style="color:var(--muted)">${L("Same object:", "同一物件：")}</span>` + rel.map(n => { const s = n.match(/_([A-DS])$/)?.[1];
+    const t = !s || n === baseOf(n) ? L("intact", "完整") : s === "S" ? L("shadow", "陰影") : L("wreck ", "殘骸 ") + s;
+    return `<button data-k="${n}" class="${n === it.k ? "on" : ""}">${n} · ${t}</button>`; }).join("") : "";
+  $("m_rel").querySelectorAll("button").forEach(b => b.onclick = () => openModal(byKey.get(b.dataset.k)));
+  renderFlags(); setupParts(it); requestAnimationFrame(() => paint(mcv, it, $("m_axes").checked));
+  if (it.state !== "ok") { const iv = setInterval(() => { if (mItem !== it){ clearInterval(iv); return; } if (it.state === "ok" || it.state === "bad" || it.state === "missing"){ clearInterval(iv); info(); setupParts(it); paint(mcv, it, $("m_axes").checked); } }, 150); }
+}
+$("m_close").onclick = () => { $("modal").classList.remove("show"); const it = mItem; mItem = null; if (it && it.state === "ok") paint(it.cv, it); };
 $("modal").onclick = e => { if (e.target === $("modal")) $("m_close").onclick(); };
-$("m_axes").onchange = () => mItem && render(mcv, mItem, $("m_axes").checked);
+$("m_axes").onchange = () => mItem && paint(mcv, mItem, $("m_axes").checked);
 $("m_flag").onclick = () => { if (!mItem) return; flags.has(mItem.k) ? flags.delete(mItem.k) : flags.add(mItem.k); saveFlags(); };
 window.addEventListener("keydown", e => { if (e.key === "Escape" && mItem) $("m_close").onclick(); });
-window.addEventListener("resize", () => { for (const it of items) if (it.state === "ok" && it.el.style.display !== "none") render(it.cv, it); });
+let rsT = 0; window.addEventListener("resize", () => { clearTimeout(rsT); rsT = setTimeout(() => { for (const it of visible) if (it.el.style.display !== "none") paint(it.cv, it); if (mItem) paint(mcv, mItem, $("m_axes").checked); }, 150); });
 renderFlags(); stat();
+// FA's palette (PIC/PALETTE.PAL); until it arrives the shapes are grey
+(async () => { let u8 = null; try { const r = await fetch(/^https?:$/.test(location.protocol) ? "../PIC/PALETTE.PAL" : REMOTE + "PIC/PALETTE.PAL"); if (r.ok) u8 = new Uint8Array(await r.arrayBuffer()); } catch(e){}
+  if (!u8) try { const r = await fetch(REMOTE + "PIC/PALETTE.PAL"); if (r.ok) u8 = new Uint8Array(await r.arrayBuffer()); } catch(e){}
+  if (u8){ setPal(palFromBytes(u8)); for (const it of visible) if (it.state === "ok") paint(it.cv, it); if (mItem) paint(mcv, mItem, $("m_axes").checked); } })();
+window.shGallery = { items, byKey, openModal, setMode };
 </script>
 </body>
 </html>
