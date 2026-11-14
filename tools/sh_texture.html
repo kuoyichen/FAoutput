@@ -130,6 +130,15 @@ function parseSH(u8){
     let uv = null; if (fl & 4){ uv = []; for (let k = 0; k < n; k++){ if (fl & 0x100){ uv.push([c[p], c[p+1]]); p += 2; } else { uv.push([cv.getUint16(p, true), cv.getUint16(p+2, true)]); p += 4; } } }
     idx.uv = uv; idx.col = c[t+3]; idx.fl = fl; f.push(idx); return p;
   };
+  // C4 00 x up fwd hdg pitch roll rel16 inside a hooked block (f18g_growler.py): draw the part at an offset (rotation 0).
+  // Each placement gets its own vertex slots, so one shared part can be drawn several times.
+  const placePart = (t, pos) => {
+    if (c[t] !== 0x82 || c[t+1] !== 0) return;
+    const n = cv.getUint16(t+2, true), tg = cv.getUint16(t+4, true) / 8, base = Math.max(v.length, 1000);
+    for (let i = 0; i < n; i++) v[base+i] = [cv.getInt16(t+6+6*i, true) + pos[0], cv.getInt16(t+8+6*i, true) + pos[2], cv.getInt16(t+10+6*i, true) + pos[1]];
+    let p = t + 6 + 6*n; while (c[p] === 0xF6) p += 7;
+    while (c[p] === 0xFC){ p = faceAt(p); const idx = f[f.length-1]; for (let k = 0; k < idx.length; k++) if (idx[k] >= tg && idx[k] < tg + n) idx[k] = base + idx[k] - tg; }
+  };
   const block = (t, from, seen) => {
     for (let guard = 0; guard < 2000 && t > 0 && t < L - 2 && !seen.has(t); guard++){
       seen.add(t);
@@ -137,6 +146,7 @@ function parseSH(u8){
         for (let i = 0; i < n; i++) v[tg+i] = [cv.getInt16(t+6+6*i, true), cv.getInt16(t+8+6*i, true), cv.getInt16(t+10+6*i, true)]; t += 6 + 6*n; }
       else if (c[t] === 0xF6) t += 7;
       else if (c[t] === 0xFC) t = faceAt(t);
+      else if (c[t] === 0xC4 && c[t+1] === 0){ placePart(t + 16 + cv.getInt16(t+14, true), [0,1,2].map(k => cv.getInt16(t+2+2*k, true))); t += 16; }
       else if ((c[t] === 0x06 || c[t] === 0x0C) && c[t+1] === 0){ const k = c[t] === 0x06 ? 14 : 10;
         for (const [r, e] of [[t+k, t+k+2], [t+k+2, t+k+4]]){ const g = e + cv.getInt16(r, true); if (g > from) block(g, from, seen); }
         t += k + 4; }
