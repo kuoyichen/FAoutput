@@ -224,7 +224,10 @@ function parseModel(u8in) {
   const u8 = u8in.slice(), pe = peInfo(u8), c = u8.subarray(pe.ro, pe.ro + pe.vs);
   const dv = new DataView(c.buffer, c.byteOffset, c.byteLength), stop = findSig(c);
   const shift = c.length > 8 ? dv.getUint16(6, true) : 8, scale = shift >= 4 && shift <= 16 ? Math.pow(2, shift - 8) : 1;
-  let start = 0x14; for (let o = 0; o < Math.min(stop, 0x400); o++) if (c[o] === 0xE2 && c[o + 1] === 0) { start = o + 16; break; }
+  // the texture op E2 00 "NAME.PIC" before the first vertex group; the name check matters, because an edited
+  // coordinate of 226 is also stored as the bytes E2 00
+  const picAt = o => { let s = ""; for (let k = 2; k < 16 && c[o + k]; k++) s += String.fromCharCode(c[o + k]); return /^[\w-]+\.PIC$/i.test(s); };
+  let start = 0x14; for (let o = 0; o < Math.min(stop, 0x400); o++) if (c[o] === 0xE2 && c[o + 1] === 0 && picAt(o)) { start = o + 16; break; }
   const M = { u8, pe, c, dv, stop, scale, shift, bufs: [], verts: [], faces: [], f6: [], insts: [I3()], lods: [], texNames: [], warnings: [] };
   for (let i = 0; i < u8.length - 16; i++) if (u8[i] === 0xE2 && u8[i + 1] === 0) { let s = ""; for (let k = 2; k < 16 && u8[i + k]; k++) s += String.fromCharCode(u8[i + k]); if (/^[\w-]+\.PIC$/i.test(s) && !M.texNames.includes(s.toUpperCase())) M.texNames.push(s.toUpperCase()); }
 
