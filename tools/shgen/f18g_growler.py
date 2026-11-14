@@ -8,10 +8,14 @@ Adds, as three shared sub-parts placed with C4 (so each shape is stored once):
 CODE only has ~1.7 KB free before .idata, hence the shared parts, flat-shaded faces (0x261, no F6 needed)
 and minimal facet counts.  Fins are drawn as two culled faces (front and back).
 
+Stores hang on pylons below the wing (store tops at up -2, wing at up 2-3); inside the tank and ALQ-99
+parts a plane node at the store top orders store and pylon.
 Draw order: the main BSP root (06 node at ROOT; everything incl. flaps and gear is drawn under it) is
-replaced by a call to a new block of plane tests.  Each side's stores are drawn after the body when the
-eye is on their side, below or in front (x + up - fwd < -20, mirrored for the right), otherwise before it;
-the centerline pod is drawn after the body only from below.  x planes (±33, ±55) order stores on a side.
+replaced by a call to nested plane tests (eye = x, up, fwd, eye position in model units, A then B when
+Σn·(eye+d) ≥ 0 -- checked in FA.EXE at 0x4d2450; C4 subtracts the part position from the eye).  Each store
+group is drawn after the body when its plane says the eye can see it in front of the body: underwing groups
+from below, their own side or the front at wing level; wingtip pods except low from the far side;
+the centerline pod from below.
 If CODE has too little room before .idata, the later sections are moved up in VA (grow_vas).
 Usage: python3 f18g_growler.py in/F18G.SH out/F18G.SH
 """
@@ -67,7 +71,7 @@ def tank():
     tail closed by one ring and a point."""
     sec = [(0, 5), (4, 4), (5, 0), (4, -4), (0, -5), (-4, -4), (-5, 0), (-4, 4)]
     V, F, _ = lathe(sec, [(28, 0, -1), (26, .45, -.5), (22, .8, 0), (14, 1, 0), (-12, 1, 0), (-20, .6, .5), (-25, 0, 1)])
-    return V, F
+    return V, F, pylon(V, (8, -10, 4), (12, -14, 10)), 4
 
 
 def alq99():
@@ -75,7 +79,20 @@ def alq99():
     two extra rings, flat tail."""
     sec = [(-2.5, 2.5), (2.5, 2.5), (2.5, -3.5), (-2.5, -3.5)]
     V, F, _ = lathe(sec, [(24, 0, -.5), (22, .45, -.3), (19, .8, 0), (14, 1, 0), (-22, 1, 0)])
-    return V, F
+    return V, F, pylon(V, (10, -10, 2), (13, -13, 6)), 2
+
+
+def pylon(V, bot, top):
+    """Pylon on top of a store: a 2-wide slab from the store top (fwd bot[0]..bot[1] at up bot[2]) up to the
+    wing (fwd top[0]..top[1] at up top[2]); the leading edge rakes forward going up.  Appends its 8 vertices
+    to V and returns its four side faces (top and bottom are hidden against the wing and the store)."""
+    b = len(V)
+    for (f, r, u) in (bot, top):
+        for x in (-1, 1): V += [(x, f, u), (x, r, u)]
+    # b+0 bot L front, +1 bot L rear, +2 bot R front, +3 bot R rear, +4..+7 the same on top
+    q = [[b, b+1, b+5, b+4], [b+2, b+3, b+7, b+6], [b, b+2, b+6, b+4], [b+1, b+3, b+7, b+5]]
+    P = V[b:]; cen = [sum(p[k] for p in P) / len(P) for k in range(3)]
+    return orient(V, [(FLAT, GREY, f) for f in q], cen)
 
 
 def alq218():
@@ -92,19 +109,27 @@ def alq218():
     return V, F
 
 
-def part_bytes(V, F):
+def faces_bytes(V, F):
+    return b''.join(face_bytes(fl, col, [BASE+i for i in idx], [V[i] for i in idx]) for fl, col, idx in F)
+
+
+def part_bytes(V, F, PY=None, top=0):
+    """82 vertex buffer + faces.  With a pylon PY, a plane node at the store top (up = top) draws the store
+    then the pylon when the eye is above it, else the pylon then the store, so the two never show through."""
     b = bytearray(struct.pack('<BBHH', 0x82, 0, len(V), BASE*8))
     for v in V: b += struct.pack('<hhh', *v)
-    for fl, col, idx in F:
-        b += face_bytes(fl, col, [BASE+i for i in idx], [V[i] for i in idx])
-    return b + b'\x00\x00'
+    if not PY: return b + faces_bytes(V, F) + b'\x00\x00'
+    n = len(b); A = faces_bytes(V, F) + b'\x00\x00'; oA = n + 20; oB = oA + len(A)
+    b += struct.pack('<BB6h', 0x06, 0, 0, 0, 16384, -top, 0, 0) + struct.pack('<hh', oA - (n+16), oB - (n+18)) + b'\x00\x00'
+    return b + A + faces_bytes(V, PY) + b'\x00\x00'
 
 
-# instance positions (x, up, fwd) in vertex units
+# instance positions (x, up, fwd) in vertex units.  The wing is a single surface at up ≈ 3 (x = 27) and
+# ≈ 2 (x = 40); the store tops sit at up -2 and the pylons reach up to the wing.  The belly is at up -7/-8.
 STORES = {
-    'Ltip': ('218', (-69, 1, -17)), 'Lalq': ('99', (-40, -2, -6)), 'Ltank': ('tank', (-27, -2, -2)),
-    'C':    ('99', (0, -10, -2)),
-    'Rtank': ('tank', (27, -2, -2)), 'Ralq': ('99', (40, -2, -6)), 'Rtip': ('218', (69, 1, -17)),
+    'Ltip': ('218', (-69, 1, -17)), 'Lalq': ('99', (-40, -4, -6)), 'Ltank': ('tank', (-27, -7, -2)),
+    'C':    ('99', (0, -12, -2)),
+    'Rtank': ('tank', (27, -7, -2)), 'Ralq': ('99', (40, -4, -6)), 'Rtip': ('218', (69, 1, -17)),
 }
 
 
@@ -185,7 +210,7 @@ def build(d):
     tail = bytes(c).find(SIG)
 
     # layout: nodes and leaves first, then the part bodies
-    order = ['PL', 'PR', 'PC', 'BODY', 'LG', 'LOUT', 'RG', 'ROUT'] + list(STORES)
+    order = ['PR', 'PRT', 'PL', 'PLT', 'PC', 'BODY', 'LG', 'RG'] + list(STORES)
     size = {k: 20 for k in order}
     size.update({k: 18 for k in STORES})
     at, p = {}, tail
@@ -196,25 +221,29 @@ def build(d):
         o = at[k]
         return struct.pack('<BB6h', 0x06, 0, nrm[0], dd[0], nrm[1], dd[1], nrm[2], dd[2]) + \
             struct.pack('<hh', at[a] - (o+16), at[b] - (o+18)) + b'\x00\x00'
-    X, UP, Q = (16384, 0, 0), (0, 16384, 0), 8192
+    X = (16384, 0, 0)
     blk = bytearray()
-    # Left stores are drawn after the body (so they cover it, and the lowered flaps) when the eye is to the
-    # left, below or in front: x + up - fwd < -20.  Same for the right with -x.  The centerline pod is drawn
-    # after the body only from below (up < -9), so the nose gear still covers it from the front.
-    blk += node('PL', (Q, Q, -Q), (20, 0, 0), 'LG', 'PR')
-    blk += node('PR', (-Q, Q, -Q), (-20, 0, 0), 'RG', 'PC')
-    blk += node('PC', UP, (0, 9, 0), 'C', 'BODY')
+    # Each group is drawn after everything nested inside it (so it covers the body, flaps and gear) when its
+    # "after" plane is ≥ 0, otherwise before.  Groups: right underwing, right tip, left underwing, left tip,
+    # centerline, then the body.  Directions for a distant eye:
+    #   underwing (left):  -0.5 x - up + 0.1 fwd ≥ 0  → seen from below, from the left, or from the front at
+    #                      wing level; from above, the far side and the rear they go first and the wing covers them
+    #   wingtip (left):    -x + 1.2 up ≥ 0            → everywhere except low from the right, where the fuselage hides it
+    #   centerline:        up ≤ -9                    → only from below
+    blk += node('PR', (8192, -16384, 1638), (-18, 6, 0), 'PRT', 'RG')
+    blk += node('PRT', (10923, 13107, 0), (-20, 0, 0), 'PL', 'Rtip')
+    blk += node('PL', (-8192, -16384, 1638), (18, 6, 0), 'PLT', 'LG')
+    blk += node('PLT', (-10923, 13107, 0), (20, 0, 0), 'PC', 'Ltip')
+    blk += node('PC', (0, -16384, 0), (0, 9, 0), 'BODY', 'C')
     o = at['BODY']; blk += bytes(c[ROOT:ROOT+14]) + struct.pack('<hh', TA - (o+16), TB - (o+18)) + b'\x00\x00'
-    blk += node('LG', X, (33, 0, 0), 'LOUT', 'Ltank')        # farther store first
-    blk += node('LOUT', X, (55, 0, 0), 'Ltip', 'Lalq')
-    blk += node('RG', X, (-33, 0, 0), 'Rtank', 'ROUT')
-    blk += node('ROUT', X, (-55, 0, 0), 'Ralq', 'Rtip')
+    blk += node('LG', X, (33, 0, 0), 'Lalq', 'Ltank')        # farther store first
+    blk += node('RG', X, (-33, 0, 0), 'Rtank', 'Ralq')
     for k, (pt, pos) in STORES.items():
         o = at[k]
         blk += struct.pack('<BB6h', 0xC4, 0, *pos, 0, 0, 0) + struct.pack('<h', at['P' + pt] - (o+16)) + b'\x00\x00'
     for k in parts: blk += parts[k]
     assert len(blk) == p - tail
-    patch = b'\x12\x00' + struct.pack('<h', at['PL'] - (ROOT+4)) + b'\x38' + struct.pack('<h', ROOT + 18 - (ROOT+7))
+    patch = b'\x12\x00' + struct.pack('<h', at['PR'] - (ROOT+4)) + b'\x38' + struct.pack('<h', ROOT + 18 - (ROOT+7))
     c[ROOT:ROOT+18] = patch + b'\x1e' * (18 - len(patch))
     room = nxt - code['va'] - len(c)
     nv = max(len(tank()[0]), len(alq99()[0]), len(alq218()[0]))
