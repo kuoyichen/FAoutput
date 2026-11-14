@@ -2,7 +2,7 @@
 """EA-18G Growler stores for F18G.SH (copied from F18F.SH).
 
 Adds, as three shared sub-parts placed with C4 (so each shape is stored once):
-  * 480-gal fuel tank      (hexagonal, pointed nose, tapered tail)  -> inboard stations, x = ±27
+  * 480-gal fuel tank      (octagonal, pointed nose, tapered tail)  -> inboard stations, x = ±27
   * ALQ-99 jammer pod      (box section, pointed nose, flat tail) -> midboard x = ±40 and centerline
   * ALQ-218 wingtip pod    (square-section rod, short nose/tail cones, 4 swept fins front and rear) -> x = ±69
 CODE only has ~1.7 KB free before .idata, hence the shared parts, flat-shaded faces (0x261, no F6 needed)
@@ -69,9 +69,9 @@ def lathe(sec, stations, col=GREY):
 def tank():
     """480-gal tank (inboard, the bigger store): octagon radius 5, nose rounded with two extra rings,
     tail closed by one ring and a point."""
-    sec = [(0, 5), (4, 4), (5, 0), (4, -4), (0, -5), (-4, -4), (-5, 0), (-4, 4)]
-    V, F, _ = lathe(sec, [(28, 0, -1), (26, .45, -.5), (22, .8, 0), (14, 1, 0), (-12, 1, 0), (-20, .6, .5), (-25, 0, 1)])
-    return V, F, pylon(V, (8, -10, 4), (12, -14, 10)), 4
+    sec = [(0, 4), (3, 3), (4, 0), (3, -3), (0, -4), (-3, -3), (-4, 0), (-3, 3)]
+    V, F, _ = lathe(sec, [(22, 0, -1), (21, .45, -.5), (18, .8, 0), (11, 1, 0), (-10, 1, 0), (-16, .6, .5), (-20, 0, 1)])
+    return V, F, pylon(V, (6, -8, 3), (10, -11, 9)), 3
 
 
 def alq99():
@@ -88,7 +88,7 @@ def pylon(V, bot, top):
     to V and returns its four side faces (top and bottom are hidden against the wing and the store)."""
     b = len(V)
     for (f, r, u) in (bot, top):
-        for x in (-1, 1): V += [(x, f, u), (x, r, u)]
+        for x in (-1, 0): V += [(x, f, u), (x, r, u)]     # 1 unit thick (vertex coordinates are integers)
     # b+0 bot L front, +1 bot L rear, +2 bot R front, +3 bot R rear, +4..+7 the same on top
     q = [[b, b+1, b+5, b+4], [b+2, b+3, b+7, b+6], [b, b+2, b+6, b+4], [b+1, b+3, b+7, b+5]]
     P = V[b:]; cen = [sum(p[k] for p in P) / len(P) for k in range(3)]
@@ -127,9 +127,9 @@ def part_bytes(V, F, PY=None, top=0):
 # instance positions (x, up, fwd) in vertex units.  The wing is a single surface at up ≈ 3 (x = 27) and
 # ≈ 2 (x = 40); the store tops sit at up -2 and the pylons reach up to the wing.  The belly is at up -7/-8.
 STORES = {
-    'Ltip': ('218', (-69, 1, -17)), 'Lalq': ('99', (-40, -4, -6)), 'Ltank': ('tank', (-27, -7, -2)),
+    'Ltip': ('218', (-69, 1, -17)), 'Lalq': ('99', (-40, -4, -6)), 'Ltank': ('tank', (-27, -6, -2)),
     'C':    ('99', (0, -12, -2)),
-    'Rtank': ('tank', (27, -7, -2)), 'Ralq': ('99', (40, -4, -6)), 'Rtip': ('218', (69, 1, -17)),
+    'Rtank': ('tank', (27, -6, -2)), 'Ralq': ('99', (40, -4, -6)), 'Rtip': ('218', (69, 1, -17)),
 }
 
 
@@ -226,13 +226,13 @@ def build(d):
     # Each group is drawn after everything nested inside it (so it covers the body, flaps and gear) when its
     # "after" plane is ≥ 0, otherwise before.  Groups: right underwing, right tip, left underwing, left tip,
     # centerline, then the body.  Directions for a distant eye:
-    #   underwing (left):  -0.5 x - up + 0.1 fwd ≥ 0  → seen from below, from the left, or from the front at
-    #                      wing level; from above, the far side and the rear they go first and the wing covers them
+    #   underwing (left):  -0.15 x - up + 0.08 fwd ≥ 0 → seen from below the wing, from the left or the front at
+    #                      wing level; from any height above the wing, the far side or the rear they go first
     #   wingtip (left):    -x + 1.2 up ≥ 0            → everywhere except low from the right, where the fuselage hides it
     #   centerline:        up ≤ -9                    → only from below
-    blk += node('PR', (8192, -16384, 1638), (-18, 6, 0), 'PRT', 'RG')
+    blk += node('PR', (2458, -16384, 1311), (-18, -2, 0), 'PRT', 'RG')
     blk += node('PRT', (10923, 13107, 0), (-20, 0, 0), 'PL', 'Rtip')
-    blk += node('PL', (-8192, -16384, 1638), (18, 6, 0), 'PLT', 'LG')
+    blk += node('PL', (-2458, -16384, 1311), (18, -2, 0), 'PLT', 'LG')
     blk += node('PLT', (-10923, 13107, 0), (20, 0, 0), 'PC', 'Ltip')
     blk += node('PC', (0, -16384, 0), (0, 9, 0), 'BODY', 'C')
     o = at['BODY']; blk += bytes(c[ROOT:ROOT+14]) + struct.pack('<hh', TA - (o+16), TB - (o+18)) + b'\x00\x00'
