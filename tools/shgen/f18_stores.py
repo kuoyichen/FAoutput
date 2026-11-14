@@ -13,8 +13,8 @@ drawn straight from FA's memory (all addresses checked in FA.EXE, base 0x400000,
   * weapon type: byte +0 = class (7 = .JT weapon, 8 = .GAS tank); for .JT, dword +5 = short name ("AIM-9M").
 The routine picks a store kind from the name (AIM-9 / other AIM / AGM / GBU / Mk-8x or CBU bomb / tank),
 then hands control back to the bytecode at that kind's C4 list (or an empty one), via do_start_interp.
-A slot with rank r is drawn while the station still has at least r rounds: right side rank 1, left side
-rank 2, so the left store of a pair goes first.  Pylons are drawn always, so they stay after firing; tanks
+A slot with rank r is drawn while the station still has at least r rounds: left side rank 1, right side
+rank 2, so the right store of a pair goes first (as FA fires them).  Pylons are drawn always, so they stay after firing; tanks
 disappear when used up or jettisoned (their count drops to 0).  When no aircraft object is being drawn,
 each slot shows the .PT default loadout.
 
@@ -109,12 +109,12 @@ SHAPES = {TANK: tank330, AIM9: aim9, AAM: aim120, ARM: harm, LGB: gbu10, BOMB: m
 
 # ---------------------------------------------------------------- slots: (station, rank, default kind, attach x, up, fwd)
 # x / fwd from F18.PT; up = pylon bottom (wing pylons) or a point just under the belly / on the wingtip rail
-SLOTS = {
-    'R6': (6, 1, LGB, (25, -4, -3)),  'L6': (6, 2, LGB, (-25, -4, -3)),
-    'R7': (7, 1, ARM, (41, -4, -6)),  'L7': (7, 2, ARM, (-41, -4, -6)),
-    'R8': (8, 1, AIM9, (57, 1, -9)),  'L8': (8, 2, AIM9, (-57, 1, -9)),
+SLOTS = {   # right side rank 2, left side rank 1: FA fires the right store of a pair first (seen in game)
+    'R6': (6, 2, LGB, (25, -4, -3)),  'L6': (6, 1, LGB, (-25, -4, -3)),
+    'R7': (7, 2, ARM, (41, -4, -6)),  'L7': (7, 1, ARM, (-41, -4, -6)),
+    'R8': (8, 2, AIM9, (57, 1, -9)),  'L8': (8, 1, AIM9, (-57, 1, -9)),
     'C4': (4, 1, TANK, (0, -9, 0)),
-    'R5': (5, 1, AAM, (10, -7, 0)),   'L5': (5, 2, NONE, (-10, -7, 0)),
+    'R5': (5, 2, NONE, (10, -7, 0)),  'L5': (5, 1, AAM, (-10, -7, 0)),
 }
 PYLONS = {'pyW': pylon(6, (6, -7), (9, -10)), 'pyC': pylon(3, (5, -6), (6, -7))}
 
