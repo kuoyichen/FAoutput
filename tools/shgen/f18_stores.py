@@ -6,7 +6,8 @@ But F0 blocks are native x86, so each store slot here runs a small routine that 
 drawn straight from FA's memory (all addresses checked in FA.EXE, base 0x400000, not relocatable):
   * 0x4ab450 is called before every object is drawn: [0x51ce26] = object handle, word [0x580bec] = its index
     (handle 0 or bit 31 = not an object, e.g. a shape drawn on a menu screen).
-  * object = [0x553848 + index*4]; byte +0 = class (4 = aircraft); byte +0x49D = number of stations;
+  * object = [0x553848 + index*4]; byte +0 = class (4 = aircraft); (byte +0x49D = number of stations is only
+    filled in FA's working copy at 0x50CE80, it is 0 in the real objects, so it is not used);
     station i record = object + [object+0x114] + i*0x11 (0x452770): dword +0 = weapon type, u16 +4 = count
     (& 0x7fff; 0x7fff = unlimited).  Station i is hardpoint i of the .PT file.
   * weapon type: byte +0 = class (7 = .JT weapon, 8 = .GAS tank); for .JT, dword +5 = short name ("AIM-9M").
@@ -154,8 +155,7 @@ def sub_bytes(sub_at, thunk_at):
         je DEFAULT
         cmp byte ptr [ecx], 4
         jne DEFAULT
-        movzx edx, byte ptr [ecx + 0x49d]
-        cmp esi, edx
+        cmp esi, 16
         jae NONE
         imul esi, esi, 0x11
         add esi, dword ptr [ecx + 0x114]
