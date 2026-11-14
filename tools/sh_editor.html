@@ -771,19 +771,32 @@ async function save(asNew){
   const { bytes, report } = S.buildFile(M, { renormal: $("optNorm").checked, f6: $("optF6").checked });
   const sum = L(`${report.verts} points moved, ${report.faces} face normals and ${report.f6} F6 normals recomputed${report.deleted ? `, ${report.deleted} faces removed` : ""}${report.flipped ? `, ${report.flipped} flipped` : ""}${report.recoloured ? `, ${report.recoloured} recoloured` : ""}${report.skipped ? `, ${report.skipped} faces skipped (degenerate)` : ""}`,
     `移動 ${report.verts} 點，重算 ${report.faces} 個面法向量、${report.f6} 個 F6 法向量${report.deleted ? `，刪除 ${report.deleted} 面` : ""}${report.flipped ? `，翻面 ${report.flipped}` : ""}${report.recoloured ? `，改色 ${report.recoloured}` : ""}${report.skipped ? `，略過 ${report.skipped} 面（退化）` : ""}`);
+  const download = (why, name = cur.name) => {
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    msg((why ? why + " " : "") + L(`Downloaded ${name}: ${sum}`, `已下載 ${name}：${sum}`), !!why);
+  };
+  const write = async h => { const w = await h.createWritable(); try { await w.write(bytes); await w.close(); } catch (e){ try { await w.abort(); } catch (_){} throw e; } };
   try {
     if (!asNew && cur.handle){
-      const w = await cur.handle.createWritable(); await w.write(bytes); await w.close();
+      await write(cur.handle);
       msg(L(`Saved ${cur.name}: ${sum}`, `已存檔 ${cur.name}：${sum}`));
     } else if (window.showSaveFilePicker){
-      const h = await showSaveFilePicker({ suggestedName: cur.name, id: "sh-editor-save", types: [{ description: "FA shape", accept: { "application/octet-stream": [".SH"] } }] });
-      const w = await h.createWritable(); await w.write(bytes); await w.close(); cur.handle = h; cur.name = h.name;
+      let h;
+      // a cancelled picker is the only error that stays quiet
+      try { h = await showSaveFilePicker({ suggestedName: cur.name, startIn: cur.handle || dirHandle || "documents", types: [{ description: "FA shape", accept: { "application/octet-stream": [".SH"] } }] }); }
+      catch (e){ if (e.name === "AbortError") return; throw e; }
+      try { await write(h); }
+      catch (e){
+        // Chrome can refuse to finish writing a file picked this way (".SH" looks like a shell script to it);
+        // inside the opened folder, write it through the folder instead, which is how Save works
+        const inDir = dirHandle && await dirHandle.resolve(h).catch(() => null);
+        if (!inDir){ download(L(`Could not write ${h.name} (${e.message}).`, `無法寫入 ${h.name}（${e.message}）。`), h.name); return; }
+        h = await dirHandle.getFileHandle(h.name, { create: true }); await write(h);
+      }
+      cur.handle = h; cur.name = h.name;
       $("stFile").innerHTML = `<b>${h.name}</b>${L(" (Save overwrites it)", "（存檔會覆寫它）")}`; msg(L(`Saved ${h.name}: ${sum}`, `已存檔 ${h.name}：${sum}`));
-    } else {
-      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([bytes])); a.download = cur.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-      msg(L(`Downloaded ${cur.name}: ${sum}`, `已下載 ${cur.name}：${sum}`));
-    }
-  } catch(e){ if (e.name !== "AbortError") msg(L("Save failed: ", "存檔失敗：") + e.message, true); return; }
+    } else download();
+  } catch(e){ msg(L("Save failed: ", "存檔失敗：") + e.name + " " + e.message, true); console.error(e); return; }
   // the saved bytes become the new baseline (normals included), edits can continue
   const keep = { lod: $("lod").value }; const name = cur.name, handle = cur.handle, pic = cur.pic;
   M = S.parseModel(bytes); cur = { name, handle, pic, fromDir: !!handle }; M.place({ gear: $("gear").checked });
@@ -870,7 +883,7 @@ function pushKey(){
 addEventListener("beforeunload", e => { if (undoS.length){ e.preventDefault(); e.returnValue = ""; } });
 
 // for scripting and tests from the browser console
-window.shEditor = { pushKey, typedDistance, get drag(){ return drag; }, endDrag, get model(){ return M; }, screenOf, get selection(){ return [...sel]; }, get undoCount(){ return undoS.length; }, get display(){ return D; }, select(keys){ sel = new Set(keys); rebuild(true); }, moveBy: moveSelectionBy, setView, setMode, build: o => S.buildFile(M, o) };
+window.shEditor = { set dirHandle(h){ dirHandle = h; }, pushKey, typedDistance, get drag(){ return drag; }, endDrag, get model(){ return M; }, screenOf, get selection(){ return [...sel]; }, get undoCount(){ return undoS.length; }, get display(){ return D; }, select(keys){ sel = new Set(keys); rebuild(true); }, moveBy: moveSelectionBy, setView, setMode, build: o => S.buildFile(M, o) };
 
 // ---------- language ----------
 FAI18N.register({
