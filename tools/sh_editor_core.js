@@ -238,6 +238,10 @@ function parseModel(u8in) {
   const addBuf = (o, b, lod, hooked) => {
     const id = M.bufs.length, rec = { id, o, n: b.n, slot: b.slot, lod, hooked, v0: M.verts.length, tf: 0 };
     M.bufs.push(rec);
+    // the same 82 record reached again (a hooked block called from several hook sites): share its vertices,
+    // otherwise each copy is edited on its own and Save writes the untouched copy back over the edit
+    const prev = M.bufs.find(q => q !== rec && q.o === o && q.n === b.n);
+    if (prev) { rec.v0 = prev.v0; rec.alias = prev.id; return rec; }
     for (let i = 0; i < b.n; i++) { const at = o + 6 + 6 * i; M.verts.push({ id: M.verts.length, buf: id, local: i, at, p: [dv.getInt16(at, true), dv.getInt16(at + 2, true), dv.getInt16(at + 4, true)] }); }
     return rec;
   };
