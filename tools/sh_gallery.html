@@ -56,8 +56,6 @@ details.sec .grid{padding-top:0}
 #m_parts .plist{display:flex;flex-wrap:wrap;gap:2px 14px;color:var(--muted)}
 #m_parts .plist label{display:flex;gap:4px;align-items:center;cursor:pointer}
 #m_parts details summary{cursor:pointer;color:var(--muted);margin-top:6px}
-#flagbar{position:sticky;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);padding:8px 16px;display:flex;gap:10px;align-items:center;margin-top:12px}
-#flaglist{flex:1;font-family:ui-monospace,Consolas,monospace;color:var(--bad);overflow:auto;white-space:nowrap}
 #hint{color:var(--muted);font-size:12px}
 @media (max-width:600px){ .grid{grid-template-columns:repeat(2,1fr);gap:8px;padding:8px} header{padding:8px} details.sec{margin:8px} }
 a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
@@ -74,7 +72,6 @@ a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spa
     <option value="ok">Parsed only</option>
     <option value="all">All</option>
     <option value="fail">Failed only</option>
-    <option value="flag">Flagged only</option>
   </select>
   <label class="btn" title="Use SH / PIC files from a folder on this computer instead of the site">Choose SH / PIC folder<input id="dir" type="file" webkitdirectory multiple hidden></label>
   <span id="langSlot"></span>
@@ -84,10 +81,9 @@ a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spa
 <div class="grid" id="grid"></div>
 <details class="sec" id="sec_wreck"><summary><span>Destroyed wreckage</span> <small id="n_wreck"></small></summary><div class="grid" id="grid_wreck"></div></details>
 <details class="sec" id="sec_shadow"><summary><span>Shadows</span> <small id="n_shadow"></small></summary><div class="grid" id="grid_shadow"></div></details>
-<div id="flagbar"><span>Flagged:</span><span id="flaglist"></span><button id="copy">Copy list</button><button id="clear">Clear</button></div>
 <div id="modal"><div class="box">
   <div class="bar"><b id="m_name"></b><span id="m_info" style="color:var(--muted)"></span><span style="flex:1"></span>
-    <label><input type="checkbox" id="m_axes" checked> Axes</label><button id="m_flag">Problem</button><button id="m_close">Close</button></div>
+    <label><input type="checkbox" id="m_axes" checked> Axes</label><button id="m_close">Close</button></div>
   <canvas id="m_cv"></canvas>
   <div id="m_rel"></div>
   <div id="m_parts"></div>
@@ -574,13 +570,12 @@ const visible = new Set();
 function redrawItem(it){ if (visible.has(it) && it.el.style.display !== "none") paint(it.cv, it); if (mItem === it) paint($("m_cv"), it, $("m_axes").checked); }
 for (const it of items){
   const el = document.createElement("div"); el.className = "card"; it.el = el;
-  el.innerHTML = `<canvas></canvas><div class="meta"><span class="nm">${it.k}</span><span class="info"></span></div><div class="acts"><button class="big">${L("Enlarge", "放大")}</button><button class="rs">${L("Reset", "重設")}</button><button class="fl">${L("Problem", "有問題")}</button></div>`;
+  el.innerHTML = `<canvas></canvas><div class="meta"><span class="nm">${it.k}</span><span class="info"></span></div><div class="acts"><button class="big">${L("Enlarge", "放大")}</button><button class="rs">${L("Reset", "重設")}</button></div>`;
   it.cv = el.querySelector("canvas"); it.info = el.querySelector(".info");
   attachControls(it.cv, () => it, () => paint(it.cv, it));
   it.cv.addEventListener("dblclick", () => openModal(it));
   el.querySelector(".big").onclick = () => openModal(it);
   el.querySelector(".rs").onclick = () => { it.view = VIEW0(); paint(it.cv, it); };
-  el.querySelector(".fl").onclick = () => { flags.has(it.k) ? flags.delete(it.k) : flags.add(it.k); saveFlags(); };
   $(it.grp === "main" ? "grid" : "grid_" + it.grp).appendChild(el);
 }
 function setParsed(it, u8){
@@ -608,10 +603,8 @@ function filterOne(it){
   let vis = !q || it.k.includes(q);
   if (show === "ok") vis &&= it.state !== "bad" && it.state !== "missing";
   if (show === "fail") vis &&= it.state === "bad" || it.state === "missing";
-  if (show === "flag") vis &&= flags.has(it.k);
   const was = it.el.style.display !== "none";
   it.el.style.display = vis ? "" : "none";
-  it.el.classList.toggle("flag", flags.has(it.k)); it.el.querySelector(".fl").classList.toggle("on", flags.has(it.k));
   if (vis && !was && visible.has(it)) paint(it.cv, it);
 }
 function filter(){ for (const it of items) filterOne(it);
@@ -621,15 +614,13 @@ let statT = 0; const statSoon = () => { if (!statT) statT = setTimeout(() => { s
 function stat(){ const main = items.filter(i => i.grp === "main"), ok = main.filter(i => i.state === "ok").length, bad = main.filter(i => i.state === "bad").length, miss = main.filter(i => i.state === "missing").length, done = ok + bad + miss;
   $("stat").textContent = L(`${main.length} shapes (+${SH_GROUPS.wreck.length} wreckage, ${SH_GROUPS.shadow.length} shadows): ${ok} parsed, ${bad} failed${miss ? `, ${miss} unreadable` : ""}${done < main.length ? ` (${done} loaded)` : ""}`,
     `${main.length} 個外型（另有殘骸 ${SH_GROUPS.wreck.length}、陰影 ${SH_GROUPS.shadow.length}）：解得出 ${ok}、解不出 ${bad}${miss ? `、讀不到 ${miss}` : ""}${done < main.length ? `（已載入 ${done}）` : ""}`); }
-function renderFlags(){ const l = [...flags].sort(); $("flaglist").textContent = l.length ? l.join(" ") : L("(press “Problem” on a card to flag it)", "（按卡片上的「有問題」標記）"); for (const it of items) filterOne(it); $("m_flag").classList.toggle("on", !!mItem && flags.has(mItem.k)); }
+function renderFlags(){}
 $("q").oninput = filter; $("show").onchange = filter;
 function setMode(m){ MODE = m; try { localStorage.setItem("fa_gallery_mode", m); } catch(e){}
   for (const b of $("modes").children) b.classList.toggle("on", b.dataset.m === m);
   for (const it of visible) if (it.el.style.display !== "none") paint(it.cv, it); if (mItem) paint($("m_cv"), mItem, $("m_axes").checked); }
 for (const b of $("modes").children) b.onclick = () => setMode(b.dataset.m);
 for (const b of $("modes").children) b.classList.toggle("on", b.dataset.m === MODE);
-$("copy").onclick = async () => { const t = [...flags].sort().join(" "); try { await navigator.clipboard.writeText(t); $("copy").textContent = L("Copied", "已複製"); setTimeout(() => $("copy").textContent = L("Copy list", "複製清單"), 1200); } catch(e){ prompt(L("Copy this:", "複製這串："), t); } };
-$("clear").onclick = () => { if (confirm(L("Clear all flags?", "清除所有標記？"))){ flags.clear(); saveFlags(); } };
 $("dir").onchange = async e => {
   for (const f of e.target.files){ const n = f.name.toUpperCase();
     if (n.endsWith(".SH")) dirSH.set(n.slice(0, -3), f); else if (n.endsWith(".PIC")) dirPIC.set(n, f);
@@ -715,7 +706,6 @@ function openModal(it){ mItem = it; $("modal").classList.add("show"); $("m_name"
 $("m_close").onclick = () => { $("modal").classList.remove("show"); const it = mItem; mItem = null; if (it && it.state === "ok") paint(it.cv, it); };
 $("modal").onclick = e => { if (e.target === $("modal")) $("m_close").onclick(); };
 $("m_axes").onchange = () => mItem && paint(mcv, mItem, $("m_axes").checked);
-$("m_flag").onclick = () => { if (!mItem) return; flags.has(mItem.k) ? flags.delete(mItem.k) : flags.add(mItem.k); saveFlags(); };
 window.addEventListener("keydown", e => { if (e.key === "Escape" && mItem) $("m_close").onclick(); });
 let rsT = 0; window.addEventListener("resize", () => { clearTimeout(rsT); rsT = setTimeout(() => { for (const it of visible) if (it.el.style.display !== "none") paint(it.cv, it); if (mItem) paint(mcv, mItem, $("m_axes").checked); }, 150); });
 renderFlags(); stat();
