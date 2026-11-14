@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FAshion</title>
-<meta name="description" content="FAshion: designing and refining .SH shapes for Fighters Anthology.">
+<meta name="description" content="FAshion by hawke (kuoyichen): new and improved .SH shapes and new features for Fighters Anthology.">
 <style>
 :root{ --bg:#0e1216; --card:#161c22; --line:#26303a; --text:#e2e8ee; --muted:#8a96a4; --accent:#ffd54a; --cyan:#6fd3ff; }
 *{box-sizing:border-box}
@@ -39,6 +39,8 @@ body.open #menu{transform:none}
 #title{position:absolute;left:clamp(16px,6vw,80px);bottom:clamp(70px,14vh,150px);z-index:2;max-width:560px;pointer-events:none}
 #title h1{margin:0;font-size:clamp(46px,9vw,96px);line-height:1;font-weight:800;letter-spacing:-1px}
 #title h1 b{color:var(--accent)}
+#title .by{font-size:14px;color:var(--muted);margin-top:8px;pointer-events:auto}
+#title .by b{color:var(--text)}
 #title p{margin:12px 0 0;font-size:clamp(15px,2vw,19px);color:#c4ccd5}
 #title .tag{display:inline-flex;gap:16px;margin-top:16px;font-size:12px;color:var(--muted);letter-spacing:.4px}
 #title .tag span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
@@ -83,6 +85,7 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
   <div class="soon"><span class="ico">✎</span>New F-14 Tomcat<i>soon</i></div>
   <div class="soon"><span class="ico">◩</span>Texture (PIC) viewer<i>soon</i></div>
   <div class="soon"><span class="ico">⬢</span>3D model to SH converter<i>soon</i></div>
+  <div class="soon"><span class="ico">⚙</span>Game feature mods<i>soon</i></div>
   <div class="soon"><span class="ico">⬇</span>Download library<i>soon</i></div>
   <div class="soon"><span class="ico">?</span>About &amp; install guide<i>soon</i></div>
 </nav>
@@ -92,7 +95,8 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
   <canvas id="cv"></canvas>
   <div id="title">
     <h1>FA<b>shion</b></h1>
-    <p>Designing and refining aircraft shapes for <em>Fighters Anthology</em>. New and improved .SH models, ready to drop into your game.</p>
+    <p>Improving <em>Fighters Anthology</em>: new and refined .SH shapes, plus new features for the game, from flight recording and mission replay to tools for modders.</p>
+    <p class="by">by <b>hawke</b> (<a href="https://github.com/kuoyichen">kuoyichen</a>)</p>
     <div class="tag"><span class="t">Textured</span><span class="w">Shape (no texture)</span></div>
   </div>
   <div id="status">Loading F-14…</div>
@@ -100,7 +104,7 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
 
 <main id="releases">
   <h2>Releases</h2>
-  <p class="sub">Each release is a set of reworked models with an interactive 3D viewer and downloads.</p>
+  <p class="sub">New shapes and new features for FA, newest first.</p>
   <a class="rel" href="tools/f18_showcase.html">
     <div><time datetime="2026-11-14">Nov 14, 2026</time><span class="no">#1</span></div>
     <div>
@@ -112,7 +116,7 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
   </a>
   <div class="next">Next up: a rebuilt F-14 Tomcat. Watch this space.</div>
 </main>
-<footer>FAshion is a fan project for Jane's Fighters Anthology. Models and tools are on <a href="https://github.com/kuoyichen/FAoutput">GitHub</a>.</footer>
+<footer>FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (kuoyichen). Models, tools and source are on <a href="https://github.com/kuoyichen/FAoutput">GitHub</a>.</footer>
 
 <script>
 "use strict";
@@ -500,7 +504,7 @@ function matrix(){
   const cy = Math.cos(view.yaw), sy = Math.sin(view.yaw), cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
   const R = [cy, sy*sp, -sy*cp, 0,  0, cp, sp, 0,  sy, -cy*sp, cy*cp, 0,  0, 0, 0, 1];
   const T = [1,0,0,0, 0,1,0,0, 0,0,1,0, -cur.center[0], -cur.center[1], -cur.center[2], 1];
-  const sx = asp > 1.25 ? r * 0.5 : 0, syo = asp > 1.25 ? r * 0.12 : r * 0.3;
+  const sx = 0, syo = asp > 1.25 ? r * 0.1 : r * 0.3;
   const V = [1,0,0,0, 0,1,0,0, 0,0,1,0, sx,syo,-dist,1];
   return mul(P, mul(V, mul(R, T)));
 }
