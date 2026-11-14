@@ -253,12 +253,15 @@ def build(d):
     blk += node('PYR', (0, -16384, 0), (0, -2, 0), 'PYL', 'RPY')
     blk += node('PYL', (0, -16384, 0), (0, -2, 0), 'PC', 'LPY')
     blk += node('PC', (0, -16384, 0), (0, 9, 0), 'BODY', 'C')
-    # The original root splits the body into a left and a right half (far half first).  The centerline pod is
-    # also drawn between the two halves (MID), so from the side it covers the far main wheel's upper part while
-    # the near wheel is drawn over it.  From below PC draws it once more, last, over everything.
-    at['TB'] = TB
-    o = at['BODY']; blk += bytes(c[ROOT:ROOT+14]) + struct.pack('<hh', TA - (o+16), at['MID'] - (o+18)) + b'\x00\x00'
-    blk += node('MID', X, (0, 0, 0), 'C', 'TB')      # eye right: pod then right half; eye left: right half then pod
+    # The main wheels are not split by the root but by the node at TA (right-gear subtree A, left-gear subtree
+    # B, far side first; found with a tree walk).  The centerline pod is drawn between that node's two halves
+    # (MID: same plane, B' = pod then B or B then pod), so from the side it covers the upper part of the far
+    # main wheel while the near wheel is drawn over it.  From below PC draws it once more, last.
+    assert c[TA] == 0x06 and c[TA+1] == 0, 'TA is not a plane node'
+    TAB = TA + 18 + struct.unpack_from('<h', c, TA+16)[0]; at['TAB'] = TAB
+    o = at['BODY']; blk += bytes(c[ROOT:ROOT+14]) + struct.pack('<hh', TA - (o+16), TB - (o+18)) + b'\x00\x00'
+    o = at['MID']; blk += bytes(c[TA:TA+14]) + struct.pack('<hh', at['C'] - (o+16), TAB - (o+18)) + b'\x00\x00'
+    struct.pack_into('<h', c, TA+16, at['MID'] - (TA+18))
     blk += node('LG', X, (33, 0, 0), 'Lalq', 'Ltank')        # farther store first
     blk += node('RG', X, (-33, 0, 0), 'Rtank', 'Ralq')
     for k, items in leaves.items():
