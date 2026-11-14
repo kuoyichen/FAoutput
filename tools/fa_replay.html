@@ -20,7 +20,7 @@ canvas:active{cursor:grabbing}
 /* 疊加面板（參考 ACMI 風格） */
 .ov{position:absolute;background:var(--panel);color:var(--ink);border:1px solid var(--panel-line);border-radius:3px;
     box-shadow:0 2px 10px rgba(0,0,0,.25);font-family:Georgia,"Times New Roman","Microsoft JhengHei",serif}
-#tlbox{left:12px;top:10px;padding:6px 12px 8px;min-width:230px;clip-path:polygon(0 0,100% 0,100% 70%,93% 100%,0 100%)}
+#tlbox{left:12px;top:36px;padding:6px 12px 8px;min-width:230px;clip-path:polygon(0 0,100% 0,100% 70%,93% 100%,0 100%)}
 #tlbox .big{font-size:18px;letter-spacing:.02em}
 #tlbox .row{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:15px}
 #tlbox button{font:inherit;font-size:13px;background:transparent;border:0;color:var(--ink);cursor:pointer;padding:0;text-decoration:underline dotted}
@@ -87,12 +87,15 @@ aside h2:first-child{margin-top:2px}
 aside .shrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 aside .btn.sm{padding:2px 8px;font-size:12px;cursor:pointer}
 #shlist{font-size:11px;color:var(--muted)}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+a.fhome.fx{position:absolute;left:12px;top:10px;z-index:5;text-shadow:0 1px 3px #000}
 </style>
 </head>
 <body>
 <div id="app">
 <div id="view">
   <canvas id="cv"></canvas>
+  <a class="fhome fx" href="../" title="FAshion home">FA<b>shion</b></a>
   <div class="ov" id="tlbox">
     <div class="big" id="clock">T+ 0:00.0</div>
     <div class="row"><span>播放：<span id="spdlbl">1×</span></span><span id="playlbl">▶</span></div>
