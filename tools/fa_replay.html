@@ -89,6 +89,27 @@ aside .btn.sm{padding:2px 8px;font-size:12px;cursor:pointer}
 #shlist{font-size:11px;color:var(--muted)}
 a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
 a.fhome.fx{position:absolute;left:12px;top:10px;z-index:5;text-shadow:0 1px 3px #000}
+/* 線上任務 */
+#mbox{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+#mbox.hide{display:none}
+#mbox .mpanel{background:var(--dark);border:1px solid var(--line);border-radius:10px;width:min(720px,100%);max-height:86vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+#mbox .mhead{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line);font-size:15px}
+#mbox .mhead button{padding:2px 9px}
+#m_body{padding:12px 14px;overflow:auto;display:flex;flex-direction:column;gap:8px}
+#m_body p{margin:4px 0}
+#mbox .mup{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#mbox .mup button{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mbox .mmuted{color:var(--muted)} #mbox .msmall{font-size:12px}
+#mbox .mmsg{min-height:18px;word-break:break-all} #mbox .mmsg.err{color:#ff7a66} #mbox .mmsg.ok{color:#5fd38d}
+#mbox a.mlink{color:var(--accent)}
+#mbox .mlist{overflow:auto;border:1px solid var(--line);border-radius:6px}
+#mbox table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+#mbox th{position:sticky;top:0;background:var(--dark2);color:var(--muted);font-weight:600;text-align:left;font-size:12px}
+#mbox th,#mbox td{padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+#mbox td.mn{max-width:260px;overflow:hidden;text-overflow:ellipsis}
+#mbox tr.cur td{color:var(--accent)}
+#mbox td button{padding:2px 8px;font-size:12px}
+@media (max-width:560px){ #mbox th:nth-child(3),#mbox td:nth-child(3){display:none} #mbox td.mn{max-width:140px} }
 </style>
 <script src="fashion_i18n.js"></script>
 </head>
@@ -160,6 +181,7 @@ a.fhome.fx{position:absolute;left:12px;top:10px;z-index:5;text-shadow:0 1px 3px 
 
 <footer>
   <label class="btn">開啟 .bin<input id="file" type="file" accept=".bin" hidden><input id="shapefile" type="file" accept="image/*" hidden></label>
+  <button id="onlinebtn" title="線上任務">☁ 線上</button>
   <button id="play" title="播放 / 暫停">▶</button>
   <select id="speed" title="播放速度">
     <option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option>
@@ -369,6 +391,7 @@ function load(buf, name){
   $("mission").innerHTML = data.segs.map((sg, i) => `<option value="${i}">${L(`Mission ${i+1} (${Math.round(sg[sg.length-1].t - sg[0].t)} s)`, `任務 ${i+1}（${Math.round(sg[sg.length-1].t - sg[0].t)} 秒）`)}</option>`).join("");
   $("mission").classList.toggle("hide", data.segs.length < 2);
   buildMission(0);
+  if (window.onMissionLoaded) window.onMissionLoaded(buf, name);
 }
 function buildMission(k){
   data.frames = data.segs[k]; const name = loadedName + (data.segs.length > 1 ? L(` · mission ${k+1}/${data.segs.length}`, ` · 任務 ${k+1}/${data.segs.length}`) : "");
@@ -1645,5 +1668,6 @@ FAI18N.onChange(() => { document.title = L("FA Mission Replay", "FA 任務重播
     buildMission(k); now = t; selKey = sk; fillModelSelect(true); update(); } });
 </script>
 <script src="fa_cine.js"></script>
+<script src="fa_missions.js"></script>
 </body>
 </html>

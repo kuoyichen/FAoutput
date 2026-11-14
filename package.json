@@ -1,0 +1,10 @@
+{
+  "name": "fashion",
+  "private": true,
+  "type": "module",
+  "description": "FAshion site: static pages plus /api routes for online mission storage (Vercel Blob)",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@vercel/blob": "2.8.2"
+  }
+}
