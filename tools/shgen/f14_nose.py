@@ -38,10 +38,12 @@ GUN_VERTS = (158, 161, 216, 217)       # 這兩個貼圖在 y>95 的角點
 #   光影（F6）用曲面的解析法向量，Gouraud 會把小面之間的差異抹平
 TIP = (0, 125, -2)
 N_SE = 2.4
+BOT_P = 2.0            # 下緣 = 尖端 - 6·(1-t^p)：v2 第一版 p=3 收得太急（Kuoyi），改 2 讓下緣早一點開始往上收
+POD_DY = -5            # pod 往後移（原本 y 96～105 → 91～100），讓開下緣的曲線
 RINGS = [(98, 16), (101, 16), (104, 16), (107, 16), (110, 16), (113, 12), (116, 12), (119, 8), (121, 8), (123, 4)]
 def prof(t):
     top = TIP[2] + (7 - TIP[2]) * (1 - t) * (1 + 0.5 * t)
-    bot = TIP[2] - (TIP[2] + 8) * (1 - t ** 3)
+    bot = TIP[2] - (TIP[2] + 8) * (1 - t ** BOT_P)
     return top, bot, 7 * (1 - t) * (1 + 0.6 * t)
 def _s(v, e): return math.copysign(abs(v) ** e, v)
 def surf(t, phi):
@@ -175,9 +177,9 @@ def pod():
     ring = [(-1, -8), (1, -8), (1, -9), (0, -10), (-1, -9)]
     V, N = [], []
     def add(p, n): V.append(p); L = sum(x*x for x in n) ** 0.5; N.append(tuple(round(x*127/L) for x in n)); return len(V) - 1
-    R = add((0, 96, -8), (0, -60, -110))
-    M = [add((x, 98, z), (x, z+9, -0.4)) for x, z in ring]
-    F = [add((x, 105, z), (x, z+9, 0.4)) for x, z in ring]
+    R = add((0, 96 + POD_DY, -8), (0, -60, -110))
+    M = [add((x, 98 + POD_DY, z), (x, z+9, -0.4)) for x, z in ring]
+    F = [add((x, 105 + POD_DY, z), (x, z+9, 0.4)) for x, z in ring]
     body, win, fl = 0x98, 0x9B, 0x273
     faces = []
     for k in range(1, 5):  # 環的邊 k → k+1；0→1 是貼在機鼻底面的上緣，不畫
@@ -282,12 +284,13 @@ def build(d, log=print):
     assert c[ROOT] == 0x0C and c[ROOT+1] == 0 and c[ROOT+14] == 0x38, '根節點不是預期的 0C … 38'
     tail = bytes(c).find(SIG)
     TA = ROOT + 12 + struct.unpack_from('<h', c, ROOT+10)[0]; TB = ROOT + 14 + struct.unpack_from('<h', c, ROOT+12)[0]
-    S = tail; BODY = S + 20; NP = BODY + 16; NOSE = NP + 20; POD = NOSE + len(noseb)
+    # pod 跨過 y=95，所以順序改成：先用機鼻底面（上 = -8）分 pod 和其他；其他再用 y=95 分機身和機鼻
+    PN = tail; S = PN + 20; BODY = S + 20; NOSE = BODY + 16; POD = NOSE + len(noseb)
     def node(at, n, d, a, b):   # 06 00 n1 d1 n2 d2 n3 d3 relA relB 00 00
         return struct.pack('<BB6h', 0x06, 0, n[0], d[0], n[1], d[1], n[2], d[2]) + struct.pack('<hh', a - (at+16), b - (at+18)) + b'\x00\x00'
     body = bytearray(c[ROOT:ROOT+10]) + struct.pack('<hh', TA - (BODY+12), TB - (BODY+14)) + b'\x00\x00'
-    blocks = node(S, (0, 0, 16384), (0, 0, -95), BODY, NP) + body + node(NP, (0, -16384, 0), (0, 8, 0), NOSE, POD) + noseb + podb
-    patch = bytearray(b'\x12\x00') + struct.pack('<h', S - (ROOT + 4)) + b'\x38' + struct.pack('<h', ROOT + 14 - (ROOT + 7))
+    blocks = node(PN, (0, -16384, 0), (0, 8, 0), S, POD) + node(S, (0, 0, 16384), (0, 0, -95), BODY, NOSE) + body + noseb + podb
+    patch = bytearray(b'\x12\x00') + struct.pack('<h', PN - (ROOT + 4)) + b'\x38' + struct.pack('<h', ROOT + 14 - (ROOT + 7))
     c[ROOT:ROOT+14] = patch + b'\x1e' * (14 - len(patch))
     room = nxt - code['va'] - len(c)
     if NOSE_BASE + len(NV) > 900: sys.exit('頂點表超過 900')
