@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>F/A-18 展示</title>
+<title>F/A-18 Showcase</title>
 <style>
 :root{ --bg:#14181d; --card:#1d232b; --line:#2e3742; --text:#dde3ea; --muted:#8b96a5; --accent:#ffd54a; --bad:#ff6a50; }
 *{box-sizing:border-box}
@@ -16,7 +16,11 @@ button:hover,label.btn:hover{border-color:var(--muted)}
 button.on{border-color:var(--accent);color:var(--accent)}
 label.ck{display:inline-flex;gap:4px;align-items:center;cursor:pointer}
 #main{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;padding:12px 16px}
-#view{position:relative}
+#view{position:relative;min-width:0}
+#cfg{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-top:8px;padding:8px 10px;background:var(--card);border:1px solid var(--line);border-radius:8px}
+#cfg .cfgt{font-weight:600;color:var(--accent)}
+#cfg .presets{display:inline-flex;flex-wrap:wrap;gap:4px;margin-left:auto}
+#spec a{color:var(--accent)}
 #cv{width:100%;aspect-ratio:4/3;display:block;cursor:grab;touch-action:none;background:radial-gradient(#2f3843,#181d23);border-radius:8px}
 #cv:active{cursor:grabbing}
 #side{display:flex;flex-direction:column;gap:8px;min-width:0}
@@ -43,16 +47,15 @@ label.ck{display:inline-flex;gap:4px;align-items:center;cursor:pointer}
 <header>
   <h1>F/A-18 Hornet / Super Hornet / Blue Angels</h1>
   <div id="variants"></div>
-  <label class="ck"><input type="checkbox" id="gear" checked> 起落架放下</label>
-  <label class="ck"><input type="checkbox" id="spin" checked> 自動旋轉</label>
-  <label class="ck"><input type="checkbox" id="edges"> 顯示邊線</label>
-  <span class="views"><button data-v="iso">斜視</button><button data-v="top">上視</button><button data-v="side">側視</button><button data-v="front">前視</button></span>
+  <label class="ck"><input type="checkbox" id="spin" checked> Auto-rotate</label>
+  <label class="ck"><input type="checkbox" id="edges"> Wireframe</label>
+  <span class="views"><button data-v="iso">3/4</button><button data-v="top">Top</button><button data-v="side">Side</button><button data-v="front">Front</button></span>
   <span id="msg"></span>
-  <span id="hint">拖曳旋轉・滾輪縮放・點面看資料</span>
+  <span id="hint">Drag to rotate · scroll to zoom · click a face for details</span>
   <span hidden>
     <select id="pick"><option>F18C</option><option>F18</option><option>F18E</option><option>F18F</option></select>
     <input type="text" id="other">
-    <select id="pal"><option value="game">FA</option><option value="gray">灰階</option><option value="hue">假色</option></select>
+    <select id="pal"><option value="game">FA</option><option value="gray">Grey</option><option value="hue">False colour</option></select>
     <input id="palfile" type="file">
     <select id="mode"><option value="tex">tex</option><option value="texonly">texonly</option><option value="flat">flat</option><option value="check">check</option></select>
     <select id="light"><option value="2">2</option><option value="1">1</option><option value="0">0</option></select>
@@ -61,18 +64,28 @@ label.ck{display:inline-flex;gap:4px;align-items:center;cursor:pointer}
   </span>
 </header>
 <div id="main">
-  <div id="view"><canvas id="cv"></canvas></div>
+  <div id="view"><canvas id="cv"></canvas>
+    <div id="cfg">
+      <span class="cfgt">Configuration</span>
+      <label class="ck"><input type="checkbox" id="gear" checked> Landing gear down</label>
+      <label class="ck"><input type="checkbox" id="flaps"> Flaps down</label>
+      <label class="ck"><input type="checkbox" id="hook"> Tailhook down</label>
+      <label class="ck"><input type="checkbox" id="brake"> Speed brake open</label>
+      <label class="ck"><input type="checkbox" id="ab"> Afterburner</label>
+      <span class="presets"><button data-p="clean">Clean</button><button data-p="trap">Carrier landing</button><button data-p="takeoff">Takeoff</button><button data-p="fight">Combat</button></span>
+    </div>
+  </div>
   <div id="side">
     <div class="box" id="spec"></div>
-    <div class="box"><h2>資訊</h2><div id="info"></div><div id="pinfo"></div></div>
-    <div class="box"><h2>PIC 貼圖<span id="texname" style="color:var(--muted);font-weight:normal"></span></h2>
-      <label class="ck" style="margin-bottom:6px"><input type="checkbox" id="uvlines"> 畫出 UV 範圍</label>
+    <div class="box"><h2>Model data</h2><div id="info"></div><div id="pinfo"></div></div>
+    <div class="box"><h2>PIC texture<span id="texname" style="color:var(--muted);font-weight:normal"></span></h2>
+      <label class="ck" style="margin-bottom:6px"><input type="checkbox" id="uvlines"> Show UV outlines</label>
       <canvas id="tex"></canvas></div>
   </div>
 </div>
 <script>
 "use strict";
-// ===== SH 解析（取自 sh_gallery.html，另外讀出每個面的色號與貼圖座標） =====
+// ===== SH parser (from sh_gallery.html; also reads each face's colour index and texture coordinates) =====
 const FACE_OPS = new Set([0x41,0x44,0x49,0x4C,0x51,0x54,0x59,0x5C,0x61,0x63,0x64,0x69,0x6B,0x6C,0x71,0x73,0x7C,0xCD,0xDD,0xED,0xEE,0xFE]);
 function parseSH(u8){
   const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
@@ -83,7 +96,7 @@ function parseSH(u8){
   }
   const c = u8.subarray(base), cv = new DataView(c.buffer, c.byteOffset, c.byteLength), L = c.length;
   const shift = L > 8 ? cv.getUint16(6, true) : 8, scale = shift >= 4 && shift <= 16 ? Math.pow(2, shift - 8) : 1;
-  // 找第一個 LOD 的所有頂點緩衝（目標位置要剛好接續前面的點數）
+  // Find every vertex buffer of the first LOD (each target must follow on from the previous count)
   const bufs = [], maxAbs = (o, n) => { let m = 0; for (let i = 0; i < 3*n; i++) m = Math.max(m, Math.abs(cv.getInt16(o + 6 + 2*i, true))); return m; };
   for (let o=0;o<L-6;o++){
     if (c[o] !== 0x82 || c[o+1] !== 0) continue;
@@ -91,9 +104,9 @@ function parseSH(u8){
     if (!n || n > 4000 || t % 8 || e >= L) continue;
     if (!bufs.length){ if (t === 0 && n >= 3) bufs.push({ o, n, t:0, e }); continue; }
     const last = bufs[bufs.length-1];
-    if (bufs.length === 1 && t === 0 && o < last.e && n >= 3 && maxAbs(o, n) * 4 < maxAbs(last.o, last.n)){ bufs[0] = { o, n, t:0, e }; continue; }   // 第一個是表頭裡的假 82（例如 C5），真的頂點緩衝落在它的範圍裡
-    if (t === 0 && o >= last.e && (c[o-1] === 0 || c[o-1] === 0x1E)){ bufs.push({ o, n, t:-1 }); break; }   // 下一個 LOD
-    const gap = t/8 - (last.t + last.n);   // 目標通常剛好接續；有些檔（F35A、Y141、SU27…）中間會跳過幾個位置
+    if (bufs.length === 1 && t === 0 && o < last.e && n >= 3 && maxAbs(o, n) * 4 < maxAbs(last.o, last.n)){ bufs[0] = { o, n, t:0, e }; continue; }   // the first one was a fake 82 inside the header (e.g. C5); the real buffer lies inside its range
+    if (t === 0 && o >= last.e && (c[o-1] === 0 || c[o-1] === 0x1E)){ bufs.push({ o, n, t:-1 }); break; }   // next LOD
+    const gap = t/8 - (last.t + last.n);   // targets usually follow on; some files (F35A, Y141, SU27…) skip a few slots
     if (o >= last.e && (gap === 0 || gap > 0 && gap <= 64 && (c[o-1] === 0 || c[o-1] === 0x1E) && maxAbs(o, n) < 8192)){ bufs.push({ o, n, t: t/8, e }); }
   }
   if (!bufs.length) return null;
@@ -105,23 +118,23 @@ function parseSH(u8){
     for (let o=from; o<to-18; o++){
       if (c[o] !== 0xFC) continue;
       const fl = cv.getUint16(o+1,true), hl = fl & 0x200 ? 14 : 17;
-      if (fl & 0x200 ? fl & 0xF000 || !FACE_OPS.has(fl & 0xFF) && (fl & 0xFF) !== 0xFD && (fl & 0xFF) !== 0x74 : !FACE_OPS.has(fl & 0xFF) || fl >= 0x1000) continue;   // 短表頭也只認統計過的旗標（再加上 F-14 用的 FD、74）；SPE 尾翼前的假三角形是 7F   // 長表頭的面只認統計過的旗標，避免把資料誤當成面
+      if (fl & 0x200 ? fl & 0xF000 || !FACE_OPS.has(fl & 0xFF) && (fl & 0xFF) !== 0xFD && (fl & 0xFF) !== 0x74 : !FACE_OPS.has(fl & 0xFF) || fl >= 0x1000) continue;   // only accept known flag bytes (plus FD and 74 used by the F-14), so data is not misread as faces; the fake triangle in front of the SPE tail is 7F
       const n = c[o+hl], wide = fl & 0x400; let p = o+hl+1;
       if (n < 3 || n > 16 || p + n*(wide?2:1) > to) continue;
       const idx = []; for (let k=0;k<n;k++){ idx.push(wide ? cv.getUint16(p,true) : c[p]); p += wide?2:1; }
       if (idx.some(i => i < lo || i >= hi || !v[i]) || new Set(idx).size < n) continue;
-      // 貼圖座標：旗標 0x04 = 有 UV（PIC 裡的像素座標）；0x100 = 每個座標 1 位元組，否則 2 位元組
+      // Texture coords: flag 0x04 = has UVs (pixel coords in the PIC); 0x100 = 1 byte per coord, otherwise 2 bytes
       let uv = null;
       if (fl & 4){ uv = []; for (let k=0;k<n;k++){ if (fl & 0x100){ uv.push([c[p], c[p+1]]); p += 2; } else { uv.push([cv.getUint16(p,true), cv.getUint16(p+2,true)]); p += 4; } } }
       idx.uv = uv; idx.col = c[o+3]; idx.fl = fl;
-      f.push(idx); o = p - 1;   // 跳過這個面的資料，免得在它的索引裡又讀出假的面（F5EV 右側的三角形）
+      f.push(idx); o = p - 1;   // skip this face's data so no fake face is read from its indices (the right-hand triangle on F5EV)
     }
     return f;
   };
   const main = lod[0], mainEnd = lod[1]?.o ?? stop;
   const f = facetsIn(main.e, mainEnd, 0, main.n);
-  // 改過的 SH（tools/shgen/sh_subdivide.py、f14_nose.py）：原本的面或節點改成 `12 00 rel16`（呼叫）+ `38 rel16`（跳過），
-  // 被呼叫的區塊裡有 82 頂點緩衝、F6 每點光影、FC 面、06/0C 平面測試（只跟往後的分支，往前的是原本的 BSP）、00 00 返回
+  // Edited SH files (tools/shgen/sh_subdivide.py, f14_nose.py): an original face or node becomes `12 00 rel16` (call) + `38 rel16` (skip);
+  // the called block holds an 82 vertex buffer, F6 per-vertex shading, FC faces, 06/0C plane tests (follow forward branches only; backward ones are the original BSP) and 00 00 return
   const faceAt = t => {
     const fl = cv.getUint16(t+1, true); let p = t + 5 + (fl & 0x60 ? (fl & 0x200 ? 9 : 12) : 0);
     const n = c[p++], wide = fl & 0x400, idx = [];
@@ -159,7 +172,7 @@ function parseSH(u8){
     if (ax < span*0.6 || z1 - z0 > (x1 - x0)*0.5) continue;
     const pf = facetsIn(b.e, to, b.t, b.t + b.n); if (!pf.length) continue;
     const pts = []; for (let i=0;i<b.n;i++) pts.push(v[b.t+i]);
-    // 轉軸：外翼套（主體）最外側的前角（機翼弦長範圍內、離機身最遠、最前面的主體頂點）
+    // pivot: the outermost leading corner of the wing glove (main-body vertex within the wing chord, farthest from the fuselage and most forward)
     const side = Math.sign(x0 + x1), tipX = side > 0 ? x1 : -x0;
     const ys = pts.map(p => p[1]), wy0 = Math.min(...ys), wy1 = Math.max(...ys), lenY = 2*span;
     let g = null; for (let i=0;i<main.n;i++){ const p = v[i], ax2 = p[0]*side;
@@ -167,14 +180,14 @@ function parseSH(u8){
     const piv = g ? [g[0], g[1]] : [0, 0];
     parts.push({ f: pf, wing: true, side, pivot: [piv[0], piv[1], 0] });
   }
-  // 第一個 LOD 的所有附屬頂點組（起落架、襟翼、空氣煞車…），以及控制它們的指令
+  // all sub-part vertex sets of the first LOD (gear, flaps, speed brake…) and the code that controls them
   const subs = lod.slice(1).map((b, k) => ({ o: b.o, t: b.t, n: b.n, f: facetsIn(b.e, lod[k+2]?.o ?? stop, b.t, b.t + b.n),
     local: b.o >= 14 && c[b.o-14] === 0xFF && c[b.o-13] === 0xFF }));
   return { v: v.map(p => p || [0,0,0]), f, parts, scale, subs, code: c, ctl: parseCtl(c, cv, subs), imp: shImports(u8, c) };
 }
 
-// SH 的匯入表：每個控制變數其實是 FA.EXE 提供的全域變數，名字寫在匯入表裡（例如 _PLgearDown、_PLleftFlap）
-// 回傳 { 名稱: 程式裡用的位址 }（位址 = 跳板指令 ff 25 [IAT] 的位置）
+// SH import table: each control variable is a global provided by FA.EXE, named in the import table (e.g. _PLgearDown, _PLleftFlap)
+// returns { name: address used by the code } (address = location of the ff 25 [IAT] thunk)
 function shImports(u8, c){
   const out = {}; if (u8[0] !== 0x4D || u8[1] !== 0x5A) return out;
   try {
@@ -193,13 +206,13 @@ function shImports(u8, c){
   } catch(e){}
   return out;
 }
-// SH 裡的 F0 區塊是 x86 機器碼，遊戲直接執行；常見的寫法：
-//   cmp word [變數], 值 ; jne …           → 條件（起落架放下、襟翼放下…）
-//   call $+5 ; pop ebx ; add ebx, n ; mov ax, [角度變數] ; sar/shl/add/sub/neg ; mov [ebx+d], ax
-//                                          → 執行時改寫後面 C4 指令的欄位（起落架收放、可變翼後掠角度）
-//   push 返回位址 ; push 直譯器 ; ret      → 回到位元碼，從返回位址繼續
-// 返回位址的指令：C4 00 x 上 前 方位 俯仰 滾轉 rel16 = 把頂點組放在 (x,上,前) 並旋轉後畫出；12 00 rel16 = 直接畫頂點組
-// 這裡用一個很小的 x86 模擬器照實際狀態執行，算出要畫哪些零件、放在哪裡。
+// F0 blocks in an SH are raw x86 code that the game runs directly. Common patterns:
+//   cmp word [var], value ; jne …        → condition (gear down, flaps down…)
+//   call $+5 ; pop ebx ; add ebx, n ; mov ax, [angle var] ; sar/shl/add/sub/neg ; mov [ebx+d], ax
+//                                          → patches a field of the following C4 op at run time (gear retraction, swing-wing sweep)
+//   push retAddr ; push interpreter ; ret → back to the bytecode, continuing at retAddr
+// The op at retAddr: C4 00 x up fwd hdg pitch roll rel16 = place the vertex set at (x, up, fwd), rotate and draw; 12 00 rel16 = draw it in place
+// A tiny x86 emulator runs these for a given state to work out which parts to draw and where.
 const SH_VA = 0x1000;
 function x86Run(mem, start, maxSteps = 400){
   const dv = new DataView(mem.buffer, mem.byteOffset, mem.byteLength), L = mem.length;
@@ -257,35 +270,35 @@ function x86Run(mem, start, maxSteps = 400){
     if (b0 === 0x81 && b1 === 0xC3){ ebx += dv.getInt32(o+2, true); p += 6; continue; }
     if (b0 === 0x83 && b1 === 0xC3){ ebx += (b2 << 24) >> 24; p += 3; continue; }
     if (b0 === 0x68){ stack.push(dv.getInt32(o+1, true)); p += 5; continue; }
-    if (b0 === 0xC3){ stack.pop(); return stack.length ? stack.pop() : null; }   // push 返回位址 ; push 直譯器 ; ret → 返回位址
+    if (b0 === 0xC3){ stack.pop(); return stack.length ? stack.pop() : null; }   // push retAddr ; push interpreter ; ret → retAddr
     return null;
   }
   return null;
 }
-// 靜態掃描：找出每個 F0 區塊、比較過的變數和值、讀過的角度變數
+// Static scan: find every F0 block, the variables and values it compares, and the angle variables it reads
 function parseCtl(c, cv, subs){
-  // 跳躍目標可能是頂點組前面的子外型表頭或其他短指令：取目標之後 16 位元組內的第一個頂點組
+  // a jump target may be a sub-shape header or short op before the vertex set: take the first vertex set within 16 bytes
   const idxOf = { get: t => { let best = null; subs.forEach((s, i) => { if (s.o >= t && s.o - t <= 16 && (best == null || s.o < subs[best].o)) best = i; }); return best ?? undefined; } };
   const blocks = [], vars = new Map();
   for (let o = 0; o < c.length - 12; o++){
     if (c[o] !== 0xF0 || c[o+1] !== 0) continue;
-    if (x86Run(c, o + 2 + SH_VA) == null) continue;   // 不是能執行到 ret 的程式碼
+    if (x86Run(c, o + 2 + SH_VA) == null) continue;   // not code that runs through to ret
     blocks.push(o + 2);
-    // 掃這一段直到 ret，收集變數
+    // scan this block up to ret, collecting variables
     for (let p = o + 2, n = 0; p < c.length - 8 && n < 60; n++){
       if (c[p] === 0x66 && c[p+1] === 0x83 && c[p+2] === 0x3D){ const v = cv.getUint32(p+3, true); const s = vars.get(v) || { vals: new Set(), ang: false }; s.vals.add((c[p+7] << 24) >> 24); vars.set(v, s); p += 8; continue; }
       if (c[p] === 0x66 && c[p+1] === 0xA1){ const v = cv.getUint32(p+2, true); const s = vars.get(v) || { vals: new Set(), ang: false }; s.ang = true; vars.set(v, s); p += 6; continue; }
       if (c[p] === 0x68 && c[p+5] === 0x68 && c[p+10] === 0xC3) break; p++;
     }
   }
-  // 主體位元碼裡沒有條件的 C4（例如 B-2 的兩個零件）：目標必須剛好是某個頂點組
+  // unconditional C4s in the main bytecode (e.g. the two B-2 parts): the target must be exactly a vertex set
   const statics = [], exact = new Map(); subs.forEach((s, i) => { exact.set(s.o, i); exact.set(s.o - 14, i); });
   const end = subs.length ? Math.min(...subs.map(s => s.o)) : 0;
-  const pushed = new Set(); for (let o = 0; o < c.length - 5; o++) if (c[o] === 0x68) pushed.add(cv.getUint32(o + 1, true) - SH_VA);   // 有 F0 區塊會跳到的指令不算
+  const pushed = new Set(); for (let o = 0; o < c.length - 5; o++) if (c[o] === 0x68) pushed.add(cv.getUint32(o + 1, true) - SH_VA);   // ops that an F0 block returns to do not count
   for (let o = 0; o < end - 16; o++) if (c[o] === 0xC4 && c[o+1] === 0 && !pushed.has(o)){ const i = exact.get(o + 16 + cv.getInt16(o + 14, true)); if (i != null) statics.push(o); }
   return { blocks, statics, vars: [...vars].map(([v, s]) => ({ v, vals: [...s.vals], ang: s.ang })), idxOf };
 }
-// 依狀態（變數 → 值）執行全部區塊，回傳要畫的零件：{ part, op, f6:[x,上,前,方位,俯仰,滾轉] }
+// Run every block for a state (var → value) and return the parts to draw: { part, op, f6:[x, up, fwd, hdg, pitch, roll] }
 function evalCtl(m, state){
   const c = m.code, mem = c.slice(), dv = new DataView(mem.buffer), out = [], seen = new Set();
   for (const [v, x] of Object.entries(state)){ const o = +v - SH_VA; if (o >= 0 && o + 1 < mem.length) dv.setInt16(o, x, true); }
@@ -297,14 +310,14 @@ function evalCtl(m, state){
     if (part == null) continue; seen.add(t); out.push({ part, op: mem[t], f6, at: t, blk: b });
   }
   for (const t of m.ctl.statics || []) if (!seen.has(t)){ seen.add(t); out.push({ part: m.ctl.idxOf.get(t + 16 + dv.getInt16(t + 14, true)), op: 0xC4, f6: [0,1,2,3,4,5].map(k => dv.getInt16(t + 2 + 2*k, true)), at: t }); }
-  // 區塊若寫在某個 C4 零件的指令範圍裡（例如可變翼主翼後面的襟翼），它畫的零件跟著那個零件一起移動、旋轉
+  // a block that sits inside a C4 part's code (e.g. flaps behind a swing wing) draws its part in that part's frame
   const subs = m.subs, owner = o => { for (let k = subs.length - 1; k >= 0; k--) if (subs[k].o <= o) return o < (subs[k+1]?.o ?? subs[k].o + 0x2000) ? k : null; return null; };
   for (const e of out){ if (e.blk == null) continue; const k = owner(e.blk); if (k == null || k === e.part) continue;
     const p = out.find(x => x.part === k && x.op === 0xC4); if (p) e.parent = p; }
   return out;
 }
 
-// ===== SH 載入：瀏覽器快取 → 選的資料夾 → ../SH/（用網頁伺服器開時）→ GitHub =====
+// ===== SH loading: browser cache → picked folder → ../SH/ (when served over HTTP) → GitHub =====
 
 function rotateDeg(v, hdg, pitch, roll){
   let [x,y,z] = v; const r = roll*Math.PI/180, p = -pitch*Math.PI/180, h = hdg*Math.PI/180;
@@ -315,7 +328,7 @@ function rotateDeg(v, hdg, pitch, roll){
 function partTf(e){
   let tf = v => [v[0], v[2], v[1]];
   if (e.op === 0xC4){
-    const deg = e.f6.slice(3).map(a => a * 360 / 65536), pos = e.f6.slice(0, 3);   // pos = (x, 上, 前)；角度 = 方位、俯仰、滾轉
+    const deg = e.f6.slice(3).map(a => a * 360 / 65536), pos = e.f6.slice(0, 3);   // pos = (x, up, fwd); angles = heading, pitch, roll
     tf = v => { const r = rotateDeg([v[0], v[2], v[1]], deg[0], deg[1], deg[2]); return [pos[0] + r[0], pos[1] + r[1], pos[2] + r[2]]; };
   }
   if (!e.parent) return tf;
@@ -323,7 +336,7 @@ function partTf(e){
   return v => { const d = tf(v); return up([d[0], d[2], d[1]]); };
 }
 
-// ===== 檔案載入：../SH、../PIC（用網頁伺服器開時）→ GitHub =====
+// ===== File loading: ../SH, ../PIC (when served over HTTP) → GitHub =====
 const $ = id => document.getElementById(id);
 const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
 async function fetchAny(paths){
@@ -334,23 +347,23 @@ async function fetchAny(paths){
   return null;
 }
 
-// ===== PIC 格式（FA 的 _XXX.PIC，格式 0 = 未壓縮 8 位元色號）=====
-// 0: u16 格式 ; 2: u32 寬 ; 6: u32 高 ; 10: u32 像素位移 ; 14: u32 像素長度 ; 18: u32 調色盤位移 ; 22: u32 調色盤長度（0 = 用遊戲的全域調色盤）
-// 0x22: u32 每列起點表位移 ; 0x26: u32 表長度（高 × 4，每列一個 u32 = 該列像素的檔案位移）
-// 注意：列是由下往上存（檔案第 0 列 = 貼圖最下面一列），SH 的 UV 以貼圖左上為原點
+// ===== PIC format (FA _XXX.PIC; format 0 = uncompressed 8-bit colour indices) =====
+// 0: u16 format ; 2: u32 width ; 6: u32 height ; 10: u32 pixel offset ; 14: u32 pixel length ; 18: u32 palette offset ; 22: u32 palette length (0 = use the game palette)
+// 0x22: u32 row table offset ; 0x26: u32 table length (height × 4; one u32 per row = file offset of that row)
+// Note: rows are stored bottom-up (file row 0 = bottom row); SH UVs use the top-left as origin
 function parsePIC(u8){
   const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
   const fmt = dv.getUint16(0, true), w = dv.getUint32(2, true), h = dv.getUint32(6, true), po = dv.getUint32(10, true), ps = dv.getUint32(14, true);
   const palO = dv.getUint32(18, true), palS = dv.getUint32(22, true), rowO = dv.getUint32(0x22, true), rowS = dv.getUint32(0x26, true);
-  if (fmt !== 0 || !w || !h || w > 4096 || h > 4096) throw new Error(`PIC 格式 ${fmt}（${w}×${h}）還不支援`);
+  if (fmt !== 0 || !w || !h || w > 4096 || h > 4096) throw new Error(`PIC format ${fmt} (${w}×${h}) is not supported`);
   const px = new Uint8Array(w * h);
   const rows = rowS >= 4 * h && rowO + rowS <= u8.length;
-  // 檔案裡的列是由下往上存的（像 BMP）：SH 的 v = 0 對應檔案最後一列，所以讀進來時上下翻轉，之後 UV 直接當像素座標用
+  // rows are stored bottom-up (like BMP): SH v = 0 is the last file row, so flip on load and use UVs directly as pixel coords
   for (let y = 0; y < h; y++){ const s = rows ? dv.getUint32(rowO + 4*y, true) : po + y*w; px.set(u8.subarray(s, s + w), (h - 1 - y)*w); }
   let pal = null; if (palO && palS >= 768 && palO + 768 <= u8.length) pal = palFromBytes(u8.subarray(palO, palO + palS));
   return { w, h, px, pal, fmt, po, ps, rows };
 }
-// 調色盤：768 位元組 RGB（VGA 6 位元的話 ×4）、RIFF PAL、JASC-PAL 文字檔；LIB 檔則在裡面找 768 位元組的 6 位元調色盤
+// Palette: 768-byte RGB (×4 if 6-bit VGA), RIFF PAL or JASC-PAL text; in a LIB, look for a 768-byte 6-bit palette
 function palFromBytes(u8){
   const txt = String.fromCharCode(...u8.subarray(0, 8));
   if (txt.startsWith("JASC-PAL")){ const n = new TextDecoder().decode(u8).trim().split(/\s+/).slice(3).map(Number), p = new Uint8Array(768); p.set(n.slice(0, 768)); return p; }
@@ -361,7 +374,7 @@ function palFromBytes(u8){
   return p;
 }
 function palFromLib(u8){
-  // 在 LIB 裡找 "PALETTE.PAL" 這個名字，取它後面的 32 位元位移；不行的話找第一段 768 位元組全 < 64、而且不是一片相同的資料
+  // find the name "PALETTE.PAL" in the LIB and take the 32-bit offset after it; otherwise the first 768 bytes all < 64 that are not uniform
   const s = new TextDecoder("latin1").decode(u8), i = s.toUpperCase().indexOf("PALETTE.PAL");
   if (i >= 0){ const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
     for (let k = i + 11; k < i + 20 && k + 4 <= u8.length; k++){ const o = dv.getUint32(k, true); if (o > i && o + 768 <= u8.length){ const seg = u8.subarray(o, o + 768); if (seg.every(b => b < 64) && new Set(seg).size > 32) return palFromBytes(seg); } } }
@@ -394,9 +407,9 @@ void main(){
     if (uMode > 0.5 && uMode < 1.5){ vec2 g = floor(t / 8.0); idx = mod(g.x + g.y, 2.0) < 1.0 ? 15.0 : 240.0; }
     else idx = floor(texture2D(uPic, (floor(t) + 0.5) / uSize).r * 255.0 + 0.5);
     own = false;
-    if (idx > 254.5){ if (uTransp > 1.5) discard; if (uTransp > 0.5){ if (vC.x < 0.5) discard; idx = vC.x; own = true; } }   // 面的色號 0 = 沒有底色：FF 透明（起落架、輪子、座艙罩）
+    if (idx > 254.5){ if (uTransp > 1.5) discard; if (uTransp > 0.5){ if (vC.x < 0.5) discard; idx = vC.x; own = true; } }   // face colour 0 = no base colour: FF is transparent (gear, wheels, canopy)
   } else idx = vC.x;
-  // FA 調色盤 0x90–0x9B 是由亮到暗的灰階：面自己的色號依受光在這段裡往亮或往暗移幾格
+  // FA palette 0x90–0x9B is a light-to-dark ramp: a face's own colour moves a few steps lighter or darker with lighting
   if (uLight > 1.5 && own && idx >= 144.0 && idx <= 155.0) idx = clamp(idx + floor((0.75 - d) * 8.0 + 0.5), 144.0, 155.0);
   vec3 c = texture2D(uPal, vec2((idx + 0.5) / 256.0, 0.5)).rgb;
   if (uMode > 0.5 && uMode < 1.5 && vC.y > 0.5) c = mix(vec3(0.95,0.3,0.2), vec3(1.0), step(0.5, c.r)) * (0.5 + 0.5 * vec3(fract(vUV / 64.0), 0.5));
@@ -416,29 +429,32 @@ function setTex(t, w, h, fmt, data){ gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelS
   for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); }
 setTex(picTex, 1, 1, gl.LUMINANCE, new Uint8Array([0]));
 
-// ===== 目前的模型 =====
+// ===== Current model =====
 let cur = null;   // { name, m, pic, picName, faces:[{pts, uv, col, fl}], tris(Float32Array), n, center, radius }
 const view = { yaw: -0.7, pitch: 0.35, zoom: 1 };
 let sel = -1;
 
-function shTexName(u8){   // SH 指令 E2 00 + 14 位元組檔名：切換貼圖（F14.SH 裡是 "_f14.PIC"）
+function shTexName(u8){   // SH op E2 00 + 14-byte file name: select the texture ("_f14.PIC" in F14.SH)
   const names = new Set();
   for (let i = 0; i < u8.length - 16; i++) if (u8[i] === 0xE2 && u8[i+1] === 0){ let s = ""; for (let k = 2; k < 16 && u8[i+k]; k++) s += String.fromCharCode(u8[i+k]); if (/^[\w-]+\.PIC$/i.test(s)) names.add(s.toUpperCase()); }
   return [...names];
 }
-function defaultVars(m, gearDown){ const vars = {}, nm = Object.fromEntries(Object.entries(m.imp || {}).map(([n, a]) => [a, n]));
-  for (const x of m.ctl.vars) vars[x.v] = nm[x.v] ? (nm[x.v] === "_PLgearDown" ? (gearDown ? 1 : 0) : nm[x.v] === "_PLgearPos" ? (gearDown ? 0 : 32767) : 0) : x.vals.length ? x.vals[0] : 0;
+// Aircraft configuration → FA control variables (_PLgearDown, _PLleftFlap, _PLhook…). Flaps down = 0xFF (-1).
+function ctlState(m){ const vars = {}, nm = Object.fromEntries(Object.entries(m.imp || {}).map(([n, a]) => [a, n]));
+  const g = $("gear").checked, on = { _PLgearDown: g ? 1 : 0, _PLgearPos: g ? 0 : 32767, _PLleftFlap: $("flaps").checked ? -1 : 0, _PLrightFlap: $("flaps").checked ? -1 : 0,
+    _PLhook: $("hook").checked ? 1 : 0, _PLbrake: $("brake").checked ? 1 : 0, _PLafterBurner: $("ab").checked ? 1 : 0 };
+  for (const x of m.ctl.vars) vars[x.v] = nm[x.v] ? (on[nm[x.v]] ?? 0) : x.vals.length ? x.vals[0] : 0;
   return vars; }
 function buildFaces(){
   const m = cur.m, faces = [], add = (idx, tf, part) => faces.push({ pts: idx.map(i => tf(m.v[i])), uv: idx.uv, col: idx.col, fl: idx.fl, idx: [...idx], part });
-  for (const idx of m.f) add(idx, v => [v[0], v[2], v[1]], "主體");
+  for (const idx of m.f) add(idx, v => [v[0], v[2], v[1]], "body");
   const drawn = new Set();
-  for (const e of evalCtl(m, defaultVars(m, $("gear").checked))){
+  for (const e of evalCtl(m, ctlState(m))){
     if (drawn.has(e.part)) continue; drawn.add(e.part);
-    const tf = partTf(e); for (const idx of m.subs[e.part].f) add(idx, tf, "零件 " + e.part);
+    const tf = partTf(e); for (const idx of m.subs[e.part].f) add(idx, tf, "part " + e.part);
   }
   cur.faces = faces;
-  // 三角形化（扇形）：每個頂點 = 位置3 + UV2 + 法向3 + (色號, 有貼圖)2
+  // triangulate (fan): each vertex = pos 3 + UV 2 + normal 3 + (colour, textured) 2
   const data = [], mode = $("mode").value;
   faces.forEach(f => { f.draw = !(mode === "texonly" && !f.uv);
     const p = f.pts, a = p[0]; let nx = 0, ny = 0, nz = 0;
@@ -455,17 +471,17 @@ function buildFaces(){
   let lo = [1e9,1e9,1e9], hi = [-1e9,-1e9,-1e9]; for (const f of faces) for (const q of f.pts) for (let k = 0; k < 3; k++){ lo[k] = Math.min(lo[k], q[k]); hi[k] = Math.max(hi[k], q[k]); }
   cur.center = lo.map((x, k) => (x + hi[k]) / 2); cur.radius = Math.max(1, Math.hypot(hi[0]-lo[0], hi[1]-lo[1], hi[2]-lo[2]) / 2);
   const nt = faces.filter(f => f.uv).length, big = faces.filter(f => f.uv && !(f.fl & 0x100)).length;
-  $("info").textContent = `${cur.name}.SH  頂點 ${m.v.length}・面 ${faces.length}（有貼圖 ${nt}，其中 16 位元 UV ${big}）\n貼圖指令：${cur.texNames.join(", ") || "（沒有 E2）"}\nPIC：${cur.pic ? `${cur.picName}  ${cur.pic.w}×${cur.pic.h}` : "找不到"}`;
+  $("info").textContent = `${cur.name}.SH  ${m.v.length} vertices · ${faces.length} faces (${nt} textured, ${big} with 16-bit UVs)\nTexture op: ${cur.texNames.join(", ") || "(no E2)"}\nPIC: ${cur.pic ? `${cur.picName}  ${cur.pic.w}×${cur.pic.h}` : "not found"}`;
   setSel(-1); draw(); drawTex();
 }
 
-// ===== 畫面 =====
+// ===== Rendering =====
 function mul(a, b){ const o = new Array(16); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++){ let s = 0; for (let k = 0; k < 4; k++) s += a[k*4+j] * b[i*4+k]; o[i*4+j] = s; } return o; }
 function matrix(){
   const w = cv.width, h = cv.height, r = cur.radius, dist = r * 2.6 / view.zoom, f = 1 / Math.tan(0.5 * 0.7), near = Math.max(dist - r * 2, dist * 0.02), far = dist + r * 2;
   const P = [f * h / w,0,0,0, 0,f,0,0, 0,0,(far+near)/(near-far),-1, 0,0,2*far*near/(near-far),0];
   const cy = Math.cos(view.yaw), sy = Math.sin(view.yaw), cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
-  // 先繞上軸轉 yaw，再繞 x 軸轉 pitch，最後往後推 dist
+  // yaw about the up axis, then pitch about x, then move back by dist
   const R = [cy, sy*sp, -sy*cp, 0,  0, cp, sp, 0,  sy, -cy*sp, cy*cp, 0,  0, 0, 0, 1];
   const T = [1,0,0,0, 0,1,0,0, 0,0,1,0, -cur.center[0], -cur.center[1], -cur.center[2], 1];
   const V = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,-dist,1];
@@ -485,7 +501,7 @@ function draw(){
   gl.uniform2f(U("uSize"), cur.pic ? cur.pic.w : 1, cur.pic ? cur.pic.h : 1);
   const mode = $("mode").value; gl.uniform1f(U("uMode"), mode === "check" ? 1 : mode === "flat" || !cur.pic ? 2 : 0);
   gl.uniform1f(U("uLight"), +$("light").value); gl.uniform1f(U("uTransp"), +$("transp").value);
-  // FA 是照順序畫面的（後畫的蓋前面），貼圖小面常常和機身面重疊在同一平面：用 polygonOffset 讓後面的面稍微往前
+  // FA draws faces in order (later covers earlier) and decal faces often share a plane with the body: polygonOffset pulls later faces slightly forward
   gl.enable(gl.POLYGON_OFFSET_FILL);
   bindAttrs(vbo); gl.uniform1f(U("uSel"), 0);
   const bias = $("order").checked;
@@ -497,7 +513,7 @@ function draw(){
 }
 function drawTex(){
   const c = $("tex"), x = c.getContext("2d");
-  if (!cur || !cur.pic){ c.width = 256; c.height = 64; x.clearRect(0, 0, 256, 64); x.fillStyle = "#8b96a5"; x.fillText("沒有 PIC", 100, 36); return; }
+  if (!cur || !cur.pic){ c.width = 256; c.height = 64; x.clearRect(0, 0, 256, 64); x.fillStyle = "#8b96a5"; x.fillText("No PIC", 100, 36); return; }
   const { w, h, px } = cur.pic, s = 2, pal = curPal(), im = new ImageData(w, h), tr = $("transp").value !== "0";
   for (let i = 0; i < w*h; i++){ const p = px[i]; im.data[4*i] = pal[3*p]; im.data[4*i+1] = pal[3*p+1]; im.data[4*i+2] = pal[3*p+2]; im.data[4*i+3] = tr && p === 255 ? 0 : 255; }
   c.width = w*s; c.height = h*s; const t = document.createElement("canvas"); t.width = w; t.height = h; t.getContext("2d").putImageData(im, 0, 0);
@@ -513,9 +529,9 @@ function setSel(i){
   if (!f){ $("pinfo").textContent = ""; cur.selN = 0; return; }
   const d = []; for (let k = 1; k < f.pts.length - 1; k++) for (const j of [0, k, k+1]){ const q = f.pts[j], uv = f.uv ? f.uv[j] : [0,0]; d.push(q[0], q[1], q[2], uv[0], uv[1], ...f.n, f.col, f.uv ? 1 : 0); }
   gl.bindBuffer(gl.ARRAY_BUFFER, selVbo); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(d), gl.STATIC_DRAW); cur.selN = d.length / 10;
-  $("pinfo").textContent = `\n選到第 ${i} 個面（${f.part}）\n旗標 ${f.fl.toString(16).toUpperCase().padStart(4, "0")}  色號 ${f.col.toString(16).toUpperCase().padStart(2, "0")}\n頂點 ${f.idx.join(" ")}\nUV ${f.uv ? f.uv.map(p => `(${p[0]},${p[1]})`).join(" ") : "（無）"}`;
+  $("pinfo").textContent = `\nSelected face ${i} (${f.part})\nFlags ${f.fl.toString(16).toUpperCase().padStart(4, "0")}  colour ${f.col.toString(16).toUpperCase().padStart(2, "0")}\nVertices ${f.idx.join(" ")}\nUV ${f.uv ? f.uv.map(p => `(${p[0]},${p[1]})`).join(" ") : "(none)"}`;
 }
-// 點選：在螢幕上把每個三角形投影出來，找滑鼠底下最靠近的
+// picking: project each triangle to the screen and find the nearest one under the pointer
 function pick(mx, my){
   const M = matrix(), w = cv.clientWidth, h = cv.clientHeight; let best = -1, bz = Infinity;
   const proj = q => { const x = M[0]*q[0]+M[4]*q[1]+M[8]*q[2]+M[12], y = M[1]*q[0]+M[5]*q[1]+M[9]*q[2]+M[13], z = M[2]*q[0]+M[6]*q[1]+M[10]*q[2]+M[14], ww = M[3]*q[0]+M[7]*q[1]+M[11]*q[2]+M[15];
@@ -535,47 +551,50 @@ function pick(mx, my){
   addEventListener("resize", draw);
 }
 
-// ===== 載入 =====
+// ===== Loading =====
 async function load(name){
-  name = name.toUpperCase().replace(/\.SH$/, ""); $("msg").textContent = "載入 " + name + "…";
-  const u8 = await fetchAny([(name.includes("/") ? "" : "SH/") + name + ".SH"]); if (!u8){ $("msg").textContent = "找不到 " + name + ".SH"; return; }
-  const m = parseSH(u8); if (!m){ $("msg").textContent = name + ".SH 解析失敗"; return; }
+  name = name.toUpperCase().replace(/\.SH$/, ""); $("msg").textContent = "Loading " + name + "…";
+  const u8 = await fetchAny([(name.includes("/") ? "" : "SH/") + name + ".SH"]); if (!u8){ $("msg").textContent = "Cannot find " + name + ".SH"; return; }
+  const m = parseSH(u8); if (!m){ $("msg").textContent = "Cannot parse " + name + ".SH"; return; }
   const texNames = shTexName(u8), picName = (texNames[0] || "_" + name + ".PIC").toUpperCase();
   let pic = null, pu8 = await fetchAny(["PIC/" + picName, "PIC/" + picName.toLowerCase(), "PIC/" + picName.replace(/^_/, "_").replace(/\.PIC$/, ".pic")]);
   try { if (pu8) pic = parsePIC(pu8); } catch(e){ $("msg").textContent = e.message; }
   cur = { name, m, pic, picName, texNames };
   if (pic) setTex(picTex, pic.w, pic.h, gl.LUMINANCE, pic.px);
-  $("texname").textContent = pic ? `　${picName}（${pic.w}×${pic.h}，已上下翻轉成貼圖座標）` : "　找不到 " + picName;
+  $("texname").textContent = pic ? `  ${picName} (${pic.w}×${pic.h}, flipped to texture orientation)` : "  cannot find " + picName;
   buildFaces();
-  if (pic || !pu8) $("msg").textContent = $("pal").value === "game" && !gamePal ? "還沒有 FA 調色盤，先用灰階顯示；按「載入 palette.PAL」選檔" : "";
+  if (pic || !pu8) $("msg").textContent = $("pal").value === "game" && !gamePal ? "FA palette not found, showing greyscale" : "";
 }
 $("pick").onchange = () => load($("pick").value);
 $("other").onkeydown = e => { if (e.key === "Enter" && e.target.value.trim()) load(e.target.value.trim()); };
-for (const id of ["mode", "gear"]) $(id).onchange = () => cur && buildFaces();
+for (const id of ["mode", "gear", "flaps", "hook", "brake", "ab"]) $(id).onchange = () => cur && buildFaces();
+const PRESETS = { clean: [0,0,0,0,0], trap: [1,1,1,0,0], takeoff: [1,1,0,0,1], fight: [0,0,0,1,1] };
+document.querySelectorAll("#cfg .presets button").forEach(b => b.onclick = () => { ["gear","flaps","hook","brake","ab"].forEach((id, k) => $(id).checked = !!PRESETS[b.dataset.p][k]); cur && buildFaces(); });
 for (const id of ["light", "transp", "pal", "uvlines", "order", "edges"]) $(id).onchange = () => { draw(); drawTex(); };
 $("palfile").onchange = async e => { const f = e.target.files[0]; if (!f) return; const u8 = new Uint8Array(await f.arrayBuffer());
   const p = /\.lib$/i.test(f.name) ? palFromLib(u8) : palFromBytes(u8);
-  if (!p){ $("msg").textContent = "讀不出調色盤：" + f.name; return; }
+  if (!p){ $("msg").textContent = "Cannot read a palette from " + f.name; return; }
   gamePal = p; try { localStorage.setItem("fa_palette", btoa(String.fromCharCode(...p))); } catch(e){}
-  $("pal").value = "game"; $("msg").textContent = "已載入調色盤 " + f.name + "（會記在這台瀏覽器）"; draw(); drawTex(); };
-// ===== F/A-18 展示 =====
+  $("pal").value = "game"; $("msg").textContent = "Loaded palette " + f.name + " (remembered in this browser)"; draw(); drawTex(); };
+// ===== F/A-18 showcase =====
 const VAR = [
-  { sh: "F18C", name: "F/A-18C", sub: "單座 Hornet", len: "56.0 ft（17.1 m）", span: "40.4 ft（12.3 m）", h: "15.3 ft（4.7 m）",
-    note: "原廠模型修改：機身寬度縮小、機身高度與座艙降低、機頭與尾段加長、垂直與水平尾翼縮小；保留小 LEX 與圓形進氣口。主起落架蓋板高度減半。" },
-  { sh: "F18", name: "F/A-18D", sub: "雙座 Hornet", len: "56.0 ft（17.1 m）", span: "40.4 ft（12.3 m）", h: "15.3 ft（4.7 m）",
-    note: "依 F/A-18C 的修改套到原廠雙座模型，保留前後座艙，其餘外型與 C 型相同。主起落架蓋板高度減半。" },
-  { sh: "F18E", name: "F/A-18E", sub: "單座 Super Hornet", len: "60.3 ft（18.4 m）", span: "44.7 ft（13.6 m）", h: "16.0 ft（4.9 m）",
-    note: "由 F/A-18C 手工調整頂點：機身加長、機翼與 LEX 放大，並重算法向量與翼尖凝結尾位置；低細節（遠距）機翼也同步加大。主起落架蓋板高度減半。" },
-  { sh: "F18F", name: "F/A-18F", sub: "雙座 Super Hornet", len: "60.3 ft（18.4 m）", span: "44.7 ft（13.6 m）", h: "16.0 ft（4.9 m）",
-    note: "把 F/A-18E 的外型變化套到原廠雙座模型，保留雙座座艙；使用獨立的 _F18F.PIC 貼圖；低細節機翼同步加大。主起落架蓋板高度減半。" },
-  { sh: "F18T", name: "F/A-18E Blue Angels", sub: "單座藍天使", len: "60.3 ft（18.4 m）", span: "44.7 ft（13.6 m）", h: "16.0 ft（4.9 m）",
-    note: "外型與 F/A-18E 相同，機背黃色區域加大，使用 _F18T.PIC 藍天使塗裝；法向量已重算。座艙兩側到機背是一條滑順的純黃色帶，前端漸收變細；座艙罩維持原貼圖，翼尖凝結尾位置已修正，低細節機翼同步加大。機輪蓋板改為機身深藍色。" },
-  { sh: "F18U", name: "F/A-18F Blue Angels", sub: "雙座藍天使", len: "60.3 ft（18.4 m）", span: "44.7 ft（13.6 m）", h: "16.0 ft（4.9 m）",
-    note: "以 F/A-18F 為底：機背黃色楔形拉長，_F18U.PIC 參考單座藍天使重繪成雙座版；座艙兩側到機背是一條純黃色帶，前端漸收變細；座艙罩維持原貼圖，面色與頂點顏色都改為深藍，低細節機翼同步加大。機輪蓋板為機身深藍色。" },
+  { sh: "F18C", name: "F/A-18C", sub: "Single-seat Hornet", len: "56.0 ft (17.1 m)", span: "40.4 ft (12.3 m)", h: "15.3 ft (4.7 m)",
+    note: "Reworked stock FA model: narrower fuselage, lower fuselage and canopy, longer nose and tail, smaller vertical and horizontal tails. Keeps the small LEX and round intakes. Main gear doors are half their original height." },
+  { sh: "F18", name: "F/A-18D", sub: "Two-seat Hornet", len: "56.0 ft (17.1 m)", span: "40.4 ft (12.3 m)", h: "15.3 ft (4.7 m)",
+    note: "The F/A-18C changes applied to the stock two-seat model, keeping the front and rear cockpits; otherwise the same shape as the C. Main gear doors are half their original height." },
+  { sh: "F18E", name: "F/A-18E", sub: "Single-seat Super Hornet", len: "60.3 ft (18.4 m)", span: "44.7 ft (13.6 m)", h: "16.0 ft (4.9 m)",
+    note: "Hand-edited from the F/A-18C: longer fuselage, larger wing and LEX, recomputed normals and wingtip vapor-trail points. The low-detail (distant) model has the larger wing too. Main gear doors are half their original height." },
+  { sh: "F18F", name: "F/A-18F", sub: "Two-seat Super Hornet", len: "60.3 ft (18.4 m)", span: "44.7 ft (13.6 m)", h: "16.0 ft (4.9 m)",
+    note: "The F/A-18E shape changes applied to the stock two-seater, keeping the two-seat cockpit. Uses its own _F18F.PIC texture; the low-detail model has the larger wing too. Main gear doors are half their original height." },
+  { sh: "F18T", name: "F/A-18E Blue Angels", sub: "Single-seat Blue Angels", len: "60.3 ft (18.4 m)", span: "44.7 ft (13.6 m)", h: "16.0 ft (4.9 m)",
+    note: "Same shape as the F/A-18E with the Blue Angels scheme in _F18T.PIC and a larger yellow spine area; normals recomputed. A smooth solid yellow stripe runs from the cockpit sides along the spine and tapers to a point at the front. The canopy keeps its original texture, the wingtip vapor trails start at the right place, and the low-detail model has the larger wing. Wheel doors are painted fuselage dark blue." },
+  { sh: "F18U", name: "F/A-18F Blue Angels", sub: "Two-seat Blue Angels", len: "60.3 ft (18.4 m)", span: "44.7 ft (13.6 m)", h: "16.0 ft (4.9 m)",
+    note: "Based on the F/A-18F with a longer yellow spine wedge; _F18U.PIC is a two-seat repaint of the single-seat Blue Angels scheme. A solid yellow stripe runs from the cockpit sides along the spine and tapers at the front. The canopy keeps its original texture, face and vertex colours are Blue Angels dark blue, and the low-detail model has the larger wing. Wheel doors are painted fuselage dark blue." },
 ];
 function showSpec(v){
-  $("spec").innerHTML = `<h2>${v.name}　<span style="color:var(--muted);font-weight:normal;font-size:12px">${v.sub}・${v.sh}.SH</span></h2>
-    <table><tr><td>全長</td><td>${v.len}</td></tr><tr><td>翼展（含翼尖飛彈）</td><td>${v.span}</td></tr><tr><td>高度</td><td>${v.h}</td></tr></table><p>${v.note}</p>`;
+  $("spec").innerHTML = `<h2>${v.name}  <span style="color:var(--muted);font-weight:normal;font-size:12px">${v.sub} · ${v.sh}.SH</span></h2>
+    <table><tr><td>Length</td><td>${v.len}</td></tr><tr><td>Span (incl. wingtip missiles)</td><td>${v.span}</td></tr><tr><td>Height</td><td>${v.h}</td></tr></table><p>${v.note}</p>
+    <p>Download: <a href="../SH/${v.sh}.SH" download>${v.sh}.SH</a> · <a href="../PIC/_${v.sh}.PIC" download>_${v.sh}.PIC</a></p>`;
   document.querySelectorAll("#variants button").forEach(b => b.classList.toggle("on", b.dataset.sh === v.sh));
 }
 VAR.forEach(v => { const b = document.createElement("button"); b.dataset.sh = v.sh; b.innerHTML = `<b>${v.name}</b><span>${v.sub}</span>`;
