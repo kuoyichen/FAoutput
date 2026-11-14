@@ -45,6 +45,7 @@ a.dl:hover{filter:brightness(1.1)}
 @media (max-width:760px){ #main{grid-template-columns:1fr;padding:8px} header{padding:8px} }
 a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
 </style>
+<script src="fashion_i18n.js"></script>
 </head>
 <body>
 <header>
@@ -55,6 +56,7 @@ a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spa
   <label class="ck"><input type="checkbox" id="spin" checked> Auto-rotate</label>
   <label class="ck"><input type="checkbox" id="edges"> Wireframe</label>
   <span class="views"><button data-v="iso">3/4</button><button data-v="top">Top</button><button data-v="side">Side</button><button data-v="front">Front</button></span>
+  <span id="langSlot"></span>
   <span id="msg"></span>
   <span id="hint">Drag to rotate · scroll to zoom · click a face for details</span>
   <span hidden>
@@ -360,7 +362,7 @@ function partTf(e){
 }
 
 // ===== File loading: ../SH, ../PIC (when served over HTTP) → GitHub =====
-const $ = id => document.getElementById(id);
+const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
 const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
 async function fetchAny(paths){
   const urls = [];
@@ -494,7 +496,7 @@ function buildFaces(){
   let lo = [1e9,1e9,1e9], hi = [-1e9,-1e9,-1e9]; for (const f of faces) for (const q of f.pts) for (let k = 0; k < 3; k++){ lo[k] = Math.min(lo[k], q[k]); hi[k] = Math.max(hi[k], q[k]); }
   cur.center = lo.map((x, k) => (x + hi[k]) / 2); cur.radius = Math.max(1, Math.hypot(hi[0]-lo[0], hi[1]-lo[1], hi[2]-lo[2]) / 2);
   const nt = faces.filter(f => f.uv).length, big = faces.filter(f => f.uv && !(f.fl & 0x100)).length;
-  $("info").textContent = `${cur.name}.SH  ${m.v.length} vertices · ${faces.length} faces (${nt} textured, ${big} with 16-bit UVs)\nTexture op: ${cur.texNames.join(", ") || "(no E2)"}\nPIC: ${cur.pic ? `${cur.picName}  ${cur.pic.w}×${cur.pic.h}` : "not found"}`;
+  $("info").textContent = FAI18N.lang === "zh" ? `${cur.name}.SH  ${m.v.length} 點 · ${faces.length} 面（${nt} 有貼圖，${big} 用 16 位元 UV）\n貼圖指令：${cur.texNames.join(", ") || "（沒有 E2）"}\nPIC：${cur.pic ? `${cur.picName}  ${cur.pic.w}×${cur.pic.h}` : "找不到"}` : `${cur.name}.SH  ${m.v.length} vertices · ${faces.length} faces (${nt} textured, ${big} with 16-bit UVs)\nTexture op: ${cur.texNames.join(", ") || "(no E2)"}\nPIC: ${cur.pic ? `${cur.picName}  ${cur.pic.w}×${cur.pic.h}` : "not found"}`;
   setSel(-1); draw(); drawTex();
 }
 
@@ -552,7 +554,7 @@ function setSel(i){
   if (!f){ $("pinfo").textContent = ""; cur.selN = 0; return; }
   const d = []; for (let k = 1; k < f.pts.length - 1; k++) for (const j of [0, k, k+1]){ const q = f.pts[j], uv = f.uv ? f.uv[j] : [0,0]; d.push(q[0], q[1], q[2], uv[0], uv[1], ...f.n, f.col, f.uv ? 1 : 0); }
   gl.bindBuffer(gl.ARRAY_BUFFER, selVbo); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(d), gl.STATIC_DRAW); cur.selN = d.length / 10;
-  $("pinfo").textContent = `\nSelected face ${i} (${f.part})\nFlags ${f.fl.toString(16).toUpperCase().padStart(4, "0")}  colour ${f.col.toString(16).toUpperCase().padStart(2, "0")}\nVertices ${f.idx.join(" ")}\nUV ${f.uv ? f.uv.map(p => `(${p[0]},${p[1]})`).join(" ") : "(none)"}`;
+  $("pinfo").textContent = `\n${L("Selected face", "選到第")} ${i} ${L("", "個面")} (${f.part})\n${L("Flags", "旗標")} ${f.fl.toString(16).toUpperCase().padStart(4, "0")}  ${L("colour", "色號")} ${f.col.toString(16).toUpperCase().padStart(2, "0")}\n${L("Vertices", "頂點")} ${f.idx.join(" ")}\nUV ${f.uv ? f.uv.map(p => `(${p[0]},${p[1]})`).join(" ") : L("(none)", "（無）")}`;
 }
 // picking: project each triangle to the screen and find the nearest one under the pointer
 function pick(mx, my){
@@ -576,17 +578,17 @@ function pick(mx, my){
 
 // ===== Loading =====
 async function load(name){
-  name = name.toUpperCase().replace(/\.SH$/, ""); $("msg").textContent = "Loading " + name + "…";
-  const u8 = await fetchAny([(name.includes("/") ? "" : "SH/") + name + ".SH"]); if (!u8){ $("msg").textContent = "Cannot find " + name + ".SH"; return; }
-  const m = parseSH(u8); if (!m){ $("msg").textContent = "Cannot parse " + name + ".SH"; return; }
+  name = name.toUpperCase().replace(/\.SH$/, ""); $("msg").textContent = L("Loading ", "載入 ") + name + "…";
+  const u8 = await fetchAny([(name.includes("/") ? "" : "SH/") + name + ".SH"]); if (!u8){ $("msg").textContent = L("Cannot find ", "找不到 ") + name + ".SH"; return; }
+  const m = parseSH(u8); if (!m){ $("msg").textContent = L("Cannot parse ", "無法解析 ") + name + ".SH"; return; }
   const texNames = shTexName(u8), picName = (texNames[0] || "_" + name + ".PIC").toUpperCase();
   let pic = null, pu8 = await fetchAny(["PIC/" + picName, "PIC/" + picName.toLowerCase(), "PIC/" + picName.replace(/^_/, "_").replace(/\.PIC$/, ".pic")]);
   try { if (pu8) pic = parsePIC(pu8); } catch(e){ $("msg").textContent = e.message; }
   cur = { name, m, pic, picName, texNames };
   if (pic) setTex(picTex, pic.w, pic.h, gl.LUMINANCE, pic.px);
-  $("texname").textContent = pic ? `  ${picName} (${pic.w}×${pic.h}, flipped to texture orientation)` : "  cannot find " + picName;
+  $("texname").textContent = pic ? L(`  ${picName} (${pic.w}×${pic.h}, flipped to texture orientation)`, `  ${picName}（${pic.w}×${pic.h}，已翻成貼圖方向）`) : L("  cannot find ", "  找不到 ") + picName;
   buildFaces();
-  if (pic || !pu8) $("msg").textContent = $("pal").value === "game" && !gamePal ? "FA palette not found, showing greyscale" : "";
+  if (pic || !pu8) $("msg").textContent = $("pal").value === "game" && !gamePal ? L("FA palette not found, showing greyscale", "找不到 FA 調色盤，先用灰階顯示") : "";
 }
 $("pick").onchange = () => load($("pick").value);
 $("other").onkeydown = e => { if (e.key === "Enter" && e.target.value.trim()) load(e.target.value.trim()); };
@@ -602,30 +604,40 @@ $("palfile").onchange = async e => { const f = e.target.files[0]; if (!f) return
 // ===== F/A-18 showcase =====
 const VAR = [
   { sh: "F18C", name: "F/A-18C", sub: "Single-seat Hornet", len: "56.0 ft (17.1 m)", span: "40.4 ft (12.3 m)", h: "15.3 ft (4.7 m)",
-    note: "Reworked stock FA model: narrower fuselage, lower fuselage and canopy, longer nose and tail, smaller vertical and horizontal tails. Keeps the small LEX and round intakes. Main gear doors are half their original height." },
+    note: "Reworked stock FA model: narrower fuselage, lower fuselage and canopy, longer nose and tail, smaller vertical and horizontal tails. Keeps the small LEX and round intakes. Main gear doors are half their original height.", subZh: "單座 Hornet", noteZh: "改造 FA 原廠模型：機身變窄、機身和座艙罩降低、機鼻和機尾加長、垂直尾翼和水平尾翼縮小。保留小的邊條和圓形進氣口。主起落架艙門高度減半。" },
   { sh: "F18", name: "F/A-18D", sub: "Two-seat Hornet", len: "56.0 ft (17.1 m)", span: "40.4 ft (12.3 m)", h: "15.3 ft (4.7 m)",
-    note: "The F/A-18C changes applied to the stock two-seat model, keeping the front and rear cockpits; otherwise the same shape as the C. Main gear doors are half their original height." },
+    note: "The F/A-18C changes applied to the stock two-seat model, keeping the front and rear cockpits; otherwise the same shape as the C. Main gear doors are half their original height.", subZh: "雙座 Hornet", noteZh: "把 F/A-18C 的修改套用到原廠雙座模型，保留前後座艙；其他外形和 C 型相同。主起落架艙門高度減半。" },
   { sh: "F18E", name: "F/A-18E", sub: "Single-seat Super Hornet", len: "60.3 ft (18.4 m)", span: "44.7 ft (13.6 m)", h: "16.0 ft (4.9 m)",
-    note: "Hand-edited from the F/A-18C: longer fuselage, larger wing and LEX, recomputed normals and wingtip vapor-trail points. The low-detail (distant) model has the larger wing too. Main gear doors are half their original height." },
+    note: "Hand-edited from the F/A-18C: longer fuselage, larger wing and LEX, recomputed normals and wingtip vapor-trail points. The low-detail (distant) model has the larger wing too. Main gear doors are half their original height.", subZh: "單座 Super Hornet", noteZh: "從 F/A-18C 手工修改：機身加長、機翼和邊條加大，重算法向量和翼尖凝結尾跡的起點。遠距離的低細節模型也換上較大的機翼。主起落架艙門高度減半。" },
   { sh: "F18F", name: "F/A-18F", sub: "Two-seat Super Hornet", len: "60.3 ft (18.4 m)", span: "44.7 ft (13.6 m)", h: "16.0 ft (4.9 m)",
-    note: "The F/A-18E shape changes applied to the stock two-seater, keeping the two-seat cockpit. Uses its own _F18F.PIC texture; the low-detail model has the larger wing too. Main gear doors are half their original height." },
+    note: "The F/A-18E shape changes applied to the stock two-seater, keeping the two-seat cockpit. Uses its own _F18F.PIC texture; the low-detail model has the larger wing too. Main gear doors are half their original height.", subZh: "雙座 Super Hornet", noteZh: "把 F/A-18E 的外形修改套用到原廠雙座機，保留雙座座艙。使用自己的 _F18F.PIC 貼圖；低細節模型也有較大的機翼。主起落架艙門高度減半。" },
   { sh: "F18T", name: "F/A-18E Blue Angels", sub: "Single-seat Blue Angels", len: "60.3 ft (18.4 m)", span: "44.7 ft (13.6 m)", h: "16.0 ft (4.9 m)",
-    note: "Same shape as the F/A-18E with the Blue Angels scheme in _F18T.PIC and a larger yellow spine area; normals recomputed. A smooth solid yellow stripe runs from the cockpit sides along the spine and tapers to a point at the front. The canopy keeps its original texture, the wingtip vapor trails start at the right place, and the low-detail model has the larger wing. Wheel doors are painted fuselage dark blue." },
+    note: "Same shape as the F/A-18E with the Blue Angels scheme in _F18T.PIC and a larger yellow spine area; normals recomputed. A smooth solid yellow stripe runs from the cockpit sides along the spine and tapers to a point at the front. The canopy keeps its original texture, the wingtip vapor trails start at the right place, and the low-detail model has the larger wing. Wheel doors are painted fuselage dark blue.", subZh: "單座藍天使", noteZh: "外形與 F/A-18E 相同，_F18T.PIC 是藍天使塗裝，背脊黃色區域加大；重算法向量。一條平滑的實心黃色條紋從座艙兩側沿背脊延伸，往前收成尖端。座艙罩保留原本的貼圖，翼尖凝結尾跡從正確位置開始，低細節模型也有較大的機翼。輪艙門漆成機身的深藍色。" },
   { sh: "F18U", name: "F/A-18F Blue Angels", sub: "Two-seat Blue Angels", len: "60.3 ft (18.4 m)", span: "44.7 ft (13.6 m)", h: "16.0 ft (4.9 m)",
-    note: "Based on the F/A-18F with a longer yellow spine wedge; _F18U.PIC is a two-seat repaint of the single-seat Blue Angels scheme. A solid yellow stripe runs from the cockpit sides along the spine and tapers at the front. The canopy keeps its original texture, face and vertex colours are Blue Angels dark blue, and the low-detail model has the larger wing. Wheel doors are painted fuselage dark blue." },
+    note: "Based on the F/A-18F with a longer yellow spine wedge; _F18U.PIC is a two-seat repaint of the single-seat Blue Angels scheme. A solid yellow stripe runs from the cockpit sides along the spine and tapers at the front. The canopy keeps its original texture, face and vertex colours are Blue Angels dark blue, and the low-detail model has the larger wing. Wheel doors are painted fuselage dark blue.", subZh: "雙座藍天使", noteZh: "以 F/A-18F 為基礎，背脊黃色楔形較長；_F18U.PIC 是單座藍天使塗裝改畫的雙座版。實心黃色條紋從座艙兩側沿背脊延伸，往前收尖。座艙罩保留原本的貼圖，面和頂點顏色都是藍天使深藍，低細節模型也有較大的機翼。輪艙門漆成機身的深藍色。" },
   { sh: "F18G", name: "EA-18G Growler", sub: "Electronic attack", len: "60.2 ft (18.3 m)", span: "44.9 ft (13.7 m)", h: "16.0 ft (4.9 m)",
-    note: "Built on the F/A-18F with its own _F18G.PIC texture. New stores added as shared parts: two underwing fuel tanks (inboard), two ALQ-99 jamming pods (midboard) and one on the centerline, all on pylons, plus ALQ-218 wingtip pods with four small swept fins front and rear. Extra plane tests draw each store group in front of or behind the body and lowered flaps depending on the view, and the belly pod sits between the two main wheels." },
+    note: "Built on the F/A-18F with its own _F18G.PIC texture. New stores added as shared parts: two underwing fuel tanks (inboard), two ALQ-99 jamming pods (midboard) and one on the centerline, all on pylons, plus ALQ-218 wingtip pods with four small swept fins front and rear. Extra plane tests draw each store group in front of or behind the body and lowered flaps depending on the view, and the belly pod sits between the two main wheels.", subZh: "電子攻擊機", noteZh: "以 F/A-18F 為基礎，使用自己的 _F18G.PIC 貼圖。新增的外掛做成共用零件：兩個翼下副油箱（內側）、兩個 ALQ-99 干擾莢艙（中段）和一個機腹中線莢艙，都掛在派龍架上，另有翼尖的 ALQ-218 莢艙，前後各有四片小後掠翼片。另外加的平面測試會依視角把每組外掛畫在機身和放下的襟翼前面或後面，機腹莢艙位於兩個主輪之間。" },
 ];
 function showSpec(v){
-  $("spec").innerHTML = `<h2>${v.name}  <span style="color:var(--muted);font-weight:normal;font-size:12px">${v.sub} · ${v.sh}.SH</span></h2>
-    <table><tr><td>Length</td><td>${v.len}</td></tr><tr><td>Span (incl. wingtip missiles)</td><td>${v.span}</td></tr><tr><td>Height</td><td>${v.h}</td></tr></table><p>${v.note}</p>
-    <p>Download: <a href="../SH/${v.sh}.SH" download>${v.sh}.SH</a> · <a href="../PIC/_${v.sh}.PIC" download>_${v.sh}.PIC</a></p>`;
+  $("spec").innerHTML = `<h2>${v.name}  <span style="color:var(--muted);font-weight:normal;font-size:12px">${L(v.sub, v.subZh)} · ${v.sh}.SH</span></h2>
+    <table><tr><td>${L("Length", "長度")}</td><td>${v.len}</td></tr><tr><td>${L("Span (incl. wingtip missiles)", "翼展（含翼尖飛彈）")}</td><td>${v.span}</td></tr><tr><td>${L("Height", "高度")}</td><td>${v.h}</td></tr></table><p>${L(v.note, v.noteZh)}</p>
+    <p>${L("Download:", "下載：")} <a href="../SH/${v.sh}.SH" download>${v.sh}.SH</a> · <a href="../PIC/_${v.sh}.PIC" download>_${v.sh}.PIC</a></p>`;
   document.querySelectorAll("#variants button").forEach(b => b.classList.toggle("on", b.dataset.sh === v.sh));
 }
-VAR.forEach(v => { const b = document.createElement("button"); b.dataset.sh = v.sh; b.innerHTML = `<b>${v.name}</b><span>${v.sub}</span>`;
+VAR.forEach(v => { const b = document.createElement("button"); b.dataset.sh = v.sh; b.innerHTML = `<b>${v.name}</b><span>${L(v.sub, v.subZh)}</span>`; b._v = v;
   b.onclick = () => { showSpec(v); setSel(-1); load(v.sh); }; $("variants").appendChild(b); });
 // "Download all models": fetch every variant's SH and PIC (this site's ../SH and ../PIC, else GitHub) and save them as one zip
 // (stored, uncompressed: the minimal zip format, so no library is needed)
+FAI18N.register({
+  "⬇ Download all models (.zip)": "⬇ 下載全部模型（.zip）", "All F/A-18 SH models and PIC textures from GitHub, in one zip": "從 GitHub 打包下載全部 F/A-18 的 SH 模型和 PIC 貼圖",
+  "Auto-rotate": "自動旋轉", "Wireframe": "線框", "Top": "上視", "Side": "側視", "Front": "前視",
+  "Drag to rotate · scroll to zoom · click a face for details": "拖曳旋轉 · 滾輪縮放 · 點面看資料",
+  "Configuration": "狀態", "Landing gear down": "起落架放下", "Flaps down": "襟翼放下", "Tailhook down": "尾鉤放下", "Speed brake open": "減速板打開", "Afterburner": "後燃器",
+  "Clean": "乾淨外形", "Carrier landing": "航艦降落", "Takeoff": "起飛", "Combat": "空戰",
+  "Model data": "模型資料", "PIC texture": "PIC 貼圖", "Show UV outlines": "顯示 UV 範圍", "FAshion home": "FAshion 首頁"
+});
+$("langSlot").append(FAI18N.picker()); FAI18N.apply();
+FAI18N.onChange(() => { const on = document.querySelector("#variants button.on"); document.querySelectorAll("#variants button").forEach(b => { b.querySelector("span").textContent = L(b._v.sub, b._v.subZh); }); if (on) showSpec(on._v); if (cur) buildFaces(); });
 const GH_RAW = "https://raw.githubusercontent.com/kuoyichen/FAoutput/main/";
 async function fetchModelFile(path){
   for (const u of ["../" + path, GH_RAW + path]){ try { const r = await fetch(u); if (r.ok) return new Uint8Array(await r.arrayBuffer()); } catch(e){} }
@@ -653,7 +665,7 @@ function makeZip(files){   // files: [{name, data: Uint8Array}]
 $("dlall").onclick = async ev => {
   ev.preventDefault(); const a = $("dlall"), label = a.textContent;
   try {
-    a.textContent = "Preparing zip…"; const files = [];
+    a.textContent = L("Preparing zip…", "正在打包 zip…"); const files = [];
     for (const v of VAR) for (const path of ["SH/" + v.sh + ".SH", "PIC/_" + v.sh + ".PIC"]) files.push({ name: path, data: await fetchModelFile(path) });
     const url = URL.createObjectURL(makeZip(files)), l = document.createElement("a");
     l.href = url; l.download = "FA18_models.zip"; document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);

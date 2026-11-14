@@ -90,6 +90,7 @@ aside .btn.sm{padding:2px 8px;font-size:12px;cursor:pointer}
 a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
 a.fhome.fx{position:absolute;left:12px;top:10px;z-index:5;text-shadow:0 1px 3px #000}
 </style>
+<script src="fashion_i18n.js"></script>
 </head>
 <body>
 <div id="app">
@@ -116,8 +117,8 @@ a.fhome.fx{position:absolute;left:12px;top:10px;z-index:5;text-shadow:0 1px 3px 
   </div>
   <div class="ov" id="legend"><div class="t">顏色代碼</div><div id="legitems"></div></div>
   <div id="drop"><b>把 flight_*.bin 拖進來，或按下方「開啟 .bin」</b>
-    <span>支援 <code>fa_probe2.py flight</code>（所有物件）與 <code>fa_probe2.py record</code>（只有玩家）的錄製檔</span></div>
-  <div id="hint">左鍵拖曳：旋轉　右鍵 / Shift 拖曳：平移　滾輪：縮放<br>點飛機：選取　空白鍵：播放 / 暫停　← →：前後 5 秒</div>
+    <span data-lang="zh">支援 <code>fa_probe2.py flight</code>（所有物件）與 <code>fa_probe2.py record</code>（只有玩家）的錄製檔</span><span data-lang="en">Reads recordings from <code>fa_probe2.py flight</code> (all objects) and <code>fa_probe2.py record</code> (player only)</span></div>
+  <div id="hint"><span data-lang="zh">左鍵拖曳：旋轉　右鍵 / Shift 拖曳：平移　滾輪：縮放<br>點飛機：選取　空白鍵：播放 / 暫停　← →：前後 5 秒</span><span data-lang="en">Left-drag: rotate · right / Shift-drag: pan · wheel: zoom<br>Click an aircraft: select · Space: play / pause · ← →: back / forward 5 s</span></div>
 </div>
 
 <aside id="side">
@@ -170,6 +171,7 @@ a.fhome.fx{position:absolute;left:12px;top:10px;z-index:5;text-shadow:0 1px 3px 
   <span id="fname">尚未載入</span>
   <button id="reset" title="重設視角">重設</button>
   <button id="sidebtn" class="on" title="顯示 / 隱藏右側面板">面板</button>
+  <span id="langSlot"></span>
 </footer>
 </div>
 
@@ -183,7 +185,7 @@ function parse(buf){
   const dv = new DataView(buf), u8 = new Uint8Array(buf), magic = str(u8,0,6);
   if (/^FAFLT[123]$/.test(magic)) return parseFlight(dv, u8, +magic[5]);
   if (magic === "FAREC1" || magic === "FAREC2") return parseRec(dv, u8, magic);
-  throw new Error("不認得的檔案格式：" + magic);
+  throw new Error(L("Unknown file format: ", "不認得的檔案格式：") + magic);
 }
 function parseFlight(dv, u8, ver){
   const names = [], frames = [], raws = [], types = new Map(); let p = 6, cur = null;
@@ -251,7 +253,7 @@ function fixOldPlayer(d){
     if (cand && f.objs.has(cand.idx)){ const o = f.objs.get(cand.idx); f.objs.delete(cand.idx); o.idx = 0; f.objs.set(0, o); }
     f.actOk = false;          // 操縱面 / 掛點資料是別架飛機的，不顯示
   }
-  d.note = cand ? `舊版錄製：玩家改用物件 #${cand.idx}` : "舊版錄製：找不到玩家";
+  d.note = cand ? L(`old recording: player taken from object #${cand.idx}`, `舊版錄製：玩家改用物件 #${cand.idx}`) : L("old recording: player not found", "舊版錄製：找不到玩家");
 }
 function parseRec(dv, u8, magic){
   let size, pos;
@@ -278,7 +280,7 @@ const printable = s => /^[\x20-\x7e]+$/.test(s) && /[A-Za-z0-9]{2,}/.test(s) && 
 let typeAlias = {}; try { typeAlias = JSON.parse(localStorage.getItem("fa_type_alias") || "{}"); } catch(e){}
 const saveAlias = () => { try { localStorage.setItem("fa_type_alias", JSON.stringify(typeAlias)); } catch(e){} };
 let autoNames = new Map();
-function displayName(raw){ return typeAlias[raw] || (printable(raw) ? raw : autoNames.get(raw) || "未知機型"); }
+function displayName(raw){ if (raw === "玩家" && !typeAlias[raw]) return L("Player", "玩家"); return typeAlias[raw] || (printable(raw) ? raw : autoNames.get(raw) || L("Unknown type", "未知機型")); }
 
 // 外型（機體座標：右 +x、前 +z；長度約 2）
 function mirror(half){ return [...half, ...half.slice(1,-1).reverse().map(([x,z])=>[-x,z])].map(([x,z])=>[x,0,z]); }
@@ -321,10 +323,23 @@ const NATIONS = ["美國","英國","中國","法國","德國","比利時","約�
   "古巴","巴拿馬","哥倫比亞","巴基斯坦","印度","阿富汗","台灣","希臘","土耳其","義大利","瑞典","芬蘭","挪威","西班牙","葡萄牙","奧地利","丹麥","荷蘭","加拿大",
   "保加利亞","匈牙利","羅馬尼亞","澳洲","菲律賓","阿根廷","波士尼亞","塞爾維亞"];
 const NAT_OFF = 0x09;
-const natName = v => NATIONS[v & 0x7F] ?? `國別 ${v & 0x7F}`;
+const natName = v => NATIONS[v & 0x7F] ?? `國別 ${v & 0x7F}`, natNameL = v => FAI18N.lang === "zh" ? natName(v) : G(natName(v));
 const FRIEND_COL = ["#2f8cff","#22c3d6","#5b6cff","#36d39a"], ENEMY_COL = ["#ff3b2f","#ff8a1c","#e0408a","#b8321a"];
 const PALETTE = ["#ffc21a","#36c3f2","#ff4a2a","#2f9b3a","#a35bd8","#ff7aa8","#f07c1a","#e8e8e8","#1c6fd1","#93c83e"];
-const $ = id => document.getElementById(id);
+const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
+FAI18N.register({"FA Mission Replay": "FA 任務重播", "Speed: ": "播放：", "Follow view": "跟隨視角", "Free view": "自由視角", "Group view": "群組視角", "ID": "編號", "Altitude": "高度", "Speed": "速度", "Pitch": "俯仰", "Heading": "航向", "Nation": "國別", "Damage": "損傷", "SH shape": "SH 外型", "Colour key": "顏色代碼", "Drop flight_*.bin here, or press “Open .bin” below": "把 flight_*.bin 拖進來，或按下方「開啟 .bin」", "Player": "玩家", "Type": "機型", "Pitch / roll": "俯仰 / 滾轉", "Throttle / thrust": "油門 / 推力", "Controls": "操縱面", "Gear": "起落架", "Flaps": "襟翼", "Hook": "捕捉勾", "Brake": "煞車", "Weapon stations": "武器掛點", "Display": "顯示", "Ribbon trails": "緞帶軌跡", "Altitude drop lines": "高度垂線", "ID labels": "編號標籤", "Static objects (runways, buildings…)": "靜止物件（跑道、建築…）", "Point the nose along the direction of travel": "用移動方向決定機頭朝向", "Mirror Z axis (tick if left and right are swapped)": "鏡像 Z 軸（方向左右相反時勾選）", "Shape": "外型", "SH 3D shapes": "SH 3D 外型", "Flat silhouettes": "平面剪影", "Choose SH folder": "選擇 SH 資料夾", "Load .SH files": "載入 .SH 檔", "Colour by": "顏色依", "Nation (friend / foe)": "國別（敵我）", "Class code": "類別代碼", "Icon size": "圖示大小", "Trail length": "軌跡長度", "Events": "事件", "(shown after a file is loaded)": "（載入檔案後顯示）", "Open .bin": "開啟 .bin", "Nothing loaded": "尚未載入", "Reset": "重設", "Panel": "面板", "Rename this aircraft type": "改這個機型的名稱", "Throttle (light) / thrust (line)": "油門（淡）/ 推力（線）", "Play / pause": "播放 / 暫停", "Playback speed": "播放速度", "This file holds several missions; pick the one to play": "這個檔案裡錄到好幾次任務，選擇要播放哪一次", "Reset view": "重設視角", "Show / hide the side panel": "顯示 / 隱藏右側面板", "FAshion home": "FAshion 首頁"});
+const NATIONS_EN = ["USA", "UK", "China", "France", "Germany", "Belgium", "Jordan", "Israel", "Japan", "North Korea", "Russia", "South Korea", "Syria", "Egypt (Arab)", "Egypt (Islamic)", "Estonia", "Latvia", "Lithuania", "Poland", "Belarus", "North Vietnam", "South Vietnam", "Ukraine", "Iraq", "Iran", "Kuwait", "Saudi Arabia", "Oman", "UAE", "Qatar", "Bahrain", "Libya", "Sudan", "Cuba", "Panama", "Colombia", "Pakistan", "India", "Afghanistan", "Taiwan", "Greece", "Turkey", "Italy", "Sweden", "Finland", "Norway", "Spain", "Portugal", "Austria", "Denmark", "Netherlands", "Canada", "Bulgaria", "Hungary", "Romania", "Australia", "Philippines", "Argentina", "Bosnia", "Serbia"];
+// group names stay Chinese inside (colour table, friend / foe test); G() shows them in the current language
+const GROUP_EN = { "飛彈":"Missiles", "機砲彈":"Gun rounds", "殘骸":"Debris", "跳傘飛行員":"Ejected pilots", "建築 / 跑道":"Buildings / runways", "地面單位":"Ground units" };
+function G(g){
+  if (FAI18N.lang === "zh") return g; if (GROUP_EN[g]) return GROUP_EN[g];
+  let t = g, side = "";
+  if (t.endsWith("（敵）")){ side = " (enemy)"; t = t.slice(0, -3); } else if (t.endsWith("（友）")){ side = " (friendly)"; t = t.slice(0, -3); }
+  if (t.startsWith("類別 ")) return "Class " + t.slice(3) + side;
+  let ground = false; if (t.endsWith("地面")){ ground = true; t = t.slice(0, -2); }
+  const i = NATIONS.indexOf(t); if (i >= 0) t = NATIONS_EN[i]; else if (t.startsWith("國別 ")) t = "Nation " + t.slice(3);
+  return t + (ground ? " ground" : "") + side;
+}
 const keyOf = o => o.idx + "|" + o.name;
 const MISSILE_RE = /AIM|AGM|MISS|SAM|SA-|AA-|R-\d|ROCKET|BOMB|MK\d|GBU|HARM|MAV/i;
 const dist3 = (a,b) => Math.hypot(a.x-b.x, a.y-b.y, a.z-b.z);
@@ -346,16 +361,16 @@ function splitMissions(frames){
 let loadedName = "";
 function load(buf, name){
   try { data = parse(buf); } catch(e){ alert(e.message); return; }
-  if (!data.frames.length){ alert("檔案裡沒有資料"); return; }
+  if (!data.frames.length){ alert(L("The file has no data", "檔案裡沒有資料")); return; }
   data.segs = splitMissions(data.frames);
-  if (!data.segs.length){ alert("檔案裡沒有任務資料（全部都在設定畫面）"); return; }
+  if (!data.segs.length){ alert(L("The file has no mission data (everything was recorded in the setup screens)", "檔案裡沒有任務資料（全部都在設定畫面）")); return; }
   loadedName = name;
-  $("mission").innerHTML = data.segs.map((sg, i) => `<option value="${i}">任務 ${i+1}（${Math.round(sg[sg.length-1].t - sg[0].t)} 秒）</option>`).join("");
+  $("mission").innerHTML = data.segs.map((sg, i) => `<option value="${i}">${L(`Mission ${i+1} (${Math.round(sg[sg.length-1].t - sg[0].t)} s)`, `任務 ${i+1}（${Math.round(sg[sg.length-1].t - sg[0].t)} 秒）`)}</option>`).join("");
   $("mission").classList.toggle("hide", data.segs.length < 2);
   buildMission(0);
 }
 function buildMission(k){
-  data.frames = data.segs[k]; const name = loadedName + (data.segs.length > 1 ? ` · 任務 ${k+1}/${data.segs.length}` : "");
+  data.frames = data.segs[k]; const name = loadedName + (data.segs.length > 1 ? L(` · mission ${k+1}/${data.segs.length}`, ` · 任務 ${k+1}/${data.segs.length}`) : "");
   $("mission").value = k;
   const fr = data.frames;
   T0 = fr[0].t; T1 = fr[fr.length-1].t; now = T0;
@@ -378,7 +393,7 @@ function buildMission(k){
   // 自動機型代號
   autoNames = new Map(); let an = 0;
   const ordered = [...tracks.values()].sort((a,b)=> (a.key===playerKey?-1:b.key===playerKey?1:0) || a.idx-b.idx);
-  for (const tr of ordered) if ((tr.cls === 4) && !printable(tr.name) && !autoNames.has(tr.name)) autoNames.set(tr.name, `機型 ${String.fromCharCode(65 + an++)}`);
+  for (const tr of ordered) if ((tr.cls === 4) && !printable(tr.name) && !autoNames.has(tr.name)) autoNames.set(tr.name, L("Type ", "機型 ") + String.fromCharCode(65 + an++));
   // 分類
   for (const tr of tracks.values()){
     const a = tr.pts[0]; let moved = false, vmax = 0, smin = Infinity, smax = 0;
@@ -467,49 +482,49 @@ function buildMission(k){
   }
   events = buildEvents(fr);
   const nAir = aircraft.length;
-  $("fname").textContent = `${name} · ${(T1-T0).toFixed(0)} 秒 · ${nAir} 架飛機${data.note ? " · " + data.note : ""}`;
+  $("fname").textContent = L(`${name} · ${(T1-T0).toFixed(0)} s · ${nAir} aircraft${data.note ? " · " + data.note : ""}`, `${name} · ${(T1-T0).toFixed(0)} 秒 · ${nAir} 架飛機${data.note ? " · " + data.note : ""}`);
   $("drop").classList.add("hide");
   buildLegend(); resetView(); renderEvents(); renderMarks(); requestModels(); update();
 }
 
 // ================= 事件 =================
-const BITS = [["gear","c1",0x40,"起落架"],["brake","c1",0x80,"煞車"],["flaps","c2",0x01,"襟翼"],["hook","c2",0x04,"捕捉勾"]];
-const stnName = k => k===0 ? "機砲" : `掛點${k}`;
-const label = key => { const tr = tracks.get(key); if (!tr) return "?"; return key===playerKey ? `${displayName(tr.name)}（玩家）` : `${displayName(tr.name)} #${String(tr.idx).padStart(4,"0")}`; };
+const BITS = [["gear","c1",0x40,"起落架","Gear"],["brake","c1",0x80,"煞車","Brake"],["flaps","c2",0x01,"襟翼","Flaps"],["hook","c2",0x04,"捕捉勾","Hook"]];
+const stnName = k => k===0 ? L("Gun", "機砲") : L(`Stn ${k}`, `掛點${k}`);
+const label = key => { const tr = tracks.get(key); if (!tr) return "?"; return key===playerKey ? `${displayName(tr.name)}${L(" (player)", "（玩家）")}` : `${displayName(tr.name)} #${String(tr.idx).padStart(4,"0")}`; };
 function buildEvents(fr){
   const ev = [];
   for (let i=1;i<fr.length;i++){
     const a = fr[i-1], b = fr[i], t = b.t;
     if (!a.actOk || !b.actOk) continue;
-    for (const [k,f,bit,lbl] of BITS){
+    for (const [k,f,bit,lblZh,lblEn] of BITS){ const lbl = L(lblEn, lblZh);
       const x = !!(a[f]&bit), y = !!(b[f]&bit);
-      if (x!==y) ev.push({t, text: lbl + (k==="brake" ? (y?" 開":" 關") : (y?" 放下":" 收起")), kind:"ctl"});
+      if (x!==y) ev.push({t, text: lbl + (k==="brake" ? (y?L(" on"," 開"):L(" off"," 關")) : (y?L(" down"," 放下"):L(" up"," 收起"))), kind:"ctl"});
     }
-    if (a.sel !== b.sel) ev.push({t, text:"選擇 " + stnName(b.sel-3), kind:"sel"});
-    for (let k=1;k<STATIONS;k++){ const d = a.stn[k]-b.stn[k]; if (d>0 && d<1000) ev.push({t, text:`發射 掛點${k}（剩 ${b.stn[k]}）`, kind:"wpn"}); }
+    if (a.sel !== b.sel) ev.push({t, text:L("Select ", "選擇 ") + stnName(b.sel-3), kind:"sel"});
+    for (let k=1;k<STATIONS;k++){ const d = a.stn[k]-b.stn[k]; if (d>0 && d<1000) ev.push({t, text:L(`Fired stn ${k} (${b.stn[k]} left)`, `發射 掛點${k}（剩 ${b.stn[k]}）`), kind:"wpn"}); }
   }
   // 玩家射擊（由射出物推得）
   let burst = null;
   for (const tr of [...tracks.values()].filter(t=>t.shooter && (t.kind==="bullet"||t.kind==="missile")).sort((a,b)=>a.t0-b.t0)){
-    const who = tr.shooter===playerKey ? "玩家" : label(tr.shooter);
-    if (tr.kind==="missile") ev.push({ t:tr.t0, text:`${who} 發射飛彈`, kind:"wpn" });
-    else if (burst && burst.shooter===tr.shooter && tr.t0 - burst.tEnd < 0.8){ burst.n++; burst.tEnd = tr.t0; burst.text = `${who} 機砲連射（${burst.n}）`; }
-    else { burst = { t:tr.t0, tEnd:tr.t0, n:1, shooter:tr.shooter, text:`${who} 機砲連射（1）`, kind:"gun" }; ev.push(burst); }
+    const who = tr.shooter===playerKey ? L("Player", "玩家") : label(tr.shooter);
+    if (tr.kind==="missile") ev.push({ t:tr.t0, text:L(`${who} fired a missile`, `${who} 發射飛彈`), kind:"wpn" });
+    else if (burst && burst.shooter===tr.shooter && tr.t0 - burst.tEnd < 0.8){ burst.n++; burst.tEnd = tr.t0; burst.text = L(`${who} gun burst (${burst.n})`, `${who} 機砲連射（${burst.n}）`); }
+    else { burst = { t:tr.t0, tEnd:tr.t0, n:1, shooter:tr.shooter, text:L(`${who} gun burst (1)`, `${who} 機砲連射（1）`), kind:"gun" }; ev.push(burst); }
   }
-  for (const g of gunShots){ ev.push({ t:g.t, text:"機砲", kind:"gun" }); }
+  for (const g of gunShots){ ev.push({ t:g.t, text:L("Gun", "機砲"), kind:"gun", gun1:1 }); }
   // 擊中與擊毀（同一架飛機 0.5 秒內的多次擊中合併）
   let lastHit = {};
-  const hitText = (h, n) => `${label(h.key)} 被${h.wpn ? " "+h.wpn+" " : h.by==="missile"?"飛彈":h.by==="bullet"?"機砲":""}擊中${n>1?" ×"+n:""}${h.hp!=null?`（損傷 ${Math.round((1-h.hp/h.max)*100)}%）`:""}`;
+  const hitText = (h, n) => L(`${label(h.key)} hit${h.wpn ? " by "+h.wpn : h.by==="missile"?" by a missile":h.by==="bullet"?" by gunfire":""}${n>1?" ×"+n:""}${h.hp!=null?` (damage ${Math.round((1-h.hp/h.max)*100)}%)`:""}`, `${label(h.key)} 被${h.wpn ? " "+h.wpn+" " : h.by==="missile"?"飛彈":h.by==="bullet"?"機砲":""}擊中${n>1?" ×"+n:""}${h.hp!=null?`（損傷 ${Math.round((1-h.hp/h.max)*100)}%）`:""}`);
   for (const h of hits){
     const L = lastHit[h.key]; if (L && h.t - L.tl < 0.8){ L.n++; L.tl = h.t; if (!L.h.by) L.h = { ...L.h, by:h.by, wpn:h.wpn }; L.text = hitText({ ...h, by:L.h.by, wpn:L.h.wpn }, L.n); continue; }
     const e = { t:h.t, tl:h.t, n:1, h, text:hitText(h,1), kind:"hit" }; ev.push(e); lastHit[h.key] = e;
   }
-  for (const tr of tracks.values()) if (tr.kind==="pilot") ev.push({ t:tr.t0, text:"🪂 飛行員跳傘", kind:"ctl" });
-  for (const k of kills) ev.push({ t:k.t, text:`💥 ${label(k.key)} ${k.crash?"墜毀":"被擊毀"}${k.parts?.length>1?"（斷成兩截）":k.vanish?"（消失）":""}`, kind:"kill" });
+  for (const tr of tracks.values()) if (tr.kind==="pilot") ev.push({ t:tr.t0, text:L("🪂 Pilot ejected", "🪂 飛行員跳傘"), kind:"ctl" });
+  for (const k of kills) ev.push({ t:k.t, text:L(`💥 ${label(k.key)} ${k.crash?"crashed":"destroyed"}${k.parts?.length>1?" (broke in two)":k.vanish?" (vanished)":""}`, `💥 ${label(k.key)} ${k.crash?"墜毀":"被擊毀"}${k.parts?.length>1?"（斷成兩截）":k.vanish?"（消失）":""}`), kind:"kill" });
   if (gunShots.length){ // 合併推算的機砲事件
     const out = []; for (const e of ev.sort((a,b)=>a.t-b.t)){ const l = out[out.length-1];
-      if (e.kind==="gun" && e.text==="機砲" && l && l.kind==="gun" && e.t - l.tEnd < 0.6){ l.tEnd = e.t; continue; }
-      if (e.kind==="gun" && e.text==="機砲") e.tEnd = e.t; out.push(e); } return out;
+      if (e.kind==="gun" && e.gun1 && l && l.kind==="gun" && e.t - l.tEnd < 0.6){ l.tEnd = e.t; continue; }
+      if (e.kind==="gun" && e.gun1) e.tEnd = e.t; out.push(e); } return out;
   }
   return ev.sort((a,b)=>a.t-b.t);
 }
@@ -546,15 +561,15 @@ function buildLegend(){
   }
   $("legitems").innerHTML = [...groups].map(([g,n]) => {
     const light = ["飛彈","機砲彈","跳傘飛行員"].includes(g);
-    const ren = rawOf.has(g) && $("o_color").value==="type" ? `<span class="ren" data-raw="${encodeURIComponent(rawOf.get(g))}" title="改機型名稱">✎</span><span class="ren shp" data-raw="${encodeURIComponent(rawOf.get(g))}" title="用俯視剪影圖換外型（機頭朝上；按住 Shift 點擊可還原內建外型）">✈</span>` : "";
-    return `<div class="it${hidden.has(g)?" off":""}" data-g="${encodeURIComponent(g)}" style="background:${groupColor.get(g)}${light?";color:#222;text-shadow:none":""}">${g}${ren}<span style="margin-left:auto;opacity:.85">${n}</span></div>`; }).join("");
+    const ren = rawOf.has(g) && $("o_color").value==="type" ? `<span class="ren" data-raw="${encodeURIComponent(rawOf.get(g))}" title="${L("Rename this type", "改機型名稱")}">✎</span><span class="ren shp" data-raw="${encodeURIComponent(rawOf.get(g))}" title="${L("Replace the shape with a top-view silhouette image (nose up; Shift-click restores the built-in shape)", "用俯視剪影圖換外型（機頭朝上；按住 Shift 點擊可還原內建外型）")}">✈</span>` : "";
+    return `<div class="it${hidden.has(g)?" off":""}" data-g="${encodeURIComponent(g)}" style="background:${groupColor.get(g)}${light?";color:#222;text-shadow:none":""}">${G(g)}${ren}<span style="margin-left:auto;opacity:.85">${n}</span></div>`; }).join("");
   document.querySelectorAll("#legend .it").forEach(el => el.onclick = ev => {
     const rn = ev.target.closest(".ren");
     if (rn && rn.classList.contains("shp")){ ev.stopPropagation(); const nm = displayName(decodeURIComponent(rn.dataset.raw));
       if (ev.shiftKey){ delete customShapes[nm]; saveShapes(); draw(); return; }
       shapeTarget = nm; $("shapefile").value = ""; $("shapefile").click(); return; }
     if (rn){ ev.stopPropagation(); const raw = decodeURIComponent(rn.dataset.raw);
-      const v = prompt("這個機型的名稱（例如 F-14、B-52），外型會跟著名稱改變：", displayName(raw));
+      const v = prompt(L("Name of this aircraft type (e.g. F-14, B-52); the shape follows the name:", "這個機型的名稱（例如 F-14、B-52），外型會跟著名稱改變："), displayName(raw));
       if (v != null){ if (v.trim()) typeAlias[raw] = v.trim(); else delete typeAlias[raw]; saveAlias(); buildLegend(); renderEvents(); update(); }
       return; }
     const g = decodeURIComponent(el.dataset.g); hidden.has(g) ? hidden.delete(g) : hidden.add(g); el.classList.toggle("off"); draw(); });
@@ -809,7 +824,7 @@ async function addShFiles(files){
   let n = 0;
   for (const f of files){ if (!/\.sh$/i.test(f.name)) continue; const k = shKey(f.name), u8 = new Uint8Array(await f.arrayBuffer());
     shFiles.set(k, f); idbPut(k, u8); setModel(k, u8); n++; }
-  shSource = shSource || "本機"; soon(); requestModels(); return n;
+  shSource = shSource || L("local", "本機"); soon(); requestModels(); return n;
 }
 
 const typeShapeFile = new Map();   // 機型名稱 -> SH 檔名（新版錄製檔會記錄）
@@ -927,11 +942,11 @@ function renderShList(){
   const need = new Set(); for (const tr of tracks.values()){ const k = modelKeyOf(tr.name); if (k && k !== "-") need.add(k); }
   let ok = 0, wait = 0; const bad = [];
   for (const k of need){ const s = shState.get(k); if (s === "ok") ok++; else if (s === "loading") wait++; else if (s) bad.push(k); }
-  $("shlist").textContent = !need.size ? (tracks.size ? "這個錄製檔沒有記錄 SH 檔名，可在資訊框手動指定" : "") :
-    `需要 ${need.size} 個，已載入 ${ok}${wait ? `，載入中 ${wait}` : ""}${shSource ? `（${shSource}）` : ""}${bad.length ? `；沒有外型：${bad.join("、")}` : ""}`;
+  $("shlist").textContent = !need.size ? (tracks.size ? L("This recording has no SH file names; pick shapes in the info box", "這個錄製檔沒有記錄 SH 檔名，可在資訊框手動指定") : "") :
+    L(`Need ${need.size}, ${ok} loaded${wait ? `, ${wait} loading` : ""}${shSource ? ` (${shSource})` : ""}${bad.length ? `; no shape: ${bad.join(", ")}` : ""}`, `需要 ${need.size} 個，已載入 ${ok}${wait ? `，載入中 ${wait}` : ""}${shSource ? `（${shSource}）` : ""}${bad.length ? `；沒有外型：${bad.join("、")}` : ""}`);
 }
-$("shfile").onchange = async e => { const n = await addShFiles(e.target.files); if (!n) alert("沒有讀到 .SH 檔"); e.target.value = ""; };
-$("shdir").onchange = async e => { const n = await addShFiles(e.target.files); if (!n) alert("這個資料夾裡沒有 .SH 檔"); e.target.value = ""; };
+$("shfile").onchange = async e => { const n = await addShFiles(e.target.files); if (!n) alert(L("No .SH files were read", "沒有讀到 .SH 檔")); e.target.value = ""; };
+$("shdir").onchange = async e => { const n = await addShFiles(e.target.files); if (!n) alert(L("This folder has no .SH files", "這個資料夾裡沒有 .SH 檔")); e.target.value = ""; };
 $("o_model").onchange = () => draw();
 // 資訊框：指定這個機型用哪個 SH 外型、改機型名稱
 let modelSelFor = null;
@@ -940,8 +955,8 @@ function fillModelSelect(force){
   if (!force && modelSelFor === tr.name) return; modelSelFor = tr.name;
   const cur = modelAlias[tr.name] || "";
   const a = modelAlias[tr.name]; delete modelAlias[tr.name]; const ak = modelKeyOf(tr.name); if (a) modelAlias[tr.name] = a;
-  const auto = ak ? ak + (shState.get(ak) === "ok" ? "" : shState.get(ak) === "loading" ? "…" : "（無）") : "無";
-  $("i_model").innerHTML = `<option value="">自動（${auto}）</option>` + SH_INDEX.map(k => `<option value="${k}">${k}</option>`).join("") + `<option value="-">不用（平面）</option>`;
+  const auto = ak ? ak + (shState.get(ak) === "ok" ? "" : shState.get(ak) === "loading" ? "…" : L(" (none)", "（無）")) : L("none", "無");
+  $("i_model").innerHTML = `<option value="">${L(`Auto (${auto})`, `自動（${auto}）`)}</option>` + SH_INDEX.map(k => `<option value="${k}">${k}</option>`).join("") + `<option value="-">${L("None (flat)", "不用（平面）")}</option>`;
   $("i_model").value = cur;
 }
 $("i_model").onchange = e => { const tr = tracks.get(selKey); if (!tr) return;
@@ -949,16 +964,16 @@ $("i_model").onchange = e => { const tr = tracks.get(selKey); if (!tr) return;
   try { localStorage.setItem("fa_model_alias", JSON.stringify(modelAlias)); } catch(err){}
   requestModels(); draw(); };
 $("i_ren").onclick = () => { const tr = tracks.get(selKey); if (!tr) return;
-  const v = prompt("這個機型的名稱（例如 F-14、B-52）；外型會跟著名稱自動對應：", displayName(tr.name));
+  const v = prompt(L("Name of this aircraft type (e.g. F-14, B-52); the shape is matched from the name:", "這個機型的名稱（例如 F-14、B-52）；外型會跟著名稱自動對應："), displayName(tr.name));
   if (v != null){ if (v.trim()) typeAlias[tr.name] = v.trim(); else delete typeAlias[tr.name]; saveAlias(); buildLegend(); renderEvents(); requestModels(); fillModelSelect(true); update(); } };
 
 let shapeTarget = null;
 $("shapefile").onchange = async e => {
   const f = e.target.files[0]; if (!f || !shapeTarget) return;
   const img = new Image(); img.src = URL.createObjectURL(f);
-  try { await img.decode(); } catch(err){ alert("讀不到這張圖片"); return; }
+  try { await img.decode(); } catch(err){ alert(L("Cannot read this image", "讀不到這張圖片")); return; }
   const pts = traceSilhouette(img); URL.revokeObjectURL(img.src);
-  if (!pts || pts.length < 4){ alert("描不出外型：請用單色剪影、背景乾淨、機頭朝上的俯視圖"); return; }
+  if (!pts || pts.length < 4){ alert(L("Could not trace a shape: use a one-colour top-view silhouette with a clean background, nose up", "描不出外型：請用單色剪影、背景乾淨、機頭朝上的俯視圖")); return; }
   customShapes[shapeTarget] = pts; saveShapes(); draw();
 };
 // 由俯視剪影圖自動描出外型：機頭朝上，背景可為透明、淺色或深色
@@ -1203,7 +1218,7 @@ function draw(){
 
   const step = drawGround();
   ctx.fillStyle = "rgba(60,35,10,.75)"; ctx.font = "11px system-ui"; ctx.textAlign = "right";
-  if (step) ctx.fillText(`格線 ${step>=1000 ? step/1000+"k" : step} ft`, W-12, H-42); ctx.textAlign = "left";
+  if (step) ctx.fillText(`${L("Grid", "格線")} ${step>=1000 ? step/1000+"k" : step} ft`, W-12, H-42); ctx.textAlign = "left";
 
   const size = +$("o_size").value, useVel = $("o_vel").checked, n0 = nearZ();
   // 緞帶軌跡
@@ -1368,17 +1383,17 @@ function update(){
   if (tr && s){
     const dead = tr.killT != null && now > tr.killT;
     const par = tr.parent && tracks.get(tr.parent);
-    if (par) $("i_name").textContent = `${displayName(par.name)} ${String(par.idx).padStart(4,"0")} ${tr.half===0?"前":"後"}半截`; else
-    $("i_name").textContent = (tr.key===playerKey ? `${displayName(tr.name)}（玩家）` : displayName(tr.name)) + (dead ? " ✕ 已擊毀" : "");
+    if (par) $("i_name").textContent = `${displayName(par.name)} ${String(par.idx).padStart(4,"0")} ${tr.half===0?L("front","前"):L("rear","後")}${L(" half","半截")}`; else
+    $("i_name").textContent = (tr.key===playerKey ? `${displayName(tr.name)}${L(" (player)", "（玩家）")}` : displayName(tr.name)) + (dead ? L(" ✕ destroyed", " ✕ 已擊毀") : "");
     $("i_id").textContent = String(tr.idx).padStart(4,"0");
     $("i_alt").textContent = `${Math.round(s.y).toLocaleString()} ft`;
     $("i_spd").textContent = `${Math.round(s.spd*3600/6076)} kts`;
     $("i_pit").textContent = `${(s.vp ?? s.pitch).toFixed(1)}°`;
     $("i_hdg").textContent = `${((s.vh ?? s.hdg)+360)%360 | 0}°`;
     fillModelSelect();
-    $("i_nat").textContent = tr.nat != null ? `${natName(tr.nat)}（${tr.nat & 0x80 ? "敵方" : "友方"}）` : "—";
+    $("i_nat").textContent = tr.nat != null ? L(`${natNameL(tr.nat)} (${tr.nat & 0x80 ? "enemy" : "friendly"})`, `${natName(tr.nat)}（${tr.nat & 0x80 ? "敵方" : "友方"}）`) : "—";
     $("i_hp").textContent = tr.hpMax && s.hp != null ? `${Math.round((1-s.hp/tr.hpMax)*100)}%（${s.hp}/${tr.hpMax}）` : "—";
-  } else { $("i_name").textContent = tr ? `${displayName(tr.name)}（不在場）` : "—"; }
+  } else { $("i_name").textContent = tr ? `${displayName(tr.name)}${L(" (not present)", "（不在場）")}` : "—"; }
   const pt = tracks.get(playerKey), p = pt && sampleTrack(pt, now);
   if (p){
     $("p_name").textContent = displayName(pt.name);
@@ -1393,14 +1408,14 @@ function update(){
   $("thr_bar").style.width = (ok ? a.thr ?? 0 : 0) + "%"; $("rpm_bar").style.width = (ok ? a.rpm ?? 0 : 0) + "%";
   for (const [k,f,bit] of BITS) $("c_"+k).classList.toggle("on", ok && !!(a[f]&bit));
   const sl = a.sel - 3;
-  $("stn").innerHTML = !ok ? "<span style='color:var(--muted)'>（這個錄製檔沒有玩家掛點資料）</span>" :
+  $("stn").innerHTML = !ok ? `<span style='color:var(--muted)'>${L("(no player station data in this recording)", "（這個錄製檔沒有玩家掛點資料）")}</span>` :
     a.stn.map((v,k)=> (k===0 || v>0 || k===sl) ? `<div class="${k===sl?"sel":""}"><small>${stnName(k)}</small>${v}</div>` : "").join("");
   [...$("events").children].forEach(li => li.classList.toggle("past", +li.dataset.t <= now));
   draw();
 }
 function renderEvents(){
   const ul = $("events"); ul.innerHTML = "";
-  if (!events.length){ ul.innerHTML = "<li class='past'>（沒有事件）</li>"; return; }
+  if (!events.length){ ul.innerHTML = `<li class='past'>${L("(no events)", "（沒有事件）")}</li>`; return; }
   for (const e of events){
     const li = document.createElement("li"); li.dataset.t = e.t; if (e.kind==="kill") li.className = "kill"; if (e.kind==="hit") li.classList.add("hit");
     li.innerHTML = `<time>${fmt(e.t-T0)}</time><span>${e.text}</span>`;
@@ -1419,14 +1434,14 @@ function resetView(){
     for (const p of tr.pts){ mx=Math.max(mx,p.x); mn=Math.min(mn,p.x); Mz=Math.max(Mz,p.z); mz=Math.min(mz,p.z); }
     cam.dist = Math.min(400000, Math.max(8000, Math.max(mx-mn, Mz-mz)*0.9)); }
 }
-function setView(m){ viewMode = m; $("viewmode").textContent = { follow:"跟隨視角", free:"自由視角", group:"群組視角" }[m]; draw(); }
+function setView(m){ viewMode = m; $("viewmode").textContent = { follow:L("Follow view", "跟隨視角"), free:L("Free view", "自由視角"), group:L("Group view", "群組視角") }[m]; draw(); }
 
 $("mission").onchange = e => { if (data) buildMission(+e.target.value); };
 $("file").onchange = e => { const f = e.target.files[0]; if (f) f.arrayBuffer().then(b=>load(b,f.name)); };
 const view = $("view");
 view.addEventListener("dragover", e=>e.preventDefault());
 view.addEventListener("drop", e=>{ e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) f.arrayBuffer().then(b=>load(b,f.name)); });
-function setPlaying(v){ playing = v; $("play").textContent = v ? "❚❚" : "▶"; $("playlbl").textContent = v ? "▶ 播放中" : "❚❚ 暫停"; $("play").classList.toggle("on", v); }
+function setPlaying(v){ playing = v; $("play").textContent = v ? "❚❚" : "▶"; $("playlbl").textContent = v ? L("▶ playing", "▶ 播放中") : L("❚❚ paused", "❚❚ 暫停"); $("play").classList.toggle("on", v); }
 $("play").onclick = () => { if (!data) return; if (now >= T1) now = T0; setPlaying(!playing); last = performance.now(); };
 $("speed").onchange = e => $("spdlbl").textContent = e.target.value + "×";
 $("seek").oninput = e => { if (!data) return; now = T0 + (T1-T0)*e.target.value/1000; update(); };
@@ -1473,6 +1488,12 @@ function tick(t){
   requestAnimationFrame(tick);
 }
 resize(); requestAnimationFrame(tick);
+// ---------- language ----------
+$("langSlot").append(FAI18N.picker()); FAI18N.apply(); document.title = L("FA Mission Replay", "FA 任務重播");
+FAI18N.onChange(() => { document.title = L("FA Mission Replay", "FA 任務重播"); setView(viewMode); setPlaying(playing);
+  if (data && data.segs){ const k = +$("mission").value || 0, t = now, sk = selKey;
+    $("mission").innerHTML = data.segs.map((sg, i) => `<option value="${i}">${L(`Mission ${i+1} (${Math.round(sg[sg.length-1].t - sg[0].t)} s)`, `任務 ${i+1}（${Math.round(sg[sg.length-1].t - sg[0].t)} 秒）`)}</option>`).join("");
+    buildMission(k); now = t; selKey = sk; fillModelSelect(true); update(); } });
 </script>
 </body>
 </html>
