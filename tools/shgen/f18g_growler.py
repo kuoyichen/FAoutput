@@ -226,13 +226,13 @@ def build(d):
     # Each group is drawn after everything nested inside it (so it covers the body, flaps and gear) when its
     # "after" plane is ≥ 0, otherwise before.  Groups: right underwing, right tip, left underwing, left tip,
     # centerline, then the body.  Directions for a distant eye:
-    #   underwing (left):  -0.15 x - up + 0.08 fwd ≥ 0 → seen from below the wing, from the left or the front at
+    #   underwing (left):  -0.22 x - up + 0.05 fwd ≥ 0 → seen from below the wing, from the left or the front at
     #                      wing level; from any height above the wing, the far side or the rear they go first
     #   wingtip (left):    -x + 1.2 up ≥ 0            → everywhere except low from the right, where the fuselage hides it
     #   centerline:        up ≤ -9                    → only from below
-    blk += node('PR', (2458, -16384, 1311), (-18, -2, 0), 'PRT', 'RG')
+    blk += node('PR', (3604, -16384, 819), (-18, -2, 0), 'PRT', 'RG')
     blk += node('PRT', (10923, 13107, 0), (-20, 0, 0), 'PL', 'Rtip')
-    blk += node('PL', (-2458, -16384, 1311), (18, -2, 0), 'PLT', 'LG')
+    blk += node('PL', (-3604, -16384, 819), (18, -2, 0), 'PLT', 'LG')
     blk += node('PLT', (-10923, 13107, 0), (20, 0, 0), 'PC', 'Ltip')
     blk += node('PC', (0, -16384, 0), (0, 9, 0), 'BODY', 'C')
     o = at['BODY']; blk += bytes(c[ROOT:ROOT+14]) + struct.pack('<hh', TA - (o+16), TB - (o+18)) + b'\x00\x00'
