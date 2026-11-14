@@ -36,12 +36,13 @@ GUN_VERTS = (158, 161, 216, 217)       # 這兩個貼圖在 y>95 的角點
 #   半寬 = 7·(1-t)(1+0.6t)；剖面是超橢圓 |x/w|^2.4 + |(z-c)/h|^2.4 = 1，n=2.4 時和 y=95 環幾乎一樣
 #   頂點座標只能是整數（1 呎），所以每個點都在附近的整數格點裡挑「離曲面最近」的那一個（y 可以前後差 1），
 #   光影（F6）用曲面的解析法向量，Gouraud 會把小面之間的差異抹平
-TIP = (0, 125, -2)
+TIP = (0, 124, -3)        # v5（Kuoyi）：尖端再低 1、機鼻短 1
+NL = TIP[1] - 95         # 機鼻長度
 N_SE = 2.4
 QUAD_TOL = 0.6         # 四邊形不平超過這個（呎）才切成兩個三角形
 BOT_P = 2.0            # 下緣 = 尖端 - 6·(1-t^p)：v2 第一版 p=3 收得太急（Kuoyi），改 2 讓下緣早一點開始往上收
 POD_DY = -5            # pod 往後移（原本 y 96～105 → 91～100），讓開下緣的曲線
-RINGS = [(100, 12), (105, 12), (110, 12), (115, 8), (119, 8), (122, 4)]   # v4：Kuoyi 嫌小面太多看起來坑坑疤疤，圈數和點數減少
+RINGS = [(100, 12), (105, 12), (110, 12), (114, 8), (118, 8), (121, 4)]   # v4：Kuoyi 嫌小面太多看起來坑坑疤疤，圈數和點數減少
 def prof(t):
     top = TIP[2] + (7 - TIP[2]) * (1 - t) * (1 + 0.5 * t)
     bot = TIP[2] - (TIP[2] + 8) * (1 - t ** BOT_P)
@@ -50,9 +51,9 @@ def _s(v, e): return math.copysign(abs(v) ** e, v)
 def surf(t, phi):
     """曲面上的點 (x, y, z)；phi 從上中央 0 開始，往 x>0 那邊轉，π 是下中央。"""
     top, bot, w = prof(t); c, h = (top + bot) / 2, (top - bot) / 2
-    return (w * _s(math.sin(phi), 2 / N_SE), 95 + 30 * t, c + h * _s(math.cos(phi), 2 / N_SE))
+    return (w * _s(math.sin(phi), 2 / N_SE), 95 + NL * t, c + h * _s(math.cos(phi), 2 / N_SE))
 def implicit(x, y, z):
-    t = min(max((y - 95) / 30, -0.2), 0.985); top, bot, w = prof(t); c, h = (top + bot) / 2, (top - bot) / 2
+    t = min(max((y - 95) / NL, -0.2), 0.985); top, bot, w = prof(t); c, h = (top + bot) / 2, (top - bot) / 2
     r = ((abs(x) / w) ** N_SE + (abs(z - c) / h) ** N_SE) ** (1 / N_SE)
     return (r - 1) * min(w, h)            # 大約是到曲面的距離（呎），外面為正
 def grad(x, y, z, e=0.05):
@@ -65,10 +66,10 @@ def snap(t, phi):
     """沿著這條經線（固定 phi）在名義 y 的前後 1 呎內挑一個 y，讓曲面點四捨五入後的誤差最小。
     每條經線上的點都幾乎正好在曲面上，所以從側面、上面、下面看的輪廓線是順的；環不一定在同一個 y 平面上，
     但 FA 用 F6 做 Gouraud 光影，小面怎麼切看不出來。"""
-    y0 = round(95 + 30 * t); best = None
+    y0 = round(95 + NL * t); best = None
     for Y in (y0 - 1, y0, y0 + 1):
-        if not 96 <= Y <= 124: continue
-        x, _, z = surf((Y - 95) / 30, phi)
+        if not 96 <= Y <= TIP[1] - 1: continue
+        x, _, z = surf((Y - 95) / NL, phi)
         X = 0 if abs(math.sin(phi)) < 1e-9 else round(x); Z = round(z)
         cost = abs(X - x) + abs(Z - z) + 0.15 * abs(Y - y0)
         if best is None or cost < best[0]: best = (cost, (X, Y, Z))
@@ -83,7 +84,7 @@ def nose(V):
         a = math.atan2(x / 7, (z - c) / 7.5); return a % (2 * math.pi)
     rings = [[(i, phi_of(V[i][0], V[i][2])) for i in RING_ORDER]]
     for y, m in RINGS:
-        t = (y - 95) / 30; half = []
+        t = (y - 95) / NL; half = []
         for k in range(m // 2 + 1):
             phi = 2 * math.pi * k / m; half.append((snap(t, phi), phi))
         pts = half + [((-p[0], p[1], p[2]), 2 * math.pi - phi) for p, phi in half[-2:0:-1]]
@@ -236,7 +237,7 @@ def build(d, log=print):
     front = [f for f in faces.values() if all(V[i][1] >= 95 for i in f['idx'])]
     # 機砲口貼圖的角點搬到新機鼻表面上（原本在 x=-7，新機鼻在 y=99 只剩 6 呎寬），再重算它們的法向量
     for i in GUN_VERTS:
-        x, y, z = V[i]; t = (y - 95) / 30; top, bot, w = prof(t); cc, h = (top + bot) / 2, (top - bot) / 2
+        x, y, z = V[i]; t = (y - 95) / NL; top, bot, w = prof(t); cc, h = (top + bot) / 2, (top - bot) / 2
         V[i] = (-round(w * max(0, 1 - abs((z - cc) / h) ** N_SE) ** (1 / N_SE)), y, z)
         struct.pack_into('<hhh', c, o0+6+6*i, *V[i])
     decals = []
