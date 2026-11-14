@@ -14,7 +14,7 @@
   const vercelHere = (location.pathname.startsWith("/tools/") ? VERCEL + location.pathname : VERCEL + "/tools/fa_replay.html");
 
   let api = null;          // null = unknown, true = working, "off" = not here, "unconfigured" = no Blob store yet
-  let missions = [], local = null, current = null, busy = false;   // local = the open file, if it came from disk
+  let missions = [], local = null, current = null, busy = false, mode = "token";   // local = the open file, if it came from disk
 
   FAI18N.register({ "Online missions": "線上任務", "☁ Online": "☁ 線上", "Close": "關閉" });
 
@@ -43,7 +43,8 @@
     }
     if (api === "unconfigured") {
       b.innerHTML = `<p>${L("Online storage is not switched on yet: the site owner still has to create a Blob store in the Vercel project.",
-        "線上儲存尚未啟用：網站管理者還需要在 Vercel 專案裡建立 Blob 儲存空間。")}</p>`;
+        "線上儲存尚未啟用：網站管理者還需要在 Vercel 專案裡建立 Blob 儲存空間。")}</p>
+        <p class="mmuted msmall">${L("Site owner: after connecting the store, redeploy; ", "網站管理者：連接儲存空間後請重新部署；")}<a class="mlink" href="/api/missions?status" target="_blank">/api/missions?status</a> ${L("shows what the server sees.", "會顯示伺服器看到的設定。")}</p>`;
       return;
     }
     const up = local
@@ -74,7 +75,7 @@
       const j = await r.json().catch(() => null);
       if (r.status === 503 && j && j.error === "not-configured") { api = "unconfigured"; return; }
       if (!r.ok || !j || !Array.isArray(j.missions)) { api = "off"; return; }
-      api = true; missions = j.missions;
+      api = true; missions = j.missions; mode = j.uploadMode || "token";
     } catch (e) { api = "off"; }
   }
   async function refresh() { await probe(); if (!box.classList.contains("hide")) render(); }
@@ -97,7 +98,7 @@
     const pathname = `missions/${Date.now().toString(36)}-${rnd}_${safeName(name)}`;
     busy = true; render(); say(L("Uploading… 0%", "上傳中… 0%"));
     try {
-      const { upload } = await getClient();
+      const c = await getClient(), upload = mode === "presigned" ? c.uploadPresigned : c.upload;
       const blob = await upload(pathname, new Blob([buf], { type: "application/octet-stream" }), {
         access: "public", handleUploadUrl: API_UPLOAD, contentType: "application/octet-stream",
         clientPayload: JSON.stringify({ magic, size: buf.byteLength }),
