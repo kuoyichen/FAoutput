@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F/A-18 展示</title>
+<style>
+:root{ --bg:#14181d; --card:#1d232b; --line:#2e3742; --text:#dde3ea; --muted:#8b96a5; --accent:#ffd54a; --bad:#ff6a50; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0 8px 0 0;font-weight:600}
+button,select,input[type=text],label.btn{background:#262e38;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 10px;font:inherit;cursor:pointer}
+input[type=text]{cursor:text;width:90px;text-transform:uppercase}
+button:hover,label.btn:hover{border-color:var(--muted)}
+button.on{border-color:var(--accent);color:var(--accent)}
+label.ck{display:inline-flex;gap:4px;align-items:center;cursor:pointer}
+#main{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;padding:12px 16px}
+#view{position:relative}
+#cv{width:100%;aspect-ratio:4/3;display:block;cursor:grab;touch-action:none;background:radial-gradient(#2f3843,#181d23);border-radius:8px}
+#cv:active{cursor:grabbing}
+#side{display:flex;flex-direction:column;gap:8px;min-width:0}
+#side .box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px}
+#side h2{font-size:13px;margin:0 0 6px;font-weight:600}
+#tex{width:100%;image-rendering:pixelated;display:block;background:repeating-conic-gradient(#333 0 25%,#444 0 50%) 0 0/16px 16px}
+#info,#pinfo{color:var(--muted);font-size:12px;white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace}
+#hint{color:var(--muted);font-size:12px}
+#msg{color:var(--accent)}
+#variants{display:flex;gap:6px;flex-wrap:wrap}
+#variants button{padding:6px 12px}
+#variants button b{display:block;font-size:14px}
+#variants button span{font-size:11px;color:var(--muted)}
+.views{display:inline-flex;gap:4px}
+#spec h2{font-size:15px;margin:0 0 4px}
+#spec table{width:100%;border-collapse:collapse;font-size:12px}
+#spec td{padding:2px 0;border-bottom:1px solid var(--line)}
+#spec td:last-child{text-align:right;color:var(--accent)}
+#spec p{color:var(--muted);font-size:12px;margin:6px 0 0}
+@media (max-width:760px){ #main{grid-template-columns:1fr;padding:8px} header{padding:8px} }
+</style>
+</head>
+<body>
+<header>
+  <h1>F/A-18 Hornet / Super Hornet</h1>
+  <div id="variants"></div>
+  <label class="ck"><input type="checkbox" id="gear" checked> 起落架放下</label>
+  <label class="ck"><input type="checkbox" id="spin" checked> 自動旋轉</label>
+  <label class="ck"><input type="checkbox" id="edges"> 顯示邊線</label>
+  <span class="views"><button data-v="iso">斜視</button><button data-v="top">上視</button><button data-v="side">側視</button><button data-v="front">前視</button></span>
+  <span id="msg"></span>
+  <span id="hint">拖曳旋轉・滾輪縮放・點面看資料</span>
+  <span hidden>
+    <select id="pick"><option>F18C</option><option>F18</option><option>F18E</option><option>F18F</option></select>
+    <input type="text" id="other">
+    <select id="pal"><option value="game">FA</option><option value="gray">灰階</option><option value="hue">假色</option></select>
+    <input id="palfile" type="file">
+    <select id="mode"><option value="tex">tex</option><option value="texonly">texonly</option><option value="flat">flat</option><option value="check">check</option></select>
+    <select id="light"><option value="2">2</option><option value="1">1</option><option value="0">0</option></select>
+    <select id="transp"><option value="1">1</option><option value="2">2</option><option value="0">0</option></select>
+    <input type="checkbox" id="order" checked>
+  </span>
+</header>
+<div id="main">
+  <div id="view"><canvas id="cv"></canvas></div>
+  <div id="side">
+    <div class="box" id="spec"></div>
+    <div class="box"><h2>資訊</h2><div id="info"></div><div id="pinfo"></div></div>
+    <div class="box"><h2>PIC 貼圖<span id="texname" style="color:var(--muted);font-weight:normal"></span></h2>
+      <label class="ck" style="margin-bottom:6px"><input type="checkbox" id="uvlines"> 畫出 UV 範圍</label>
+      <canvas id="tex"></canvas></div>
+  </div>
+</div>
+<script>
+"use strict";
+// ===== SH 解析（取自 sh_gallery.html，另外讀出每個面的色號與貼圖座標） =====
+const FACE_OPS = new Set([0x41,0x44,0x49,0x4C,0x51,0x54,0x59,0x5C,0x61,0x63,0x64,0x69,0x6B,0x6C,0x71,0x73,0x7C,0xCD,0xDD,0xED,0xEE,0xFE]);
+function parseSH(u8){
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  let base = 0x400;
+  if (u8[0] === 0x4D && u8[1] === 0x5A){
+    const pe = dv.getUint32(0x3C, true), ns = dv.getUint16(pe+6, true), opt = dv.getUint16(pe+20, true);
+    for (let i=0;i<ns;i++){ const s = pe+24+opt+i*40; if (String.fromCharCode(...u8.subarray(s, s+4)) === "CODE"){ base = dv.getUint32(s+20, true); break; } }
+  }
+  const c = u8.subarray(base), cv = new DataView(c.buffer, c.byteOffset, c.byteLength), L = c.length;
+  const shift = L > 8 ? cv.getUint16(6, true) : 8, scale = shift >= 4 && shift <= 16 ? Math.pow(2, shift - 8) : 1;
+  // 找第一個 LOD 的所有頂點緩衝（目標位置要剛好接續前面的點數）
+  const bufs = [], maxAbs = (o, n) => { let m = 0; for (let i = 0; i < 3*n; i++) m = Math.max(m, Math.abs(cv.getInt16(o + 6 + 2*i, true))); return m; };
+  for (let o=0;o<L-6;o++){
+    if (c[o] !== 0x82 || c[o+1] !== 0) continue;
+    const n = cv.getUint16(o+2,true), t = cv.getUint16(o+4,true), e = o+6+6*n;
+    if (!n || n > 4000 || t % 8 || e >= L) continue;
+    if (!bufs.length){ if (t === 0 && n >= 3) bufs.push({ o, n, t:0, e }); continue; }
+    const last = bufs[bufs.length-1];
+    if (bufs.length === 1 && t === 0 && o < last.e && n >= 3 && maxAbs(o, n) * 4 < maxAbs(last.o, last.n)){ bufs[0] = { o, n, t:0, e }; continue; }   // 第一個是表頭裡的假 82（例如 C5），真的頂點緩衝落在它的範圍裡
+    if (t === 0 && o >= last.e && (c[o-1] === 0 || c[o-1] === 0x1E)){ bufs.push({ o, n, t:-1 }); break; }   // 下一個 LOD
+    const gap = t/8 - (last.t + last.n);   // 目標通常剛好接續；有些檔（F35A、Y141、SU27…）中間會跳過幾個位置
+    if (o >= last.e && (gap === 0 || gap > 0 && gap <= 64 && (c[o-1] === 0 || c[o-1] === 0x1E) && maxAbs(o, n) < 8192)){ bufs.push({ o, n, t: t/8, e }); }
+  }
+  if (!bufs.length) return null;
+  const lod = bufs.filter(b => b.t >= 0), stop = bufs.find(b => b.t < 0)?.o ?? L;
+  const v = [];
+  for (const b of lod) for (let i=0;i<b.n;i++) v[b.t+i] = [cv.getInt16(b.o+6+6*i,true), cv.getInt16(b.o+8+6*i,true), cv.getInt16(b.o+10+6*i,true)];
+  const facetsIn = (from, to, lo, hi) => {
+    const f = [];
+    for (let o=from; o<to-18; o++){
+      if (c[o] !== 0xFC) continue;
+      const fl = cv.getUint16(o+1,true), hl = fl & 0x200 ? 14 : 17;
+      if (fl & 0x200 ? fl & 0xF000 || !FACE_OPS.has(fl & 0xFF) && (fl & 0xFF) !== 0xFD && (fl & 0xFF) !== 0x74 : !FACE_OPS.has(fl & 0xFF) || fl >= 0x1000) continue;   // 短表頭也只認統計過的旗標（再加上 F-14 用的 FD、74）；SPE 尾翼前的假三角形是 7F   // 長表頭的面只認統計過的旗標，避免把資料誤當成面
+      const n = c[o+hl], wide = fl & 0x400; let p = o+hl+1;
+      if (n < 3 || n > 16 || p + n*(wide?2:1) > to) continue;
+      const idx = []; for (let k=0;k<n;k++){ idx.push(wide ? cv.getUint16(p,true) : c[p]); p += wide?2:1; }
+      if (idx.some(i => i < lo || i >= hi || !v[i]) || new Set(idx).size < n) continue;
+      // 貼圖座標：旗標 0x04 = 有 UV（PIC 裡的像素座標）；0x100 = 每個座標 1 位元組，否則 2 位元組
+      let uv = null;
+      if (fl & 4){ uv = []; for (let k=0;k<n;k++){ if (fl & 0x100){ uv.push([c[p], c[p+1]]); p += 2; } else { uv.push([cv.getUint16(p,true), cv.getUint16(p+2,true)]); p += 4; } } }
+      idx.uv = uv; idx.col = c[o+3]; idx.fl = fl;
+      f.push(idx); o = p - 1;   // 跳過這個面的資料，免得在它的索引裡又讀出假的面（F5EV 右側的三角形）
+    }
+    return f;
+  };
+  const main = lod[0], mainEnd = lod[1]?.o ?? stop;
+  const f = facetsIn(main.e, mainEnd, 0, main.n);
+  // 改過的 SH（tools/shgen/sh_subdivide.py、f14_nose.py）：原本的面或節點改成 `12 00 rel16`（呼叫）+ `38 rel16`（跳過），
+  // 被呼叫的區塊裡有 82 頂點緩衝、F6 每點光影、FC 面、06/0C 平面測試（只跟往後的分支，往前的是原本的 BSP）、00 00 返回
+  const faceAt = t => {
+    const fl = cv.getUint16(t+1, true); let p = t + 5 + (fl & 0x60 ? (fl & 0x200 ? 9 : 12) : 0);
+    const n = c[p++], wide = fl & 0x400, idx = [];
+    for (let k = 0; k < n; k++){ idx.push(wide ? cv.getUint16(p, true) : c[p]); p += wide ? 2 : 1; }
+    let uv = null; if (fl & 4){ uv = []; for (let k = 0; k < n; k++){ if (fl & 0x100){ uv.push([c[p], c[p+1]]); p += 2; } else { uv.push([cv.getUint16(p, true), cv.getUint16(p+2, true)]); p += 4; } } }
+    idx.uv = uv; idx.col = c[t+3]; idx.fl = fl; f.push(idx); return p;
+  };
+  const block = (t, from, seen) => {
+    for (let guard = 0; guard < 2000 && t > 0 && t < L - 2 && !seen.has(t); guard++){
+      seen.add(t);
+      if (c[t] === 0x82 && c[t+1] === 0){ const n = cv.getUint16(t+2, true), tg = cv.getUint16(t+4, true) / 8;
+        for (let i = 0; i < n; i++) v[tg+i] = [cv.getInt16(t+6+6*i, true), cv.getInt16(t+8+6*i, true), cv.getInt16(t+10+6*i, true)]; t += 6 + 6*n; }
+      else if (c[t] === 0xF6) t += 7;
+      else if (c[t] === 0xFC) t = faceAt(t);
+      else if ((c[t] === 0x06 || c[t] === 0x0C) && c[t+1] === 0){ const k = c[t] === 0x06 ? 14 : 10;
+        for (const [r, e] of [[t+k, t+k+2], [t+k+2, t+k+4]]){ const g = e + cv.getInt16(r, true); if (g > from) block(g, from, seen); }
+        t += k + 4; }
+      else return;
+    }
+  };
+  for (let o = main.e; o < mainEnd - 7; o++){
+    if (c[o] !== 0x12 || c[o+1] !== 0 || c[o+4] !== 0x38) continue;
+    const t = o + 4 + cv.getInt16(o+2, true); if (t <= mainEnd || t >= L - 6 || ![0x82, 0xFC, 0x06].includes(c[t])) continue;
+    block(t, t - 1, new Set());
+    o += 6;
+  }
+  if (!f.length) return null;
+  let span = 0; for (let i=0;i<main.n;i++) span = Math.max(span, Math.abs(v[i][0]));
+  const parts = [];
+  for (let k=1;k<lod.length;k++){
+    const b = lod[k], to = lod[k+1]?.o ?? stop; if (b.n < 12) continue;
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (let i=0;i<b.n;i++){ const p = v[b.t+i]; x0 = Math.min(x0,p[0]); x1 = Math.max(x1,p[0]); z0 = Math.min(z0,p[2]); z1 = Math.max(z1,p[2]); }
+    const ax = Math.max(Math.abs(x0), Math.abs(x1));
+    if (ax < span*0.6 || z1 - z0 > (x1 - x0)*0.5) continue;
+    const pf = facetsIn(b.e, to, b.t, b.t + b.n); if (!pf.length) continue;
+    const pts = []; for (let i=0;i<b.n;i++) pts.push(v[b.t+i]);
+    // 轉軸：外翼套（主體）最外側的前角（機翼弦長範圍內、離機身最遠、最前面的主體頂點）
+    const side = Math.sign(x0 + x1), tipX = side > 0 ? x1 : -x0;
+    const ys = pts.map(p => p[1]), wy0 = Math.min(...ys), wy1 = Math.max(...ys), lenY = 2*span;
+    let g = null; for (let i=0;i<main.n;i++){ const p = v[i], ax2 = p[0]*side;
+      if (ax2 > 0 && ax2 < tipX*0.6 && p[1] >= wy0 && p[1] <= wy1 + 0.15*lenY && (!g || ax2 > g[0]*side || (ax2 === g[0]*side && p[1] > g[1]))) g = p; }
+    const piv = g ? [g[0], g[1]] : [0, 0];
+    parts.push({ f: pf, wing: true, side, pivot: [piv[0], piv[1], 0] });
+  }
+  // 第一個 LOD 的所有附屬頂點組（起落架、襟翼、空氣煞車…），以及控制它們的指令
+  const subs = lod.slice(1).map((b, k) => ({ o: b.o, t: b.t, n: b.n, f: facetsIn(b.e, lod[k+2]?.o ?? stop, b.t, b.t + b.n),
+    local: b.o >= 14 && c[b.o-14] === 0xFF && c[b.o-13] === 0xFF }));
+  return { v: v.map(p => p || [0,0,0]), f, parts, scale, subs, code: c, ctl: parseCtl(c, cv, subs), imp: shImports(u8, c) };
+}
+
+// SH 的匯入表：每個控制變數其實是 FA.EXE 提供的全域變數，名字寫在匯入表裡（例如 _PLgearDown、_PLleftFlap）
+// 回傳 { 名稱: 程式裡用的位址 }（位址 = 跳板指令 ff 25 [IAT] 的位置）
+function shImports(u8, c){
+  const out = {}; if (u8[0] !== 0x4D || u8[1] !== 0x5A) return out;
+  try {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), pe = dv.getUint32(0x3C, true), ns = dv.getUint16(pe+6, true), opt = dv.getUint16(pe+20, true);
+    const secs = []; for (let i = 0; i < ns; i++){ const s = pe+24+opt+i*40; secs.push([dv.getUint32(s+12, true), Math.max(dv.getUint32(s+8, true), dv.getUint32(s+16, true)), dv.getUint32(s+20, true)]); }
+    const r2o = r => { for (const [va, sz, ro] of secs) if (r >= va && r < va + sz) return r - va + ro; return -1; };
+    const str = o => { let s = ""; while (o >= 0 && o < u8.length && u8[o]) s += String.fromCharCode(u8[o++]); return s; };
+    let d = r2o(dv.getUint32(pe+24+104, true));
+    for (; d >= 0 && dv.getUint32(d+12, true); d += 20){
+      const iat = dv.getUint32(d+16, true); let t = r2o(dv.getUint32(d, true) || iat);
+      for (let k = 0; t >= 0 && dv.getUint32(t, true); k++, t += 4){
+        const name = str(r2o(dv.getUint32(t, true)) + 2), a = iat + 4*k;
+        for (let o = 0; o < c.length - 6; o++) if (c[o] === 0xFF && c[o+1] === 0x25 && c[o+2] === (a & 255) && c[o+3] === (a >> 8 & 255) && c[o+4] === (a >> 16 & 255) && c[o+5] === (a >>> 24)){ out[name] = o + 0x1000; break; }
+      }
+    }
+  } catch(e){}
+  return out;
+}
+// SH 裡的 F0 區塊是 x86 機器碼，遊戲直接執行；常見的寫法：
+//   cmp word [變數], 值 ; jne …           → 條件（起落架放下、襟翼放下…）
+//   call $+5 ; pop ebx ; add ebx, n ; mov ax, [角度變數] ; sar/shl/add/sub/neg ; mov [ebx+d], ax
+//                                          → 執行時改寫後面 C4 指令的欄位（起落架收放、可變翼後掠角度）
+//   push 返回位址 ; push 直譯器 ; ret      → 回到位元碼，從返回位址繼續
+// 返回位址的指令：C4 00 x 上 前 方位 俯仰 滾轉 rel16 = 把頂點組放在 (x,上,前) 並旋轉後畫出；12 00 rel16 = 直接畫頂點組
+// 這裡用一個很小的 x86 模擬器照實際狀態執行，算出要畫哪些零件、放在哪裡。
+const SH_VA = 0x1000;
+function x86Run(mem, start, maxSteps = 400){
+  const dv = new DataView(mem.buffer, mem.byteOffset, mem.byteLength), L = mem.length;
+  const rd16 = va => { const o = va - SH_VA; return o >= 0 && o + 1 < L ? dv.getInt16(o, true) : 0; };
+  const rd32 = va => { const o = va - SH_VA; return o >= 0 && o + 3 < L ? dv.getInt32(o, true) : 0; };
+  const wr16 = (va, x) => { const o = va - SH_VA; if (o >= 0 && o + 1 < L) dv.setInt16(o, x, true); };
+  const s16 = x => (x << 16) >> 16;
+  let p = start, ax = 0, cx = 0, eax = 0, ebx = 0, fa = 0, fb = 0, sz = 16; const stack = [];
+  const cc = op => { const sa = sz === 8 ? (fa << 24) >> 24 : sz === 16 ? s16(fa) : fa | 0, sb = sz === 8 ? (fb << 24) >> 24 : sz === 16 ? s16(fb) : fb | 0;
+    const m = sz === 32 ? 0xFFFFFFFF : (1 << sz) - 1, ua = (fa & m) >>> 0, ub = (fb & m) >>> 0;
+    switch (op & 0xF){ case 2: return ua < ub; case 3: return ua >= ub; case 4: return sa === sb; case 5: return sa !== sb;
+      case 6: return ua <= ub; case 7: return ua > ub; case 0xC: return sa < sb; case 0xD: return sa >= sb; case 0xE: return sa <= sb; case 0xF: return sa > sb; } return null; };
+  for (let n = 0; n < maxSteps; n++){
+    const o = p - SH_VA; if (o < 0 || o >= L - 1) return null;
+    const b0 = mem[o], b1 = mem[o+1], b2 = mem[o+2];
+    if (b0 === 0x66){
+      if (b1 === 0x83 && b2 === 0x3D){ fa = rd16(rd32(p+3)); fb = (mem[o+7] << 24) >> 24; sz = 16; p += 8; continue; }
+      if (b1 === 0x81 && b2 === 0x3D){ fa = rd16(rd32(p+3)); fb = dv.getInt16(o+7, true); sz = 16; p += 9; continue; }
+      if (b1 === 0xA1){ ax = rd16(rd32(p+2)); p += 6; continue; }
+      if (b1 === 0x8B && b2 === 0xC8){ cx = ax; p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0xC1){ cx = ax; p += 3; continue; }
+      if (b1 === 0x8B && b2 === 0xC1){ ax = cx; p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0xC8){ ax = cx; p += 3; continue; }
+      if (b1 === 0xD1 && b2 === 0xF8){ ax = s16(ax) >> 1; p += 3; continue; }
+      if (b1 === 0xD1 && b2 === 0xF9){ cx = s16(cx) >> 1; p += 3; continue; }
+      if (b1 === 0xC1 && b2 === 0xF8){ ax = s16(ax) >> mem[o+3]; p += 4; continue; }
+      if (b1 === 0xC1 && b2 === 0xF9){ cx = s16(cx) >> mem[o+3]; p += 4; continue; }
+      if (b1 === 0xD1 && b2 === 0xE0){ ax = s16(ax << 1); p += 3; continue; }
+      if (b1 === 0xC1 && b2 === 0xE0){ ax = s16(ax << mem[o+3]); p += 4; continue; }
+      if ((b1 === 0x03 && b2 === 0xC1) || (b1 === 0x01 && b2 === 0xC8)){ ax = s16(ax + cx); p += 3; continue; }
+      if ((b1 === 0x2B && b2 === 0xC1) || (b1 === 0x29 && b2 === 0xC8)){ ax = s16(ax - cx); p += 3; continue; }
+      if (b1 === 0x05){ ax = s16(ax + dv.getInt16(o+2, true)); p += 4; continue; }
+      if (b1 === 0x2D){ ax = s16(ax - dv.getInt16(o+2, true)); p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xC0){ ax = s16(ax + ((mem[o+3] << 24) >> 24)); p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xE8){ ax = s16(ax - ((mem[o+3] << 24) >> 24)); p += 4; continue; }
+      if (b1 === 0x3D){ fa = ax; fb = dv.getInt16(o+2, true); sz = 16; p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xF8){ fa = ax; fb = (mem[o+3] << 24) >> 24; sz = 16; p += 4; continue; }
+      if (b1 === 0xB8){ ax = dv.getInt16(o+2, true); p += 4; continue; }
+      if (b1 === 0xF7 && b2 === 0xD8){ ax = s16(-ax); p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0x43){ wr16(ebx + ((mem[o+3] << 24) >> 24), ax); p += 4; continue; }
+      if (b1 === 0x89 && b2 === 0x83){ wr16(ebx + dv.getInt32(o+3, true), ax); p += 7; continue; }
+      if (b1 === 0xA3){ wr16(rd32(p+2), ax); p += 6; continue; }
+      return null;
+    }
+    if (b0 === 0x80 && b1 === 0x3D){ const a = rd32(p+2) - SH_VA; fa = a >= 0 && a < L ? mem[a] : 0; fb = mem[o+6]; sz = 8; p += 7; continue; }
+    if (b0 === 0x83 && b1 === 0x3D){ fa = rd32(rd32(p+2)); fb = (mem[o+6] << 24) >> 24; sz = 32; p += 7; continue; }
+    if (b0 === 0xA1){ eax = rd32(rd32(p+1)); ax = s16(eax); p += 5; continue; }
+    if (b0 >= 0x70 && b0 <= 0x7F){ const t = cc(b0); if (t == null) return null; p += 2 + (t ? (b1 << 24) >> 24 : 0); continue; }
+    if (b0 === 0x0F && b1 >= 0x80 && b1 <= 0x8F){ const t = cc(b1); if (t == null) return null; p += 6 + (t ? dv.getInt32(o+2, true) : 0); continue; }
+    if (b0 === 0xEB){ p += 2 + ((b1 << 24) >> 24); continue; }
+    if (b0 === 0xE9){ p += 5 + dv.getInt32(o+1, true); continue; }
+    if (b0 === 0xE8){ stack.push(p + 5); p += 5 + dv.getInt32(o+1, true); continue; }
+    if (b0 === 0x5B){ ebx = stack.pop() ?? 0; p += 1; continue; }
+    if (b0 === 0x53){ stack.push(ebx); p += 1; continue; }
+    if (b0 === 0x81 && b1 === 0xC3){ ebx += dv.getInt32(o+2, true); p += 6; continue; }
+    if (b0 === 0x83 && b1 === 0xC3){ ebx += (b2 << 24) >> 24; p += 3; continue; }
+    if (b0 === 0x68){ stack.push(dv.getInt32(o+1, true)); p += 5; continue; }
+    if (b0 === 0xC3){ stack.pop(); return stack.length ? stack.pop() : null; }   // push 返回位址 ; push 直譯器 ; ret → 返回位址
+    return null;
+  }
+  return null;
+}
+// 靜態掃描：找出每個 F0 區塊、比較過的變數和值、讀過的角度變數
+function parseCtl(c, cv, subs){
+  // 跳躍目標可能是頂點組前面的子外型表頭或其他短指令：取目標之後 16 位元組內的第一個頂點組
+  const idxOf = { get: t => { let best = null; subs.forEach((s, i) => { if (s.o >= t && s.o - t <= 16 && (best == null || s.o < subs[best].o)) best = i; }); return best ?? undefined; } };
+  const blocks = [], vars = new Map();
+  for (let o = 0; o < c.length - 12; o++){
+    if (c[o] !== 0xF0 || c[o+1] !== 0) continue;
+    if (x86Run(c, o + 2 + SH_VA) == null) continue;   // 不是能執行到 ret 的程式碼
+    blocks.push(o + 2);
+    // 掃這一段直到 ret，收集變數
+    for (let p = o + 2, n = 0; p < c.length - 8 && n < 60; n++){
+      if (c[p] === 0x66 && c[p+1] === 0x83 && c[p+2] === 0x3D){ const v = cv.getUint32(p+3, true); const s = vars.get(v) || { vals: new Set(), ang: false }; s.vals.add((c[p+7] << 24) >> 24); vars.set(v, s); p += 8; continue; }
+      if (c[p] === 0x66 && c[p+1] === 0xA1){ const v = cv.getUint32(p+2, true); const s = vars.get(v) || { vals: new Set(), ang: false }; s.ang = true; vars.set(v, s); p += 6; continue; }
+      if (c[p] === 0x68 && c[p+5] === 0x68 && c[p+10] === 0xC3) break; p++;
+    }
+  }
+  // 主體位元碼裡沒有條件的 C4（例如 B-2 的兩個零件）：目標必須剛好是某個頂點組
+  const statics = [], exact = new Map(); subs.forEach((s, i) => { exact.set(s.o, i); exact.set(s.o - 14, i); });
+  const end = subs.length ? Math.min(...subs.map(s => s.o)) : 0;
+  const pushed = new Set(); for (let o = 0; o < c.length - 5; o++) if (c[o] === 0x68) pushed.add(cv.getUint32(o + 1, true) - SH_VA);   // 有 F0 區塊會跳到的指令不算
+  for (let o = 0; o < end - 16; o++) if (c[o] === 0xC4 && c[o+1] === 0 && !pushed.has(o)){ const i = exact.get(o + 16 + cv.getInt16(o + 14, true)); if (i != null) statics.push(o); }
+  return { blocks, statics, vars: [...vars].map(([v, s]) => ({ v, vals: [...s.vals], ang: s.ang })), idxOf };
+}
+// 依狀態（變數 → 值）執行全部區塊，回傳要畫的零件：{ part, op, f6:[x,上,前,方位,俯仰,滾轉] }
+function evalCtl(m, state){
+  const c = m.code, mem = c.slice(), dv = new DataView(mem.buffer), out = [], seen = new Set();
+  for (const [v, x] of Object.entries(state)){ const o = +v - SH_VA; if (o >= 0 && o + 1 < mem.length) dv.setInt16(o, x, true); }
+  for (const b of m.ctl.blocks){
+    const r = x86Run(mem, b + SH_VA); if (r == null) continue; const t = r - SH_VA; if (t < 0 || t > mem.length - 16 || seen.has(t)) continue;
+    let part, f6 = null;
+    if (mem[t] === 0xC4){ part = m.ctl.idxOf.get(t + 16 + dv.getInt16(t + 14, true)); f6 = [0,1,2,3,4,5].map(k => dv.getInt16(t + 2 + 2*k, true)); }
+    else if (mem[t] === 0x12) part = m.ctl.idxOf.get(t + 4 + dv.getInt16(t + 2, true));
+    if (part == null) continue; seen.add(t); out.push({ part, op: mem[t], f6, at: t, blk: b });
+  }
+  for (const t of m.ctl.statics || []) if (!seen.has(t)){ seen.add(t); out.push({ part: m.ctl.idxOf.get(t + 16 + dv.getInt16(t + 14, true)), op: 0xC4, f6: [0,1,2,3,4,5].map(k => dv.getInt16(t + 2 + 2*k, true)), at: t }); }
+  // 區塊若寫在某個 C4 零件的指令範圍裡（例如可變翼主翼後面的襟翼），它畫的零件跟著那個零件一起移動、旋轉
+  const subs = m.subs, owner = o => { for (let k = subs.length - 1; k >= 0; k--) if (subs[k].o <= o) return o < (subs[k+1]?.o ?? subs[k].o + 0x2000) ? k : null; return null; };
+  for (const e of out){ if (e.blk == null) continue; const k = owner(e.blk); if (k == null || k === e.part) continue;
+    const p = out.find(x => x.part === k && x.op === 0xC4); if (p) e.parent = p; }
+  return out;
+}
+
+// ===== SH 載入：瀏覽器快取 → 選的資料夾 → ../SH/（用網頁伺服器開時）→ GitHub =====
+
+function rotateDeg(v, hdg, pitch, roll){
+  let [x,y,z] = v; const r = roll*Math.PI/180, p = -pitch*Math.PI/180, h = hdg*Math.PI/180;
+  [x,y] = [x*Math.cos(r) - y*Math.sin(r), x*Math.sin(r) + y*Math.cos(r)];
+  [y,z] = [y*Math.cos(p) - z*Math.sin(p), y*Math.sin(p) + z*Math.cos(p)];
+  return [x*Math.cos(h) + z*Math.sin(h), y, -x*Math.sin(h) + z*Math.cos(h)];
+}
+function partTf(e){
+  let tf = v => [v[0], v[2], v[1]];
+  if (e.op === 0xC4){
+    const deg = e.f6.slice(3).map(a => a * 360 / 65536), pos = e.f6.slice(0, 3);   // pos = (x, 上, 前)；角度 = 方位、俯仰、滾轉
+    tf = v => { const r = rotateDeg([v[0], v[2], v[1]], deg[0], deg[1], deg[2]); return [pos[0] + r[0], pos[1] + r[1], pos[2] + r[2]]; };
+  }
+  if (!e.parent) return tf;
+  const up = partTf(e.parent);
+  return v => { const d = tf(v); return up([d[0], d[2], d[1]]); };
+}
+
+// ===== 檔案載入：../SH、../PIC（用網頁伺服器開時）→ GitHub =====
+const $ = id => document.getElementById(id);
+const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
+async function fetchAny(paths){
+  const urls = [];
+  for (const p of paths){ if (/^https?:$/.test(location.protocol)) urls.push(new URL("../" + p, location.href).href); }
+  for (const p of paths) urls.push(REMOTE + p);
+  for (const u of urls){ try { const r = await fetch(u); if (r.ok) return new Uint8Array(await r.arrayBuffer()); } catch(e){} }
+  return null;
+}
+
+// ===== PIC 格式（FA 的 _XXX.PIC，格式 0 = 未壓縮 8 位元色號）=====
+// 0: u16 格式 ; 2: u32 寬 ; 6: u32 高 ; 10: u32 像素位移 ; 14: u32 像素長度 ; 18: u32 調色盤位移 ; 22: u32 調色盤長度（0 = 用遊戲的全域調色盤）
+// 0x22: u32 每列起點表位移 ; 0x26: u32 表長度（高 × 4，每列一個 u32 = 該列像素的檔案位移）
+// 注意：列是由下往上存（檔案第 0 列 = 貼圖最下面一列），SH 的 UV 以貼圖左上為原點
+function parsePIC(u8){
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const fmt = dv.getUint16(0, true), w = dv.getUint32(2, true), h = dv.getUint32(6, true), po = dv.getUint32(10, true), ps = dv.getUint32(14, true);
+  const palO = dv.getUint32(18, true), palS = dv.getUint32(22, true), rowO = dv.getUint32(0x22, true), rowS = dv.getUint32(0x26, true);
+  if (fmt !== 0 || !w || !h || w > 4096 || h > 4096) throw new Error(`PIC 格式 ${fmt}（${w}×${h}）還不支援`);
+  const px = new Uint8Array(w * h);
+  const rows = rowS >= 4 * h && rowO + rowS <= u8.length;
+  // 檔案裡的列是由下往上存的（像 BMP）：SH 的 v = 0 對應檔案最後一列，所以讀進來時上下翻轉，之後 UV 直接當像素座標用
+  for (let y = 0; y < h; y++){ const s = rows ? dv.getUint32(rowO + 4*y, true) : po + y*w; px.set(u8.subarray(s, s + w), (h - 1 - y)*w); }
+  let pal = null; if (palO && palS >= 768 && palO + 768 <= u8.length) pal = palFromBytes(u8.subarray(palO, palO + palS));
+  return { w, h, px, pal, fmt, po, ps, rows };
+}
+// 調色盤：768 位元組 RGB（VGA 6 位元的話 ×4）、RIFF PAL、JASC-PAL 文字檔；LIB 檔則在裡面找 768 位元組的 6 位元調色盤
+function palFromBytes(u8){
+  const txt = String.fromCharCode(...u8.subarray(0, 8));
+  if (txt.startsWith("JASC-PAL")){ const n = new TextDecoder().decode(u8).trim().split(/\s+/).slice(3).map(Number), p = new Uint8Array(768); p.set(n.slice(0, 768)); return p; }
+  if (txt.startsWith("RIFF")){ const p = new Uint8Array(768); for (let i = 0; i < 256; i++) for (let k = 0; k < 3; k++) p[3*i+k] = u8[24 + 4*i + k] || 0; return p; }
+  if (u8.length < 768) return null;
+  const p = u8.slice(0, 768); let mx = 0; for (const b of p) mx = Math.max(mx, b);
+  if (mx < 64) for (let i = 0; i < 768; i++) p[i] = p[i] << 2 | p[i] >> 4;
+  return p;
+}
+function palFromLib(u8){
+  // 在 LIB 裡找 "PALETTE.PAL" 這個名字，取它後面的 32 位元位移；不行的話找第一段 768 位元組全 < 64、而且不是一片相同的資料
+  const s = new TextDecoder("latin1").decode(u8), i = s.toUpperCase().indexOf("PALETTE.PAL");
+  if (i >= 0){ const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    for (let k = i + 11; k < i + 20 && k + 4 <= u8.length; k++){ const o = dv.getUint32(k, true); if (o > i && o + 768 <= u8.length){ const seg = u8.subarray(o, o + 768); if (seg.every(b => b < 64) && new Set(seg).size > 32) return palFromBytes(seg); } } }
+  return null;
+}
+const PAL_GRAY = (() => { const p = new Uint8Array(768); for (let i = 0; i < 256; i++) p[3*i] = p[3*i+1] = p[3*i+2] = i; return p; })();
+const PAL_HUE = (() => { const p = new Uint8Array(768); for (let i = 0; i < 256; i++){ const h = (i * 137.508) % 360 / 60, l = 0.35 + 0.4 * ((i >> 4) / 15), c = 0.8 * (1 - Math.abs(2*l - 1)), x = c * (1 - Math.abs(h % 2 - 1)), m = l - c/2;
+  const [r, g, b] = h < 1 ? [c,x,0] : h < 2 ? [x,c,0] : h < 3 ? [0,c,x] : h < 4 ? [0,x,c] : h < 5 ? [x,0,c] : [c,0,x]; p[3*i] = (r+m)*255; p[3*i+1] = (g+m)*255; p[3*i+2] = (b+m)*255; } return p; })();
+let gamePal = null;
+try { const s = localStorage.getItem("fa_palette"); if (s) gamePal = Uint8Array.from(atob(s), ch => ch.charCodeAt(0)); } catch(e){}
+async function loadGamePal(){
+  if (gamePal) return gamePal;
+  for (const n of ["PIC/PALETTE.PAL", "PIC/palette.PAL", "PIC/palette.pal", "PALETTE.PAL"]){ const u8 = await fetchAny([n]); if (u8 && u8.length >= 768){ gamePal = palFromBytes(u8); return gamePal; } }
+  return null;
+}
+const curPal = () => $("pal").value === "gray" ? PAL_GRAY : $("pal").value === "hue" ? PAL_HUE : (gamePal || cur?.pic?.pal || PAL_GRAY);
+
+// ===== WebGL =====
+const cv = $("cv"), gl = cv.getContext("webgl", { antialias: true });
+const VS = `attribute vec3 aP; attribute vec2 aUV; attribute vec3 aN; attribute vec2 aC;
+uniform mat4 uM; uniform float uZB; varying vec2 vUV; varying vec3 vN; varying vec2 vC; varying vec3 vP;
+void main(){ vUV = aUV; vN = aN; vC = aC; vP = aP; gl_Position = uM * vec4(aP, 1.0); gl_Position.z -= uZB * gl_Position.w; }`;
+const FS = `precision mediump float; varying vec2 vUV; varying vec3 vN; varying vec2 vC; varying vec3 vP;
+uniform sampler2D uPic; uniform sampler2D uPal; uniform vec2 uSize; uniform float uMode; uniform float uLight; uniform float uTransp; uniform float uSel;
+void main(){
+  float idx; bool tex = vC.y > 0.5 && uMode < 1.5, own = true;
+  float d = abs(dot(normalize(vN), normalize(vec3(0.35, 0.85, 0.4))));
+  if (tex){
+    vec2 t = vUV;
+    if (uMode > 0.5 && uMode < 1.5){ vec2 g = floor(t / 8.0); idx = mod(g.x + g.y, 2.0) < 1.0 ? 15.0 : 240.0; }
+    else idx = floor(texture2D(uPic, (floor(t) + 0.5) / uSize).r * 255.0 + 0.5);
+    own = false;
+    if (idx > 254.5){ if (uTransp > 1.5) discard; if (uTransp > 0.5){ if (vC.x < 0.5) discard; idx = vC.x; own = true; } }   // 面的色號 0 = 沒有底色：FF 透明（起落架、輪子、座艙罩）
+  } else idx = vC.x;
+  // FA 調色盤 0x90–0x9B 是由亮到暗的灰階：面自己的色號依受光在這段裡往亮或往暗移幾格
+  if (uLight > 1.5 && own && idx >= 144.0 && idx <= 155.0) idx = clamp(idx + floor((0.75 - d) * 8.0 + 0.5), 144.0, 155.0);
+  vec3 c = texture2D(uPal, vec2((idx + 0.5) / 256.0, 0.5)).rgb;
+  if (uMode > 0.5 && uMode < 1.5 && vC.y > 0.5) c = mix(vec3(0.95,0.3,0.2), vec3(1.0), step(0.5, c.r)) * (0.5 + 0.5 * vec3(fract(vUV / 64.0), 0.5));
+  if (uLight > 0.5 && uLight < 1.5) c *= 0.45 + 0.65 * d;
+  else if (uLight > 1.5 && !(own && idx >= 144.0 && idx <= 155.0)) c *= 0.7 + 0.4 * d;
+  if (uSel > 0.5) c = mix(c, vec3(1.0, 0.85, 0.2), 0.55);
+  gl_FragColor = vec4(c, 1.0);
+}`;
+function mkProg(){
+  const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+  const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(p); return p;
+}
+const prog = mkProg(), U = n => gl.getUniformLocation(prog, n), A = n => gl.getAttribLocation(prog, n);
+const vbo = gl.createBuffer(), edgeVbo = gl.createBuffer(), selVbo = gl.createBuffer(), picTex = gl.createTexture(), palTex = gl.createTexture();
+function setTex(t, w, h, fmt, data){ gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, fmt, w, h, 0, fmt, gl.UNSIGNED_BYTE, data);
+  for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); }
+setTex(picTex, 1, 1, gl.LUMINANCE, new Uint8Array([0]));
+
+// ===== 目前的模型 =====
+let cur = null;   // { name, m, pic, picName, faces:[{pts, uv, col, fl}], tris(Float32Array), n, center, radius }
+const view = { yaw: -0.7, pitch: 0.35, zoom: 1 };
+let sel = -1;
+
+function shTexName(u8){   // SH 指令 E2 00 + 14 位元組檔名：切換貼圖（F14.SH 裡是 "_f14.PIC"）
+  const names = new Set();
+  for (let i = 0; i < u8.length - 16; i++) if (u8[i] === 0xE2 && u8[i+1] === 0){ let s = ""; for (let k = 2; k < 16 && u8[i+k]; k++) s += String.fromCharCode(u8[i+k]); if (/^[\w-]+\.PIC$/i.test(s)) names.add(s.toUpperCase()); }
+  return [...names];
+}
+function defaultVars(m, gearDown){ const vars = {}, nm = Object.fromEntries(Object.entries(m.imp || {}).map(([n, a]) => [a, n]));
+  for (const x of m.ctl.vars) vars[x.v] = nm[x.v] ? (nm[x.v] === "_PLgearDown" ? (gearDown ? 1 : 0) : nm[x.v] === "_PLgearPos" ? (gearDown ? 0 : 32767) : 0) : x.vals.length ? x.vals[0] : 0;
+  return vars; }
+function buildFaces(){
+  const m = cur.m, faces = [], add = (idx, tf, part) => faces.push({ pts: idx.map(i => tf(m.v[i])), uv: idx.uv, col: idx.col, fl: idx.fl, idx: [...idx], part });
+  for (const idx of m.f) add(idx, v => [v[0], v[2], v[1]], "主體");
+  const drawn = new Set();
+  for (const e of evalCtl(m, defaultVars(m, $("gear").checked))){
+    if (drawn.has(e.part)) continue; drawn.add(e.part);
+    const tf = partTf(e); for (const idx of m.subs[e.part].f) add(idx, tf, "零件 " + e.part);
+  }
+  cur.faces = faces;
+  // 三角形化（扇形）：每個頂點 = 位置3 + UV2 + 法向3 + (色號, 有貼圖)2
+  const data = [], mode = $("mode").value;
+  faces.forEach(f => { f.draw = !(mode === "texonly" && !f.uv);
+    const p = f.pts, a = p[0]; let nx = 0, ny = 0, nz = 0;
+    for (let k = 0; k < p.length; k++){ const q = p[k], r = p[(k+1) % p.length]; nx += (q[1]-r[1])*(q[2]+r[2]); ny += (q[2]-r[2])*(q[0]+r[0]); nz += (q[0]-r[0])*(q[1]+r[1]); }
+    f.n = [nx, ny, nz]; if (!f.draw) return;
+    f.first = data.length / 10;
+    for (let k = 1; k < p.length - 1; k++) for (const j of [0, k, k+1]){ const q = p[j], uv = f.uv ? f.uv[j] : [0, 0]; data.push(q[0], q[1], q[2], uv[0], uv[1], nx, ny, nz, f.col, f.uv ? 1 : 0); }
+    f.cnt = data.length / 10 - f.first;
+  });
+  cur.tris = new Float32Array(data); cur.n = data.length / 10;
+  const ed = []; faces.forEach(f => { if (!f.draw) return; const p = f.pts; for (let k = 0; k < p.length; k++){ const q = p[k], r = p[(k+1) % p.length]; ed.push(...q, 0,0, 0,0,0, 164,0, ...r, 0,0, 0,0,0, 164,0); } });
+  cur.edges = new Float32Array(ed); cur.en = ed.length / 10; gl.bindBuffer(gl.ARRAY_BUFFER, edgeVbo); gl.bufferData(gl.ARRAY_BUFFER, cur.edges, gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, cur.tris, gl.STATIC_DRAW);
+  let lo = [1e9,1e9,1e9], hi = [-1e9,-1e9,-1e9]; for (const f of faces) for (const q of f.pts) for (let k = 0; k < 3; k++){ lo[k] = Math.min(lo[k], q[k]); hi[k] = Math.max(hi[k], q[k]); }
+  cur.center = lo.map((x, k) => (x + hi[k]) / 2); cur.radius = Math.max(1, Math.hypot(hi[0]-lo[0], hi[1]-lo[1], hi[2]-lo[2]) / 2);
+  const nt = faces.filter(f => f.uv).length, big = faces.filter(f => f.uv && !(f.fl & 0x100)).length;
+  $("info").textContent = `${cur.name}.SH  頂點 ${m.v.length}・面 ${faces.length}（有貼圖 ${nt}，其中 16 位元 UV ${big}）\n貼圖指令：${cur.texNames.join(", ") || "（沒有 E2）"}\nPIC：${cur.pic ? `${cur.picName}  ${cur.pic.w}×${cur.pic.h}` : "找不到"}`;
+  setSel(-1); draw(); drawTex();
+}
+
+// ===== 畫面 =====
+function mul(a, b){ const o = new Array(16); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++){ let s = 0; for (let k = 0; k < 4; k++) s += a[k*4+j] * b[i*4+k]; o[i*4+j] = s; } return o; }
+function matrix(){
+  const w = cv.width, h = cv.height, r = cur.radius, dist = r * 2.6 / view.zoom, f = 1 / Math.tan(0.5 * 0.7), near = Math.max(dist - r * 2, dist * 0.02), far = dist + r * 2;
+  const P = [f * h / w,0,0,0, 0,f,0,0, 0,0,(far+near)/(near-far),-1, 0,0,2*far*near/(near-far),0];
+  const cy = Math.cos(view.yaw), sy = Math.sin(view.yaw), cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
+  // 先繞上軸轉 yaw，再繞 x 軸轉 pitch，最後往後推 dist
+  const R = [cy, sy*sp, -sy*cp, 0,  0, cp, sp, 0,  sy, -cy*sp, cy*cp, 0,  0, 0, 0, 1];
+  const T = [1,0,0,0, 0,1,0,0, 0,0,1,0, -cur.center[0], -cur.center[1], -cur.center[2], 1];
+  const V = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,-dist,1];
+  return mul(P, mul(V, mul(R, T)));
+}
+function resize(){ const d = Math.min(2, devicePixelRatio || 1), w = Math.round(cv.clientWidth * d), h = Math.round(cv.clientHeight * d); if (cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; } }
+function bindAttrs(buf){ gl.bindBuffer(gl.ARRAY_BUFFER, buf); const st = 40;
+  for (const [n, sz, off] of [["aP",3,0],["aUV",2,12],["aN",3,20],["aC",2,32]]){ const l = A(n); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, st, off); } }
+function draw(){
+  resize(); gl.viewport(0, 0, cv.width, cv.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  if (!cur || !cur.n) return;
+  const pal = curPal(), rgb = new Uint8Array(256*3); rgb.set(pal); setTex(palTex, 256, 1, gl.RGB, rgb);
+  gl.useProgram(prog); gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
+  gl.uniformMatrix4fv(U("uM"), false, matrix());
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, picTex); gl.uniform1i(U("uPic"), 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, palTex); gl.uniform1i(U("uPal"), 1);
+  gl.uniform2f(U("uSize"), cur.pic ? cur.pic.w : 1, cur.pic ? cur.pic.h : 1);
+  const mode = $("mode").value; gl.uniform1f(U("uMode"), mode === "check" ? 1 : mode === "flat" || !cur.pic ? 2 : 0);
+  gl.uniform1f(U("uLight"), +$("light").value); gl.uniform1f(U("uTransp"), +$("transp").value);
+  // FA 是照順序畫面的（後畫的蓋前面），貼圖小面常常和機身面重疊在同一平面：用 polygonOffset 讓後面的面稍微往前
+  gl.enable(gl.POLYGON_OFFSET_FILL);
+  bindAttrs(vbo); gl.uniform1f(U("uSel"), 0);
+  const bias = $("order").checked;
+  if (!bias) gl.polygonOffset(0, 0), gl.drawArrays(gl.TRIANGLES, 0, cur.n);
+  else cur.faces.forEach((f, i) => { if (!f.cnt) return; gl.polygonOffset(-i * 0.004, -i * 0.5); gl.drawArrays(gl.TRIANGLES, f.first, f.cnt); });
+  if ($("edges").checked && cur.en){ gl.disable(gl.POLYGON_OFFSET_FILL); bindAttrs(edgeVbo); gl.uniform1f(U("uMode"), 2); gl.uniform1f(U("uLight"), 0); gl.uniform1f(U("uSel"), 0); gl.uniform1f(U("uZB"), 0.0008); gl.drawArrays(gl.LINES, 0, cur.en); gl.uniform1f(U("uZB"), 0); gl.enable(gl.POLYGON_OFFSET_FILL); }
+  if (sel >= 0 && cur.selN){ gl.polygonOffset(-10, -4000); bindAttrs(selVbo); gl.uniform1f(U("uSel"), 1); gl.drawArrays(gl.TRIANGLES, 0, cur.selN); }
+  gl.disable(gl.POLYGON_OFFSET_FILL);
+}
+function drawTex(){
+  const c = $("tex"), x = c.getContext("2d");
+  if (!cur || !cur.pic){ c.width = 256; c.height = 64; x.clearRect(0, 0, 256, 64); x.fillStyle = "#8b96a5"; x.fillText("沒有 PIC", 100, 36); return; }
+  const { w, h, px } = cur.pic, s = 2, pal = curPal(), im = new ImageData(w, h), tr = $("transp").value !== "0";
+  for (let i = 0; i < w*h; i++){ const p = px[i]; im.data[4*i] = pal[3*p]; im.data[4*i+1] = pal[3*p+1]; im.data[4*i+2] = pal[3*p+2]; im.data[4*i+3] = tr && p === 255 ? 0 : 255; }
+  c.width = w*s; c.height = h*s; const t = document.createElement("canvas"); t.width = w; t.height = h; t.getContext("2d").putImageData(im, 0, 0);
+  x.imageSmoothingEnabled = false; x.drawImage(t, 0, 0, w*s, h*s);
+  if (!$("uvlines").checked && sel < 0) return;
+  x.lineWidth = 1;
+  cur.faces.forEach((f, i) => { if (!f.uv || (!$("uvlines").checked && i !== sel)) return;
+    x.strokeStyle = i === sel ? "#ffd54a" : "rgba(255,70,50,.75)"; x.lineWidth = i === sel ? 3 : 1;
+    x.beginPath(); f.uv.forEach(([u, v], k) => k ? x.lineTo(u*s, v*s) : x.moveTo(u*s, v*s)); x.closePath(); x.stroke(); });
+}
+function setSel(i){
+  sel = i; const f = cur.faces[i];
+  if (!f){ $("pinfo").textContent = ""; cur.selN = 0; return; }
+  const d = []; for (let k = 1; k < f.pts.length - 1; k++) for (const j of [0, k, k+1]){ const q = f.pts[j], uv = f.uv ? f.uv[j] : [0,0]; d.push(q[0], q[1], q[2], uv[0], uv[1], ...f.n, f.col, f.uv ? 1 : 0); }
+  gl.bindBuffer(gl.ARRAY_BUFFER, selVbo); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(d), gl.STATIC_DRAW); cur.selN = d.length / 10;
+  $("pinfo").textContent = `\n選到第 ${i} 個面（${f.part}）\n旗標 ${f.fl.toString(16).toUpperCase().padStart(4, "0")}  色號 ${f.col.toString(16).toUpperCase().padStart(2, "0")}\n頂點 ${f.idx.join(" ")}\nUV ${f.uv ? f.uv.map(p => `(${p[0]},${p[1]})`).join(" ") : "（無）"}`;
+}
+// 點選：在螢幕上把每個三角形投影出來，找滑鼠底下最靠近的
+function pick(mx, my){
+  const M = matrix(), w = cv.clientWidth, h = cv.clientHeight; let best = -1, bz = Infinity;
+  const proj = q => { const x = M[0]*q[0]+M[4]*q[1]+M[8]*q[2]+M[12], y = M[1]*q[0]+M[5]*q[1]+M[9]*q[2]+M[13], z = M[2]*q[0]+M[6]*q[1]+M[10]*q[2]+M[14], ww = M[3]*q[0]+M[7]*q[1]+M[11]*q[2]+M[15];
+    return [(x/ww*0.5+0.5)*w, (0.5-y/ww*0.5)*h, z/ww]; };
+  cur.faces.forEach((f, i) => { if (!f.draw) return; const p = f.pts.map(proj);
+    for (let k = 1; k < p.length - 1; k++){ const [a, b, c] = [p[0], p[k], p[k+1]], d = (b[1]-c[1])*(a[0]-c[0]) + (c[0]-b[0])*(a[1]-c[1]); if (Math.abs(d) < 1e-9) continue;
+      const l1 = ((b[1]-c[1])*(mx-c[0]) + (c[0]-b[0])*(my-c[1])) / d, l2 = ((c[1]-a[1])*(mx-c[0]) + (a[0]-c[0])*(my-c[1])) / d, l3 = 1 - l1 - l2;
+      if (l1 < 0 || l2 < 0 || l3 < 0) continue; const z = l1*a[2] + l2*b[2] + l3*c[2] - i * 1e-7; if (z < bz){ bz = z; best = i; } } });
+  return best;
+}
+{ let drag = null;
+  cv.addEventListener("pointerdown", e => { drag = { x: e.clientX, y: e.clientY, moved: 0 }; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener("pointermove", e => { if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.moved += Math.abs(dx) + Math.abs(dy); drag.x = e.clientX; drag.y = e.clientY;
+    view.yaw += dx * 0.01; view.pitch = Math.max(-1.55, Math.min(1.55, view.pitch + dy * 0.01)); draw(); });
+  cv.addEventListener("pointerup", e => { if (drag && drag.moved < 4 && cur){ const r = cv.getBoundingClientRect(); setSel(pick(e.clientX - r.left, e.clientY - r.top)); draw(); drawTex(); } drag = null; });
+  cv.addEventListener("wheel", e => { e.preventDefault(); view.zoom = Math.max(0.3, Math.min(20, view.zoom * Math.exp(-e.deltaY * 0.0015))); draw(); }, { passive: false });
+  addEventListener("resize", draw);
+}
+
+// ===== 載入 =====
+async function load(name){
+  name = name.toUpperCase().replace(/\.SH$/, ""); $("msg").textContent = "載入 " + name + "…";
+  const u8 = await fetchAny([(name.includes("/") ? "" : "SH/") + name + ".SH"]); if (!u8){ $("msg").textContent = "找不到 " + name + ".SH"; return; }
+  const m = parseSH(u8); if (!m){ $("msg").textContent = name + ".SH 解析失敗"; return; }
+  const texNames = shTexName(u8), picName = (texNames[0] || "_" + name + ".PIC").toUpperCase();
+  let pic = null, pu8 = await fetchAny(["PIC/" + picName, "PIC/" + picName.toLowerCase(), "PIC/" + picName.replace(/^_/, "_").replace(/\.PIC$/, ".pic")]);
+  try { if (pu8) pic = parsePIC(pu8); } catch(e){ $("msg").textContent = e.message; }
+  cur = { name, m, pic, picName, texNames };
+  if (pic) setTex(picTex, pic.w, pic.h, gl.LUMINANCE, pic.px);
+  $("texname").textContent = pic ? `　${picName}（${pic.w}×${pic.h}，已上下翻轉成貼圖座標）` : "　找不到 " + picName;
+  buildFaces();
+  if (pic || !pu8) $("msg").textContent = $("pal").value === "game" && !gamePal ? "還沒有 FA 調色盤，先用灰階顯示；按「載入 palette.PAL」選檔" : "";
+}
+$("pick").onchange = () => load($("pick").value);
+$("other").onkeydown = e => { if (e.key === "Enter" && e.target.value.trim()) load(e.target.value.trim()); };
+for (const id of ["mode", "gear"]) $(id).onchange = () => cur && buildFaces();
+for (const id of ["light", "transp", "pal", "uvlines", "order", "edges"]) $(id).onchange = () => { draw(); drawTex(); };
+$("palfile").onchange = async e => { const f = e.target.files[0]; if (!f) return; const u8 = new Uint8Array(await f.arrayBuffer());
+  const p = /\.lib$/i.test(f.name) ? palFromLib(u8) : palFromBytes(u8);
+  if (!p){ $("msg").textContent = "讀不出調色盤：" + f.name; return; }
+  gamePal = p; try { localStorage.setItem("fa_palette", btoa(String.fromCharCode(...p))); } catch(e){}
+  $("pal").value = "game"; $("msg").textContent = "已載入調色盤 " + f.name + "（會記在這台瀏覽器）"; draw(); drawTex(); };
+// ===== F/A-18 展示 =====
+const VAR = [
+  { sh: "F18C", name: "F/A-18C", sub: "單座 Hornet", len: "56.0 ft（17.1 m）", span: "40.4 ft（12.3 m）", h: "15.3 ft（4.7 m）",
+    note: "原廠模型修改：機身寬度縮小、機身高度與座艙降低、機頭與尾段加長、垂直與水平尾翼縮小；保留小 LEX 與圓形進氣口。" },
+  { sh: "F18", name: "F/A-18D", sub: "雙座 Hornet", len: "56.0 ft（17.1 m）", span: "40.4 ft（12.3 m）", h: "15.3 ft（4.7 m）",
+    note: "依 F/A-18C 的修改套到原廠雙座模型，保留前後座艙，其餘外型與 C 型相同。" },
+  { sh: "F18E", name: "F/A-18E", sub: "單座 Super Hornet", len: "60.3 ft（18.4 m）", span: "44.7 ft（13.6 m）", h: "16.0 ft（4.9 m）",
+    note: "由 F/A-18C 手工調整頂點：機身加長、機翼與 LEX 放大、翼根拉直，並重算法向量與翼尖凝結尾位置。" },
+  { sh: "F18F", name: "F/A-18F", sub: "雙座 Super Hornet", len: "60.3 ft（18.4 m）", span: "44.7 ft（13.6 m）", h: "16.0 ft（4.9 m）",
+    note: "把 F/A-18E 的外型變化套到原廠雙座模型，保留雙座座艙；使用獨立的 _F18F.PIC 貼圖。" },
+];
+function showSpec(v){
+  $("spec").innerHTML = `<h2>${v.name}　<span style="color:var(--muted);font-weight:normal;font-size:12px">${v.sub}・${v.sh}.SH</span></h2>
+    <table><tr><td>全長</td><td>${v.len}</td></tr><tr><td>翼展（含翼尖飛彈）</td><td>${v.span}</td></tr><tr><td>高度</td><td>${v.h}</td></tr></table><p>${v.note}</p>`;
+  document.querySelectorAll("#variants button").forEach(b => b.classList.toggle("on", b.dataset.sh === v.sh));
+}
+VAR.forEach(v => { const b = document.createElement("button"); b.dataset.sh = v.sh; b.innerHTML = `<b>${v.name}</b><span>${v.sub}</span>`;
+  b.onclick = () => { showSpec(v); setSel(-1); load(v.sh); }; $("variants").appendChild(b); });
+const VIEWS = { iso: [0.8, -0.45], top: [Math.PI, 1.55], side: [Math.PI/2, 0], front: [0, 0] };
+document.querySelectorAll(".views button").forEach(b => b.onclick = () => { const [y, p] = VIEWS[b.dataset.v]; view.yaw = y; view.pitch = p; $("spin").checked = false; draw(); });
+{ let last = 0; const tick = t => { if ($("spin").checked && cur && last) { view.yaw += (t - last) * 0.0004; draw(); } last = t; requestAnimationFrame(tick); }; requestAnimationFrame(tick); }
+cv.addEventListener("pointerdown", () => { $("spin").checked = false; });
+(async () => { await loadGamePal(); showSpec(VAR[0]); view.yaw = 0.8; view.pitch = -0.45; await load("F18C"); })();
+</script>
+</body>
+</html>
