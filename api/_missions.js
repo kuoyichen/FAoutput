@@ -8,7 +8,31 @@ export const PATH_RE = /^missions\/[0-9a-z]{6,12}-[0-9a-z]{6}_[A-Za-z0-9._-]{1,8
 export const json = (obj, status = 200, extra = {}) =>
   new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json", "cache-control": "no-store", ...extra } });
 
-export const configured = () => !!process.env.BLOB_READ_WRITE_TOKEN;
+// Credentials. A Blob store connected to the project sets either a read-write token
+// (BLOB_READ_WRITE_TOKEN, or <PREFIX>_READ_WRITE_TOKEN when the store was given a custom prefix)
+// or, for newer stores, only a store id (BLOB_STORE_ID / <PREFIX>_STORE_ID) used with the
+// function's Vercel OIDC token. Accept all of them.
+const env = process.env;
+export function rwToken() {
+  if (env.BLOB_READ_WRITE_TOKEN) return env.BLOB_READ_WRITE_TOKEN;
+  for (const [k, v] of Object.entries(env)) if (/_READ_WRITE_TOKEN$/.test(k) && /^vercel_blob_rw_/.test(v || "")) return v;
+  return null;
+}
+export function storeId() {
+  if (env.BLOB_STORE_ID) return env.BLOB_STORE_ID;
+  for (const [k, v] of Object.entries(env)) if (/_STORE_ID$/.test(k) && /^(store_)?[A-Za-z0-9]{8,}$/.test(v || "")) return v;
+  return null;
+}
+// "token" = classic client uploads (handleUpload), "presigned" = OIDC store (handleUploadPresigned)
+export const uploadMode = () => rwToken() ? "token" : storeId() ? "presigned" : null;
+export const configured = () => !!uploadMode();
+// options for list / head / del / issueSignedToken
+export function blobOpts() {
+  const t = rwToken(); if (t) return { token: t };
+  const id = storeId(); return id ? { storeId: id } : {};
+}
+// names (never values) of the env vars that look storage-related, for /api/missions?status
+export const envNames = () => Object.keys(env).filter(k => /BLOB|STORE_ID|READ_WRITE|OIDC/.test(k)).sort();
 
 // Best-effort per-IP limit. It lives in one function instance's memory, so it only slows down
 // a burst from one address; it is not a hard quota.
