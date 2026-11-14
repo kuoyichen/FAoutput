@@ -224,7 +224,7 @@ def build(d):
     tail = bytes(c).find(SIG)
 
     # layout: nodes and leaves first, then the part bodies
-    order = ['PR', 'PRT', 'PL', 'PLT', 'PYR', 'PYL', 'PC', 'BODY', 'LG', 'RG'] + list(leaves)
+    order = ['PR', 'PRT', 'PL', 'PLT', 'PYR', 'PYL', 'PC', 'BODY', 'MID', 'LG', 'RG'] + list(leaves)
     size = {k: 20 for k in order}
     size.update({k: 16 * len(v) + 2 for k, v in leaves.items()})
     at, p = {}, tail
@@ -253,7 +253,12 @@ def build(d):
     blk += node('PYR', (0, -16384, 0), (0, -2, 0), 'PYL', 'RPY')
     blk += node('PYL', (0, -16384, 0), (0, -2, 0), 'PC', 'LPY')
     blk += node('PC', (0, -16384, 0), (0, 9, 0), 'BODY', 'C')
-    o = at['BODY']; blk += bytes(c[ROOT:ROOT+14]) + struct.pack('<hh', TA - (o+16), TB - (o+18)) + b'\x00\x00'
+    # The original root splits the body into a left and a right half (far half first).  The centerline pod is
+    # also drawn between the two halves (MID), so from the side it covers the far main wheel's upper part while
+    # the near wheel is drawn over it.  From below PC draws it once more, last, over everything.
+    at['TB'] = TB
+    o = at['BODY']; blk += bytes(c[ROOT:ROOT+14]) + struct.pack('<hh', TA - (o+16), at['MID'] - (o+18)) + b'\x00\x00'
+    blk += node('MID', X, (0, 0, 0), 'C', 'TB')      # eye right: pod then right half; eye left: right half then pod
     blk += node('LG', X, (33, 0, 0), 'Lalq', 'Ltank')        # farther store first
     blk += node('RG', X, (-33, 0, 0), 'Rtank', 'Ralq')
     for k, items in leaves.items():
