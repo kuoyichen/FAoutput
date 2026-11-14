@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SH Editor</title>
+<meta name="description" content="Edit Fighters Anthology .SH shapes in the browser: LODs, textures, vertex and face editing, reference images, save back to SH.">
+<style>
+:root{ --bg:#11151a; --card:#1a2028; --card2:#212834; --line:#2e3742; --text:#dde3ea; --muted:#8b96a5; --accent:#ffd54a; --sel:#ffb020; --bad:#ff6a50; --ok:#7ddc8a; }
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+body{display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 14px;background:var(--card);border-bottom:1px solid var(--line)}
+header h1{font-size:15px;margin:0 6px 0 0;font-weight:600}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+button,select,input,label.btn{background:#262e38;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 9px;font:inherit}
+button,label.btn,select{cursor:pointer}
+button:hover,label.btn:hover{border-color:var(--muted)}
+button.on{border-color:var(--accent);color:var(--accent)}
+button:disabled{opacity:.45;cursor:default}
+input[type=number]{width:64px;padding:3px 5px}
+input[type=text]{width:84px}
+input[type=range]{padding:0;width:90px;vertical-align:middle}
+.grp{display:inline-flex;gap:0}
+.grp>button{border-radius:0;margin-left:-1px}
+.grp>button:first-child{border-radius:6px 0 0 6px;margin-left:0}
+.grp>button:last-child{border-radius:0 6px 6px 0}
+label.ck{display:inline-flex;gap:4px;align-items:center;cursor:pointer;white-space:nowrap}
+.sep{width:1px;align-self:stretch;background:var(--line);margin:0 2px}
+#tools{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:6px 14px;background:var(--card2);border-bottom:1px solid var(--line)}
+#main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 310px;min-height:0}
+#view{position:relative;min-height:0}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;background:radial-gradient(#2a333e,#151a20)}
+#box{position:absolute;border:1px dashed var(--accent);background:#ffd54a14;pointer-events:none;display:none}
+#hud{position:absolute;left:10px;bottom:8px;color:var(--muted);font-size:12px;pointer-events:none;text-shadow:0 1px 2px #000}
+#axes{position:absolute;right:10px;bottom:8px;width:64px;height:64px;pointer-events:none}
+#drop{position:absolute;inset:0;display:none;place-items:center;background:#000a;font-size:18px;color:var(--accent);border:2px dashed var(--accent)}
+#side{border-left:1px solid var(--line);background:var(--card);overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:8px}
+.box{background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:8px}
+.box h2{font-size:12px;margin:0 0 6px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0}
+.row>span.l{width:46px;color:var(--muted)}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:12px;white-space:pre-wrap;color:#c6ced8}
+#status{padding:4px 14px;background:var(--card);border-top:1px solid var(--line);color:var(--muted);font-size:12px;display:flex;gap:16px;flex-wrap:wrap}
+#status b{color:var(--text);font-weight:600}
+#msg{color:var(--accent)}
+#msg.bad{color:var(--bad)}
+.ref{border-top:1px solid var(--line);padding-top:6px;margin-top:6px}
+.ref:first-of-type{border-top:0;margin-top:0;padding-top:0}
+.ref b{display:inline-block;width:44px}
+details summary{cursor:pointer;color:var(--muted)}
+kbd{background:#2c3440;border:1px solid var(--line);border-radius:4px;padding:0 4px;font:11px ui-monospace,Consolas,monospace}
+#help{font-size:12px;color:var(--muted);line-height:1.6}
+@media (max-width:820px){ #main{grid-template-columns:1fr;grid-template-rows:60vh auto} body{overflow:auto} #side{border-left:0;border-top:1px solid var(--line)} }
+</style>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
+<script src="sh_editor_core.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <h1>SH Editor</h1>
+  <button id="openDir" title="Pick a folder with .SH / .PIC / PALETTE.PAL; Save then writes straight back into it (Chrome / Edge)">Open folder…</button>
+  <select id="dirList" style="display:none" title="SH files in the opened folder"></select>
+  <label class="btn" title="Open .SH (you can also select its .PIC and a palette at the same time)">Open files…<input id="openFiles" type="file" multiple accept=".sh,.SH,.pic,.PIC,.pal,.PAL" hidden></label>
+  <input type="text" id="repoName" placeholder="F14" title="Load an SH from the FAoutput repository (SH/ folder), e.g. F14, F18G">
+  <button id="repoLoad">Load from repo</button>
+  <span class="sep"></span>
+  <button id="save" disabled title="Write the edited SH (Ctrl+S). Opened from a folder: overwrites that file. Otherwise: download.">Save</button>
+  <button id="saveAs" disabled title="Save under a new name / download a copy">Save as…</button>
+  <span id="msg"></span>
+</header>
+<div id="tools">
+  <label title="Level of detail">LOD <select id="lod"></select></label>
+  <span class="grp" id="dispGrp"><button data-d="tex" class="on">Textured</button><button data-d="flat">Flat</button><button data-d="wire">Wireframe</button></span>
+  <label class="ck"><input type="checkbox" id="edges" checked>Edges</label>
+  <label class="ck"><input type="checkbox" id="points" checked>Points</label>
+  <label class="ck" title="Show the faces of sub-parts that are not drawn in the current state (e.g. gear-up variants)"><input type="checkbox" id="allParts">All parts</label>
+  <label class="ck"><input type="checkbox" id="gear" checked>Gear down</label>
+  <span class="sep"></span>
+  <span class="grp" id="viewGrp"><button data-v="front" title="Front (1)">Front</button><button data-v="side" title="Right side (3)">Side</button><button data-v="top" title="Top (7)">Top</button><button data-v="persp" title="Perspective (5)">3D</button></span>
+  <label class="ck" title="Orthographic camera (O)"><input type="checkbox" id="ortho">Ortho</label>
+  <span class="sep"></span>
+  <span class="grp" id="modeGrp"><button data-m="vert" class="on" title="Select and move vertices (Tab toggles)">Vertices</button><button data-m="face" title="Select faces">Faces</button></span>
+  <label class="ck" title="Moves and nudges land on this grid (vertex units). FA stores whole numbers, so 1 is the finest.">Grid <input type="number" id="grid" value="1" min="1" step="1"></label>
+  <span class="grp" id="axisGrp" title="Lock dragging to one axis (X / Y / Z keys)"><button data-a="">Free</button><button data-a="x">X</button><button data-a="y">Y</button><button data-a="z">Z</button></span>
+  <label class="ck" title="Also move the mirror-image vertex (x → -x)"><input type="checkbox" id="mirror" checked>Mirror X</label>
+  <label class="ck" title="Move vertices that sit on the same spot together (FA often stores a point twice, in different groups)"><input type="checkbox" id="weld" checked>Weld</label>
+  <label class="ck" title="Select through the model (also hidden points)"><input type="checkbox" id="xray">X-ray</label>
+  <button id="undo" disabled title="Ctrl+Z">Undo</button><button id="redo" disabled title="Ctrl+Y">Redo</button>
+</div>
+<div id="main">
+  <div id="view"><canvas id="cv"></canvas><div id="box"></div><div id="hud"></div><canvas id="axes" width="128" height="128"></canvas><div id="drop">Drop .SH / .PIC / .PAL or a reference image</div></div>
+  <div id="side">
+    <div class="box"><h2>Selection</h2>
+      <div id="selInfo" class="mono">Nothing selected</div>
+      <div id="vertEdit">
+        <div class="row"><span class="l">Set</span><input type="number" id="vx" step="1" title="x (right)"><input type="number" id="vy" step="1" title="y (forward)"><input type="number" id="vz" step="1" title="z (up)"><button id="vSet" title="Set the coordinates typed here (empty boxes are left alone)">Apply</button></div>
+        <div class="row"><span class="l">Move</span><input type="number" id="dx" step="1" value="0"><input type="number" id="dy" step="1" value="0"><input type="number" id="dz" step="1" value="0"><button id="dMove">Move</button></div>
+        <div class="row" style="color:var(--muted);font-size:11px">x = right, y = forward, z = up (vertex units). World coordinates; parts are converted to their own frame.</div>
+      </div>
+      <div id="faceEdit" style="display:none">
+        <div class="row"><span class="l">Colour</span><input type="number" id="fcol" min="0" max="255" step="1"><span id="fsw" style="width:22px;height:18px;border-radius:4px;border:1px solid var(--line)"></span><button id="fColSet">Set</button></div>
+        <div class="row"><button id="fFlip" title="Reverse the vertex order (turns the face around)">Flip</button><button id="fDel" title="Remove the face (its bytes become a jump; Undo restores it)">Delete</button><button id="fVerts" title="Select the vertices of the selected faces">Select its vertices</button></div>
+      </div>
+    </div>
+    <div class="box"><h2>Save options</h2>
+      <label class="ck" title="Faces whose vertices moved get a new FC normal and plane point when you save"><input type="checkbox" id="optNorm" checked>Recompute normals of edited faces</label><br>
+      <label class="ck" title="Moved vertices get a new F6 vertex normal (Gouraud shading in FA) from the faces around them"><input type="checkbox" id="optF6" checked>Recompute F6 vertex normals</label>
+      <div class="row" style="color:var(--muted);font-size:11px">Saving only rewrites bytes in place, so the file layout, jumps and relocations stay exactly as they were. New vertex groups (F-14N nose, EA-18G stores, CODE grown by 0x1000) load and save normally.</div>
+    </div>
+    <div class="box"><h2>Reference images</h2><div id="refs"></div>
+      <div class="row" style="color:var(--muted);font-size:11px">Width is in vertex units. Images show behind the model in the matching Ortho view (or always, if ticked).</div></div>
+    <div class="box"><h2>Model</h2><div id="modelInfo" class="mono"></div></div>
+    <div class="box"><details><summary>Mouse and keys</summary><div id="help">
+      <b>Left-drag</b> rotate · <b>Right-drag</b> pan · <b>Wheel</b> zoom<br>
+      <b>Click</b> select · <b>Shift+click</b> add · <b>Ctrl+click</b> toggle · <b>Shift+drag</b> box select · <b>Ctrl+drag</b> box deselect<br>
+      <b>Drag a selected point</b> to move the selection (snaps to the grid)<br>
+      <kbd>X</kbd><kbd>Y</kbd><kbd>Z</kbd> lock axis (again = free) · arrows nudge in screen plane, <kbd>PgUp</kbd>/<kbd>PgDn</kbd> in depth<br>
+      <kbd>1</kbd> front <kbd>3</kbd> side <kbd>7</kbd> top <kbd>5</kbd> 3D · <kbd>O</kbd> ortho · <kbd>F</kbd> frame selection · <kbd>Tab</kbd> vertices/faces<br>
+      <kbd>A</kbd> select all · <kbd>Esc</kbd> clear · <kbd>Del</kbd> delete faces · <kbd>Ctrl+Z</kbd>/<kbd>Ctrl+Y</kbd> undo/redo · <kbd>Ctrl+S</kbd> save</div></details></div>
+  </div>
+</div>
+<div id="status"><span id="stFile">No file</span><span id="stCounts"></span><span id="stMod"></span></div>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+const S = window.SHCore, $ = id => document.getElementById(id);
+const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
+
+// ---------- state ----------
+let M = null, cur = null;          // M = parsed model; cur = { name, pic, pal, handle, dir }
+let gamePal = null, picTex = null, palTex = null;
+let disp = "tex", mode = "vert", axis = "";
+let sel = new Set();               // vertex mode: display-vertex keys "vid|inst"; face mode: face ids
+let undoS = [], redoS = [];
+let dirHandle = null;
+const msg = (t, bad) => { $("msg").textContent = t || ""; $("msg").className = bad ? "bad" : ""; };
+
+// SH (x right, y fwd, z up) <-> three (X = -x, Y = z, Z = y): a proper rotation, so nothing is mirrored
+const toW = p => new THREE.Vector3(-p[0], p[2], p[1]);
+const fromW = v => [-v.x, v.z, v.y];
+
+// ---------- three.js ----------
+const cv = $("cv"), renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+renderer.setClearColor(0x000000, 0);
+renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+const scene = new THREE.Scene();
+const persp = new THREE.PerspectiveCamera(40, 1, 0.5, 20000), orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, -20000, 20000);
+let camera = persp;
+const controls = new OrbitControls(camera, cv);
+controls.enableDamping = false; controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+controls.addEventListener("change", () => { syncOrtho(); requestDraw(); });
+const root = new THREE.Group(); scene.add(root);
+const refGroup = new THREE.Group(); scene.add(refGroup);
+
+const faceMat = new THREE.ShaderMaterial({
+  uniforms: { uPic: { value: null }, uPal: { value: null }, uSize: { value: new THREE.Vector2(256, 256) }, uMode: { value: 0 }, uHasPic: { value: 0 } },
+  vertexShader: `attribute vec2 aUV; attribute vec3 aCol; varying vec2 vUV; varying vec3 vCol; varying vec3 vN;
+    void main(){ vUV = aUV; vCol = aCol; vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position.z -= aCol.z * 2e-6 * gl_Position.w; }`,
+  fragmentShader: `uniform sampler2D uPic; uniform sampler2D uPal; uniform vec2 uSize; uniform float uMode; uniform float uHasPic;
+    varying vec2 vUV; varying vec3 vCol; varying vec3 vN;
+    void main(){
+      float d = abs(dot(normalize(vN), normalize(vec3(0.3, 0.55, 0.8))));
+      float idx = vCol.x; bool own = true;
+      if (uMode < 0.5 && vCol.y > 0.5 && uHasPic > 0.5){
+        float t = floor(texture2D(uPic, (floor(vUV) + 0.5) / uSize).r * 255.0 + 0.5);
+        if (t > 254.5){ if (vCol.x < 0.5) discard; } else { idx = t; own = false; }
+      }
+      if (own && idx >= 144.0 && idx <= 155.0) idx = clamp(idx + floor((0.75 - d) * 8.0 + 0.5), 144.0, 155.0);
+      vec3 c = texture2D(uPal, vec2((idx + 0.5) / 256.0, 0.5)).rgb;
+      if (!(own && idx >= 144.0 && idx <= 155.0)) c *= 0.68 + 0.42 * d;
+      gl_FragColor = vec4(c, 1.0);
+    }`,
+  side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+const selFaceMat = new THREE.MeshBasicMaterial({ color: 0xffb020, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthTest: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+const edgeMat = new THREE.LineBasicMaterial({ color: 0x0b0e12, transparent: true, opacity: 0.55 });
+const wireMat = new THREE.LineBasicMaterial({ color: 0x9fd8ff });
+const ptMat = new THREE.PointsMaterial({ size: 5, sizeAttenuation: false, vertexColors: true });
+let faceMesh = null, edgeLines = null, ptCloud = null, selMesh = null;
+
+function setPal(p){ const rgba = new Uint8Array(256 * 4); for (let i = 0; i < 256; i++){ rgba[4*i] = p[3*i]; rgba[4*i+1] = p[3*i+1]; rgba[4*i+2] = p[3*i+2]; rgba[4*i+3] = 255; }
+  palTex?.dispose(); palTex = new THREE.DataTexture(rgba, 256, 1, THREE.RGBAFormat); palTex.needsUpdate = true; faceMat.uniforms.uPal.value = palTex; }
+const PAL_GRAY = (() => { const p = new Uint8Array(768); for (let i = 0; i < 256; i++) p[3*i] = p[3*i+1] = p[3*i+2] = i; return p; })();
+setPal(PAL_GRAY);
+function setPic(pic){
+  picTex?.dispose(); picTex = null; faceMat.uniforms.uHasPic.value = 0;
+  if (!pic) return;
+  picTex = new THREE.DataTexture(pic.px, pic.w, pic.h, THREE.RedFormat, THREE.UnsignedByteType);
+  picTex.magFilter = picTex.minFilter = THREE.NearestFilter; picTex.unpackAlignment = 1; picTex.needsUpdate = true;
+  faceMat.uniforms.uPic.value = picTex; faceMat.uniforms.uSize.value.set(pic.w, pic.h); faceMat.uniforms.uHasPic.value = 1;
+}
+
+let drawPending = false;
+function requestDraw(){ if (!drawPending){ drawPending = true; requestAnimationFrame(() => { drawPending = false; render(); }); } }
+function resize(){ const w = cv.clientWidth, h = cv.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); persp.aspect = w / h; persp.updateProjectionMatrix(); syncOrtho(); requestDraw(); }
+new ResizeObserver(resize).observe($("view"));
+function syncOrtho(){
+  if (camera !== orthoCam) return;
+  const d = persp.position.distanceTo(controls.target), h = d * Math.tan(THREE.MathUtils.degToRad(persp.fov / 2)), a = cv.clientWidth / Math.max(1, cv.clientHeight);
+  orthoCam.left = -h * a; orthoCam.right = h * a; orthoCam.top = h; orthoCam.bottom = -h;
+  orthoCam.position.copy(persp.position); orthoCam.quaternion.copy(persp.quaternion); orthoCam.updateProjectionMatrix();
+}
+function render(){
+  if (camera === orthoCam){ orthoCam.position.copy(persp.position); orthoCam.quaternion.copy(persp.quaternion); }
+  updateRefVisibility();
+  renderer.render(scene, camera);
+  drawAxes();
+}
+// controls always drive the perspective camera; the ortho camera copies its pose
+function setOrtho(on){ $("ortho").checked = on; camera = on ? orthoCam : persp; syncOrtho(); requestDraw(); }
+
+// ---------- building the scene from the model ----------
+let D = null;   // display data for the current LOD: { faces:[{f, keys}], verts: Map key -> {vid, inst, w:[x,y,z]} }
+const keyOf = (vid, inst) => vid + "|" + inst;
+function visibleFace(f){
+  if (f.lod !== +$("lod").value || f.del) return false;
+  if ($("allParts").checked) return true;
+  return f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed);
+}
+function rebuild(keepView){
+  for (const o of [faceMesh, edgeLines, ptCloud, selMesh]) if (o){ root.remove(o); o.geometry.dispose(); }
+  faceMesh = edgeLines = ptCloud = selMesh = null;
+  if (!M) return;
+  const lod = +$("lod").value, faces = [], verts = new Map();
+  M.faces.forEach((f, order) => {
+    if (!visibleFace(f)) return;
+    const keys = f.refs.map(r => { const k = keyOf(r[0], r[1]); if (!verts.has(k)) verts.set(k, { vid: r[0], inst: r[1] }); return k; });
+    faces.push({ f, keys, order });
+  });
+  // vertices of this LOD that no face uses are still editable
+  for (const b of M.bufs) if (b.lod === lod && (b.placed || $("allParts").checked) && !b.tf) for (let i = 0; i < b.n; i++){ const k = keyOf(b.v0 + i, 0); if (!verts.has(k)) verts.set(k, { vid: b.v0 + i, inst: 0, lone: true }); }
+  for (const v of verts.values()) v.w = S.worldOf(M, v.vid, v.inst);
+  D = { faces, verts, lod };
+  // faces
+  const pos = [], nrm = [], uv = [], col = [], tri2face = [];
+  const nF = Math.max(1, M.faces.length);
+  faces.forEach((F, fi) => {
+    const P = F.keys.map(k => verts.get(k).w), n = S.faNormal(P) || [0, 1, 0];
+    const nw = new THREE.Vector3(-n[0], n[1], n[2]);   // FA normal (x, up, fwd) -> three
+    for (let k = 1; k < P.length - 1; k++) for (const j of [0, k, k + 1]){
+      const w = toW(P[j]); pos.push(w.x, w.y, w.z); nrm.push(nw.x, nw.y, nw.z);
+      const q = F.f.uv ? F.f.uv[j] : [0, 0]; uv.push(q[0], q[1]);
+      col.push(F.f.newCol ?? F.f.col, F.f.uv ? 1 : 0, F.order / nF * 100);
+      if (j === 0) tri2face.push(fi);
+    }
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(nrm, 3));
+  g.setAttribute("aUV", new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute("aCol", new THREE.Float32BufferAttribute(col, 3));
+  g.computeBoundingSphere();
+  faceMesh = new THREE.Mesh(g, faceMat); faceMesh.userData.tri2face = tri2face; root.add(faceMesh);
+  faceMat.uniforms.uMode.value = disp === "flat" ? 1 : 0;
+  faceMesh.visible = disp !== "wire";
+  // edges
+  const ep = [], seen = new Set();
+  for (const F of faces) for (let k = 0; k < F.keys.length; k++){
+    const a = F.keys[k], b = F.keys[(k + 1) % F.keys.length], id = a < b ? a + "/" + b : b + "/" + a; if (seen.has(id)) continue; seen.add(id);
+    const p = toW(verts.get(a).w), q = toW(verts.get(b).w); ep.push(p.x, p.y, p.z, q.x, q.y, q.z);
+  }
+  const eg = new THREE.BufferGeometry(); eg.setAttribute("position", new THREE.Float32BufferAttribute(ep, 3));
+  edgeLines = new THREE.LineSegments(eg, disp === "wire" ? wireMat : edgeMat); edgeLines.visible = disp === "wire" || $("edges").checked; root.add(edgeLines);
+  // points
+  const pp = [], pc = [], keys = [...verts.keys()];
+  for (const k of keys){ const v = verts.get(k), w = toW(v.w); pp.push(w.x, w.y, w.z); const s = mode === "vert" && sel.has(k); pc.push(...(s ? [1, 0.7, 0.1] : v.lone ? [0.55, 0.55, 0.6] : v.inst ? [0.5, 0.9, 1] : [0.85, 0.95, 1])); }
+  const pg = new THREE.BufferGeometry(); pg.setAttribute("position", new THREE.Float32BufferAttribute(pp, 3)); pg.setAttribute("color", new THREE.Float32BufferAttribute(pc, 3));
+  ptCloud = new THREE.Points(pg, ptMat); ptCloud.userData.keys = keys; ptCloud.visible = $("points").checked || mode === "vert" && sel.size > 0; ptCloud.renderOrder = 2; root.add(ptCloud);
+  ptMat.depthTest = !$("xray").checked;
+  // selected faces
+  if (mode === "face" && sel.size){
+    const sp = [];
+    for (const F of faces){ if (!sel.has(F.f.id)) continue; const P = F.keys.map(k => toW(verts.get(k).w)); for (let k = 1; k < P.length - 1; k++) for (const j of [0, k, k + 1]) sp.push(P[j].x, P[j].y, P[j].z); }
+    const sg = new THREE.BufferGeometry(); sg.setAttribute("position", new THREE.Float32BufferAttribute(sp, 3)); selMesh = new THREE.Mesh(sg, selFaceMat); root.add(selMesh);
+  }
+  if (!keepView) frameAll();
+  updateInfo(); requestDraw();
+}
+function bbox(points){ const b = new THREE.Box3(); for (const w of points) b.expandByPoint(toW(w)); return b; }
+function frameBox(b){
+  if (b.isEmpty()) return; const c = b.getCenter(new THREE.Vector3()), r = Math.max(4, b.getSize(new THREE.Vector3()).length() / 2);
+  const dir = persp.position.clone().sub(controls.target); if (dir.lengthSq() < 1e-6) dir.set(1, 0.6, 1.4);
+  controls.target.copy(c); persp.position.copy(c).add(dir.normalize().multiplyScalar(r / Math.tan(THREE.MathUtils.degToRad(persp.fov / 2)) * 0.8));
+  persp.near = r / 50; persp.far = r * 200; persp.updateProjectionMatrix(); controls.update();
+}
+function frameAll(){ if (D) frameBox(bbox([...D.verts.values()].map(v => v.w))); }
+function setView(v){
+  const dist = persp.position.distanceTo(controls.target) || 300, t = controls.target;
+  const dirs = { front: [0, 0, 1], side: [-1, 0, 0], top: [0, 1, -0.0001], persp: [-0.9, 0.55, 1.2] };   // side = from the aircraft's right (+x = three -X)
+  const d = new THREE.Vector3(...dirs[v]).normalize();
+  persp.position.copy(t).add(d.multiplyScalar(dist)); persp.up.set(0, 1, 0); controls.update();
+  if (v !== "persp" && !$("ortho").checked) setOrtho(true);
+  if (v === "persp" && $("ortho").checked) setOrtho(false);
+  requestDraw();
+}
+
+// ---------- axes gizmo ----------
+function drawAxes(){
+  const g = $("axes").getContext("2d"); g.clearRect(0, 0, 128, 128);
+  const q = camera.quaternion.clone().invert();
+  const ax = [["x", [-1, 0, 0], "#ff6a50"], ["y", [0, 0, 1], "#7ddc8a"], ["z", [0, 1, 0], "#6fb8ff"]];   // SH axes in three space
+  for (const [n, v, c] of ax){ const p = new THREE.Vector3(...v).applyQuaternion(q); g.strokeStyle = c; g.fillStyle = c; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(64, 64); g.lineTo(64 + p.x * 44, 64 - p.y * 44); g.stroke(); g.font = "bold 20px system-ui"; g.fillText(n, 58 + p.x * 54, 70 - p.y * 54); }
+}
+
+// ---------- reference images ----------
+const REFS = [
+  { id: "front", label: "Front", plane: "front" }, { id: "side", label: "Side", plane: "side" }, { id: "top", label: "Top", plane: "top" } ];
+function refUI(){
+  $("refs").innerHTML = REFS.map(r => `<div class="ref" data-r="${r.id}">
+    <div class="row"><b>${r.label}</b><label class="btn">Image…<input type="file" accept="image/*" hidden data-k="file"></label><label class="ck"><input type="checkbox" data-k="show" checked>Show</label><label class="ck" title="Show in every view, not only the matching Ortho view"><input type="checkbox" data-k="always">Always</label></div>
+    <div class="row"><span class="l">Width</span><input type="number" data-k="w" value="250" step="1"><span class="l" style="width:auto">Opacity</span><input type="range" data-k="op" min="0" max="1" step="0.05" value="0.5"></div>
+    <div class="row"><span class="l">Offset</span><input type="number" data-k="u" value="0" step="1" title="horizontal"><input type="number" data-k="v" value="0" step="1" title="vertical"><label class="ck"><input type="checkbox" data-k="flip">Mirror</label></div></div>`).join("");
+  for (const el of $("refs").querySelectorAll("[data-k]")){
+    const r = REFS.find(x => x.id === el.closest(".ref").dataset.r), k = el.dataset.k;
+    el.addEventListener(k === "file" ? "change" : "input", () => { if (k === "file"){ if (el.files[0]) loadRef(r, el.files[0]); } else updateRef(r); });
+  }
+}
+function refVal(r, k){ const el = document.querySelector(`.ref[data-r="${r.id}"] [data-k="${k}"]`); return el.type === "checkbox" ? el.checked : +el.value; }
+function loadRef(r, file){
+  const url = URL.createObjectURL(file);
+  new THREE.TextureLoader().load(url, tex => {
+    tex.colorSpace = THREE.SRGBColorSpace;
+    if (r.mesh){ refGroup.remove(r.mesh); r.mesh.geometry.dispose(); r.mesh.material.map?.dispose(); }
+    r.aspect = tex.image.height / tex.image.width;
+    r.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+    r.mesh.renderOrder = -1; refGroup.add(r.mesh); updateRef(r); msg(`${r.label} reference: ${file.name}`);
+  });
+}
+function updateRef(r){
+  if (!r.mesh) return;
+  const w = refVal(r, "w") || 100, u = refVal(r, "u"), v = refVal(r, "v"), far = 2000, m = r.mesh;
+  m.scale.set(w * (refVal(r, "flip") ? -1 : 1), w * r.aspect, 1); m.material.opacity = refVal(r, "op");
+  // place each image behind the model as seen from its view
+  if (r.plane === "front"){ m.rotation.set(0, 0, 0); m.position.set(u, v, -far); }
+  else if (r.plane === "side"){ m.rotation.set(0, -Math.PI / 2, 0); m.position.set(far, v, u); }
+  else { m.rotation.set(-Math.PI / 2, 0, Math.PI); m.position.set(-u, -far, v); }
+  requestDraw();
+}
+function updateRefVisibility(){
+  const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
+  for (const r of REFS){ if (!r.mesh) continue;
+    const want = { front: new THREE.Vector3(0, 0, -1), side: new THREE.Vector3(1, 0, 0), top: new THREE.Vector3(0, -1, 0) }[r.plane];
+    const aligned = camera === orthoCam && dir.dot(want) > 0.985;
+    r.mesh.visible = refVal(r, "show") && (refVal(r, "always") || aligned);
+    // keep the image well behind the model along the view direction
+    if (r.plane === "front") r.mesh.position.z = controls.target.z - 2000; if (r.plane === "side") r.mesh.position.x = controls.target.x + 2000; if (r.plane === "top") r.mesh.position.y = controls.target.y - 2000;
+  }
+}
+refUI();
+
+// ---------- picking ----------
+function ndc(e){ const r = cv.getBoundingClientRect(); return new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1); }
+function screenOf(w){ const p = toW(w).project(camera), r = cv.getBoundingClientRect(); return [(p.x + 1) / 2 * r.width, (1 - p.y) / 2 * r.height, p.z]; }
+const ray = new THREE.Raycaster();
+function occluded(w){
+  if ($("xray").checked || !faceMesh || disp === "wire") return false;
+  const p = toW(w), o = camera === orthoCam ? p.clone().add(new THREE.Vector3(0, 0, 1).applyQuaternion(camera.quaternion).multiplyScalar(5000)) : camera.position.clone();
+  const d = p.clone().sub(o), L = d.length(); ray.set(o, d.normalize()); ray.far = L - Math.max(0.6, L * 0.004);
+  return ray.intersectObject(faceMesh, false).length > 0;
+}
+function pickVert(e, radius = 9){
+  if (!D) return null; const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+  let best = null, bd = Infinity;
+  for (const [k, v] of D.verts){ const s = screenOf(v.w); const d = Math.hypot(s[0] - mx, s[1] - my); if (d > radius) continue; const score = d + s[2] * 2; if (score < bd && !occluded(v.w)){ bd = score; best = k; } }
+  return best;
+}
+function pickFace(e){
+  if (!faceMesh || !D) return null; ray.setFromCamera(ndc(e), camera); ray.far = Infinity;
+  const hit = ray.intersectObject(faceMesh, false)[0]; if (!hit) return null;
+  return D.faces[faceMesh.userData.tri2face[hit.faceIndex]].f.id;
+}
+
+// ---------- editing ----------
+// display vertex -> the set of display vertices that move with it (weld + mirror), each with a delta multiplier
+function moveSet(keys){
+  const out = new Map(), weld = $("weld").checked, mir = $("mirror").checked;
+  const byPos = new Map(); for (const [k, v] of D.verts){ const id = v.w.map(Math.round).join(","); if (!byPos.has(id)) byPos.set(id, []); byPos.get(id).push(k); }
+  const add = (k, mx) => { const prev = out.get(k); if (prev == null || (prev === -1 && mx === 1)) out.set(k, mx); };
+  for (const k of keys){
+    const v = D.verts.get(k), w = v.w.map(Math.round), grp = weld ? byPos.get(w.join(",")) || [k] : [k];
+    for (const g of grp) add(g, 1);
+    if (mir && w[0] !== 0){ const m = byPos.get([-w[0], w[1], w[2]].join(",")) || []; for (const g of (weld ? m : m.slice(0, 1))) if (!keys.has?.(g)) add(g, -1); }
+  }
+  // a point on the centre line moved by mirror stays on it; for -1 entries x is negated
+  return out;
+}
+// apply a world-space delta to the move set, snapping each vertex's stored coordinate to the grid
+function applyDelta(set, start, dw, axisLock){
+  const step = Math.max(1, Math.round(+$("grid").value || 1)), ch = [];
+  const lin = new Map();
+  for (const [k, mx] of set){
+    const v = D.verts.get(k), vert = M.verts[v.vid], st = start.get(vert.id); if (!st) continue;
+    if (lin.has(vert.id)) continue;   // one stored vertex, several display copies (C4 instances): move once
+    lin.set(vert.id, true);
+    let d = [dw[0] * (mx === -1 ? -1 : 1), dw[1], dw[2]];
+    if (mx === -1 && v.w[0] === 0) d[0] = 0;
+    const T = S.linOf(M, v.vid, v.inst), inv = S.invLin(T), dl = [inv[0]*d[0]+inv[1]*d[1]+inv[2]*d[2], inv[3]*d[0]+inv[4]*d[1]+inv[5]*d[2], inv[6]*d[0]+inv[7]*d[1]+inv[8]*d[2]];
+    const np = st.map((x, i) => { const moved = Math.abs(dl[i]) > 1e-9; return moved ? Math.round((x + dl[i]) / step) * step : x; });
+    if (axisLock){ const ai = "xyz".indexOf(axisLock); if (isIdentity(T)) for (let i = 0; i < 3; i++) if (i !== ai) np[i] = st[i]; }
+    if (np.some((x, i) => x !== vert.p[i])){ vert.p = np; }
+    ch.push(vert.id);
+  }
+  return ch;
+}
+const isIdentity = T => T.m.every((x, i) => Math.abs(x - [1,0,0,0,1,0,0,0,1][i]) < 1e-9);
+function snapshot(ids){ const m = new Map(); for (const id of ids) m.set(id, M.verts[id].p.slice()); return m; }
+function pushUndo(op){ undoS.push(op); redoS = []; dirty(); }
+function commitVerts(before){
+  const after = new Map(); let any = false;
+  for (const [id, p] of before){ const q = M.verts[id].p.slice(); after.set(id, q); if (q.some((x, i) => x !== p[i])) any = true; }
+  if (any) pushUndo({ type: "verts", before, after });
+}
+function undoRedo(isUndo){
+  const op = (isUndo ? undoS : redoS).pop(); if (!op) return;
+  if (op.type === "verts") for (const [id, p] of (isUndo ? op.before : op.after)) M.verts[id].p = p.slice();
+  if (op.type === "faces") for (const [id, st] of (isUndo ? op.before : op.after)) Object.assign(M.faces[id], st);
+  (isUndo ? redoS : undoS).push(op); dirty(); rebuild(true);
+}
+function faceState(f){ return { del: f.del, flip: !!f.flip, newCol: f.newCol ?? null }; }
+function editFaces(fn){
+  const ids = [...sel].filter(id => typeof id === "number"); if (!ids.length) return;
+  const before = new Map(ids.map(id => [id, faceState(M.faces[id])]));
+  // all display copies of the same FC record (C4 instances) share the edit
+  const recs = new Set(ids.map(id => M.faces[id].o)), all = M.faces.filter(f => recs.has(f.o));
+  for (const f of all) if (!before.has(f.id)) before.set(f.id, faceState(f));
+  for (const f of all) fn(f);
+  pushUndo({ type: "faces", before, after: new Map(all.map(f => [f.id, faceState(f)])) });
+  rebuild(true);
+}
+function moveSelectionBy(dw){
+  if (mode !== "vert" || !sel.size) return;
+  const set = moveSet(sel), ids = [...new Set([...set.keys()].map(k => D.verts.get(k).vid))], before = snapshot(ids);
+  applyDelta(set, before, dw, ""); commitVerts(before); rebuild(true);
+}
+function dirty(){
+  $("undo").disabled = !undoS.length; $("redo").disabled = !redoS.length;
+  const n = undoS.length; $("stMod").innerHTML = n ? `<b style="color:var(--accent)">● ${n} edit${n > 1 ? "s" : ""} not saved</b>` : "";
+}
+
+// ---------- mouse ----------
+let drag = null;
+cv.addEventListener("contextmenu", e => e.preventDefault());
+cv.addEventListener("pointerdown", e => {
+  if (!M || e.button !== 0) return;
+  const r = cv.getBoundingClientRect();
+  if (e.shiftKey || e.ctrlKey || e.metaKey){
+    const k = mode === "vert" ? pickVert(e) : null;
+    drag = { kind: "box", x0: e.clientX - r.left, y0: e.clientY - r.top, add: !(e.ctrlKey || e.metaKey), ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey, e0: e, moved: false };
+    controls.enabled = false; cv.setPointerCapture(e.pointerId); return;
+  }
+  if (mode === "vert"){
+    const k = pickVert(e);
+    if (k && sel.has(k)){
+      // start moving the selection: plane through the vertex, facing the camera
+      const v = D.verts.get(k), p0 = toW(v.w), n = new THREE.Vector3(); camera.getWorldDirection(n);
+      const set = moveSet(sel), ids = [...new Set([...set.keys()].map(q => D.verts.get(q).vid))];
+      drag = { kind: "move", key: k, p0, plane: new THREE.Plane().setFromNormalAndCoplanarPoint(n, p0), set, before: snapshot(ids), moved: false };
+      controls.enabled = false; cv.setPointerCapture(e.pointerId); return;
+    }
+    drag = { kind: "click", x: e.clientX, y: e.clientY, e0: e, k };
+  } else drag = { kind: "click", x: e.clientX, y: e.clientY, e0: e };
+});
+cv.addEventListener("pointermove", e => {
+  if (!drag) return;
+  if (drag.kind === "click"){ if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 4) drag = null; return; }
+  if (drag.kind === "box"){
+    const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, b = $("box");
+    drag.x1 = x; drag.y1 = y; drag.moved = Math.hypot(x - drag.x0, y - drag.y0) > 4;
+    Object.assign(b.style, { display: drag.moved ? "block" : "none", left: Math.min(x, drag.x0) + "px", top: Math.min(y, drag.y0) + "px", width: Math.abs(x - drag.x0) + "px", height: Math.abs(y - drag.y0) + "px" });
+    return;
+  }
+  if (drag.kind === "move"){
+    ray.setFromCamera(ndc(e), camera);
+    let hit = new THREE.Vector3();
+    if (axis){
+      // closest point on the axis line through the vertex
+      const ad = { x: new THREE.Vector3(-1, 0, 0), y: new THREE.Vector3(0, 0, 1), z: new THREE.Vector3(0, 1, 0) }[axis];
+      const w0 = drag.p0.clone().sub(ray.ray.origin), a = ad.dot(ad), b = ad.dot(ray.ray.direction), c = ray.ray.direction.dot(ray.ray.direction), d = ad.dot(w0), ee = ray.ray.direction.dot(w0);
+      const den = a * c - b * b; if (Math.abs(den) < 1e-9) return; const s = (b * ee - c * d) / den;
+      hit = drag.p0.clone().add(ad.clone().multiplyScalar(s));
+    } else if (!ray.ray.intersectPlane(drag.plane, hit)) return;
+    const dw = fromW(hit.clone().sub(drag.p0));
+    for (const [id, p] of drag.before) M.verts[id].p = p.slice();
+    applyDelta(drag.set, drag.before, dw, axis); drag.moved = true;
+    liveUpdate();
+  }
+});
+cv.addEventListener("pointerup", e => {
+  const d = drag; drag = null; controls.enabled = true; $("box").style.display = "none";
+  if (!d) return;
+  if (d.kind === "move"){ if (d.moved){ commitVerts(d.before); rebuild(true); } return; }
+  if (d.kind === "box"){
+    if (!d.moved){ clickSelect(d.e0); return; }
+    const x0 = Math.min(d.x0, d.x1), x1 = Math.max(d.x0, d.x1), y0 = Math.min(d.y0, d.y1), y1 = Math.max(d.y0, d.y1);
+    if (mode === "vert"){ for (const [k, v] of D.verts){ const s = screenOf(v.w); if (s[0] >= x0 && s[0] <= x1 && s[1] >= y0 && s[1] <= y1 && s[2] < 1 && !occluded(v.w)){ if (d.add) sel.add(k); else sel.delete(k); } } }
+    else for (const F of D.faces){ const ss = F.keys.map(k => screenOf(D.verts.get(k).w)); const c = ss.reduce((a, s) => [a[0] + s[0] / ss.length, a[1] + s[1] / ss.length], [0, 0]); if (c[0] >= x0 && c[0] <= x1 && c[1] >= y0 && c[1] <= y1){ if (d.add) sel.add(F.f.id); else sel.delete(F.f.id); } }
+    rebuild(true); return;
+  }
+  if (d.kind === "click") clickSelect(d.e0);
+});
+function clickSelect(e){
+  const k = mode === "vert" ? pickVert(e) : pickFace(e);
+  if (e.ctrlKey || e.metaKey){ if (k != null){ sel.has(k) ? sel.delete(k) : sel.add(k); } }
+  else if (e.shiftKey){ if (k != null) sel.add(k); }
+  else { sel.clear(); if (k != null) sel.add(k); }
+  rebuild(true);
+}
+// fast redraw while dragging: rebuild geometry (a few hundred faces, cheap)
+let liveT = 0; function liveUpdate(){ const t = performance.now(); if (t - liveT < 16) return; liveT = t; rebuild(true); }
+
+// ---------- info panels ----------
+const hex = (x, n = 4) => "0x" + x.toString(16).toUpperCase().padStart(n, "0");
+function updateInfo(){
+  $("vertEdit").style.display = mode === "vert" ? "" : "none"; $("faceEdit").style.display = mode === "face" ? "" : "none";
+  if (!M || !D){ $("selInfo").textContent = "Nothing selected"; return; }
+  const counts = `LOD ${D.lod}: ${D.faces.length} faces, ${D.verts.size} points`;
+  $("stCounts").textContent = counts;
+  if (mode === "vert"){
+    const ks = [...sel].filter(k => D.verts.has(k));
+    if (!ks.length){ $("selInfo").textContent = "Nothing selected. Click a point (Shift+drag for a box)."; for (const i of ["vx", "vy", "vz"]) $(i).value = ""; return; }
+    if (ks.length === 1){
+      const v = D.verts.get(ks[0]), vert = M.verts[v.vid], b = M.bufs[vert.buf], f6 = M.f6.find(r => r.vid === v.vid);
+      const w = v.w.map(x => Math.round(x * 100) / 100);
+      $("selInfo").textContent = `Point  x ${w[0]}  y ${w[1]}  z ${w[2]}\nStored ${vert.p.join(", ")}${v.inst || !isIdentity(b.base) ? "  (part frame)" : ""}\nGroup #${b.id} at CODE ${hex(b.o)}: ${b.n} pts, slot ${b.slot}..${b.slot + b.n - 1}${b.hooked ? ", added block" : ""}\nSlot ${b.slot + vert.local} (index ${vert.local} in group)${f6 ? `\nF6 normal ${[...M.c.subarray(f6.o + 4, f6.o + 7)].map(x => x > 127 ? x - 256 : x).join(", ")}` : ""}`;
+      [$("vx").value, $("vy").value, $("vz").value] = v.w.map(x => Math.round(x));
+    } else {
+      const ws = ks.map(k => D.verts.get(k).w), lo = [0, 1, 2].map(i => Math.min(...ws.map(w => w[i]))), hi = [0, 1, 2].map(i => Math.max(...ws.map(w => w[i])));
+      $("selInfo").textContent = `${ks.length} points\nx ${Math.round(lo[0])}..${Math.round(hi[0])}  y ${Math.round(lo[1])}..${Math.round(hi[1])}  z ${Math.round(lo[2])}..${Math.round(hi[2])}\nType a value in one box and Apply to line them all up.`;
+      for (const i of ["vx", "vy", "vz"]) $(i).value = "";
+    }
+  } else {
+    const fs = [...sel].map(id => M.faces[id]).filter(Boolean);
+    if (!fs.length){ $("selInfo").textContent = "Nothing selected. Click a face."; $("fcol").value = ""; return; }
+    if (fs.length === 1){
+      const f = fs[0], col = f.newCol ?? f.col;
+      $("selInfo").textContent = `Face at CODE ${hex(f.o)}${f.hooked ? " (added block)" : ""}\nFlags ${hex(f.fl)}  colour ${hex(col, 2)}  ${f.n} points${f.wide ? " (16-bit indices)" : ""}\nSlots ${f.idx.join(" ")}\nUV ${f.uv ? f.uv.map(q => q.join(",")).join("  ") : "none"}${f.flip ? "\nFlipped (saved on Save)" : ""}`;
+      $("fcol").value = col; swatch(col);
+    } else { $("selInfo").textContent = `${fs.length} faces`; $("fcol").value = ""; }
+  }
+}
+function swatch(i){ const p = gamePal || PAL_GRAY; $("fsw").style.background = `rgb(${p[3*i]},${p[3*i+1]},${p[3*i+2]})`; }
+function modelInfo(){
+  if (!M){ $("modelInfo").textContent = ""; return; }
+  const lodsTxt = M.lods.map(l => { const f = M.faces.filter(x => x.lod === l.id); return `LOD ${l.id}: ${f.length} faces (${f.filter(x => x.hooked).length} in added blocks)`; }).join("\n");
+  const cs = M.pe.code, nx = M.pe.secs.filter(s => s.va > cs.va).map(s => s.va), room = nx.length ? Math.min(...nx) - cs.va - cs.vs : 0;
+  $("modelInfo").textContent = `${cur.name}  ${M.u8.length} bytes, scale 1 unit = ${M.scale} ft\n${M.bufs.length} vertex groups, ${M.verts.length} stored points, ${M.f6.length} F6 normals\n${lodsTxt}\nAdded-block hooks: ${M.hooks.length}${M.insts.length > 1 ? `, ${M.insts.length - 1} C4 placements` : ""}\nCODE ${hex(cs.vs)} bytes, ${room} free before next section\nTexture: ${M.texNames.join(", ") || "none"}${cur.pic ? ` (${cur.pic.w}x${cur.pic.h})` : " (not loaded)"}`;
+}
+
+// ---------- loading ----------
+async function fetchAny(paths){
+  const urls = [];
+  if (/^https?:$/.test(location.protocol)) for (const p of paths) urls.push(new URL("../" + p, location.href).href);
+  for (const p of paths) urls.push(REMOTE + p);
+  for (const u of urls){ try { const r = await fetch(u); if (r.ok) return new Uint8Array(await r.arrayBuffer()); } catch(e){} }
+  return null;
+}
+async function loadPal(local){
+  if (local){ const p = S.palFromBytes(local); if (p){ gamePal = p; try { localStorage.setItem("fa_palette", btoa(String.fromCharCode(...p))); } catch(e){} } }
+  if (!gamePal){ try { const s = localStorage.getItem("fa_palette"); if (s) gamePal = Uint8Array.from(atob(s), ch => ch.charCodeAt(0)); } catch(e){} }
+  if (!gamePal){ const u8 = await fetchAny(["PIC/PALETTE.PAL"]); if (u8) gamePal = S.palFromBytes(u8); }
+  setPal(gamePal || PAL_GRAY);
+}
+// files: { sh: {name, u8, handle?}, pic?: u8, picName?, pal?: u8 }
+async function openModel(name, u8, opts = {}){
+  let m; try { m = S.parseModel(u8); } catch(e){ msg(`Could not read ${name}: ${e.message}`, true); return; }
+  if (!m.faces.length){ msg(`${name}: no faces found (effects such as smoke or stars have none)`, true); return; }
+  M = m; cur = { name, handle: opts.handle || null, fromDir: !!opts.fromDir, pic: null };
+  if (opts.pal) await loadPal(opts.pal);
+  // texture: given file, then the opened folder, then the repository
+  const picName = (M.texNames[0] || "_" + name.replace(/\.SH$/i, "") + ".PIC").toUpperCase();
+  let pu8 = opts.pic || null;
+  if (!pu8 && dirHandle) pu8 = await readFromDir(picName);
+  if (!pu8) pu8 = await fetchAny(["PIC/" + picName, "PIC/" + picName.toLowerCase()]);
+  try { cur.pic = pu8 ? S.parsePIC(pu8) : null; } catch(e){ cur.pic = null; }
+  setPic(cur.pic);
+  sel.clear(); undoS = []; redoS = []; dirty();
+  $("lod").innerHTML = M.lods.map(l => `<option value="${l.id}">${l.id === 0 ? "0 (main)" : l.id}</option>`).join("");
+  M.place({ gear: $("gear").checked });
+  $("save").disabled = $("saveAs").disabled = false;
+  $("stFile").innerHTML = `<b>${name}</b>${cur.handle ? " (folder file: Save overwrites it)" : ""}`;
+  document.title = name + " · SH Editor";
+  rebuild(false); setView("persp"); modelInfo();
+  msg(cur.pic ? "" : `Texture ${picName} not found: showing face colours`);
+}
+async function readFromDir(name){
+  if (!dirHandle) return null;
+  for await (const [n, h] of dirHandle.entries()) if (h.kind === "file" && n.toUpperCase() === name.toUpperCase()) return new Uint8Array(await (await h.getFile()).arrayBuffer());
+  return null;
+}
+$("openDir").onclick = async () => {
+  if (!window.showDirectoryPicker){ msg("This browser cannot open folders. Use Chrome or Edge, or Open files.", true); return; }
+  try { dirHandle = await showDirectoryPicker({ mode: "readwrite", id: "sh-editor" }); } catch(e){ return; }
+  const names = []; for await (const [n, h] of dirHandle.entries()) if (h.kind === "file" && /\.SH$/i.test(n)) names.push(n);
+  names.sort(); const pal = await readFromDir("PALETTE.PAL"); if (pal) await loadPal(pal); else await loadPal();
+  $("dirList").innerHTML = `<option value="">${dirHandle.name}: pick an SH (${names.length})</option>` + names.map(n => `<option>${n}</option>`).join("");
+  $("dirList").style.display = ""; msg(`Folder ${dirHandle.name}: ${names.length} SH files`);
+};
+$("dirList").onchange = async () => {
+  const n = $("dirList").value; if (!n || !dirHandle) return;
+  if (undoS.length && !confirm("Discard unsaved edits?")){ $("dirList").value = cur?.name || ""; return; }
+  const h = await dirHandle.getFileHandle(n); await openModel(n, new Uint8Array(await (await h.getFile()).arrayBuffer()), { handle: h, fromDir: true });
+};
+async function openFileList(files){
+  let sh = null, pic = null, pal = null, img = null;
+  for (const f of files){ const n = f.name.toUpperCase();
+    if (n.endsWith(".SH")) sh = f; else if (n.endsWith(".PIC")) pic = f; else if (n.endsWith(".PAL") || n.endsWith(".LIB")) pal = f; else if (/^image\//.test(f.type)) img = f; }
+  if (img && !sh){ const r = REFS.find(x => !x.mesh) || REFS[0]; loadRef(r, img); return; }
+  if (!sh){ if (pic && M){ cur.pic = S.parsePIC(new Uint8Array(await pic.arrayBuffer())); setPic(cur.pic); modelInfo(); rebuild(true); } if (pal){ await loadPal(new Uint8Array(await pal.arrayBuffer())); requestDraw(); } return; }
+  if (undoS.length && !confirm("Discard unsaved edits?")) return;
+  dirHandle = null; $("dirList").style.display = "none";
+  await openModel(sh.name, new Uint8Array(await sh.arrayBuffer()), { pic: pic ? new Uint8Array(await pic.arrayBuffer()) : null, pal: pal ? new Uint8Array(await pal.arrayBuffer()) : null });
+}
+$("openFiles").onchange = e => { openFileList([...e.target.files]); e.target.value = ""; };
+async function loadRepo(name){
+  name = name.trim().toUpperCase().replace(/\.SH$/, ""); if (!name) return;
+  if (undoS.length && !confirm("Discard unsaved edits?")) return;
+  msg("Loading " + name + "…");
+  const u8 = await fetchAny([(name.includes("/") ? "" : "SH/") + name + ".SH"]);
+  if (!u8){ msg(`${name}.SH is not in the repository`, true); return; }
+  dirHandle = null; $("dirList").style.display = "none";
+  await openModel(name.split("/").pop() + ".SH", u8);
+}
+$("repoLoad").onclick = () => loadRepo($("repoName").value || "F14");
+$("repoName").onkeydown = e => { if (e.key === "Enter") loadRepo(e.target.value); };
+// drag and drop
+const view = $("view");
+view.addEventListener("dragover", e => { e.preventDefault(); $("drop").style.display = "grid"; });
+view.addEventListener("dragleave", e => { if (e.target === $("drop")) $("drop").style.display = "none"; });
+view.addEventListener("drop", e => { e.preventDefault(); $("drop").style.display = "none"; openFileList([...e.dataTransfer.files]); });
+
+// ---------- saving ----------
+async function save(asNew){
+  if (!M) return;
+  const { bytes, report } = S.buildFile(M, { renormal: $("optNorm").checked, f6: $("optF6").checked });
+  const sum = `${report.verts} points moved, ${report.faces} face normals and ${report.f6} F6 normals recomputed${report.deleted ? `, ${report.deleted} faces removed` : ""}${report.flipped ? `, ${report.flipped} flipped` : ""}${report.recoloured ? `, ${report.recoloured} recoloured` : ""}${report.skipped ? `, ${report.skipped} faces skipped (degenerate)` : ""}`;
+  try {
+    if (!asNew && cur.handle){
+      const w = await cur.handle.createWritable(); await w.write(bytes); await w.close();
+      msg(`Saved ${cur.name}: ${sum}`);
+    } else if (window.showSaveFilePicker){
+      const h = await showSaveFilePicker({ suggestedName: cur.name, id: "sh-editor-save", types: [{ description: "FA shape", accept: { "application/octet-stream": [".SH"] } }] });
+      const w = await h.createWritable(); await w.write(bytes); await w.close(); cur.handle = h; cur.name = h.name;
+      $("stFile").innerHTML = `<b>${h.name}</b> (Save overwrites it)`; msg(`Saved ${h.name}: ${sum}`);
+    } else {
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([bytes])); a.download = cur.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      msg(`Downloaded ${cur.name}: ${sum}`);
+    }
+  } catch(e){ if (e.name !== "AbortError") msg("Save failed: " + e.message, true); return; }
+  // the saved bytes become the new baseline (normals included), edits can continue
+  const keep = { lod: $("lod").value }; const name = cur.name, handle = cur.handle, pic = cur.pic;
+  M = S.parseModel(bytes); cur = { name, handle, pic, fromDir: !!handle }; M.place({ gear: $("gear").checked });
+  undoS = []; redoS = []; dirty(); sel.clear(); $("lod").value = keep.lod; rebuild(true); modelInfo();
+}
+$("save").onclick = () => save(false);
+$("saveAs").onclick = () => save(true);
+
+// ---------- toolbar ----------
+const group = (id, attr, fn) => { for (const b of $(id).querySelectorAll("button")) b.onclick = () => { for (const x of $(id).querySelectorAll("button")) x.classList.toggle("on", x === b); fn(b.dataset[attr]); }; };
+group("dispGrp", "d", d => { disp = d; rebuild(true); });
+group("viewGrp", "v", v => setView(v));
+group("modeGrp", "m", m => setMode(m));
+group("axisGrp", "a", a => { axis = a; hud(); });
+function setMode(m){ mode = m; sel.clear(); for (const x of $("modeGrp").querySelectorAll("button")) x.classList.toggle("on", x.dataset.m === m); rebuild(true); hud(); }
+function setAxis(a){ axis = axis === a ? "" : a; for (const x of $("axisGrp").querySelectorAll("button")) x.classList.toggle("on", x.dataset.a === axis); hud(); }
+setAxis("");
+function hud(){ $("hud").textContent = `${mode === "vert" ? "Vertices" : "Faces"}${axis ? " · axis " + axis.toUpperCase() : ""} · grid ${$("grid").value}`; }
+hud();
+$("lod").onchange = () => { sel.clear(); rebuild(false); };
+for (const id of ["edges", "points", "xray"]) $(id).onchange = () => rebuild(true);
+$("allParts").onchange = () => rebuild(true);
+$("gear").onchange = () => { if (M){ M.place({ gear: $("gear").checked }); rebuild(true); } };
+$("ortho").onchange = () => setOrtho($("ortho").checked);
+$("grid").oninput = hud;
+$("undo").onclick = () => undoRedo(true); $("redo").onclick = () => undoRedo(false);
+$("vSet").onclick = () => {
+  if (mode !== "vert" || !sel.size) return;
+  const want = ["vx", "vy", "vz"].map(i => $(i).value === "" ? null : +$(i).value);
+  const ks = [...sel], ids = new Set(); const allSet = new Map();
+  // per selected point: delta = wanted - current, applied through weld/mirror
+  const before = snapshot([...new Set([...moveSet(new Set(ks)).keys()].map(k => D.verts.get(k).vid))]);
+  for (const k of ks){ const v = D.verts.get(k); const dw = v.w.map((x, i) => want[i] == null ? 0 : want[i] - x); if (dw.every(x => Math.abs(x) < 1e-9)) continue;
+    const set = moveSet(new Set([k])); const st = snapshot([...set.keys()].map(q => D.verts.get(q).vid)); applyDelta(set, st, dw, ""); }
+  commitVerts(before); rebuild(true);
+};
+$("dMove").onclick = () => moveSelectionBy(["dx", "dy", "dz"].map(i => +$(i).value || 0));
+$("fColSet").onclick = () => { const c = Math.max(0, Math.min(255, Math.round(+$("fcol").value))); editFaces(f => { f.newCol = c === f.col ? null : c; }); };
+$("fcol").oninput = () => swatch(Math.max(0, Math.min(255, +$("fcol").value | 0)));
+$("fFlip").onclick = () => editFaces(f => { f.flip = !f.flip; });
+$("fDel").onclick = () => { editFaces(f => { f.del = true; }); sel.clear(); rebuild(true); };
+$("fVerts").onclick = () => {
+  const ks = new Set(); for (const id of sel){ const F = D.faces.find(x => x.f.id === id); if (F) F.keys.forEach(k => ks.add(k)); }
+  setMode("vert"); for (const k of ks) sel.add(k); rebuild(true);
+};
+
+// keyboard
+addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT" && e.target.type !== "checkbox" || e.target.tagName === "SELECT") return;
+  const k = e.key.toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && k === "z"){ e.preventDefault(); undoRedo(!e.shiftKey); return; }
+  if ((e.ctrlKey || e.metaKey) && k === "y"){ e.preventDefault(); undoRedo(false); return; }
+  if ((e.ctrlKey || e.metaKey) && k === "s"){ e.preventDefault(); save(false); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (k === "x" || k === "y" || k === "z"){ setAxis(k); return; }
+  if (k === "1") return setView("front"); if (k === "3") return setView("side"); if (k === "7") return setView("top"); if (k === "5") return setView("persp");
+  if (k === "o") return setOrtho(!$("ortho").checked);
+  if (k === "tab"){ e.preventDefault(); return setMode(mode === "vert" ? "face" : "vert"); }
+  if (k === "escape"){ sel.clear(); return rebuild(true); }
+  if (k === "a" && D){ sel = new Set(mode === "vert" ? D.verts.keys() : D.faces.map(F => F.f.id)); return rebuild(true); }
+  if (k === "f" && D){ const pts = mode === "vert" ? [...sel].map(q => D.verts.get(q)?.w).filter(Boolean) : D.faces.filter(F => sel.has(F.f.id)).flatMap(F => F.keys.map(q => D.verts.get(q).w)); frameBox(bbox(pts.length ? pts : [...D.verts.values()].map(v => v.w))); return; }
+  if ((k === "delete" || k === "backspace") && mode === "face"){ e.preventDefault(); return $("fDel").onclick(); }
+  const step = Math.max(1, Math.round(+$("grid").value || 1));
+  const nudge = { arrowleft: [-1, 0, 0], arrowright: [1, 0, 0], arrowup: [0, 1, 0], arrowdown: [0, -1, 0], pageup: [0, 0, -1], pagedown: [0, 0, 1] }[k];
+  if (nudge && mode === "vert" && sel.size){
+    e.preventDefault();
+    // screen right / up / into-screen, rounded to the nearest model axis
+    const v = new THREE.Vector3(nudge[0], nudge[1], nudge[2]).applyQuaternion(camera.quaternion), s = fromW(v), ai = s.map(Math.abs).indexOf(Math.max(...s.map(Math.abs)));
+    const dw = [0, 0, 0]; dw[ai] = Math.sign(s[ai]) * step; moveSelectionBy(dw);
+  }
+});
+addEventListener("beforeunload", e => { if (undoS.length){ e.preventDefault(); e.returnValue = ""; } });
+
+// for scripting and tests from the browser console
+window.shEditor = { get model(){ return M; }, screenOf, get selection(){ return [...sel]; }, get undoCount(){ return undoS.length; }, get display(){ return D; }, select(keys){ sel = new Set(keys); rebuild(true); }, moveBy: moveSelectionBy, setView, setMode, build: o => S.buildFile(M, o) };
+
+// ---------- start ----------
+(async () => {
+  await loadPal();
+  const q = new URLSearchParams(location.search).get("sh");
+  await loadRepo(q || "F14");
+  $("repoName").value = q || "F14";
+})();
+</script>
+</body>
+</html>
