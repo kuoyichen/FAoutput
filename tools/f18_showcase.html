@@ -15,6 +15,8 @@ input[type=text]{cursor:text;width:90px;text-transform:uppercase}
 button:hover,label.btn:hover{border-color:var(--muted)}
 button.on{border-color:var(--accent);color:var(--accent)}
 label.ck{display:inline-flex;gap:4px;align-items:center;cursor:pointer}
+a.dl{background:var(--accent);color:#14181d;font-weight:600;text-decoration:none;border-radius:6px;padding:6px 12px}
+a.dl:hover{filter:brightness(1.1)}
 #main{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;padding:12px 16px}
 #view{position:relative;min-width:0}
 #cfg{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-top:8px;padding:8px 10px;background:var(--card);border:1px solid var(--line);border-radius:8px}
@@ -46,6 +48,7 @@ label.ck{display:inline-flex;gap:4px;align-items:center;cursor:pointer}
 <body>
 <header>
   <h1>F/A-18 Hornet / Super Hornet / Blue Angels</h1>
+  <a class="dl" href="https://drive.google.com/drive/folders/1oyXLwGo3wNmMIjN1IDml8Z5ywTf0U-37" target="_blank" rel="noopener">⬇ Download all six models (Google Drive)</a>
   <div id="variants"></div>
   <label class="ck"><input type="checkbox" id="spin" checked> Auto-rotate</label>
   <label class="ck"><input type="checkbox" id="edges"> Wireframe</label>
@@ -594,7 +597,7 @@ const VAR = [
 function showSpec(v){
   $("spec").innerHTML = `<h2>${v.name}  <span style="color:var(--muted);font-weight:normal;font-size:12px">${v.sub} · ${v.sh}.SH</span></h2>
     <table><tr><td>Length</td><td>${v.len}</td></tr><tr><td>Span (incl. wingtip missiles)</td><td>${v.span}</td></tr><tr><td>Height</td><td>${v.h}</td></tr></table><p>${v.note}</p>
-    <p>Download: <a href="../SH/${v.sh}.SH" download>${v.sh}.SH</a> · <a href="../PIC/_${v.sh}.PIC" download>_${v.sh}.PIC</a></p>`;
+    <p>Download: <a href="https://drive.google.com/drive/folders/1oyXLwGo3wNmMIjN1IDml8Z5ywTf0U-37" target="_blank" rel="noopener">all models (Google Drive)</a> · <a href="../SH/${v.sh}.SH" download>${v.sh}.SH</a> · <a href="../PIC/_${v.sh}.PIC" download>_${v.sh}.PIC</a></p>`;
   document.querySelectorAll("#variants button").forEach(b => b.classList.toggle("on", b.dataset.sh === v.sh));
 }
 VAR.forEach(v => { const b = document.createElement("button"); b.dataset.sh = v.sh; b.innerHTML = `<b>${v.name}</b><span>${v.sub}</span>`;
