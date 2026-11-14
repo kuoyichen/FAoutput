@@ -326,7 +326,8 @@ def build(d, static=False, debug=False):
     def part_bytes(V, F):
         b = bytearray(struct.pack('<BBHH', 0x82, 0, len(V), BASE*8))
         for v in V: b += struct.pack('<hhh', *v)
-        return b + faces_bytes(V, F) + b'\x00\x00'
+        b += faces_bytes(V, F) + b'\x00\x00'
+        return b + b'\x00' * (len(b) % 2)
     shapes = {k: f() for k, f in SHAPES.items()}
     parts = {('K', k): part_bytes(*v) for k, v in shapes.items()}
     parts.update({('P', k): part_bytes(*v) for k, v in PYLONS.items()})
@@ -360,6 +361,7 @@ def build(d, static=False, debug=False):
     sub, _ = sub_bytes(0, 0, debug)
     sub_len = len(sub) if not static else 0
     p += sub_len
+    pad = p % 2; p += pad     # parts must start on an even address: odd ones are not drawn by FA (seen in game)
     relocs = []
     for k in parts: at[k] = p; p += len(parts[k])
     L = p - tail                                      # inserted length; thunk moves by L
@@ -416,6 +418,7 @@ def build(d, static=False, debug=False):
         relocs = [at['SUB'] - tail + rel]
         assert len(sub) == sub_len
         blk += sub
+    blk += b'\x00' * pad
     for k in parts: blk += parts[k]
     assert len(blk) == L, (len(blk), L)
     patch = b'\x12\x00' + struct.pack('<h', at['PR'] - (ROOT+4)) + b'\x38' + struct.pack('<h', ROOT + 18 - (ROOT+7))
