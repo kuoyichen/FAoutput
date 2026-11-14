@@ -159,6 +159,25 @@ function shotsFor(mo, n){
   for (const s of sh){ s.mo = mo; s.t0 = Math.max(T0, s.t0); s.t1 = Math.min(T1, s.t1); }
   return sh.filter(s => s.t1 - s.t0 > 0.3);
 }
+// wide shots: a slowly circling camera far enough out to see every aircraft of the engagement and their long trails
+function wideShots(e, keys, n){
+  // add enemies flying near the fight so the whole furball is in frame
+  for (const k of aircraftKeys()) if (!keys.includes(k)){ const tm = (e.a + e.b) / 2;
+    if (keys.some(o => alive(k, tm) && alive(o, tm) && v3.len(v3.sub(pos3(k, tm), pos3(o, tm))) < 15000)) keys.push(k); }
+  const mk = (t0, t1, vdur, after) => {
+    t0 = Math.max(T0, t0); t1 = Math.min(T1, t1); if (t1 - t0 < 3) return null;
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const k of keys) for (let t = t0; t <= t1; t += 0.5){ if (!alive(k, t) && !(trk(k).killT != null && t <= trk(k).killT + 3)) continue; const p = pos3(k, t); if (!p) continue;
+      x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); z0 = Math.min(z0, p[2]); z1 = Math.max(z1, p[2]); }
+    if (!isFinite(x0)) return null;
+    const C = [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2], R = Math.max(3000, Math.hypot(x1 - x0, y1 - y0, z1 - z0) * 0.5);
+    const rate = clamp((t1 - t0) / vdur, after ? 2 : 3, 12);
+    return tabulate({ cam:"wide", fixed:C, t0, t1, rate, r: R * 2.3, a0: n * 2.1 + (after ? 1.4 : 0), w: (n % 2 ? 1 : -1) * 0.09, elev: 0.24 + (after ? 0.14 : 0),
+      trail: Math.min(600, t1 - t0 + 5), label: after ? L("FURBALL REPLAY", "纏鬥全景重播") : L("TACTICAL VIEW", "戰場全景"), wide:true, keys });
+  };
+  const span = e.b - e.a;
+  return [mk(e.a - 25, e.mos[0].t - 0.5, 4.5, false), mk(e.a - 5, e.b, clamp(span / 4, 5, 9), true)];
+}
 // mission time for each 1/60 s of video (slow-motion ramps included)
 function tabulate(s){
   const tab = []; let t = s.t0;
@@ -191,7 +210,19 @@ function buildPlan(opt){
   if (pk){ const tI = clamp((first ? first.a : T0) - 6, T0, T1 - 4);
     shots.push(tabulate({ cam:"orbit", s:pk, t0:tI, t1:Math.min(T1, tI + 4.6), rate:1, r: halfOf(pk) * 10, a0:2.2, w:0.22, elev:0.12, label:"", intro:true })); }
   let kn = 0;
-  for (const mo of chosen) for (const s of mo.shots) shots.push(s);
+  // dogfights: group nearby combat moments into engagements; each one opens with a wide, time-compressed
+  // shot of the fight building up and ends with a wide replay of the whole furball (same events, seen far away)
+  const COMBAT = new Set(["missile", "gun", "hitonly", "kill", "pass"]), engs = [];
+  for (const mo of chosen){ const e = engs[engs.length - 1];
+    if (COMBAT.has(mo.kind) && e && mo.a - e.b < 20){ e.mos.push(mo); e.b = Math.max(e.b, mo.b); } else engs.push({ a:mo.a, b:mo.b, mos:[mo], combat:COMBAT.has(mo.kind) }); }
+  let wn = 0;
+  for (const e of engs){
+    const keys = new Set(); for (const mo of e.mos) for (const k of [mo.s, mo.x]) if (k && trk(k)?.kind === "aircraft") keys.add(k);
+    const wide = e.combat && opt.wide !== false && keys.size ? wideShots(e, [...keys], wn++) : [null, null];
+    if (wide[0]) shots.push(wide[0]);
+    for (const mo of e.mos) for (const s of mo.shots) shots.push(s);
+    if (wide[1]) shots.push(wide[1]);
+  }
   // number the player's kills ("SPLASH ONE", "SPLASH TWO"…)
   const killers = new Map();
   for (const s of shots){ if (s.cam === "orbit" && s.mo && s.mo.kill){ const by = s.mo.s;
@@ -230,6 +261,9 @@ function camFor(s, t, lt, st){
   const sm = (key, v, k = 3.5) => { const o = st[key]; if (!o || st.reset) return st[key] = v; const a = 1 - Math.exp(-k * st.dt); return st[key] = v3.norm(v3.lerp(o, v, a)); };
   let P, T, roll = 0, zoom = 1;
   switch (s.cam){
+    case "wide": {
+      const ang = s.a0 + s.w * lt, r = s.r, el = s.elev, C = s.fixed;
+      P = [C[0] + Math.sin(ang) * Math.cos(el) * r, Math.max(200, C[1] + Math.sin(el) * r), C[2] + Math.cos(ang) * Math.cos(el) * r]; T = C; zoom = 1; st.ribbon = true; break; }
     case "orbit": {
       const C = s.fixed || A;
       const ang = s.a0 + s.w * lt, r = s.r * (1 + lt * 0.04), el = s.elev + 0.05 * Math.sin(lt * 0.7);
@@ -364,7 +398,8 @@ function overlays(R){
   if (s.label){ ctx.fillStyle = Math.floor(vt * 2) % 2 ? "#e8321e" : "#ff6a50"; ctx.beginPath(); ctx.arc(W * 0.04, bar / 2, small * 0.32, 0, 7); ctx.fill();
     txt(s.label, W * 0.04 + small * 0.8, bar / 2, small, { base:"middle", weight:700, col:"#f0e6d8" }); }
   if (!s.intro && !s.outro){ txt(`T+ ${fmt(now - T0)}`, W * 0.96, bar / 2, small, { base:"middle", align:"right", col:"#cfc4b4", weight:500 });
-    const r = s.rateAt ? s.rateAt(now) : 1; if (r < 0.7) txt(L("SLOW MOTION", "慢動作"), W * 0.96 - small * 7.5, bar / 2, small * 0.85, { base:"middle", align:"right", col:"#ffd54a", weight:700 }); }
+    const r = s.rateAt ? s.rateAt(now) : 1; if (r > 1.5) txt(L(`TIME ×${Math.round(r)}`, `時間 ×${Math.round(r)}`), W * 0.96 - small * 7.5, bar / 2, small * 0.85, { base:"middle", align:"right", col:"#8fd3ff", weight:700 });
+    if (r < 0.7) txt(L("SLOW MOTION", "慢動作"), W * 0.96 - small * 7.5, bar / 2, small * 0.85, { base:"middle", align:"right", col:"#ffd54a", weight:700 }); }
   // focus tag (bottom-left of the picture)
   if (s.s && !s.intro && !s.outro && trk(s.s) && trk(s.s).kind === "aircraft"){ const sp = posAt(s.s, now);
     if (sp){ const y = H - bar - small * 1.2; txt(who(s.s), W * 0.04, y - small * 1.25, small * 1.05, { weight:700, stroke:3 });
@@ -517,7 +552,7 @@ function start(opt){
   cineHook = {
     pre(){ ctx.save(); ctx.translate(W/2, H/2); ctx.rotate(-R.roll * Math.PI / 180); ctx.translate(-W/2, -H/2); drawSky(R.camP); },
     post(){ ctx.restore(); overlays(R); },
-    get hide(){ return st.hide; }
+    get hide(){ return st.hide; }, get ribbon(){ return !!st.ribbon; }
   };
   enter(opt);
   function frame(){
@@ -532,7 +567,8 @@ function start(opt){
       if (audio){ const action = !s.intro && !s.outro; audio.setMood(action ? (s.cam === "missile" || s.cam === "guncam" ? 1 : 0.8) : 0.35, (s.ramp || []).length > 0 && s.rate < 0.8 || s.rate < 0.6);
         if (s.cam === "flyby") audio.fx("whoosh"); } }
     const t = s.tab[Math.min(s.tab.length - 1, Math.floor(lt * FPS_TAB))];
-    now = t; st.dt = dt || 1/60; st.vt = vt; st.hide = null; st.hud = false; st.lock = null;
+    now = t; st.dt = dt || 1/60; st.vt = vt; st.hide = null; st.hud = false; st.lock = null; st.ribbon = false;
+    $("o_tlen").value = s.trail || 7;
     // when this shot crosses an event: sound, subtitle, callout timing
     if (prevT != null){ for (const sb of plan.subs) if (sb.t > prevT && sb.t <= t){ const key = sb.t + sb.text;
         if (!shownSubs.has(key)){ shownSubs.add(key); R.subNow.push({ ...sb, v:vt }); }
