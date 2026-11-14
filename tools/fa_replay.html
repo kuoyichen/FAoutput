@@ -314,6 +314,7 @@ let hasHp = false, data = null, events = [], T0 = 0, T1 = 0, now = 0, playing = 
 const tracks = new Map();   // key -> {key, idx, name, cls, kind, pts:[...]}
 let gunShots = [], hits = [], kills = [], selKey = null, playerKey = null, playerCls = 4;
 let viewMode = "follow";
+let cineHook = null;   // fa_cine.js（生成影片）播放時的掛勾
 const hidden = new Set();
 const cam = { yaw: -0.7, pitch: 0.42, dist: 30000, cx:0, cy:0, cz:0 };
 const BULLET_FPS = 3300, BULLET_LIFE = 1.4;
@@ -1189,7 +1190,7 @@ function frameAt(t){ const fr = data.frames; let lo=0, hi=fr.length-1;
 // ================= 3D =================
 const cv = $("cv"), ctx = cv.getContext("2d");
 let W=0, H=0, F=1;
-function resize(){ const dpr = window.devicePixelRatio||1, r = cv.getBoundingClientRect(); W=r.width; H=r.height;
+function resize(){ if (cineHook) return; const dpr = window.devicePixelRatio||1, r = cv.getBoundingClientRect(); W=r.width; H=r.height;
   cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr); ctx.setTransform(dpr,0,0,dpr,0,0); F = Math.min(W,H)*1.05; draw(); }
 window.addEventListener("resize", resize);
 
@@ -1354,7 +1355,7 @@ function draw(){
     let x0=Infinity,x1=-Infinity,z0=Infinity,z1=-Infinity,y=0; for (const {s} of mv){ x0=Math.min(x0,s.x); x1=Math.max(x1,s.x); z0=Math.min(z0,s.z); z1=Math.max(z1,s.z); y+=s.y; }
     cam.cx=(x0+x1)/2; cam.cz=(z0+z1)/2; cam.cy=y/mv.length*0.5; cam.dist = Math.max(6000, Math.hypot(x1-x0, z1-z0)*1.1); } }
 
-  const step = drawGround();
+  const step = cineHook ? (cineHook.pre(), 0) : drawGround();
   ctx.fillStyle = "rgba(60,35,10,.75)"; ctx.font = "11px system-ui"; ctx.textAlign = "right";
   if (step) ctx.fillText(`${L("Grid", "格線")} ${step>=1000 ? step/1000+"k" : step} ft`, W-12, H-42); ctx.textAlign = "left";
 
@@ -1363,11 +1364,11 @@ function draw(){
   if ($("o_trail").checked){
     const tl = +$("o_tlen").value;
     for (const { tr } of live){
-      if (tr.kind==="static" || tr.kind==="bullet") continue;
+      if (tr.kind==="static" || tr.kind==="bullet" || (cineHook && cineHook.hide === tr.key)) continue;
       const tn = tr.split ? Math.min(now, tr.killT) : now;
       const dead = tr.killT != null && now > tr.killT;
       const col = dead ? "#3a3530" : colorOf(tr), pts = tr.pts;
-      const w = tr.kind==="aircraft" ? Math.max(25, cam.dist*0.004) * size * (shapeFor(tr.name).k > 1.5 ? 1.6 : 1) : 0;
+      const w = tr.kind==="aircraft" && !cineHook ? Math.max(25, cam.dist*0.004) * size * (shapeFor(tr.name).k > 1.5 ? 1.6 : 1) : 0;
       let j0 = ptIndex(pts, Math.max(pts[0].t, tn - tl)); if (j0 < 0) j0 = 0;
       const j1 = ptIndex(pts, tn); if (j1 < 0) continue;
       let prev = null;
@@ -1402,6 +1403,7 @@ function draw(){
   lastDrawn = [];
   const dropOn = $("o_drop").checked, labelOn = $("o_label").checked;
   for (const { tr, s, c } of items){
+    if (cineHook && cineHook.hide === tr.key) continue;
     if (tr.split && now > tr.killT) continue;   // 已裂成兩半，原機不再畫
     if (tr.parent){ drawHalf(tr, s, c, size, labelOn); lastDrawn.push({ key: tr.key, ...(([x,y])=>({x,y}))(proj(c)) }); continue; }
     const col = colorOf(tr), isSel = tr.key === selKey, dead = tr.killT != null && now > tr.killT;
@@ -1437,7 +1439,14 @@ function draw(){
       continue;
     } else if (tr.kind==="missile"){
       // 飛彈（沒有 SH）：較長的粗線條
-      const r = rotate([0,0,1], s.vh ?? s.hdg, s.vp ?? s.pitch, 0), ML = Math.max(70, c[2]*0.03)*size*2.6;
+      const r = rotate([0,0,1], s.vh ?? s.hdg, s.vp ?? s.pitch, 0);
+      if (cineHook){ // 影片：接近真實比例的飛彈 + 尾焰
+        const ML = Math.max(12, c[2]*0.012), wpx = Math.max(2, Math.min(9, F*1.1/c[2])), tail = [s.x-r[0]*ML, s.y-r[1]*ML, s.z-r[2]*ML];
+        line3(tail, [s.x,s.y,s.z], "#f4f4f0", wpx); const tc = toCam(...tail);
+        if (tc[2] > n0){ const [fx, fy] = proj(tc), fr = Math.max(6, wpx*3.5), g = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
+          g.addColorStop(0, "rgba(255,255,230,1)"); g.addColorStop(0.35, "rgba(255,190,80,.85)"); g.addColorStop(1, "rgba(255,120,40,0)"); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(fx, fy, fr, 0, 7); ctx.fill(); }
+        continue; }
+      const ML = Math.max(70, c[2]*0.03)*size*2.6;
       line3([s.x-r[0]*ML, s.y-r[1]*ML, s.z-r[2]*ML],[s.x,s.y,s.z], "#fff", 4);
       line3([s.x-r[0]*ML, s.y-r[1]*ML, s.z-r[2]*ML],[s.x-r[0]*ML*0.55, s.y-r[1]*ML*0.55, s.z-r[2]*ML*0.55], "#ff5a3c", 4);
     } else if (tr.kind==="pilot"){
@@ -1475,7 +1484,7 @@ function draw(){
     if (struct){ if (isSel){ const k = Math.max(26, Math.min(400, L*F/c[2]*2)); ctx.strokeStyle = "rgba(255,250,240,.95)"; ctx.lineWidth = 2; ctx.strokeRect(ps[0]-k/2, ps[1]-k/2, k, k); }
       lastDrawn.push({ key: tr.key, x: ps[0], y: ps[1] }); continue; }
     // 被擊中：閃動方框
-    if (tr.kind==="aircraft"){
+    if (tr.kind==="aircraft" && !cineHook){
       const hit = hits.find(hh => hh.key===tr.key && now >= hh.t && now - hh.t < 1.5);
       if (hit){ const k = Math.max(30, L*F/c[2]*2.6) * (1 + (now-hit.t)*0.2), on = Math.floor((now - hit.t)*8) % 2 === 0;
         ctx.strokeStyle = on ? "rgba(255,40,20,.95)" : "rgba(255,240,200,.9)"; ctx.lineWidth = 3; ctx.strokeRect(ps[0]-k/2, ps[1]-k/2, k, k);
@@ -1507,6 +1516,7 @@ function draw(){
     }
   }
   ctx.globalAlpha = 1;
+  if (cineHook) cineHook.post();
 }
 
 // ================= 介面 =================
@@ -1621,6 +1631,7 @@ cv.addEventListener("wheel", e => { e.preventDefault(); cam.dist = Math.max(300,
 let last = performance.now();
 function tick(t){
   const dt = (t-last)/1000; last = t;
+  if (cineHook){ requestAnimationFrame(tick); return; }
   if (playing && data){ now += dt * +$("speed").value; if (now >= T1){ now = T1; setPlaying(false); } update(); }
   else if (data && (kills.some(k=>now>=k.t && now-k.t<6) || hits.some(h=>now>=h.t && now-h.t<1.5))) draw();
   requestAnimationFrame(tick);
@@ -1633,5 +1644,6 @@ FAI18N.onChange(() => { document.title = L("FA Mission Replay", "FA 任務重播
     $("mission").innerHTML = data.segs.map((sg, i) => `<option value="${i}">${L(`Mission ${i+1} (${Math.round(sg[sg.length-1].t - sg[0].t)} s)`, `任務 ${i+1}（${Math.round(sg[sg.length-1].t - sg[0].t)} 秒）`)}</option>`).join("");
     buildMission(k); now = t; selKey = sk; fillModelSelect(true); update(); } });
 </script>
+<script src="fa_cine.js"></script>
 </body>
 </html>
