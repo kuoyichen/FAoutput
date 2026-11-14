@@ -67,7 +67,7 @@ a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spa
   <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
   <h1>FA SH Shape Gallery</h1>
   <input type="search" id="q" placeholder="Search file names…">
-  <span class="seg" id="modes" title="Display mode"><button data-m="wire">Wireframe</button><button data-m="flat">Flat</button><button data-m="tex">Textured</button></span>
+  <span class="seg" id="modes" title="Display mode"><button data-m="wire">Wireframe</button><button data-m="solid">Single colour</button><button data-m="flat">Flat</button><button data-m="tex">Textured</button></span>
   <select id="show">
     <option value="ok">Parsed only</option>
     <option value="all">All</option>
@@ -390,7 +390,7 @@ function palFromBytes(u8){
 
 // ===== Page setup =====
 const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
-FAI18N.register({"FA SH Shape Gallery": "FA SH 外型檢視", "Search file names…": "搜尋檔名…", "Display mode": "顯示方式", "Wireframe": "網格", "Flat": "平面", "Textured": "貼圖",
+FAI18N.register({"FA SH Shape Gallery": "FA SH 外型檢視", "Search file names…": "搜尋檔名…", "Display mode": "顯示方式", "Wireframe": "網格", "Single colour": "單色平面", "Flat": "平面", "Textured": "貼圖",
   "Parsed only": "只看解得出的", "All": "全部", "Failed only": "只看解不出的", "Flagged only": "只看標記有問題的",
   "Choose SH / PIC folder": "選擇 SH／PIC 資料夾", "Use SH / PIC files from a folder on this computer instead of the site": "改用這台電腦資料夾裡的 SH／PIC 檔",
   "Loading…": "載入中…", "Drag to rotate · wheel to zoom · double-click to enlarge and move parts": "拖曳旋轉・滾輪縮放・雙擊放大並操作活動零件",
@@ -431,6 +431,7 @@ void main(){
   if (uMode > 2.5){ gl_FragColor = vec4(0.47, 0.75, 1.0, 1.0); return; }
   float idx; bool own = true;
   float d = abs(dot(normalize(vN), normalize(vec3(0.35, 0.85, 0.4))));
+  if (uMode > 0.5 && uMode < 1.5){ gl_FragColor = vec4(vec3(70.0, 150.0, 235.0) / 255.0 * (0.55 + 0.6 * d), 1.0); return; }   // one colour + light (the old gallery look)
   if (vC.y > 0.5 && uMode < 0.5){
     idx = floor(texture2D(uPic, (floor(vUV) + 0.5) / uSize).r * 255.0 + 0.5); own = false;
     if (idx > 254.5){ if (vC.x < 0.5) discard; idx = vC.x; own = true; }
@@ -509,7 +510,7 @@ function matrix(w, h, fr, view){
   const T = [1,0,0,0, 0,1,0,0, 0,0,1,0, -fr.c[0], -fr.c[1], -fr.c[2], 1];
   return mul(P, mul([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,-dist,1], mul(R, T)));
 }
-let MODE = "tex"; try { const s = localStorage.getItem("fa_gallery_mode"); if (["wire","flat","tex"].includes(s)) MODE = s; } catch(e){}
+let MODE = "tex"; try { const s = localStorage.getItem("fa_gallery_mode"); if (["wire","solid","flat","tex"].includes(s)) MODE = s; } catch(e){}
 function bindAttrs(buf){ gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   for (const [n, sz, off] of [["aP",3,0],["aUV",2,12],["aN",3,20],["aC",2,32],["aI",1,40]]){ const l = AT[n]; if (l < 0) continue; gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, 44, off); } }
 // draw an item into a 2D canvas
@@ -531,7 +532,7 @@ function paint(cv, it, axes){
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, palTex); gl.uniform1i(U("uPal"), 1);
   gl.uniform2f(U("uSize"), pic ? pic.w : 1, pic ? pic.h : 1);
   if (MODE === "wire"){ gl.disable(gl.DEPTH_TEST); gl.uniform1f(U("uMode"), 3); gl.uniform1f(U("uOB"), 0); bindAttrs(it.g.ebo); gl.drawArrays(gl.LINES, 0, it.g.en); }
-  else { gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.uniform1f(U("uMode"), pic ? 0 : 2);
+  else { gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.uniform1f(U("uMode"), MODE === "solid" ? 1 : pic ? 0 : 2);
     // FA paints faces in SH order (later ones cover earlier ones): nudge later faces forward so coplanar decals do not flicker
     gl.uniform1f(U("uOB"), 4e-7); bindAttrs(it.g.vbo); gl.drawArrays(gl.TRIANGLES, 0, it.g.n); }
   gl.disable(gl.SCISSOR_TEST);
