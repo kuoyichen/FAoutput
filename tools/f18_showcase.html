@@ -47,8 +47,8 @@ a.dl:hover{filter:brightness(1.1)}
 </head>
 <body>
 <header>
-  <h1>F/A-18 Hornet / Super Hornet / Blue Angels</h1>
-  <a class="dl" href="https://drive.google.com/drive/folders/1oyXLwGo3wNmMIjN1IDml8Z5ywTf0U-37" target="_blank" rel="noopener">⬇ Download all six models (Google Drive)</a>
+  <h1>F/A-18 Hornet / Super Hornet / Blue Angels / EA-18G Growler</h1>
+  <a class="dl" href="https://drive.google.com/drive/folders/1oyXLwGo3wNmMIjN1IDml8Z5ywTf0U-37" target="_blank" rel="noopener">⬇ Download all models (Google Drive)</a>
   <div id="variants"></div>
   <label class="ck"><input type="checkbox" id="spin" checked> Auto-rotate</label>
   <label class="ck"><input type="checkbox" id="edges"> Wireframe</label>
@@ -145,6 +145,23 @@ function parseSH(u8){
     let uv = null; if (fl & 4){ uv = []; for (let k = 0; k < n; k++){ if (fl & 0x100){ uv.push([c[p], c[p+1]]); p += 2; } else { uv.push([cv.getUint16(p, true), cv.getUint16(p+2, true)]); p += 4; } } }
     idx.uv = uv; idx.col = c[t+3]; idx.fl = fl; f.push(idx); return p;
   };
+  // C4 00 x up fwd hdg pitch roll rel16 inside a hooked block (f18g_growler.py): draw the part at an offset (rotation 0).
+  // Each placement gets its own vertex slots, so one shared part can be drawn several times.
+  const placePart = (t, pos) => {
+    if (c[t] !== 0x82 || c[t+1] !== 0) return;
+    const n = cv.getUint16(t+2, true), tg = cv.getUint16(t+4, true) / 8, base = Math.max(v.length, 1000);
+    for (let i = 0; i < n; i++) v[base+i] = [cv.getInt16(t+6+6*i, true) + pos[0], cv.getInt16(t+8+6*i, true) + pos[2], cv.getInt16(t+10+6*i, true) + pos[1]];
+    let p = t + 6 + 6*n; while (c[p] === 0xF6) p += 7;
+    // faces, and 06 plane nodes inside the part (store/pylon order): follow both branches
+    const walk = (p, depth) => {
+      for (let g = 0; g < 500 && p > t && p < L - 2; g++){
+        if (c[p] === 0xFC){ p = faceAt(p); const idx = f[f.length-1]; for (let k = 0; k < idx.length; k++) if (idx[k] >= tg && idx[k] < tg + n) idx[k] = base + idx[k] - tg; }
+        else if (c[p] === 0x06 && c[p+1] === 0 && depth < 8){ walk(p + 16 + cv.getInt16(p+14, true), depth+1); walk(p + 18 + cv.getInt16(p+16, true), depth+1); p += 18; }
+        else return;
+      }
+    };
+    walk(p, 0);
+  };
   const block = (t, from, seen) => {
     for (let guard = 0; guard < 2000 && t > 0 && t < L - 2 && !seen.has(t); guard++){
       seen.add(t);
@@ -152,6 +169,7 @@ function parseSH(u8){
         for (let i = 0; i < n; i++) v[tg+i] = [cv.getInt16(t+6+6*i, true), cv.getInt16(t+8+6*i, true), cv.getInt16(t+10+6*i, true)]; t += 6 + 6*n; }
       else if (c[t] === 0xF6) t += 7;
       else if (c[t] === 0xFC) t = faceAt(t);
+      else if (c[t] === 0xC4 && c[t+1] === 0){ placePart(t + 16 + cv.getInt16(t+14, true), [0,1,2].map(k => cv.getInt16(t+2+2*k, true))); t += 16; }
       else if ((c[t] === 0x06 || c[t] === 0x0C) && c[t+1] === 0){ const k = c[t] === 0x06 ? 14 : 10;
         for (const [r, e] of [[t+k, t+k+2], [t+k+2, t+k+4]]){ const g = e + cv.getInt16(r, true); if (g > from) block(g, from, seen); }
         t += k + 4; }
@@ -593,6 +611,8 @@ const VAR = [
     note: "Same shape as the F/A-18E with the Blue Angels scheme in _F18T.PIC and a larger yellow spine area; normals recomputed. A smooth solid yellow stripe runs from the cockpit sides along the spine and tapers to a point at the front. The canopy keeps its original texture, the wingtip vapor trails start at the right place, and the low-detail model has the larger wing. Wheel doors are painted fuselage dark blue." },
   { sh: "F18U", name: "F/A-18F Blue Angels", sub: "Two-seat Blue Angels", len: "60.3 ft (18.4 m)", span: "44.7 ft (13.6 m)", h: "16.0 ft (4.9 m)",
     note: "Based on the F/A-18F with a longer yellow spine wedge; _F18U.PIC is a two-seat repaint of the single-seat Blue Angels scheme. A solid yellow stripe runs from the cockpit sides along the spine and tapers at the front. The canopy keeps its original texture, face and vertex colours are Blue Angels dark blue, and the low-detail model has the larger wing. Wheel doors are painted fuselage dark blue." },
+  { sh: "F18G", name: "EA-18G Growler", sub: "Electronic attack", len: "60.2 ft (18.3 m)", span: "44.9 ft (13.7 m)", h: "16.0 ft (4.9 m)",
+    note: "Built on the F/A-18F with its own _F18G.PIC texture. New stores added as shared parts: two underwing fuel tanks (inboard), two ALQ-99 jamming pods (midboard) and one on the centerline, all on pylons, plus ALQ-218 wingtip pods with four small swept fins front and rear. Extra plane tests draw each store group in front of or behind the body and lowered flaps depending on the view, and the belly pod sits between the two main wheels." },
 ];
 function showSpec(v){
   $("spec").innerHTML = `<h2>${v.name}  <span style="color:var(--muted);font-weight:normal;font-size:12px">${v.sub} · ${v.sh}.SH</span></h2>
