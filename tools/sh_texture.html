@@ -137,7 +137,15 @@ function parseSH(u8){
     const n = cv.getUint16(t+2, true), tg = cv.getUint16(t+4, true) / 8, base = Math.max(v.length, 1000);
     for (let i = 0; i < n; i++) v[base+i] = [cv.getInt16(t+6+6*i, true) + pos[0], cv.getInt16(t+8+6*i, true) + pos[2], cv.getInt16(t+10+6*i, true) + pos[1]];
     let p = t + 6 + 6*n; while (c[p] === 0xF6) p += 7;
-    while (c[p] === 0xFC){ p = faceAt(p); const idx = f[f.length-1]; for (let k = 0; k < idx.length; k++) if (idx[k] >= tg && idx[k] < tg + n) idx[k] = base + idx[k] - tg; }
+    // faces, and 06 plane nodes inside the part (store/pylon order): follow both branches
+    const walk = (p, depth) => {
+      for (let g = 0; g < 500 && p > t && p < L - 2; g++){
+        if (c[p] === 0xFC){ p = faceAt(p); const idx = f[f.length-1]; for (let k = 0; k < idx.length; k++) if (idx[k] >= tg && idx[k] < tg + n) idx[k] = base + idx[k] - tg; }
+        else if (c[p] === 0x06 && c[p+1] === 0 && depth < 8){ walk(p + 16 + cv.getInt16(p+14, true), depth+1); walk(p + 18 + cv.getInt16(p+16, true), depth+1); p += 18; }
+        else return;
+      }
+    };
+    walk(p, 0);
   };
   const block = (t, from, seen) => {
     for (let guard = 0; guard < 2000 && t > 0 && t < L - 2 && !seen.has(t); guard++){
