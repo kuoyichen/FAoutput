@@ -44,6 +44,10 @@ label.ck{display:inline-flex;gap:4px;align-items:center;cursor:pointer;white-spa
 #status{padding:4px 14px;background:var(--card);border-top:1px solid var(--line);color:var(--muted);font-size:12px;display:flex;gap:16px;flex-wrap:wrap}
 #status b{color:var(--text);font-weight:600}
 #msg{color:var(--accent)}
+#stMeas{margin-left:auto;display:inline-flex;align-items:center;gap:6px}
+#stMeas input{width:110px;padding:1px 5px;font:12px ui-monospace,Consolas,monospace}
+#stMeas.live input{border-color:var(--accent);color:var(--accent)}
+#guideLbl{position:absolute;pointer-events:none;font:bold 12px system-ui;padding:1px 6px;border-radius:4px;background:#000b;display:none;white-space:nowrap}
 #msg.bad{color:var(--bad)}
 .ref{border-top:1px solid var(--line);padding-top:6px;margin-top:6px}
 .ref:first-of-type{border-top:0;margin-top:0;padding-top:0}
@@ -87,14 +91,14 @@ kbd{background:#2c3440;border:1px solid var(--line);border-radius:4px;padding:0 
   <span class="sep"></span>
   <span class="grp" id="modeGrp"><button data-m="vert" class="on" title="Select and move vertices (Tab toggles)">Vertices</button><button data-m="face" title="Select faces">Faces</button></span>
   <label class="ck" title="Moves and nudges land on this grid (vertex units). FA stores whole numbers, so 1 is the finest.">Grid <input type="number" id="grid" value="1" min="1" step="1"></label>
-  <span class="grp" id="axisGrp" title="Lock dragging to one axis (X / Y / Z keys)"><button data-a="">Free</button><button data-a="x">X</button><button data-a="y">Y</button><button data-a="z">Z</button></span>
+  <span class="grp" id="axisGrp" title="Moves always follow one axis: X / Y / Z keys lock it, Auto picks the axis closest to the mouse"><button data-a="">Auto</button><button data-a="x">X</button><button data-a="y">Y</button><button data-a="z">Z</button></span>
   <label class="ck" title="Also move the mirror-image vertex (x → -x)"><input type="checkbox" id="mirror" checked>Mirror X</label>
   <label class="ck" title="Move vertices that sit on the same spot together (FA often stores a point twice, in different groups)"><input type="checkbox" id="weld" checked>Weld</label>
   <label class="ck" title="Select through the model (also hidden points)"><input type="checkbox" id="xray">X-ray</label>
   <button id="undo" disabled title="Ctrl+Z">Undo</button><button id="redo" disabled title="Ctrl+Y">Redo</button>
 </div>
 <div id="main">
-  <div id="view"><canvas id="cv"></canvas><div id="box"></div><div id="hud"></div><canvas id="axes" width="128" height="128"></canvas><div id="drop">Drop .SH / .PIC / .PAL or a reference image</div></div>
+  <div id="view"><canvas id="cv"></canvas><div id="box"></div><div id="hud"></div><div id="guideLbl"></div><canvas id="axes" width="128" height="128"></canvas><div id="drop">Drop .SH / .PIC / .PAL or a reference image</div></div>
   <div id="side">
     <div class="box"><h2>Selection</h2>
       <div id="selInfo" class="mono">Nothing selected</div>
@@ -114,24 +118,28 @@ kbd{background:#2c3440;border:1px solid var(--line);border-radius:4px;padding:0 
       <div class="row" style="color:var(--muted);font-size:11px">Saving only rewrites bytes in place, so the file layout, jumps and relocations stay exactly as they were. New vertex groups (F-14N nose, EA-18G stores, CODE grown by 0x1000) load and save normally.</div>
     </div>
     <div class="box"><h2>Reference images</h2><div id="refs"></div>
-      <div class="row" style="color:var(--muted);font-size:11px">Width is in vertex units. Images show behind the model in the matching Ortho view (or always, if ticked).</div></div>
+      <div class="row" style="color:var(--muted);font-size:11px">Width is in vertex units. A new image is scaled to the model and placed beside it, 10 units away (Fit does it again). It shows in the matching Ortho view, or always if ticked.</div></div>
     <div class="box"><h2>Model</h2><div id="modelInfo" class="mono"></div></div>
     <div class="box"><details><summary>Mouse and keys</summary><div id="help"><div data-lang="en">
       <b>Left-drag</b> rotate · <b>Right-drag</b> pan · <b>Wheel</b> zoom<br>
       <b>Click</b> select · <b>Shift+click</b> add · <b>Ctrl+click</b> toggle · <b>Shift+drag</b> box select · <b>Ctrl+drag</b> box deselect<br>
-      <b>Drag a selected point</b> to move the selection (snaps to the grid)<br>
-      <kbd>X</kbd><kbd>Y</kbd><kbd>Z</kbd> lock axis (again = free) · arrows nudge in screen plane, <kbd>PgUp</kbd>/<kbd>PgDn</kbd> in depth<br>
+      <b>Drag a selected point</b> to move the selection (snaps to the grid; always along X, Y or Z: the locked axis, or in Auto the one closest to the mouse)<br>
+      <kbd>P</kbd> push/pull the selected faces (or the face under the mouse) along their axis, click to finish · or <b>drag a selected face</b><br>
+      While moving, the guide line shows the axis (X red, Y green, Z blue). Type a number + <kbd>Enter</kbd> for an exact distance, during or right after the move<br>
+      <kbd>X</kbd><kbd>Y</kbd><kbd>Z</kbd> lock axis (again = Auto) · arrows nudge in screen plane, <kbd>PgUp</kbd>/<kbd>PgDn</kbd> in depth<br>
       <kbd>1</kbd> front <kbd>3</kbd> side <kbd>7</kbd> top <kbd>5</kbd> 3D · <kbd>O</kbd> ortho · <kbd>F</kbd> frame selection · <kbd>Tab</kbd> vertices/faces<br>
       <kbd>A</kbd> select all · <kbd>Esc</kbd> clear · <kbd>Del</kbd> delete faces · <kbd>Ctrl+Z</kbd>/<kbd>Ctrl+Y</kbd> undo/redo · <kbd>Ctrl+S</kbd> save</div><div data-lang="zh">
       <b>左鍵拖曳</b> 旋轉 · <b>右鍵拖曳</b> 平移 · <b>滾輪</b> 縮放<br>
       <b>點選</b> 選取 · <b>Shift+點</b> 加選 · <b>Ctrl+點</b> 切換 · <b>Shift+拖曳</b> 框選 · <b>Ctrl+拖曳</b> 框選取消<br>
-      <b>拖曳已選的點</b> 移動整個選取（對齊格線）<br>
-      <kbd>X</kbd><kbd>Y</kbd><kbd>Z</kbd> 鎖定軸向（再按一次 = 自由）· 方向鍵在畫面平面微調，<kbd>PgUp</kbd>/<kbd>PgDn</kbd> 前後<br>
+      <b>拖曳已選的點</b> 移動整個選取（對齊格線；一律沿 X、Y 或 Z：鎖定的軸，或在「自動」下取最接近滑鼠方向的軸）<br>
+      <kbd>P</kbd> 沿軸向推拉已選的面（或滑鼠下的面），點一下完成 · 或<b>直接拖曳已選的面</b><br>
+      移動時導引線顯示軸向（X 紅、Y 綠、Z 藍）。移動中或剛移動完可輸入數字再按 <kbd>Enter</kbd>，精確移動那個距離<br>
+      <kbd>X</kbd><kbd>Y</kbd><kbd>Z</kbd> 鎖定軸向（再按一次 = 自動）· 方向鍵在畫面平面微調，<kbd>PgUp</kbd>/<kbd>PgDn</kbd> 前後<br>
       <kbd>1</kbd> 前視 <kbd>3</kbd> 側視 <kbd>7</kbd> 上視 <kbd>5</kbd> 3D · <kbd>O</kbd> 正投影 · <kbd>F</kbd> 對準選取 · <kbd>Tab</kbd> 點／面<br>
       <kbd>A</kbd> 全選 · <kbd>Esc</kbd> 取消選取 · <kbd>Del</kbd> 刪除面 · <kbd>Ctrl+Z</kbd>/<kbd>Ctrl+Y</kbd> 復原／重做 · <kbd>Ctrl+S</kbd> 存檔</div></div></details></div>
   </div>
 </div>
-<div id="status"><span id="stFile">No file</span><span id="stCounts"></span><span id="stMod"></span></div>
+<div id="status"><span id="stFile">No file</span><span id="stCounts"></span><span id="stMod"></span><span id="stMeas" title="Distance of the current / last move. Type a value and press Enter to move exactly that far."><span id="measLbl">Distance</span> <input type="text" id="meas" autocomplete="off" placeholder="type + Enter"></span></div>
 
 <script type="module">
 import * as THREE from "three";
@@ -319,12 +327,21 @@ const REFS = [
 function refUI(){
   $("refs").innerHTML = REFS.map(r => `<div class="ref" data-r="${r.id}">
     <div class="row"><b>${r.label}</b><label class="btn">Image…<input type="file" accept="image/*" hidden data-k="file"></label><label class="ck"><input type="checkbox" data-k="show" checked>Show</label><label class="ck" title="Show in every view, not only the matching Ortho view"><input type="checkbox" data-k="always">Always</label></div>
-    <div class="row"><span class="l">Width</span><input type="number" data-k="w" value="250" step="1"><span class="l" style="width:auto">Opacity</span><input type="range" data-k="op" min="0" max="1" step="0.05" value="0.5"></div>
+    <div class="row"><span class="l">Width</span><input type="number" data-k="w" value="250" step="1" min="1"><button data-k="fit" title="Scale the image to the model and put it beside it again">Fit</button><span class="l" style="width:auto">Opacity</span><input type="range" data-k="op" min="0" max="1" step="0.05" value="0.5"></div>
     <div class="row"><span class="l">Offset</span><input type="number" data-k="u" value="0" step="1" title="horizontal"><input type="number" data-k="v" value="0" step="1" title="vertical"><label class="ck"><input type="checkbox" data-k="flip">Mirror</label></div></div>`).join("");
   for (const el of $("refs").querySelectorAll("[data-k]")){
     const r = REFS.find(x => x.id === el.closest(".ref").dataset.r), k = el.dataset.k;
+    if (k === "fit"){ el.onclick = () => fitRef(r); continue; }
     el.addEventListener(k === "file" ? "change" : "input", () => { if (k === "file"){ if (el.files[0]) loadRef(r, el.files[0]); } else updateRef(r); });
   }
+}
+function setRefVal(r, k, v){ const el = document.querySelector(`.ref[data-r="${r.id}"] [data-k="${k}"]`); if (el) el.value = v; }
+// model box in three space (current LOD), or a 250-unit box at the origin when nothing is loaded
+function modelBox(){ const b = D ? bbox([...D.verts.values()].map(v => v.w)) : new THREE.Box3(); if (b.isEmpty()) b.set(new THREE.Vector3(-125, -40, -125), new THREE.Vector3(125, 40, 125)); return b; }
+// width = the model's size as seen in that view (span for front / top, length for side); offsets back to 0
+function fitRef(r){
+  const sz = modelBox().getSize(new THREE.Vector3());
+  setRefVal(r, "w", Math.max(1, Math.round(r.plane === "side" ? sz.z : sz.x))); setRefVal(r, "u", 0); setRefVal(r, "v", 0); updateRef(r);
 }
 function refVal(r, k){ const el = document.querySelector(`.ref[data-r="${r.id}"] [data-k="${k}"]`); return el.type === "checkbox" ? el.checked : +el.value; }
 function loadRef(r, file){
@@ -334,17 +351,19 @@ function loadRef(r, file){
     if (r.mesh){ refGroup.remove(r.mesh); r.mesh.geometry.dispose(); r.mesh.material.map?.dispose(); }
     r.aspect = tex.image.height / tex.image.width;
     r.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
-    r.mesh.renderOrder = -1; refGroup.add(r.mesh); updateRef(r); msg(L(`${r.label} reference: ${file.name}`, `${FAI18N.t(r.label)}參考圖：${file.name}`));
+    r.mesh.renderOrder = -1; refGroup.add(r.mesh); fitRef(r); msg(L(`${r.label} reference: ${file.name}`, `${FAI18N.t(r.label)}參考圖：${file.name}`));
   });
 }
+const REF_GAP = 10;   // gap between the model and the image, in vertex units
 function updateRef(r){
   if (!r.mesh) return;
-  const w = refVal(r, "w") || 100, u = refVal(r, "u"), v = refVal(r, "v"), far = 2000, m = r.mesh;
-  m.scale.set(w * (refVal(r, "flip") ? -1 : 1), w * r.aspect, 1); m.material.opacity = refVal(r, "op");
-  // place each image behind the model as seen from its view
-  if (r.plane === "front"){ m.rotation.set(0, 0, 0); m.position.set(u, v, -far); }
-  else if (r.plane === "side"){ m.rotation.set(0, -Math.PI / 2, 0); m.position.set(far, v, u); }
-  else { m.rotation.set(-Math.PI / 2, 0, Math.PI); m.position.set(-u, -far, v); }
+  const w = Math.max(1, refVal(r, "w") || 100), h = w * r.aspect, u = refVal(r, "u"), v = refVal(r, "v"), m = r.mesh;
+  const b = modelBox(), c = b.getCenter(new THREE.Vector3());
+  m.scale.set(w * (refVal(r, "flip") ? -1 : 1), h, 1); m.material.opacity = refVal(r, "op");
+  // beside the model on the screen's right in its own view, REF_GAP units away, vertically centred, at the model's depth
+  if (r.plane === "front"){ m.rotation.set(0, 0, 0); m.position.set(b.max.x + REF_GAP + w / 2 + u, c.y + v, c.z); }                     // screen right = three +X
+  else if (r.plane === "side"){ m.rotation.set(0, -Math.PI / 2, 0); m.position.set(c.x, c.y + v, b.max.z + REF_GAP + w / 2 + u); }   // screen right = +Z (nose)
+  else { m.rotation.set(-Math.PI / 2, 0, Math.PI); m.position.set(b.min.x - REF_GAP - w / 2 - u, c.y, c.z + v); }                     // screen right = -X, up = +Z
   requestDraw();
 }
 function updateRefVisibility(){
@@ -353,8 +372,6 @@ function updateRefVisibility(){
     const want = { front: new THREE.Vector3(0, 0, -1), side: new THREE.Vector3(1, 0, 0), top: new THREE.Vector3(0, -1, 0) }[r.plane];
     const aligned = camera === orthoCam && dir.dot(want) > 0.985;
     r.mesh.visible = refVal(r, "show") && (refVal(r, "always") || aligned);
-    // keep the image well behind the model along the view direction
-    if (r.plane === "front") r.mesh.position.z = controls.target.z - 2000; if (r.plane === "side") r.mesh.position.x = controls.target.x + 2000; if (r.plane === "top") r.mesh.position.y = controls.target.y - 2000;
   }
 }
 refUI();
@@ -379,6 +396,11 @@ function pickFace(e){
   if (!faceMesh || !D) return null; ray.setFromCamera(ndc(e), camera); ray.far = Infinity;
   const hit = ray.intersectObject(faceMesh, false)[0]; if (!hit) return null;
   return D.faces[faceMesh.userData.tri2face[hit.faceIndex]].f.id;
+}
+function pickFaceHit(e){
+  if (!faceMesh || !D) return null; ray.setFromCamera(ndc(e), camera); ray.far = Infinity;
+  const hit = ray.intersectObject(faceMesh, false)[0]; if (!hit) return null;
+  return { id: D.faces[faceMesh.userData.tri2face[hit.faceIndex]].f.id, point: hit.point.clone() };
 }
 
 // ---------- editing ----------
@@ -415,14 +437,14 @@ function applyDelta(set, start, dw, axisLock){
 }
 const isIdentity = T => T.m.every((x, i) => Math.abs(x - [1,0,0,0,1,0,0,0,1][i]) < 1e-9);
 function snapshot(ids){ const m = new Map(); for (const id of ids) m.set(id, M.verts[id].p.slice()); return m; }
-function pushUndo(op){ undoS.push(op); redoS = []; dirty(); }
+function pushUndo(op){ undoS.push(op); redoS = []; lastMove = null; dirty(); }
 function commitVerts(before){
   const after = new Map(); let any = false;
   for (const [id, p] of before){ const q = M.verts[id].p.slice(); after.set(id, q); if (q.some((x, i) => x !== p[i])) any = true; }
   if (any) pushUndo({ type: "verts", before, after });
 }
 function undoRedo(isUndo){
-  const op = (isUndo ? undoS : redoS).pop(); if (!op) return;
+  const op = (isUndo ? undoS : redoS).pop(); if (!op) return; lastMove = null; setMeas("");
   if (op.type === "verts") for (const [id, p] of (isUndo ? op.before : op.after)) M.verts[id].p = p.slice();
   if (op.type === "faces") for (const [id, st] of (isUndo ? op.before : op.after)) Object.assign(M.faces[id], st);
   (isUndo ? redoS : undoS).push(op); dirty(); rebuild(true);
@@ -448,10 +470,121 @@ function dirty(){
   const n = undoS.length; $("stMod").innerHTML = n ? `<b style="color:var(--accent)">● ${L(`${n} edit${n > 1 ? "s" : ""} not saved`, `${n} 項修改未存檔`)}</b>` : "";
 }
 
+// ---------- move / push-pull with axis guide and typed distance ----------
+const AX = { x: { w: new THREE.Vector3(-1, 0, 0), sh: [1, 0, 0], col: 0xff6a50, css: "#ff6a50" }, y: { w: new THREE.Vector3(0, 0, 1), sh: [0, 1, 0], col: 0x7ddc8a, css: "#7ddc8a" }, z: { w: new THREE.Vector3(0, 1, 0), sh: [0, 0, 1], col: 0x6fb8ff, css: "#6fb8ff" } };
+let drag = null, lastMove = null, mouseE = null;
+const gridStep = () => Math.max(1, Math.round(+$("grid").value || 1));
+const guideGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+const guide = new THREE.Line(guideGeo, new THREE.LineBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true }));
+guide.renderOrder = 10; guide.visible = false; scene.add(guide);
+const trailGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+const trail = new THREE.Line(trailGeo, new THREE.LineDashedMaterial({ color: 0xffd54a, dashSize: 2, gapSize: 1.5, depthTest: false, transparent: true }));
+trail.renderOrder = 11; trail.visible = false; scene.add(trail);
+const fmt = n => (n > 0 ? "+" : "") + (Math.round(n * 100) / 100);
+function setMeas(t, live){ if (document.activeElement !== $("meas")) $("meas").value = t; $("stMeas").classList.toggle("live", !!live); }
+// the axis line through p0 (three space), or a grey line along dir
+function showGuide(p0, dirW, color, p1){
+  const r = Math.max(50, modelBox().getSize(new THREE.Vector3()).length());
+  guideGeo.setFromPoints([p0.clone().addScaledVector(dirW, -r), p0.clone().addScaledVector(dirW, r)]); guide.material.color.set(color); guide.visible = true;
+  if (p1){ trailGeo.setFromPoints([p0, p1]); trail.computeLineDistances(); trail.visible = true; } else trail.visible = false;
+  requestDraw();
+}
+function hideGuide(){ guide.visible = trail.visible = false; $("guideLbl").style.display = "none"; requestDraw(); }
+function guideLabel(text, css, wpt){
+  const p = wpt.clone().project(camera), r = cv.getBoundingClientRect(), g = $("guideLbl");
+  g.textContent = text; g.style.color = css; g.style.display = "block"; g.style.left = ((p.x + 1) / 2 * r.width + 14) + "px"; g.style.top = ((1 - p.y) / 2 * r.height - 24) + "px";
+}
+// closest point on the line p0 + s*dir to the mouse ray; returns s
+function rayToLine(e, p0, dir){
+  ray.setFromCamera(ndc(e), camera);
+  const w0 = p0.clone().sub(ray.ray.origin), a = dir.dot(dir), b = dir.dot(ray.ray.direction), c = ray.ray.direction.dot(ray.ray.direction), d = dir.dot(w0), ee = ray.ray.direction.dot(w0);
+  const den = a * c - b * b; if (Math.abs(den) < 1e-9) return null; return (b * ee - c * d) / den;
+}
+// move the drag's vertices by dist along drag.dirSH (an SH unit vector) from where they started
+function applyDist(d, dist){
+  for (const [id, p] of d.before) M.verts[id].p = p.slice();
+  applyDelta(d.set, d.before, d.dirSH.map(x => x * dist), d.ax || ""); d.dist = dist;
+}
+// a "push" drag: the selected faces' vertices move along the faces' normal, rounded to the nearest axis (or the locked axis)
+function startPush(e, p0, sticky){
+  const keys = new Set(); let n = [0, 0, 0];
+  for (const F of D.faces){ if (!sel.has(F.f.id)) continue; F.keys.forEach(k => keys.add(k));
+    const P = F.keys.map(k => D.verts.get(k).w);   // Newell normal in SH space
+    for (let i = 0; i < P.length; i++){ const a = P[i], b = P[(i + 1) % P.length]; n[0] += (a[1] - b[1]) * (a[2] + b[2]); n[1] += (a[2] - b[2]) * (a[0] + b[0]); n[2] += (a[0] - b[0]) * (a[1] + b[1]); } }
+  if (!keys.size) return false;
+  let ax = axis; if (!ax){ const m = n.map(Math.abs); ax = "xyz"[m.indexOf(Math.max(...m))]; }
+  const sgn = n["xyz".indexOf(ax)] > 0 ? -1 : 1;   // FA winding: the outward normal is minus this sum (as in faNormal), so + = out of the face
+  if (!p0){ const c = [0, 0, 0]; for (const k of keys){ const w = D.verts.get(k).w; for (let i = 0; i < 3; i++) c[i] += w[i] / keys.size; } p0 = toW(c); }
+  const set = moveSet(keys), ids = [...new Set([...set.keys()].map(q => D.verts.get(q).vid))];
+  drag = { kind: "push", sticky, p0, ax, dirSH: AX[ax].sh.map(x => x * sgn), dirW: AX[ax].w.clone().multiplyScalar(sgn), set, before: snapshot(ids), moved: false, dist: 0, s0: null };
+  if (e) drag.s0 = rayToLine(e, p0, drag.dirW);
+  showGuide(p0, drag.dirW, AX[ax].col); controls.enabled = false;
+  msg(L(`Push/pull along ${ax.toUpperCase()}: move the mouse, ${sticky ? "click" : "release"} to finish, type a distance + Enter, Esc cancels`, `沿 ${ax.toUpperCase()} 推拉：移動滑鼠，${sticky ? "點一下" : "放開"}完成，可輸入距離再按 Enter，Esc 取消`));
+  return true;
+}
+function dragMoveTo(e){
+  const d = drag, step = gridStep();
+  if (d.kind === "push"){
+    const s = rayToLine(e, d.p0, d.dirW); if (s == null) return; if (d.s0 == null) d.s0 = s;
+    const dist = Math.round((s - d.s0) / step) * step;
+    applyDist(d, dist); d.moved = true;
+    const p1 = d.p0.clone().addScaledVector(d.dirW, dist);
+    showGuide(d.p0, d.dirW, AX[d.ax].col, p1); guideLabel(L(`along ${d.ax.toUpperCase()} ${fmt(dist)}`, `沿 ${d.ax.toUpperCase()} ${fmt(dist)}`), AX[d.ax].css, p1); setMeas(String(dist), true);
+    liveUpdate(); return;
+  }
+  // vertex move: the locked axis, or (Auto) whichever axis the mouse runs closest to
+  let ax = axis, dw;
+  if (ax){ const s = rayToLine(e, d.p0, AX[ax].w); if (s == null) return; dw = AX[ax].sh.map(x => x * s); }
+  else {
+    ray.setFromCamera(ndc(e), camera); const hit = new THREE.Vector3(); if (!ray.ray.intersectPlane(d.plane, hit)) return;
+    dw = fromW(hit.clone().sub(d.p0)); const len = Math.hypot(...dw);
+    // never free: the move always follows the axis closest to the mouse movement
+    if (len < 1e-6) return; const m = dw.map(Math.abs), i = m.indexOf(Math.max(...m)); ax = "xyz"[i];
+    const sa = rayToLine(e, d.p0, AX[ax].w); dw = AX[ax].sh.map(x => x * (sa == null ? dw[i] : sa));
+  }
+  for (const [id, p] of d.before) M.verts[id].p = p.slice();
+  applyDelta(d.set, d.before, dw, ax); d.moved = true;
+  // report the distance the grabbed vertex actually moved
+  const v0 = d.before.get(D.verts.get(d.key).vid), v1 = M.verts[D.verts.get(d.key).vid].p, T = S.linOf(M, D.verts.get(d.key).vid, D.verts.get(d.key).inst);
+  const dl = [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]], real = [T.m[0]*dl[0]+T.m[1]*dl[1]+T.m[2]*dl[2], T.m[3]*dl[0]+T.m[4]*dl[1]+T.m[5]*dl[2], T.m[6]*dl[0]+T.m[7]*dl[1]+T.m[8]*dl[2]];
+  const p1 = d.p0.clone().add(toW(real));
+  if (ax){ const i = "xyz".indexOf(ax), dist = real[i]; d.ax = ax; d.dirSH = AX[ax].sh; d.dist = dist;
+    showGuide(d.p0, AX[ax].w, AX[ax].col, p1); guideLabel(L(`along ${ax.toUpperCase()} ${fmt(dist)}`, `沿 ${ax.toUpperCase()} ${fmt(dist)}`), AX[ax].css, p1); setMeas(String(Math.round(dist * 100) / 100), true); }
+  else { const len = Math.hypot(...real); d.ax = ""; d.dirSH = len ? real.map(x => x / len) : [0, 0, 0]; d.dist = len;
+    const dir = toW(real).normalize(); if (len) showGuide(d.p0, dir, 0x9aa4b0, p1); else hideGuide();
+    guideLabel(`${L("free", "自由")} ${Math.round(len * 100) / 100}  (${real.map(x => fmt(Math.round(x * 100) / 100)).join(", ")})`, "#d0d6de", p1); setMeas(String(Math.round(len * 100) / 100), true); }
+  liveUpdate();
+}
+function endDrag(commit){
+  const d = drag; drag = null; controls.enabled = true; hideGuide(); setMeas($("meas").value, false);
+  if (!d || (d.kind !== "move" && d.kind !== "push")) return;
+  if (!commit){ for (const [id, p] of d.before) M.verts[id].p = p.slice(); setMeas(""); msg(L("Move cancelled", "已取消移動")); rebuild(true); return; }
+  if (d.moved){ commitVerts(d.before); const op = undoS[undoS.length - 1]; if (op && op.type === "verts" && op.before === d.before && d.dirSH.some(x => x)) lastMove = { d, op }; rebuild(true); }
+  msg(d.moved ? L(`Moved ${Math.round(d.dist * 100) / 100}${d.ax ? " along " + d.ax.toUpperCase() : ""} (type a value + Enter to change it)`, `移動 ${Math.round(d.dist * 100) / 100}${d.ax ? "，沿 " + d.ax.toUpperCase() : ""}（可輸入數值再按 Enter 修改）`) : "");
+}
+// a value typed into the Distance box: during a drag it finishes the drag at that distance; afterwards it redoes the last move with that distance
+function typedDistance(txt){
+  const v = parseFloat(txt); if (!isFinite(v)) return;
+  if (drag && (drag.kind === "push" || drag.kind === "move")){
+    if (!drag.dirSH || !drag.dirSH.some(x => x)){ msg(L("Move along an axis (or lock one) before typing a distance", "請先沿著某個軸移動（或鎖定軸向）再輸入距離"), true); return; }
+    applyDist(drag, v); drag.moved = true; endDrag(true); return;
+  }
+  if (!lastMove){ msg(L("Nothing to apply the distance to: drag a point or push/pull a face first", "沒有可以套用距離的移動：請先拖曳點或推拉面"), true); return; }
+  const { d, op } = lastMove; applyDist(d, v);
+  op.after = new Map([...d.before.keys()].map(id => [id, M.verts[id].p.slice()]));
+  setMeas(String(v)); msg(L(`Moved ${v}${d.ax ? " along " + d.ax.toUpperCase() : ""}`, `移動 ${v}${d.ax ? "，沿 " + d.ax.toUpperCase() : ""}`)); dirty(); rebuild(true);
+}
+$("meas").addEventListener("keydown", e => {
+  if (e.key === "Enter"){ e.preventDefault(); typedDistance(e.target.value); e.target.blur(); }
+  else if (e.key === "Escape"){ e.target.blur(); if (drag) endDrag(false); }
+  e.stopPropagation();
+});
+
 // ---------- mouse ----------
-let drag = null;
 cv.addEventListener("contextmenu", e => e.preventDefault());
+cv.addEventListener("pointermove", e => { mouseE = e; if (drag && drag.sticky) dragMoveTo(e); });
 cv.addEventListener("pointerdown", e => {
+  if (drag && drag.sticky){ e.stopImmediatePropagation(); if (e.button === 0) endDrag(true); else endDrag(false); return; }
   if (!M || e.button !== 0) return;
   const r = cv.getBoundingClientRect();
   if (e.shiftKey || e.ctrlKey || e.metaKey){
@@ -465,11 +598,16 @@ cv.addEventListener("pointerdown", e => {
       // start moving the selection: plane through the vertex, facing the camera
       const v = D.verts.get(k), p0 = toW(v.w), n = new THREE.Vector3(); camera.getWorldDirection(n);
       const set = moveSet(sel), ids = [...new Set([...set.keys()].map(q => D.verts.get(q).vid))];
-      drag = { kind: "move", key: k, p0, plane: new THREE.Plane().setFromNormalAndCoplanarPoint(n, p0), set, before: snapshot(ids), moved: false };
+      drag = { kind: "move", key: k, p0, plane: new THREE.Plane().setFromNormalAndCoplanarPoint(n, p0), set, before: snapshot(ids), moved: false, dist: 0 };
       controls.enabled = false; cv.setPointerCapture(e.pointerId); return;
     }
     drag = { kind: "click", x: e.clientX, y: e.clientY, e0: e, k };
-  } else drag = { kind: "click", x: e.clientX, y: e.clientY, e0: e };
+  } else {
+    // dragging a selected face pushes / pulls it
+    const h = pickFaceHit(e);
+    if (h && sel.has(h.id) && startPush(e, h.point, false)){ cv.setPointerCapture(e.pointerId); return; }
+    drag = { kind: "click", x: e.clientX, y: e.clientY, e0: e };
+  }
 });
 cv.addEventListener("pointermove", e => {
   if (!drag) return;
@@ -480,26 +618,13 @@ cv.addEventListener("pointermove", e => {
     Object.assign(b.style, { display: drag.moved ? "block" : "none", left: Math.min(x, drag.x0) + "px", top: Math.min(y, drag.y0) + "px", width: Math.abs(x - drag.x0) + "px", height: Math.abs(y - drag.y0) + "px" });
     return;
   }
-  if (drag.kind === "move"){
-    ray.setFromCamera(ndc(e), camera);
-    let hit = new THREE.Vector3();
-    if (axis){
-      // closest point on the axis line through the vertex
-      const ad = { x: new THREE.Vector3(-1, 0, 0), y: new THREE.Vector3(0, 0, 1), z: new THREE.Vector3(0, 1, 0) }[axis];
-      const w0 = drag.p0.clone().sub(ray.ray.origin), a = ad.dot(ad), b = ad.dot(ray.ray.direction), c = ray.ray.direction.dot(ray.ray.direction), d = ad.dot(w0), ee = ray.ray.direction.dot(w0);
-      const den = a * c - b * b; if (Math.abs(den) < 1e-9) return; const s = (b * ee - c * d) / den;
-      hit = drag.p0.clone().add(ad.clone().multiplyScalar(s));
-    } else if (!ray.ray.intersectPlane(drag.plane, hit)) return;
-    const dw = fromW(hit.clone().sub(drag.p0));
-    for (const [id, p] of drag.before) M.verts[id].p = p.slice();
-    applyDelta(drag.set, drag.before, dw, axis); drag.moved = true;
-    liveUpdate();
-  }
+  if (drag.kind === "move" || (drag.kind === "push" && !drag.sticky)) dragMoveTo(e);
 });
 cv.addEventListener("pointerup", e => {
+  if (drag && drag.sticky) return;
+  if (drag && (drag.kind === "move" || drag.kind === "push")) return endDrag(true);
   const d = drag; drag = null; controls.enabled = true; $("box").style.display = "none";
   if (!d) return;
-  if (d.kind === "move"){ if (d.moved){ commitVerts(d.before); rebuild(true); } return; }
   if (d.kind === "box"){
     if (!d.moved){ clickSelect(d.e0); return; }
     const x0 = Math.min(d.x0, d.x1), x1 = Math.max(d.x0, d.x1), y0 = Math.min(d.y0, d.y1), y1 = Math.max(d.y0, d.y1);
@@ -713,6 +838,10 @@ addEventListener("keydown", e => {
   if ((e.ctrlKey || e.metaKey) && k === "y"){ e.preventDefault(); undoRedo(false); return; }
   if ((e.ctrlKey || e.metaKey) && k === "s"){ e.preventDefault(); save(false); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
+  // typing a number during / right after a move goes to the Distance box (SketchUp style)
+  if ((drag && (drag.kind === "move" || drag.kind === "push") || lastMove) && /^[0-9.\-]$/.test(e.key)){ e.preventDefault(); const m = $("meas"); m.value = e.key; m.focus(); return; }
+  if (drag && (drag.kind === "move" || drag.kind === "push")){ if (k === "escape") endDrag(false); if (k === "enter") endDrag(true); return; }
+  if (k === "p" && M){ return pushKey(); }
   if (k === "x" || k === "y" || k === "z"){ setAxis(k); return; }
   if (k === "1") return setView("front"); if (k === "3") return setView("side"); if (k === "7") return setView("top"); if (k === "5") return setView("persp");
   if (k === "o") return setOrtho(!$("ortho").checked);
@@ -730,13 +859,26 @@ addEventListener("keydown", e => {
     const dw = [0, 0, 0]; dw[ai] = Math.sign(s[ai]) * step; moveSelectionBy(dw);
   }
 });
+// P: push / pull the selected faces (or the face under the mouse) by moving the mouse; click to finish
+function pushKey(){
+  if (mode !== "face") setMode("face");
+  if (!sel.size && mouseE){ const id = pickFace(mouseE); if (id != null){ sel.add(id); rebuild(true); } }
+  if (!sel.size){ msg(L("Push/pull: select a face first (or point at one and press P)", "推拉：請先選一個面（或指著面按 P）"), true); return; }
+  let p0 = null; if (mouseE){ const h = pickFaceHit(mouseE); if (h && sel.has(h.id)) p0 = h.point; }
+  startPush(mouseE, p0, true);
+}
 addEventListener("beforeunload", e => { if (undoS.length){ e.preventDefault(); e.returnValue = ""; } });
 
 // for scripting and tests from the browser console
-window.shEditor = { get model(){ return M; }, screenOf, get selection(){ return [...sel]; }, get undoCount(){ return undoS.length; }, get display(){ return D; }, select(keys){ sel = new Set(keys); rebuild(true); }, moveBy: moveSelectionBy, setView, setMode, build: o => S.buildFile(M, o) };
+window.shEditor = { pushKey, typedDistance, get drag(){ return drag; }, endDrag, get model(){ return M; }, screenOf, get selection(){ return [...sel]; }, get undoCount(){ return undoS.length; }, get display(){ return D; }, select(keys){ sel = new Set(keys); rebuild(true); }, moveBy: moveSelectionBy, setView, setMode, build: o => S.buildFile(M, o) };
 
 // ---------- language ----------
 FAI18N.register({
+  "Auto": "自動", "Moves always follow one axis: X / Y / Z keys lock it, Auto picks the axis closest to the mouse": "移動一律沿單一軸向：X / Y / Z 鍵鎖定，「自動」取最接近滑鼠方向的軸",
+  "Distance": "距離", "type + Enter": "輸入後按 Enter", "Fit": "符合",
+  "Distance of the current / last move. Type a value and press Enter to move exactly that far.": "目前／上一次移動的距離。輸入數值再按 Enter，就精確移動那個距離。",
+  "Scale the image to the model and put it beside it again": "把圖片縮放成模型大小，並重新放到模型旁邊",
+  "Width is in vertex units. A new image is scaled to the model and placed beside it, 10 units away (Fit does it again). It shows in the matching Ortho view, or always if ticked.": "寬度以頂點單位計。新圖片會自動縮放成模型大小，放在模型旁邊、相距 10 單位（按「符合」可重新對齊）。只在對應的正投影視圖顯示，勾選「Always」則一直顯示。",
   "SH Editor": "SH 編輯器", "Open folder…": "開啟資料夾…", "Open files…": "開啟檔案…", "Load from repo": "從 repo 載入", "Save": "存檔", "Save as…": "另存新檔…",
   "Pick a folder with .SH / .PIC / PALETTE.PAL; Save then writes straight back into it (Chrome / Edge)": "選一個放 .SH / .PIC / PALETTE.PAL 的資料夾；存檔會直接寫回裡面（Chrome / Edge）",
   "SH files in the opened folder": "開啟的資料夾裡的 SH 檔",
