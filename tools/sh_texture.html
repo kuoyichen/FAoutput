@@ -29,6 +29,7 @@ label.ck{display:inline-flex;gap:4px;align-items:center;cursor:pointer}
 @media (max-width:760px){ #main{grid-template-columns:1fr;padding:8px} header{padding:8px} }
 a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
 </style>
+<script src="fashion_i18n.js"></script>
 </head>
 <body>
 <header>
@@ -61,6 +62,7 @@ a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spa
   <label class="ck"><input type="checkbox" id="gear" checked> 起落架放下</label>
   <label class="ck"><input type="checkbox" id="edges"> 顯示邊線</label>
   <label class="ck" title="FA 依順序畫面，後畫的蓋住前面；勾選時後面的面稍微往前，避免貼在同一平面的貼圖面閃爍"><input type="checkbox" id="order" checked> 依 SH 順序疊面</label>
+  <span id="langSlot"></span>
   <span id="msg"></span>
   <span id="hint">拖曳旋轉・滾輪縮放・點面看資料</span>
 </header>
@@ -345,7 +347,10 @@ function partTf(e){
 }
 
 // ===== 檔案載入：../SH、../PIC（用網頁伺服器開時）→ GitHub =====
-const $ = id => document.getElementById(id);
+const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
+FAI18N.register({"FA SH Texture Test": "FA SH 貼圖測試", "F14X (subdivided)": "F14X（細分加點）", "F15X (subdivided)": "F15X（細分加點）", "F14N (symmetric nose + pod)": "F14N（機鼻對稱＋pod）", "F14G (new GLB fuselage)": "F14G（GLB 新機身）", "FA palette (palette.PAL)": "FA 調色盤（palette.PAL）", "Greyscale (index = brightness)": "灰階（色號 = 亮度）", "False colour (a colour per index)": "假色（每個色號不同色）", "Load palette.PAL": "載入 palette.PAL", "Texture + plain faces": "貼圖＋單色面", "Textured faces only": "只畫有貼圖的面", "No texture (face colours only)": "不貼圖（只用面的色號）", "Checkerboard (check UV direction)": "棋盤格（檢查 UV 方向）", "Lighting: FA ramp (shift face colour within grey 90–9B)": "光影：FA 色階（面的色號在灰階 90–9B 裡加減）", "Lighting: multiply brightness": "光影：亮度相乘", "No lighting (raw index)": "不加光影（原始色號）", "Texture FF = show face colour (colour-0 faces transparent)": "貼圖 FF = 露出面的色號（色號 0 的面透明）", "Texture FF = transparent": "貼圖 FF = 透明", "Texture FF as is": "貼圖 FF 照原色", "Gear down": "起落架放下", "Show edges": "顯示邊線", "Stack faces in SH order": "依 SH 順序疊面", "Drag to rotate · wheel to zoom · click a face for details": "拖曳旋轉・滾輪縮放・點面看資料", "PIC texture": "PIC 貼圖", "Draw UV outlines (the clicked face turns yellow)": "畫出 UV 範圍（點到的面會變黃）", "Info": "資訊", "Other SH…": "其他 SH…", "Type an SH name (e.g. F16) and press Enter; _NAME.PIC is used as the texture": "輸入 SH 名稱（例如 F16）後按 Enter，會用 _名稱.PIC 當貼圖", "Palette": "調色盤", "Display": "顯示方式", "Lighting": "光影", "Pixels with index FF in the PIC": "PIC 裡色號 FF 的像素", "FA draws faces in order, later ones cover earlier ones; when ticked, later faces are nudged forward so coplanar decals do not flicker": "FA 依順序畫面，後畫的蓋住前面；勾選時後面的面稍微往前，避免貼在同一平面的貼圖面閃爍", "FAshion home": "FAshion 首頁"});
+$("langSlot").append(FAI18N.picker()); FAI18N.apply(); document.title = L("FA SH Texture Test", "FA SH 貼圖測試");
+FAI18N.onChange(() => { document.title = L("FA SH Texture Test", "FA SH 貼圖測試"); if (cur) load(cur.name); });
 const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
 async function fetchAny(paths){
   const urls = [];
@@ -363,7 +368,7 @@ function parsePIC(u8){
   const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
   const fmt = dv.getUint16(0, true), w = dv.getUint32(2, true), h = dv.getUint32(6, true), po = dv.getUint32(10, true), ps = dv.getUint32(14, true);
   const palO = dv.getUint32(18, true), palS = dv.getUint32(22, true), rowO = dv.getUint32(0x22, true), rowS = dv.getUint32(0x26, true);
-  if (fmt !== 0 || !w || !h || w > 4096 || h > 4096) throw new Error(`PIC 格式 ${fmt}（${w}×${h}）還不支援`);
+  if (fmt !== 0 || !w || !h || w > 4096 || h > 4096) throw new Error(L(`PIC format ${fmt} (${w}×${h}) is not supported yet`, `PIC 格式 ${fmt}（${w}×${h}）還不支援`));
   const px = new Uint8Array(w * h);
   const rows = rowS >= 4 * h && rowO + rowS <= u8.length;
   // 檔案裡的列是由下往上存的（像 BMP）：SH 的 v = 0 對應檔案最後一列，所以讀進來時上下翻轉，之後 UV 直接當像素座標用
@@ -452,11 +457,11 @@ function defaultVars(m, gearDown){ const vars = {}, nm = Object.fromEntries(Obje
   return vars; }
 function buildFaces(){
   const m = cur.m, faces = [], add = (idx, tf, part) => faces.push({ pts: idx.map(i => tf(m.v[i])), uv: idx.uv, col: idx.col, fl: idx.fl, idx: [...idx], part });
-  for (const idx of m.f) add(idx, v => [v[0], v[2], v[1]], "主體");
+  for (const idx of m.f) add(idx, v => [v[0], v[2], v[1]], L("body", "主體"));
   const drawn = new Set();
   for (const e of evalCtl(m, defaultVars(m, $("gear").checked))){
     if (drawn.has(e.part)) continue; drawn.add(e.part);
-    const tf = partTf(e); for (const idx of m.subs[e.part].f) add(idx, tf, "零件 " + e.part);
+    const tf = partTf(e); for (const idx of m.subs[e.part].f) add(idx, tf, L("part ", "零件 ") + e.part);
   }
   cur.faces = faces;
   // 三角形化（扇形）：每個頂點 = 位置3 + UV2 + 法向3 + (色號, 有貼圖)2
@@ -476,7 +481,7 @@ function buildFaces(){
   let lo = [1e9,1e9,1e9], hi = [-1e9,-1e9,-1e9]; for (const f of faces) for (const q of f.pts) for (let k = 0; k < 3; k++){ lo[k] = Math.min(lo[k], q[k]); hi[k] = Math.max(hi[k], q[k]); }
   cur.center = lo.map((x, k) => (x + hi[k]) / 2); cur.radius = Math.max(1, Math.hypot(hi[0]-lo[0], hi[1]-lo[1], hi[2]-lo[2]) / 2);
   const nt = faces.filter(f => f.uv).length, big = faces.filter(f => f.uv && !(f.fl & 0x100)).length;
-  $("info").textContent = `${cur.name}.SH  頂點 ${m.v.length}・面 ${faces.length}（有貼圖 ${nt}，其中 16 位元 UV ${big}）\n貼圖指令：${cur.texNames.join(", ") || "（沒有 E2）"}\nPIC：${cur.pic ? `${cur.picName}  ${cur.pic.w}×${cur.pic.h}` : "找不到"}`;
+  $("info").textContent = FAI18N.lang !== "zh" ? `${cur.name}.SH  ${m.v.length} vertices · ${faces.length} faces (${nt} textured, ${big} with 16-bit UVs)\nTexture op: ${cur.texNames.join(", ") || "(no E2)"}\nPIC: ${cur.pic ? `${cur.picName}  ${cur.pic.w}×${cur.pic.h}` : "not found"}` : `${cur.name}.SH  頂點 ${m.v.length}・面 ${faces.length}（有貼圖 ${nt}，其中 16 位元 UV ${big}）\n貼圖指令：${cur.texNames.join(", ") || "（沒有 E2）"}\nPIC：${cur.pic ? `${cur.picName}  ${cur.pic.w}×${cur.pic.h}` : "找不到"}`;
   setSel(-1); draw(); drawTex();
 }
 
@@ -518,7 +523,7 @@ function draw(){
 }
 function drawTex(){
   const c = $("tex"), x = c.getContext("2d");
-  if (!cur || !cur.pic){ c.width = 256; c.height = 64; x.clearRect(0, 0, 256, 64); x.fillStyle = "#8b96a5"; x.fillText("沒有 PIC", 100, 36); return; }
+  if (!cur || !cur.pic){ c.width = 256; c.height = 64; x.clearRect(0, 0, 256, 64); x.fillStyle = "#8b96a5"; x.fillText(L("No PIC", "沒有 PIC"), 100, 36); return; }
   const { w, h, px } = cur.pic, s = 2, pal = curPal(), im = new ImageData(w, h), tr = $("transp").value !== "0";
   for (let i = 0; i < w*h; i++){ const p = px[i]; im.data[4*i] = pal[3*p]; im.data[4*i+1] = pal[3*p+1]; im.data[4*i+2] = pal[3*p+2]; im.data[4*i+3] = tr && p === 255 ? 0 : 255; }
   c.width = w*s; c.height = h*s; const t = document.createElement("canvas"); t.width = w; t.height = h; t.getContext("2d").putImageData(im, 0, 0);
@@ -534,7 +539,7 @@ function setSel(i){
   if (!f){ $("pinfo").textContent = ""; cur.selN = 0; return; }
   const d = []; for (let k = 1; k < f.pts.length - 1; k++) for (const j of [0, k, k+1]){ const q = f.pts[j], uv = f.uv ? f.uv[j] : [0,0]; d.push(q[0], q[1], q[2], uv[0], uv[1], ...f.n, f.col, f.uv ? 1 : 0); }
   gl.bindBuffer(gl.ARRAY_BUFFER, selVbo); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(d), gl.STATIC_DRAW); cur.selN = d.length / 10;
-  $("pinfo").textContent = `\n選到第 ${i} 個面（${f.part}）\n旗標 ${f.fl.toString(16).toUpperCase().padStart(4, "0")}  色號 ${f.col.toString(16).toUpperCase().padStart(2, "0")}\n頂點 ${f.idx.join(" ")}\nUV ${f.uv ? f.uv.map(p => `(${p[0]},${p[1]})`).join(" ") : "（無）"}`;
+  $("pinfo").textContent = L(`\nSelected face ${i} (${f.part})\nFlags ${f.fl.toString(16).toUpperCase().padStart(4, "0")}  colour ${f.col.toString(16).toUpperCase().padStart(2, "0")}\nVertices ${f.idx.join(" ")}\nUV ${f.uv ? f.uv.map(p => `(${p[0]},${p[1]})`).join(" ") : "(none)"}`, `\n選到第 ${i} 個面（${f.part}）\n旗標 ${f.fl.toString(16).toUpperCase().padStart(4, "0")}  色號 ${f.col.toString(16).toUpperCase().padStart(2, "0")}\n頂點 ${f.idx.join(" ")}\nUV ${f.uv ? f.uv.map(p => `(${p[0]},${p[1]})`).join(" ") : "（無）"}`);
 }
 // 點選：在螢幕上把每個三角形投影出來，找滑鼠底下最靠近的
 function pick(mx, my){
@@ -558,17 +563,17 @@ function pick(mx, my){
 
 // ===== 載入 =====
 async function load(name){
-  name = name.toUpperCase().replace(/\.SH$/, ""); $("msg").textContent = "載入 " + name + "…";
-  const u8 = await fetchAny([(name.includes("/") ? "" : "SH/") + name + ".SH"]); if (!u8){ $("msg").textContent = "找不到 " + name + ".SH"; return; }
-  const m = parseSH(u8); if (!m){ $("msg").textContent = name + ".SH 解析失敗"; return; }
+  name = name.toUpperCase().replace(/\.SH$/, ""); $("msg").textContent = L("Loading ", "載入 ") + name + "…";
+  const u8 = await fetchAny([(name.includes("/") ? "" : "SH/") + name + ".SH"]); if (!u8){ $("msg").textContent = L("Cannot find ", "找不到 ") + name + ".SH"; return; }
+  const m = parseSH(u8); if (!m){ $("msg").textContent = name + L(".SH could not be parsed", ".SH 解析失敗"); return; }
   const texNames = shTexName(u8), picName = (texNames[0] || "_" + name + ".PIC").toUpperCase();
   let pic = null, pu8 = await fetchAny(["PIC/" + picName, "PIC/" + picName.toLowerCase(), "PIC/" + picName.replace(/^_/, "_").replace(/\.PIC$/, ".pic")]);
   try { if (pu8) pic = parsePIC(pu8); } catch(e){ $("msg").textContent = e.message; }
   cur = { name, m, pic, picName, texNames };
   if (pic) setTex(picTex, pic.w, pic.h, gl.LUMINANCE, pic.px);
-  $("texname").textContent = pic ? `　${picName}（${pic.w}×${pic.h}，已上下翻轉成貼圖座標）` : "　找不到 " + picName;
+  $("texname").textContent = pic ? L(`  ${picName} (${pic.w}×${pic.h}, flipped to texture coordinates)`, `　${picName}（${pic.w}×${pic.h}，已上下翻轉成貼圖座標）`) : L("  cannot find ", "　找不到 ") + picName;
   buildFaces();
-  if (pic || !pu8) $("msg").textContent = $("pal").value === "game" && !gamePal ? "還沒有 FA 調色盤，先用灰階顯示；按「載入 palette.PAL」選檔" : "";
+  if (pic || !pu8) $("msg").textContent = $("pal").value === "game" && !gamePal ? L("No FA palette yet, showing greyscale; use “Load palette.PAL” to pick one", "還沒有 FA 調色盤，先用灰階顯示；按「載入 palette.PAL」選檔") : "";
 }
 $("pick").onchange = () => load($("pick").value);
 $("other").onkeydown = e => { if (e.key === "Enter" && e.target.value.trim()) load(e.target.value.trim()); };
@@ -576,9 +581,9 @@ for (const id of ["mode", "gear"]) $(id).onchange = () => cur && buildFaces();
 for (const id of ["light", "transp", "pal", "uvlines", "order", "edges"]) $(id).onchange = () => { draw(); drawTex(); };
 $("palfile").onchange = async e => { const f = e.target.files[0]; if (!f) return; const u8 = new Uint8Array(await f.arrayBuffer());
   const p = /\.lib$/i.test(f.name) ? palFromLib(u8) : palFromBytes(u8);
-  if (!p){ $("msg").textContent = "讀不出調色盤：" + f.name; return; }
+  if (!p){ $("msg").textContent = L("Cannot read a palette from ", "讀不出調色盤：") + f.name; return; }
   gamePal = p; try { localStorage.setItem("fa_palette", btoa(String.fromCharCode(...p))); } catch(e){}
-  $("pal").value = "game"; $("msg").textContent = "已載入調色盤 " + f.name + "（會記在這台瀏覽器）"; draw(); drawTex(); };
+  $("pal").value = "game"; $("msg").textContent = L("Loaded palette ", "已載入調色盤 ") + f.name + L(" (remembered in this browser)", "（會記在這台瀏覽器）"); draw(); drawTex(); };
 (async () => { await loadGamePal(); await load("F14"); })();
 </script>
 </body>

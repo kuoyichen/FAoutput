@@ -14,6 +14,8 @@ a{color:inherit}
 #bar{position:fixed;inset:0 0 auto 0;z-index:20;display:flex;align-items:center;gap:14px;padding:12px 18px;background:linear-gradient(#0e1216e6,#0e121600)}
 #bar .logo{font-weight:800;font-size:19px;letter-spacing:.5px;text-decoration:none}
 #bar .logo b{color:var(--accent)}
+#bar .fa-lang{margin-left:auto;background:#161c22cc;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;font-size:13px;cursor:pointer}
+#bar .fa-lang + #burger{margin-left:0}
 #burger{margin-left:auto;width:42px;height:42px;border-radius:10px;border:1px solid var(--line);background:#161c22cc;cursor:pointer;display:grid;place-items:center;padding:0}
 #burger span{display:block;width:20px;height:2px;background:var(--text);border-radius:2px;box-shadow:0 -6px 0 var(--text),0 6px 0 var(--text)}
 #burger:hover{border-color:var(--muted)}
@@ -64,6 +66,7 @@ main .sub{color:var(--muted);margin:0 0 20px}
 footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
 @media (max-width:600px){ .rel{grid-template-columns:1fr;gap:6px} .rel .no{display:inline;font-size:20px;margin-left:8px} #status{display:none} }
 </style>
+<script src="tools/fashion_i18n.js"></script>
 </head>
 <body>
 <div id="bar">
@@ -96,7 +99,8 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
   <canvas id="cv"></canvas>
   <div id="title">
     <h1>FA<b>shion</b></h1>
-    <p>Improving <em>Fighters Anthology</em>: new and refined .SH shapes, plus new features for the game, from flight recording and mission replay to tools for modders.</p>
+    <p data-lang="en">Improving <em>Fighters Anthology</em>: new and refined .SH shapes, plus new features for the game, from flight recording and mission replay to tools for modders.</p>
+    <p data-lang="zh">讓 <em>Fighters Anthology</em> 更好：全新和改良的 .SH 外形，以及遊戲的新功能，從飛行記錄、任務回放到給改模型玩家用的工具。</p>
     <p class="by">by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>)</p>
     <div class="tag"><span class="t">Textured</span><span class="w">Shape (no texture)</span></div>
   </div>
@@ -117,10 +121,24 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
   </a>
   <div class="next">Next up: a rebuilt F-14 Tomcat. Watch this space.</div>
 </main>
-<footer>FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>). Models, tools and source are on <a href="https://github.com/kuoyichen/FAoutput">GitHub</a>.</footer>
+<footer data-lang="en">FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>). Models, tools and source are on <a href="https://github.com/kuoyichen/FAoutput">GitHub</a>.</footer>
+<footer data-lang="zh">FAshion 是 hawke 為 Jane's Fighters Anthology 做的同好專案（<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>）。模型、工具和原始碼都在 <a href="https://github.com/kuoyichen/FAoutput">GitHub</a>。</footer>
 
 <script>
 "use strict";
+FAI18N.register({
+  "Open menu": "開啟選單", "Close menu": "關閉選單", "Site menu": "網站選單", "Site": "網站", "Home": "首頁", "Releases": "發布", "Tools": "工具", "Coming soon": "即將推出",
+  "F/A-18 Showcase": "F/A-18 展示", "SH Shape Gallery": "SH 外形圖庫", "Flight Replay": "飛行回放", "SH Editor": "SH 編輯器",
+  "New F-14 Tomcat": "新的 F-14 Tomcat", "Texture (PIC) viewer": "貼圖（PIC）檢視器", "3D model to SH converter": "3D 模型轉 SH", "Game feature mods": "遊戲功能修改",
+  "Download library": "下載區", "About & install guide": "關於與安裝說明", "soon": "即將推出",
+  "by": "作者", "Textured": "有貼圖", "Shape (no texture)": "外形（無貼圖）", "Loading F-14…": "載入 F-14…",
+  "New shapes and new features for FA, newest first.": "FA 的新外形和新功能，最新的在前面。",
+  "F/A-18 Hornet family": "F/A-18 Hornet 家族",
+  "Reshaped Hornets and new Super Hornets, two Blue Angels schemes and a brand-new EA-18G Growler with jamming pods. View each one in 3D with gear, flaps, hook and speed brake, then download the SH and PIC files.": "重新修整的 Hornet 和全新的 Super Hornet、兩種藍天使塗裝，以及掛著干擾莢艙的全新 EA-18G Growler。可以 3D 檢視每一架，切換起落架、襟翼、尾鉤和減速板，再下載 SH 和 PIC 檔。",
+  "Blue Angels E": "藍天使 E", "Blue Angels F": "藍天使 F", "Open the F/A-18 Showcase →": "開啟 F/A-18 展示 →",
+  "Next up: a rebuilt F-14 Tomcat. Watch this space.": "下一個：重建的 F-14 Tomcat，敬請期待。", "Nov 14, 2026": "2026 年 11 月 14 日"
+});
+document.getElementById("burger").before(FAI18N.picker()); FAI18N.apply();
 // ===== SH parser, part control and PIC reader (shared with tools/f18_showcase.html) =====
 const FACE_OPS = new Set([0x41,0x44,0x49,0x4C,0x51,0x54,0x59,0x5C,0x61,0x63,0x64,0x69,0x6B,0x6C,0x71,0x73,0x7C,0xCD,0xDD,0xED,0xEE,0xFE]);
 function parseSH(u8){
@@ -543,7 +561,7 @@ addEventListener("resize", () => cur && draw());
     const zs = b.faces.flatMap(f => f.pts.map(q => q[2])), len = b.hi[2] - b.lo[2];
     const nearHi = zs.filter(z => z > b.hi[2] - len * 0.15).length, nearLo = zs.filter(z => z < b.lo[2] + len * 0.15).length;
     cur = { ...b, pic, dir: nearHi < nearLo ? 1 : -1, split: b.center[2] };
-    $("status").textContent = "F14.SH · " + m.v.length + " vertices · " + b.faces.length + " faces";
+    $("status").textContent = "F14.SH · " + m.v.length + FAI18N.L(" vertices · ", " 點 · ") + b.faces.length + FAI18N.L(" faces", " 面");
     let last = 0; const tick = t => { if (last) view.yaw += (t - last) * 0.00018; last = t; draw(); requestAnimationFrame(tick); };
     requestAnimationFrame(tick);
   } catch(e){ $("status").textContent = e.message; }

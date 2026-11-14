@@ -51,10 +51,12 @@ label.ck{display:inline-flex;gap:4px;align-items:center;cursor:pointer;white-spa
 details summary{cursor:pointer;color:var(--muted)}
 kbd{background:#2c3440;border:1px solid var(--line);border-radius:4px;padding:0 4px;font:11px ui-monospace,Consolas,monospace}
 #help{font-size:12px;color:var(--muted);line-height:1.6}
+
 @media (max-width:820px){ #main{grid-template-columns:1fr;grid-template-rows:60vh auto} body{overflow:auto} #side{border-left:0;border-top:1px solid var(--line)} }
 </style>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
 <script src="sh_editor_core.js"></script>
+<script src="fashion_i18n.js"></script>
 </head>
 <body>
 <header>
@@ -68,6 +70,8 @@ kbd{background:#2c3440;border:1px solid var(--line);border-radius:4px;padding:0 
   <span class="sep"></span>
   <button id="save" disabled title="Write the edited SH (Ctrl+S). Opened from a folder: overwrites that file. Otherwise: download.">Save</button>
   <button id="saveAs" disabled title="Save under a new name / download a copy">Save as…</button>
+  <span class="sep"></span>
+  <span id="langSlot"></span>
   <span id="msg"></span>
 </header>
 <div id="tools">
@@ -112,13 +116,19 @@ kbd{background:#2c3440;border:1px solid var(--line);border-radius:4px;padding:0 
     <div class="box"><h2>Reference images</h2><div id="refs"></div>
       <div class="row" style="color:var(--muted);font-size:11px">Width is in vertex units. Images show behind the model in the matching Ortho view (or always, if ticked).</div></div>
     <div class="box"><h2>Model</h2><div id="modelInfo" class="mono"></div></div>
-    <div class="box"><details><summary>Mouse and keys</summary><div id="help">
+    <div class="box"><details><summary>Mouse and keys</summary><div id="help"><div data-lang="en">
       <b>Left-drag</b> rotate · <b>Right-drag</b> pan · <b>Wheel</b> zoom<br>
       <b>Click</b> select · <b>Shift+click</b> add · <b>Ctrl+click</b> toggle · <b>Shift+drag</b> box select · <b>Ctrl+drag</b> box deselect<br>
       <b>Drag a selected point</b> to move the selection (snaps to the grid)<br>
       <kbd>X</kbd><kbd>Y</kbd><kbd>Z</kbd> lock axis (again = free) · arrows nudge in screen plane, <kbd>PgUp</kbd>/<kbd>PgDn</kbd> in depth<br>
       <kbd>1</kbd> front <kbd>3</kbd> side <kbd>7</kbd> top <kbd>5</kbd> 3D · <kbd>O</kbd> ortho · <kbd>F</kbd> frame selection · <kbd>Tab</kbd> vertices/faces<br>
-      <kbd>A</kbd> select all · <kbd>Esc</kbd> clear · <kbd>Del</kbd> delete faces · <kbd>Ctrl+Z</kbd>/<kbd>Ctrl+Y</kbd> undo/redo · <kbd>Ctrl+S</kbd> save</div></details></div>
+      <kbd>A</kbd> select all · <kbd>Esc</kbd> clear · <kbd>Del</kbd> delete faces · <kbd>Ctrl+Z</kbd>/<kbd>Ctrl+Y</kbd> undo/redo · <kbd>Ctrl+S</kbd> save</div><div data-lang="zh">
+      <b>左鍵拖曳</b> 旋轉 · <b>右鍵拖曳</b> 平移 · <b>滾輪</b> 縮放<br>
+      <b>點選</b> 選取 · <b>Shift+點</b> 加選 · <b>Ctrl+點</b> 切換 · <b>Shift+拖曳</b> 框選 · <b>Ctrl+拖曳</b> 框選取消<br>
+      <b>拖曳已選的點</b> 移動整個選取（對齊格線）<br>
+      <kbd>X</kbd><kbd>Y</kbd><kbd>Z</kbd> 鎖定軸向（再按一次 = 自由）· 方向鍵在畫面平面微調，<kbd>PgUp</kbd>/<kbd>PgDn</kbd> 前後<br>
+      <kbd>1</kbd> 前視 <kbd>3</kbd> 側視 <kbd>7</kbd> 上視 <kbd>5</kbd> 3D · <kbd>O</kbd> 正投影 · <kbd>F</kbd> 對準選取 · <kbd>Tab</kbd> 點／面<br>
+      <kbd>A</kbd> 全選 · <kbd>Esc</kbd> 取消選取 · <kbd>Del</kbd> 刪除面 · <kbd>Ctrl+Z</kbd>/<kbd>Ctrl+Y</kbd> 復原／重做 · <kbd>Ctrl+S</kbd> 存檔</div></div></details></div>
   </div>
 </div>
 <div id="status"><span id="stFile">No file</span><span id="stCounts"></span><span id="stMod"></span></div>
@@ -126,7 +136,7 @@ kbd{background:#2c3440;border:1px solid var(--line);border-radius:4px;padding:0 
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-const S = window.SHCore, $ = id => document.getElementById(id);
+const S = window.SHCore, $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
 const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
 
 // ---------- state ----------
@@ -324,7 +334,7 @@ function loadRef(r, file){
     if (r.mesh){ refGroup.remove(r.mesh); r.mesh.geometry.dispose(); r.mesh.material.map?.dispose(); }
     r.aspect = tex.image.height / tex.image.width;
     r.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
-    r.mesh.renderOrder = -1; refGroup.add(r.mesh); updateRef(r); msg(`${r.label} reference: ${file.name}`);
+    r.mesh.renderOrder = -1; refGroup.add(r.mesh); updateRef(r); msg(L(`${r.label} reference: ${file.name}`, `${FAI18N.t(r.label)}參考圖：${file.name}`));
   });
 }
 function updateRef(r){
@@ -435,7 +445,7 @@ function moveSelectionBy(dw){
 }
 function dirty(){
   $("undo").disabled = !undoS.length; $("redo").disabled = !redoS.length;
-  const n = undoS.length; $("stMod").innerHTML = n ? `<b style="color:var(--accent)">● ${n} edit${n > 1 ? "s" : ""} not saved</b>` : "";
+  const n = undoS.length; $("stMod").innerHTML = n ? `<b style="color:var(--accent)">● ${L(`${n} edit${n > 1 ? "s" : ""} not saved`, `${n} 項修改未存檔`)}</b>` : "";
 }
 
 // ---------- mouse ----------
@@ -513,38 +523,39 @@ let liveT = 0; function liveUpdate(){ const t = performance.now(); if (t - liveT
 const hex = (x, n = 4) => "0x" + x.toString(16).toUpperCase().padStart(n, "0");
 function updateInfo(){
   $("vertEdit").style.display = mode === "vert" ? "" : "none"; $("faceEdit").style.display = mode === "face" ? "" : "none";
-  if (!M || !D){ $("selInfo").textContent = "Nothing selected"; return; }
-  const counts = `LOD ${D.lod}: ${D.faces.length} faces, ${D.verts.size} points`;
+  if (!M || !D){ $("selInfo").textContent = L("Nothing selected", "未選取"); return; }
+  const counts = L(`LOD ${D.lod}: ${D.faces.length} faces, ${D.verts.size} points`, `LOD ${D.lod}：${D.faces.length} 面，${D.verts.size} 點`);
   $("stCounts").textContent = counts;
   if (mode === "vert"){
     const ks = [...sel].filter(k => D.verts.has(k));
-    if (!ks.length){ $("selInfo").textContent = "Nothing selected. Click a point (Shift+drag for a box)."; for (const i of ["vx", "vy", "vz"]) $(i).value = ""; return; }
+    if (!ks.length){ $("selInfo").textContent = L("Nothing selected. Click a point (Shift+drag for a box).", "未選取。點一個點（Shift+拖曳可框選）。"); for (const i of ["vx", "vy", "vz"]) $(i).value = ""; return; }
     if (ks.length === 1){
       const v = D.verts.get(ks[0]), vert = M.verts[v.vid], b = M.bufs[vert.buf], f6 = M.f6.find(r => r.vid === v.vid);
       const w = v.w.map(x => Math.round(x * 100) / 100);
-      $("selInfo").textContent = `Point  x ${w[0]}  y ${w[1]}  z ${w[2]}\nStored ${vert.p.join(", ")}${v.inst || !isIdentity(b.base) ? "  (part frame)" : ""}\nGroup #${b.id} at CODE ${hex(b.o)}: ${b.n} pts, slot ${b.slot}..${b.slot + b.n - 1}${b.hooked ? ", added block" : ""}\nSlot ${b.slot + vert.local} (index ${vert.local} in group)${f6 ? `\nF6 normal ${[...M.c.subarray(f6.o + 4, f6.o + 7)].map(x => x > 127 ? x - 256 : x).join(", ")}` : ""}`;
+      $("selInfo").textContent = L(`Point  x ${w[0]}  y ${w[1]}  z ${w[2]}\nStored ${vert.p.join(", ")}${v.inst || !isIdentity(b.base) ? "  (part frame)" : ""}\nGroup #${b.id} at CODE ${hex(b.o)}: ${b.n} pts, slot ${b.slot}..${b.slot + b.n - 1}${b.hooked ? ", added block" : ""}\nSlot ${b.slot + vert.local} (index ${vert.local} in group)`, `點  x ${w[0]}  y ${w[1]}  z ${w[2]}\n檔案內 ${vert.p.join(", ")}${v.inst || !isIdentity(b.base) ? "（零件座標）" : ""}\n頂點組 #${b.id}，CODE ${hex(b.o)}：${b.n} 點，slot ${b.slot}..${b.slot + b.n - 1}${b.hooked ? "，附加區塊" : ""}\nSlot ${b.slot + vert.local}（組內第 ${vert.local} 點）`) + `${f6 ? `\n${L("F6 normal", "F6 法向量")} ${[...M.c.subarray(f6.o + 4, f6.o + 7)].map(x => x > 127 ? x - 256 : x).join(", ")}` : ""}`;
       [$("vx").value, $("vy").value, $("vz").value] = v.w.map(x => Math.round(x));
     } else {
       const ws = ks.map(k => D.verts.get(k).w), lo = [0, 1, 2].map(i => Math.min(...ws.map(w => w[i]))), hi = [0, 1, 2].map(i => Math.max(...ws.map(w => w[i])));
-      $("selInfo").textContent = `${ks.length} points\nx ${Math.round(lo[0])}..${Math.round(hi[0])}  y ${Math.round(lo[1])}..${Math.round(hi[1])}  z ${Math.round(lo[2])}..${Math.round(hi[2])}\nType a value in one box and Apply to line them all up.`;
+      $("selInfo").textContent = `${ks.length} ${L("points", "點")}\nx ${Math.round(lo[0])}..${Math.round(hi[0])}  y ${Math.round(lo[1])}..${Math.round(hi[1])}  z ${Math.round(lo[2])}..${Math.round(hi[2])}\n` + L("Type a value in one box and Apply to line them all up.", "在一格輸入數值再按「套用」，可把它們排成一線。");
       for (const i of ["vx", "vy", "vz"]) $(i).value = "";
     }
   } else {
     const fs = [...sel].map(id => M.faces[id]).filter(Boolean);
-    if (!fs.length){ $("selInfo").textContent = "Nothing selected. Click a face."; $("fcol").value = ""; return; }
+    if (!fs.length){ $("selInfo").textContent = L("Nothing selected. Click a face.", "未選取。點一個面。"); $("fcol").value = ""; return; }
     if (fs.length === 1){
       const f = fs[0], col = f.newCol ?? f.col;
-      $("selInfo").textContent = `Face at CODE ${hex(f.o)}${f.hooked ? " (added block)" : ""}\nFlags ${hex(f.fl)}  colour ${hex(col, 2)}  ${f.n} points${f.wide ? " (16-bit indices)" : ""}\nSlots ${f.idx.join(" ")}\nUV ${f.uv ? f.uv.map(q => q.join(",")).join("  ") : "none"}${f.flip ? "\nFlipped (saved on Save)" : ""}`;
+      $("selInfo").textContent = L(`Face at CODE ${hex(f.o)}${f.hooked ? " (added block)" : ""}\nFlags ${hex(f.fl)}  colour ${hex(col, 2)}  ${f.n} points${f.wide ? " (16-bit indices)" : ""}\nSlots ${f.idx.join(" ")}\nUV ${f.uv ? f.uv.map(q => q.join(",")).join("  ") : "none"}${f.flip ? "\nFlipped (saved on Save)" : ""}`, `面，CODE ${hex(f.o)}${f.hooked ? "（附加區塊）" : ""}\n旗標 ${hex(f.fl)}  色號 ${hex(col, 2)}  ${f.n} 點${f.wide ? "（16 位元索引）" : ""}\nSlot ${f.idx.join(" ")}\nUV ${f.uv ? f.uv.map(q => q.join(",")).join("  ") : "無"}${f.flip ? "\n已翻面（存檔時寫入）" : ""}`);
       $("fcol").value = col; swatch(col);
-    } else { $("selInfo").textContent = `${fs.length} faces`; $("fcol").value = ""; }
+    } else { $("selInfo").textContent = `${fs.length} ${L("faces", "個面")}`; $("fcol").value = ""; }
   }
 }
 function swatch(i){ const p = gamePal || PAL_GRAY; $("fsw").style.background = `rgb(${p[3*i]},${p[3*i+1]},${p[3*i+2]})`; }
 function modelInfo(){
   if (!M){ $("modelInfo").textContent = ""; return; }
-  const lodsTxt = M.lods.map(l => { const f = M.faces.filter(x => x.lod === l.id); return `LOD ${l.id}: ${f.length} faces (${f.filter(x => x.hooked).length} in added blocks)`; }).join("\n");
+  const lodsTxt = M.lods.map(l => { const f = M.faces.filter(x => x.lod === l.id); return L(`LOD ${l.id}: ${f.length} faces (${f.filter(x => x.hooked).length} in added blocks)`, `LOD ${l.id}：${f.length} 面（附加區塊 ${f.filter(x => x.hooked).length}）`); }).join("\n");
   const cs = M.pe.code, nx = M.pe.secs.filter(s => s.va > cs.va).map(s => s.va), room = nx.length ? Math.min(...nx) - cs.va - cs.vs : 0;
-  $("modelInfo").textContent = `${cur.name}  ${M.u8.length} bytes, scale 1 unit = ${M.scale} ft\n${M.bufs.length} vertex groups, ${M.verts.length} stored points, ${M.f6.length} F6 normals\n${lodsTxt}\nAdded-block hooks: ${M.hooks.length}${M.insts.length > 1 ? `, ${M.insts.length - 1} C4 placements` : ""}\nCODE ${hex(cs.vs)} bytes, ${room} free before next section\nTexture: ${M.texNames.join(", ") || "none"}${cur.pic ? ` (${cur.pic.w}x${cur.pic.h})` : " (not loaded)"}`;
+  $("modelInfo").textContent = L(`${cur.name}  ${M.u8.length} bytes, scale 1 unit = ${M.scale} ft\n${M.bufs.length} vertex groups, ${M.verts.length} stored points, ${M.f6.length} F6 normals\n${lodsTxt}\nAdded-block hooks: ${M.hooks.length}${M.insts.length > 1 ? `, ${M.insts.length - 1} C4 placements` : ""}\nCODE ${hex(cs.vs)} bytes, ${room} free before next section\nTexture: ${M.texNames.join(", ") || "none"}${cur.pic ? ` (${cur.pic.w}x${cur.pic.h})` : " (not loaded)"}`,
+    `${cur.name}  ${M.u8.length} 位元組，比例 1 單位 = ${M.scale} 呎\n${M.bufs.length} 個頂點組，${M.verts.length} 個點，${M.f6.length} 個 F6 法向量\n${lodsTxt}\n附加區塊掛勾：${M.hooks.length}${M.insts.length > 1 ? `，C4 放置 ${M.insts.length - 1} 次` : ""}\nCODE ${hex(cs.vs)} 位元組，下一個區段前還有 ${room} 空間\n貼圖：${M.texNames.join(", ") || "無"}${cur.pic ? `（${cur.pic.w}x${cur.pic.h}）` : "（未載入）"}`);
 }
 
 // ---------- loading ----------
@@ -563,8 +574,8 @@ async function loadPal(local){
 }
 // files: { sh: {name, u8, handle?}, pic?: u8, picName?, pal?: u8 }
 async function openModel(name, u8, opts = {}){
-  let m; try { m = S.parseModel(u8); } catch(e){ msg(`Could not read ${name}: ${e.message}`, true); return; }
-  if (!m.faces.length){ msg(`${name}: no faces found (effects such as smoke or stars have none)`, true); return; }
+  let m; try { m = S.parseModel(u8); } catch(e){ msg(L(`Could not read ${name}: ${e.message}`, `讀不了 ${name}：${e.message}`), true); return; }
+  if (!m.faces.length){ msg(L(`${name}: no faces found (effects such as smoke or stars have none)`, `${name}：找不到面（煙、星星之類的特效本來就沒有）`), true); return; }
   M = m; cur = { name, handle: opts.handle || null, fromDir: !!opts.fromDir, pic: null };
   if (opts.pal) await loadPal(opts.pal);
   // texture: given file, then the opened folder, then the repository
@@ -578,10 +589,10 @@ async function openModel(name, u8, opts = {}){
   $("lod").innerHTML = M.lods.map(l => `<option value="${l.id}">${l.id === 0 ? "0 (main)" : l.id}</option>`).join("");
   M.place({ gear: $("gear").checked });
   $("save").disabled = $("saveAs").disabled = false;
-  $("stFile").innerHTML = `<b>${name}</b>${cur.handle ? " (folder file: Save overwrites it)" : ""}`;
+  $("stFile").innerHTML = `<b>${name}</b>${cur.handle ? L(" (folder file: Save overwrites it)", "（資料夾裡的檔案：存檔會直接覆寫）") : ""}`;
   document.title = name + " · SH Editor";
   rebuild(false); setView("persp"); modelInfo();
-  msg(cur.pic ? "" : `Texture ${picName} not found: showing face colours`);
+  msg(cur.pic ? "" : L(`Texture ${picName} not found: showing face colours`, `找不到貼圖 ${picName}：只顯示面的色號`));
 }
 async function readFromDir(name){
   if (!dirHandle) return null;
@@ -589,16 +600,16 @@ async function readFromDir(name){
   return null;
 }
 $("openDir").onclick = async () => {
-  if (!window.showDirectoryPicker){ msg("This browser cannot open folders. Use Chrome or Edge, or Open files.", true); return; }
+  if (!window.showDirectoryPicker){ msg(L("This browser cannot open folders. Use Chrome or Edge, or Open files.", "這個瀏覽器不能開資料夾，請用 Chrome 或 Edge，或改用「開啟檔案」。"), true); return; }
   try { dirHandle = await showDirectoryPicker({ mode: "readwrite", id: "sh-editor" }); } catch(e){ return; }
   const names = []; for await (const [n, h] of dirHandle.entries()) if (h.kind === "file" && /\.SH$/i.test(n)) names.push(n);
   names.sort(); const pal = await readFromDir("PALETTE.PAL"); if (pal) await loadPal(pal); else await loadPal();
-  $("dirList").innerHTML = `<option value="">${dirHandle.name}: pick an SH (${names.length})</option>` + names.map(n => `<option>${n}</option>`).join("");
-  $("dirList").style.display = ""; msg(`Folder ${dirHandle.name}: ${names.length} SH files`);
+  $("dirList").innerHTML = `<option value="">${dirHandle.name}: ${L("pick an SH", "選一個 SH")} (${names.length})</option>` + names.map(n => `<option>${n}</option>`).join("");
+  $("dirList").style.display = ""; msg(L(`Folder ${dirHandle.name}: ${names.length} SH files`, `資料夾 ${dirHandle.name}：${names.length} 個 SH`));
 };
 $("dirList").onchange = async () => {
   const n = $("dirList").value; if (!n || !dirHandle) return;
-  if (undoS.length && !confirm("Discard unsaved edits?")){ $("dirList").value = cur?.name || ""; return; }
+  if (undoS.length && !confirm(L("Discard unsaved edits?", "放棄還沒存檔的修改？"))){ $("dirList").value = cur?.name || ""; return; }
   const h = await dirHandle.getFileHandle(n); await openModel(n, new Uint8Array(await (await h.getFile()).arrayBuffer()), { handle: h, fromDir: true });
 };
 async function openFileList(files){
@@ -607,17 +618,17 @@ async function openFileList(files){
     if (n.endsWith(".SH")) sh = f; else if (n.endsWith(".PIC")) pic = f; else if (n.endsWith(".PAL") || n.endsWith(".LIB")) pal = f; else if (/^image\//.test(f.type)) img = f; }
   if (img && !sh){ const r = REFS.find(x => !x.mesh) || REFS[0]; loadRef(r, img); return; }
   if (!sh){ if (pic && M){ cur.pic = S.parsePIC(new Uint8Array(await pic.arrayBuffer())); setPic(cur.pic); modelInfo(); rebuild(true); } if (pal){ await loadPal(new Uint8Array(await pal.arrayBuffer())); requestDraw(); } return; }
-  if (undoS.length && !confirm("Discard unsaved edits?")) return;
+  if (undoS.length && !confirm(L("Discard unsaved edits?", "放棄還沒存檔的修改？"))) return;
   dirHandle = null; $("dirList").style.display = "none";
   await openModel(sh.name, new Uint8Array(await sh.arrayBuffer()), { pic: pic ? new Uint8Array(await pic.arrayBuffer()) : null, pal: pal ? new Uint8Array(await pal.arrayBuffer()) : null });
 }
 $("openFiles").onchange = e => { openFileList([...e.target.files]); e.target.value = ""; };
 async function loadRepo(name){
   name = name.trim().toUpperCase().replace(/\.SH$/, ""); if (!name) return;
-  if (undoS.length && !confirm("Discard unsaved edits?")) return;
-  msg("Loading " + name + "…");
+  if (undoS.length && !confirm(L("Discard unsaved edits?", "放棄還沒存檔的修改？"))) return;
+  msg(L("Loading ", "載入 ") + name + "…");
   const u8 = await fetchAny([(name.includes("/") ? "" : "SH/") + name + ".SH"]);
-  if (!u8){ msg(`${name}.SH is not in the repository`, true); return; }
+  if (!u8){ msg(L(`${name}.SH is not in the repository`, `repo 裡沒有 ${name}.SH`), true); return; }
   dirHandle = null; $("dirList").style.display = "none";
   await openModel(name.split("/").pop() + ".SH", u8);
 }
@@ -633,20 +644,21 @@ view.addEventListener("drop", e => { e.preventDefault(); $("drop").style.display
 async function save(asNew){
   if (!M) return;
   const { bytes, report } = S.buildFile(M, { renormal: $("optNorm").checked, f6: $("optF6").checked });
-  const sum = `${report.verts} points moved, ${report.faces} face normals and ${report.f6} F6 normals recomputed${report.deleted ? `, ${report.deleted} faces removed` : ""}${report.flipped ? `, ${report.flipped} flipped` : ""}${report.recoloured ? `, ${report.recoloured} recoloured` : ""}${report.skipped ? `, ${report.skipped} faces skipped (degenerate)` : ""}`;
+  const sum = L(`${report.verts} points moved, ${report.faces} face normals and ${report.f6} F6 normals recomputed${report.deleted ? `, ${report.deleted} faces removed` : ""}${report.flipped ? `, ${report.flipped} flipped` : ""}${report.recoloured ? `, ${report.recoloured} recoloured` : ""}${report.skipped ? `, ${report.skipped} faces skipped (degenerate)` : ""}`,
+    `移動 ${report.verts} 點，重算 ${report.faces} 個面法向量、${report.f6} 個 F6 法向量${report.deleted ? `，刪除 ${report.deleted} 面` : ""}${report.flipped ? `，翻面 ${report.flipped}` : ""}${report.recoloured ? `，改色 ${report.recoloured}` : ""}${report.skipped ? `，略過 ${report.skipped} 面（退化）` : ""}`);
   try {
     if (!asNew && cur.handle){
       const w = await cur.handle.createWritable(); await w.write(bytes); await w.close();
-      msg(`Saved ${cur.name}: ${sum}`);
+      msg(L(`Saved ${cur.name}: ${sum}`, `已存檔 ${cur.name}：${sum}`));
     } else if (window.showSaveFilePicker){
       const h = await showSaveFilePicker({ suggestedName: cur.name, id: "sh-editor-save", types: [{ description: "FA shape", accept: { "application/octet-stream": [".SH"] } }] });
       const w = await h.createWritable(); await w.write(bytes); await w.close(); cur.handle = h; cur.name = h.name;
-      $("stFile").innerHTML = `<b>${h.name}</b> (Save overwrites it)`; msg(`Saved ${h.name}: ${sum}`);
+      $("stFile").innerHTML = `<b>${h.name}</b>${L(" (Save overwrites it)", "（存檔會覆寫它）")}`; msg(L(`Saved ${h.name}: ${sum}`, `已存檔 ${h.name}：${sum}`));
     } else {
       const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([bytes])); a.download = cur.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-      msg(`Downloaded ${cur.name}: ${sum}`);
+      msg(L(`Downloaded ${cur.name}: ${sum}`, `已下載 ${cur.name}：${sum}`));
     }
-  } catch(e){ if (e.name !== "AbortError") msg("Save failed: " + e.message, true); return; }
+  } catch(e){ if (e.name !== "AbortError") msg(L("Save failed: ", "存檔失敗：") + e.message, true); return; }
   // the saved bytes become the new baseline (normals included), edits can continue
   const keep = { lod: $("lod").value }; const name = cur.name, handle = cur.handle, pic = cur.pic;
   M = S.parseModel(bytes); cur = { name, handle, pic, fromDir: !!handle }; M.place({ gear: $("gear").checked });
@@ -664,7 +676,7 @@ group("axisGrp", "a", a => { axis = a; hud(); });
 function setMode(m){ mode = m; sel.clear(); for (const x of $("modeGrp").querySelectorAll("button")) x.classList.toggle("on", x.dataset.m === m); rebuild(true); hud(); }
 function setAxis(a){ axis = axis === a ? "" : a; for (const x of $("axisGrp").querySelectorAll("button")) x.classList.toggle("on", x.dataset.a === axis); hud(); }
 setAxis("");
-function hud(){ $("hud").textContent = `${mode === "vert" ? "Vertices" : "Faces"}${axis ? " · axis " + axis.toUpperCase() : ""} · grid ${$("grid").value}`; }
+function hud(){ $("hud").textContent = `${mode === "vert" ? L("Vertices", "點") : L("Faces", "面")}${axis ? L(" · axis ", " · 軸 ") + axis.toUpperCase() : ""} · ${L("grid", "格線")} ${$("grid").value}`; }
 hud();
 $("lod").onchange = () => { sel.clear(); rebuild(false); };
 for (const id of ["edges", "points", "xray"]) $(id).onchange = () => rebuild(true);
@@ -722,6 +734,45 @@ addEventListener("beforeunload", e => { if (undoS.length){ e.preventDefault(); e
 
 // for scripting and tests from the browser console
 window.shEditor = { get model(){ return M; }, screenOf, get selection(){ return [...sel]; }, get undoCount(){ return undoS.length; }, get display(){ return D; }, select(keys){ sel = new Set(keys); rebuild(true); }, moveBy: moveSelectionBy, setView, setMode, build: o => S.buildFile(M, o) };
+
+// ---------- language ----------
+FAI18N.register({
+  "SH Editor": "SH 編輯器", "Open folder…": "開啟資料夾…", "Open files…": "開啟檔案…", "Load from repo": "從 repo 載入", "Save": "存檔", "Save as…": "另存新檔…",
+  "Pick a folder with .SH / .PIC / PALETTE.PAL; Save then writes straight back into it (Chrome / Edge)": "選一個放 .SH / .PIC / PALETTE.PAL 的資料夾；存檔會直接寫回裡面（Chrome / Edge）",
+  "SH files in the opened folder": "開啟的資料夾裡的 SH 檔",
+  "Open .SH (you can also select its .PIC and a palette at the same time)": "開啟 .SH（可以同時選它的 .PIC 和調色盤）",
+  "Load an SH from the FAoutput repository (SH/ folder), e.g. F14, F18G": "從 FAoutput repo（SH/ 資料夾）載入 SH，例如 F14、F18G",
+  "Write the edited SH (Ctrl+S). Opened from a folder: overwrites that file. Otherwise: download.": "寫出編輯後的 SH（Ctrl+S）。從資料夾開的會直接覆寫，否則下載。",
+  "Save under a new name / download a copy": "存成新檔名／下載一份",
+  "Level of detail": "細節層級", "Textured": "貼圖", "Flat": "單色", "Wireframe": "線框", "Edges": "邊線", "Points": "點", "All parts": "所有零件", "Gear down": "起落架放下",
+  "Show the faces of sub-parts that are not drawn in the current state (e.g. gear-up variants)": "也顯示目前狀態下不會畫的零件（例如收起的起落架）",
+  "Front": "前視", "Side": "側視", "Top": "上視", "Front (1)": "前視（1）", "Right side (3)": "右側視（3）", "Top (7)": "上視（7）", "Perspective (5)": "透視（5）",
+  "Ortho": "正投影", "Orthographic camera (O)": "正投影相機（O）", "Vertices": "點", "Faces": "面",
+  "Select and move vertices (Tab toggles)": "選取和移動點（Tab 切換）", "Select faces": "選取面", "Grid": "格線",
+  "Moves and nudges land on this grid (vertex units). FA stores whole numbers, so 1 is the finest.": "移動會對齊這個格線（頂點單位）。FA 只存整數，所以最小是 1。",
+  "Lock dragging to one axis (X / Y / Z keys)": "拖曳時鎖定一個軸（X / Y / Z 鍵）", "Free": "自由",
+  "Mirror X": "X 鏡像", "Also move the mirror-image vertex (x → -x)": "同時移動鏡像的點（x → -x）",
+  "Weld": "黏合", "Move vertices that sit on the same spot together (FA often stores a point twice, in different groups)": "同一個位置的點一起移動（FA 常把同一點存在不同頂點組）",
+  "X-ray": "透視選取", "Select through the model (also hidden points)": "可以選到模型後面被擋住的點", "Undo": "復原", "Redo": "重做",
+  "Drop .SH / .PIC / .PAL or a reference image": "把 .SH / .PIC / .PAL 或參考圖拖進來",
+  "Selection": "選取", "Nothing selected": "未選取", "Set": "設定", "Apply": "套用", "Move": "移動", "Colour": "色號",
+  "x (right)": "x（右）", "y (forward)": "y（前）", "z (up)": "z（上）", "Set the coordinates typed here (empty boxes are left alone)": "設定輸入的座標（空白的格子不變）",
+  "x = right, y = forward, z = up (vertex units). World coordinates; parts are converted to their own frame.": "x = 右、y = 前、z = 上（頂點單位）。這裡是世界座標，零件會自動換算到它自己的座標。",
+  "Flip": "翻面", "Delete": "刪除", "Select its vertices": "選它的點",
+  "Reverse the vertex order (turns the face around)": "把點的順序倒過來（面轉向）", "Remove the face (its bytes become a jump; Undo restores it)": "刪除這個面（它的位元組改成跳過；可以復原）",
+  "Select the vertices of the selected faces": "選取所選面的點",
+  "Save options": "存檔選項", "Recompute normals of edited faces": "重算修改過的面的法向量", "Recompute F6 vertex normals": "重算 F6 點法向量",
+  "Faces whose vertices moved get a new FC normal and plane point when you save": "存檔時，點被移動過的面重算 FC 法向量和平面上的點",
+  "Moved vertices get a new F6 vertex normal (Gouraud shading in FA) from the faces around them": "移動過的點依周圍的面重算 F6 法向量（FA 的平滑光影）",
+  "Saving only rewrites bytes in place, so the file layout, jumps and relocations stay exactly as they were. New vertex groups (F-14N nose, EA-18G stores, CODE grown by 0x1000) load and save normally.": "存檔只在原位置改位元組，檔案結構、跳躍和重定位都完全不變。新的頂點組（F-14N 機鼻、EA-18G 外掛、CODE 長大 0x1000）都能正常讀寫。",
+  "Reference images": "參考圖", "Width is in vertex units. Images show behind the model in the matching Ortho view (or always, if ticked).": "寬度是頂點單位。參考圖在對應的正投影視角下顯示在模型後面（勾「一直顯示」就每個視角都顯示）。",
+  "Image…": "圖片…", "Show": "顯示", "Always": "一直顯示", "Show in every view, not only the matching Ortho view": "每個視角都顯示，不只對應的正投影視角",
+  "Width": "寬度", "Opacity": "透明度", "Offset": "位移", "Mirror": "左右翻", "horizontal": "水平", "vertical": "垂直",
+  "Model": "模型", "Mouse and keys": "滑鼠和按鍵", "No file": "沒有檔案"
+});
+$("langSlot").append(FAI18N.picker());
+FAI18N.apply();
+FAI18N.onChange(() => { updateInfo(); modelInfo(); hud(); dirty(); if (cur) $("stFile").innerHTML = `<b>${cur.name}</b>${cur.handle ? L(" (folder file: Save overwrites it)", "（資料夾裡的檔案：存檔會直接覆寫）") : ""}`; });
 
 // ---------- start ----------
 (async () => {
