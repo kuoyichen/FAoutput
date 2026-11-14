@@ -552,7 +552,8 @@ function start(opt){
   cineHook = {
     pre(){ ctx.save(); ctx.translate(W/2, H/2); ctx.rotate(-R.roll * Math.PI / 180); ctx.translate(-W/2, -H/2); drawSky(R.camP); },
     post(){ ctx.restore(); overlays(R); },
-    get hide(){ return st.hide; }, get ribbon(){ return !!st.ribbon; }
+    get hide(){ return st.hide; }, get ribbon(){ return !!st.ribbon; },
+    ribbonW(tr){ const pm = modelFor(tr.name); return Math.max(8, (pm ? pm.half : 25) * 0.55); }   // close shots: ribbon about as wide as the wingspan
   };
   enter(opt);
   function frame(){
