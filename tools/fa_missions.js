@@ -1,0 +1,169 @@
+// fa_missions.js: online mission storage for fa_replay.html (Vercel deploy only).
+// Upload a flight_*.bin to Vercel Blob, browse what everyone uploaded, and share ?mission=<id> links
+// that open straight into the replay. The /api routes only exist on Vercel; on GitHub Pages (or a
+// local copy) the panel points to the Vercel version instead.
+(function () {
+  "use strict";
+  const VERCEL = "https://fashion-hawke.vercel.app";
+  const API_LIST = "/api/missions", API_UPLOAD = "/api/mission-upload";
+  const MAX_BYTES = 30 * 1024 * 1024, MAGIC = /^(FAFLT[123]|FAREC[12])$/;
+  const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const mb = n => (n / 1048576).toFixed(1) + " MB";
+  const onPages = /github\.io$/i.test(location.hostname);
+  const vercelHere = (location.pathname.startsWith("/tools/") ? VERCEL + location.pathname : VERCEL + "/tools/fa_replay.html");
+
+  let api = null;          // null = unknown, true = working, "off" = not here, "unconfigured" = no Blob store yet
+  let missions = [], local = null, current = null, busy = false;   // local = the open file, if it came from disk
+
+  FAI18N.register({ "Online missions": "線上任務", "☁ Online": "☁ 線上", "Close": "關閉" });
+
+  // ---------- panel ----------
+  const box = document.createElement("div");
+  box.id = "mbox"; box.className = "hide";
+  box.innerHTML = `<div class="mpanel" role="dialog" aria-label="Online missions">
+    <div class="mhead"><b>Online missions</b><button id="m_close" title="Close">✕</button></div>
+    <div id="m_body"></div></div>`;
+  document.body.append(box);
+  FAI18N.apply();
+  box.addEventListener("click", e => { if (e.target === box) hide(); });
+  $("m_close").onclick = hide;
+  window.addEventListener("keydown", e => { if (e.key === "Escape" && !box.classList.contains("hide")) hide(); });
+  function show() { box.classList.remove("hide"); render(); refresh(); }
+  function hide() { box.classList.add("hide"); }
+  const btn = $("onlinebtn"); if (btn) btn.onclick = show;
+
+  function render(msg) {
+    const b = $("m_body");
+    if (api === "off") {
+      b.innerHTML = `<p>${L("Online missions need the Vercel version of this page (this copy cannot store files).",
+        "線上任務只能在 Vercel 版的頁面使用（這個版本無法存檔）。")}</p>
+        <p><a class="mlink" href="${esc(vercelHere + location.search)}">${L("Open the Vercel version →", "開啟 Vercel 版 →")}</a></p>`;
+      return;
+    }
+    if (api === "unconfigured") {
+      b.innerHTML = `<p>${L("Online storage is not switched on yet: the site owner still has to create a Blob store in the Vercel project.",
+        "線上儲存尚未啟用：網站管理者還需要在 Vercel 專案裡建立 Blob 儲存空間。")}</p>`;
+      return;
+    }
+    const up = local
+      ? `<button id="m_up" ${busy ? "disabled" : ""}>${L("Upload", "上傳")} ${esc(local.name)} (${mb(local.buf.byteLength)})</button>`
+      : `<span class="mmuted">${L("Open a .bin first, or pick one here:", "先開啟一個 .bin，或在這裡選擇：")}</span>`;
+    const rows = missions.length ? missions.map(m => `<tr class="${current === m.id ? "cur" : ""}">
+        <td class="mn" title="${esc(m.name)}">${esc(m.name)}</td><td>${mb(m.size)}</td>
+        <td>${new Date(m.uploadedAt).toLocaleString(FAI18N.lang === "zh" ? "zh-TW" : "en-GB", { dateStyle: "short", timeStyle: "short" })}</td>
+        <td><button data-play="${esc(m.id)}">▶ ${L("Play", "播放")}</button> <button data-link="${esc(m.id)}" title="${L("Copy a link that opens this mission", "複製可直接開啟這個任務的連結")}">🔗</button></td></tr>`).join("")
+      : `<tr><td colspan="4" class="mmuted">${api === true ? L("No missions uploaded yet.", "還沒有人上傳任務。") : L("Loading…", "載入中…")}</td></tr>`;
+    b.innerHTML = `<div class="mup">${up}
+        <label class="btn sm">${L("Choose .bin…", "選擇 .bin…")}<input id="m_file" type="file" accept=".bin" hidden></label></div>
+      <div class="mmuted msmall">${L("Uploads are public: anyone can see, play and download them. Max 30 MB per file.",
+        "上傳的檔案是公開的：任何人都能看到、播放與下載。每個檔案最大 30 MB。")}</div>
+      <div id="m_msg" class="mmsg">${msg || ""}</div>
+      <div class="mlist"><table><thead><tr><th>${L("File", "檔案")}</th><th>${L("Size", "大小")}</th><th>${L("Uploaded", "上傳時間")}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    if ($("m_up")) $("m_up").onclick = () => uploadBuf(local.buf, local.name);
+    $("m_file").onchange = e => { const f = e.target.files[0]; if (f) f.arrayBuffer().then(buf => uploadBuf(buf, f.name)); };
+    b.querySelectorAll("[data-play]").forEach(x => x.onclick = () => { hide(); openMission(x.dataset.play); });
+    b.querySelectorAll("[data-link]").forEach(x => x.onclick = () => copyLink(x.dataset.link));
+  }
+  const say = (html, cls) => { const m = $("m_msg"); if (m) { m.className = "mmsg " + (cls || ""); m.innerHTML = html; } };
+
+  async function probe() {
+    if (onPages) { api = "off"; return; }
+    try {
+      const r = await fetch(API_LIST, { cache: "no-store" });
+      const j = await r.json().catch(() => null);
+      if (r.status === 503 && j && j.error === "not-configured") { api = "unconfigured"; return; }
+      if (!r.ok || !j || !Array.isArray(j.missions)) { api = "off"; return; }
+      api = true; missions = j.missions;
+    } catch (e) { api = "off"; }
+  }
+  async function refresh() { await probe(); if (!box.classList.contains("hide")) render(); }
+
+  // ---------- upload ----------
+  let blobClient = null;
+  const getClient = () => blobClient || (blobClient = import("./vercel_blob_client.js"));
+  function safeName(name) {
+    let n = String(name || "flight.bin").split(/[\\/]/).pop().replace(/\.bin$/i, "").replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^[._-]+/, "");
+    return (n || "flight").slice(0, 76) + ".bin";
+  }
+  async function uploadBuf(buf, name) {
+    if (busy) return;
+    const u8 = new Uint8Array(buf), magic = String.fromCharCode(...u8.subarray(0, 6));
+    if (!MAGIC.test(magic)) { say(L("That is not an FA flight recording (unknown file header).", "這不是 FA 飛行錄製檔（檔頭不對）。"), "err"); return; }
+    if (buf.byteLength > MAX_BYTES) { say(L(`The file is ${mb(buf.byteLength)}; the limit is 30 MB.`, `檔案有 ${mb(buf.byteLength)}，上限是 30 MB。`), "err"); return; }
+    try { const d = parse(buf); if (!d.frames.length) throw new Error(L("The file has no data", "檔案裡沒有資料")); }
+    catch (e) { say(esc(L("The file could not be read: ", "檔案無法讀取：") + e.message), "err"); return; }
+    const rnd = Array.from(crypto.getRandomValues(new Uint8Array(6)), b => "0123456789abcdefghijklmnopqrstuvwxyz"[b % 36]).join("");
+    const pathname = `missions/${Date.now().toString(36)}-${rnd}_${safeName(name)}`;
+    busy = true; render(); say(L("Uploading… 0%", "上傳中… 0%"));
+    try {
+      const { upload } = await getClient();
+      const blob = await upload(pathname, new Blob([buf], { type: "application/octet-stream" }), {
+        access: "public", handleUploadUrl: API_UPLOAD, contentType: "application/octet-stream",
+        clientPayload: JSON.stringify({ magic, size: buf.byteLength }),
+        onUploadProgress: p => busy && say(L(`Uploading… ${Math.round(p.percentage)}%`, `上傳中… ${Math.round(p.percentage)}%`)),
+      });
+      busy = false; current = blob.pathname; local = null;
+      missions.unshift({ id: blob.pathname, name: safeName(name), size: buf.byteLength, uploadedAt: new Date().toISOString(), url: blob.url });
+      setParam(blob.pathname);
+      render(); say(L("Uploaded. Share link: ", "上傳完成，分享連結：") + `<a class="mlink" href="${esc(shareUrl(blob.pathname))}">${esc(shareUrl(blob.pathname))}</a>`, "ok");
+      copyLink(blob.pathname, true);
+    } catch (e) {
+      busy = false; render();
+      say(esc(L("Upload failed: ", "上傳失敗：") + (e && e.message || e)), "err");
+    }
+  }
+
+  // ---------- open / share ----------
+  const shareUrl = id => `${location.origin}${location.pathname}?mission=${encodeURIComponent(id)}`;
+  function setParam(id) { try { history.replaceState(null, "", id ? `?mission=${encodeURIComponent(id)}` : location.pathname); } catch (e) {} }
+  async function copyLink(id, quiet) {
+    const u = shareUrl(id);
+    try { await navigator.clipboard.writeText(u); if (!quiet) say(L("Link copied: ", "連結已複製：") + `<a class="mlink" href="${esc(u)}">${esc(u)}</a>`, "ok"); }
+    catch (e) { if (!quiet) say(L("Copy this link: ", "複製這個連結：") + `<a class="mlink" href="${esc(u)}">${esc(u)}</a>`, "ok"); }
+  }
+  async function openMission(id) {
+    const drop = $("drop"), status = t => { drop.classList.remove("hide"); drop.querySelector("b").textContent = t; };
+    try {
+      let m = missions.find(x => x.id === id);
+      if (!m) {
+        status(L("Finding the shared mission…", "正在尋找分享的任務…"));
+        const r = await fetch(`${API_LIST}?id=${encodeURIComponent(id)}`);
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error === "not-found" ? L("this mission is no longer stored", "這個任務已經不在了") : (j.error || r.status));
+        m = j.mission;
+      }
+      const r = await fetch(m.url);
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const total = +r.headers.get("content-length") || m.size || 0, rd = r.body && r.body.getReader();
+      let buf;
+      if (rd) {
+        const parts = []; let got = 0;
+        for (;;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); got += value.length;
+          status(L(`Downloading ${m.name}… ${total ? Math.round(got * 100 / total) + "%" : mb(got)}`, `下載 ${m.name} 中… ${total ? Math.round(got * 100 / total) + "%" : mb(got)}`)); }
+        const all = new Uint8Array(got); let o = 0; for (const p of parts) { all.set(p, o); o += p.length; } buf = all.buffer;
+      } else buf = await r.arrayBuffer();
+      loadingOnline = true;
+      try { load(buf, m.name); } finally { loadingOnline = false; }
+      current = id; setParam(id);
+    } catch (e) {
+      status(L("Could not open the shared mission: ", "無法開啟分享的任務：") + (e && e.message || e));
+    }
+  }
+
+  // fa_replay.html calls this after every successful load
+  let loadingOnline = false;
+  window.onMissionLoaded = (buf, name) => {
+    if (loadingOnline) { local = null; return; }
+    local = { buf, name }; current = null; setParam(null);
+  };
+
+  FAI18N.onChange(() => { if (!box.classList.contains("hide")) render(); });
+
+  // ---------- shared link on startup ----------
+  const want = new URLSearchParams(location.search).get("mission");
+  if (want) {
+    if (onPages) location.replace(vercelHere + location.search);
+    else probe().then(() => { if (api === true) openMission(want); else { render(); show(); } });
+  } else probe();
+})();
