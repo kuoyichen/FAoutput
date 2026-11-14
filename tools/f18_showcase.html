@@ -48,7 +48,7 @@ a.dl:hover{filter:brightness(1.1)}
 <body>
 <header>
   <h1>F/A-18 Hornet / Super Hornet / Blue Angels / EA-18G Growler</h1>
-  <a class="dl" href="https://drive.google.com/drive/folders/1oyXLwGo3wNmMIjN1IDml8Z5ywTf0U-37" target="_blank" rel="noopener">⬇ Download all models (Google Drive)</a>
+  <a class="dl" id="dlall" href="#" title="All F/A-18 SH models and PIC textures from GitHub, in one zip">⬇ Download all models (.zip)</a>
   <div id="variants"></div>
   <label class="ck"><input type="checkbox" id="spin" checked> Auto-rotate</label>
   <label class="ck"><input type="checkbox" id="edges"> Wireframe</label>
@@ -617,11 +617,47 @@ const VAR = [
 function showSpec(v){
   $("spec").innerHTML = `<h2>${v.name}  <span style="color:var(--muted);font-weight:normal;font-size:12px">${v.sub} · ${v.sh}.SH</span></h2>
     <table><tr><td>Length</td><td>${v.len}</td></tr><tr><td>Span (incl. wingtip missiles)</td><td>${v.span}</td></tr><tr><td>Height</td><td>${v.h}</td></tr></table><p>${v.note}</p>
-    <p>Download: <a href="https://drive.google.com/drive/folders/1oyXLwGo3wNmMIjN1IDml8Z5ywTf0U-37" target="_blank" rel="noopener">all models (Google Drive)</a> · <a href="../SH/${v.sh}.SH" download>${v.sh}.SH</a> · <a href="../PIC/_${v.sh}.PIC" download>_${v.sh}.PIC</a></p>`;
+    <p>Download: <a href="../SH/${v.sh}.SH" download>${v.sh}.SH</a> · <a href="../PIC/_${v.sh}.PIC" download>_${v.sh}.PIC</a></p>`;
   document.querySelectorAll("#variants button").forEach(b => b.classList.toggle("on", b.dataset.sh === v.sh));
 }
 VAR.forEach(v => { const b = document.createElement("button"); b.dataset.sh = v.sh; b.innerHTML = `<b>${v.name}</b><span>${v.sub}</span>`;
   b.onclick = () => { showSpec(v); setSel(-1); load(v.sh); }; $("variants").appendChild(b); });
+// "Download all models": fetch every variant's SH and PIC (this site's ../SH and ../PIC, else GitHub) and save them as one zip
+// (stored, uncompressed: the minimal zip format, so no library is needed)
+const GH_RAW = "https://raw.githubusercontent.com/kuoyichen/FAoutput/main/";
+async function fetchModelFile(path){
+  for (const u of ["../" + path, GH_RAW + path]){ try { const r = await fetch(u); if (r.ok) return new Uint8Array(await r.arrayBuffer()); } catch(e){} }
+  throw new Error("could not download " + path);
+}
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++){ let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = u8 => { let c = 0xFFFFFFFF; for (const b of u8) c = CRC[(c ^ b) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+function makeZip(files){   // files: [{name, data: Uint8Array}]
+  const parts = [], central = []; let off = 0;
+  for (const f of files){
+    const name = new TextEncoder().encode(f.name), crc = crc32(f.data), n = f.data.length;
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint32(14, crc, true); h.setUint32(18, n, true); h.setUint32(22, n, true); h.setUint16(26, name.length, true);
+    parts.push(new Uint8Array(h.buffer), name, f.data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint32(16, crc, true); c.setUint32(20, n, true); c.setUint32(24, n, true);
+    c.setUint16(28, name.length, true); c.setUint32(42, off, true);
+    central.push(new Uint8Array(c.buffer), name);
+    off += 30 + name.length + n;
+  }
+  const size = central.reduce((a, b) => a + b.length, 0), e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, size, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...central, new Uint8Array(e.buffer)], { type: "application/zip" });
+}
+$("dlall").onclick = async ev => {
+  ev.preventDefault(); const a = $("dlall"), label = a.textContent;
+  try {
+    a.textContent = "Preparing zip…"; const files = [];
+    for (const v of VAR) for (const path of ["SH/" + v.sh + ".SH", "PIC/_" + v.sh + ".PIC"]) files.push({ name: path, data: await fetchModelFile(path) });
+    const url = URL.createObjectURL(makeZip(files)), l = document.createElement("a");
+    l.href = url; l.download = "FA18_models.zip"; document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch(e){ $("msg").textContent = e.message; }
+  a.textContent = label;
+};
 const VIEWS = { iso: [0.8, -0.45], top: [Math.PI, 1.55], side: [Math.PI/2, 0], front: [0, 0] };
 document.querySelectorAll(".views button").forEach(b => b.onclick = () => { const [y, p] = VIEWS[b.dataset.v]; view.yaw = y; view.pitch = p; $("spin").checked = false; draw(); });
 { let last = 0; const tick = t => { if ($("spin").checked && cur && last) { view.yaw += (t - last) * 0.0004; draw(); } last = t; requestAnimationFrame(tick); }; requestAnimationFrame(tick); }
