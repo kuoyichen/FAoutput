@@ -1368,7 +1368,7 @@ function draw(){
       const tn = tr.split ? Math.min(now, tr.killT) : now;
       const dead = tr.killT != null && now > tr.killT;
       const col = dead ? "#3a3530" : colorOf(tr), pts = tr.pts;
-      const w = tr.kind==="aircraft" && !cineHook ? Math.max(25, cam.dist*0.004) * size * (shapeFor(tr.name).k > 1.5 ? 1.6 : 1) : 0;
+      const w = tr.kind==="aircraft" && (!cineHook || cineHook.ribbon) ? Math.max(25, cam.dist*0.004) * size * (shapeFor(tr.name).k > 1.5 ? 1.6 : 1) : 0;
       let j0 = ptIndex(pts, Math.max(pts[0].t, tn - tl)); if (j0 < 0) j0 = 0;
       const j1 = ptIndex(pts, tn); if (j1 < 0) continue;
       let prev = null;
