@@ -8,8 +8,8 @@ Adds, as three shared sub-parts placed with C4 (so each shape is stored once):
 CODE only has ~1.7 KB free before .idata, hence the shared parts, flat-shaded faces (0x261, no F6 needed)
 and minimal facet counts.  Fins are drawn as two culled faces (front and back).
 
-Stores hang on pylons below the wing (store tops at up -2, wing at up 2-3); inside the tank and ALQ-99
-parts a plane node at the store top orders store and pylon.
+Stores hang on pylons below the wing (store tops at up -2, wing at up 2-3).  Pylons are separate parts,
+drawn over the body only when the eye is below the wing.
 Draw order: the main BSP root (06 node at ROOT; everything incl. flaps and gear is drawn under it) is
 replaced by a call to nested plane tests (eye = x, up, fwd, eye position in model units, A then B when
 Σn·(eye+d) ≥ 0 -- checked in FA.EXE at 0x4d2450; C4 subtracts the part position from the eye).  Each store
@@ -70,8 +70,8 @@ def tank():
     """480-gal tank (inboard, the bigger store): octagon radius 5, nose rounded with two extra rings,
     tail closed by one ring and a point."""
     sec = [(0, 4), (3, 3), (4, 0), (3, -3), (0, -4), (-3, -3), (-4, 0), (-3, 3)]
-    V, F, _ = lathe(sec, [(22, 0, -1), (21, .45, -.5), (18, .8, 0), (11, 1, 0), (-10, 1, 0), (-16, .6, .5), (-20, 0, 1)])
-    return V, F, pylon(V, (6, -8, 3), (10, -11, 9)), 3
+    V, F, _ = lathe(sec, [(25, 0, -.5), (21, .4, -.4), (16, .75, -.1), (10, 1, 0), (-10, 1, 0), (-16, .6, .5), (-20, 0, 1)])
+    return V, F
 
 
 def alq99():
@@ -79,7 +79,7 @@ def alq99():
     two extra rings, flat tail."""
     sec = [(-2.5, 2.5), (2.5, 2.5), (2.5, -3.5), (-2.5, -3.5)]
     V, F, _ = lathe(sec, [(24, 0, -.5), (22, .45, -.3), (19, .8, 0), (14, 1, 0), (-22, 1, 0)])
-    return V, F, pylon(V, (10, -10, 2), (13, -13, 6)), 2
+    return V, F
 
 
 def pylon(V, bot, top):
@@ -93,6 +93,14 @@ def pylon(V, bot, top):
     q = [[b, b+1, b+5, b+4], [b+2, b+3, b+7, b+6], [b, b+2, b+6, b+4], [b+1, b+3, b+7, b+5]]
     P = V[b:]; cen = [sum(p[k] for p in P) / len(P) for k in range(3)]
     return orient(V, [(FLAT, GREY, f) for f in q], cen)
+
+
+def pylon_tank():
+    V = []; return V, pylon(V, (6, -8, 3), (10, -11, 9))     # tank top at local up 4, wing at up 3 (tank centre -6)
+
+
+def pylon_alq():
+    V = []; return V, pylon(V, (10, -10, 2), (13, -13, 6))   # pod top at local up 2, wing at up 2 (pod centre -4)
 
 
 def alq218():
@@ -206,13 +214,19 @@ def build(d):
     while c[ROOT] == 0xF6: ROOT += 7
     assert c[ROOT] == 0x06 and c[ROOT+1] == 0 and c[ROOT+18] == 0x38, 'root is not the expected 06 node + 38'
     TA = ROOT + 16 + struct.unpack_from('<h', c, ROOT+14)[0]; TB = ROOT + 18 + struct.unpack_from('<h', c, ROOT+16)[0]
-    parts = {'tank': part_bytes(*tank()), '99': part_bytes(*alq99()), '218': part_bytes(*alq218())}
+    parts = {'tank': part_bytes(*tank()), '99': part_bytes(*alq99()), '218': part_bytes(*alq218()),
+             'pyT': part_bytes(*pylon_tank()), 'pyA': part_bytes(*pylon_alq())}
+    S = dict(STORES)
+    leaves = {k: [v] for k, v in S.items()}
+    leaves['C'] = [('pyA', S['C'][1]), S['C']]                       # centre pylon (ends inside the belly), then the pod
+    leaves['LPY'] = [('pyT', S['Ltank'][1]), ('pyA', S['Lalq'][1])]
+    leaves['RPY'] = [('pyT', S['Rtank'][1]), ('pyA', S['Ralq'][1])]
     tail = bytes(c).find(SIG)
 
     # layout: nodes and leaves first, then the part bodies
-    order = ['PR', 'PRT', 'PL', 'PLT', 'PC', 'BODY', 'LG', 'RG'] + list(STORES)
+    order = ['PR', 'PRT', 'PL', 'PLT', 'PYR', 'PYL', 'PC', 'BODY', 'LG', 'RG'] + list(leaves)
     size = {k: 20 for k in order}
-    size.update({k: 18 for k in STORES})
+    size.update({k: 16 * len(v) + 2 for k, v in leaves.items()})
     at, p = {}, tail
     for k in order: at[k] = p; p += size[k]
     for k in parts: at['P' + k] = p; p += len(parts[k])
@@ -233,14 +247,20 @@ def build(d):
     blk += node('PR', (3604, -16384, 819), (-18, -2, 0), 'PRT', 'RG')
     blk += node('PRT', (10923, 13107, 0), (-20, 0, 0), 'PL', 'Rtip')
     blk += node('PL', (-3604, -16384, 819), (18, -2, 0), 'PLT', 'LG')
-    blk += node('PLT', (-10923, 13107, 0), (20, 0, 0), 'PC', 'Ltip')
+    blk += node('PLT', (-10923, 13107, 0), (20, 0, 0), 'PYR', 'Ltip')
+    # pylons sit between store and wing, so they can only be seen from below the wing: drawn after the body
+    # only then (pure height test at the wing, up < 2), before the stores so a store still covers its pylon
+    blk += node('PYR', (0, -16384, 0), (0, -2, 0), 'PYL', 'RPY')
+    blk += node('PYL', (0, -16384, 0), (0, -2, 0), 'PC', 'LPY')
     blk += node('PC', (0, -16384, 0), (0, 9, 0), 'BODY', 'C')
     o = at['BODY']; blk += bytes(c[ROOT:ROOT+14]) + struct.pack('<hh', TA - (o+16), TB - (o+18)) + b'\x00\x00'
     blk += node('LG', X, (33, 0, 0), 'Lalq', 'Ltank')        # farther store first
     blk += node('RG', X, (-33, 0, 0), 'Rtank', 'Ralq')
-    for k, (pt, pos) in STORES.items():
-        o = at[k]
-        blk += struct.pack('<BB6h', 0xC4, 0, *pos, 0, 0, 0) + struct.pack('<h', at['P' + pt] - (o+16)) + b'\x00\x00'
+    for k, items in leaves.items():
+        for j, (pt, pos) in enumerate(items):
+            o = at[k] + 16 * j
+            blk += struct.pack('<BB6h', 0xC4, 0, *pos, 0, 0, 0) + struct.pack('<h', at['P' + pt] - (o+16))
+        blk += b'\x00\x00'
     for k in parts: blk += parts[k]
     assert len(blk) == p - tail
     patch = b'\x12\x00' + struct.pack('<h', at['PR'] - (ROOT+4)) + b'\x38' + struct.pack('<h', ROOT + 18 - (ROOT+7))
