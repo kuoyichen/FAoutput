@@ -57,7 +57,7 @@ def aim54():
     s = A54_LEN / 47
     R0 = lambda r, a: [(0, r), (a, a), (r, 0), (a, -a), (0, -r), (-a, -a), (-r, 0), (-a, a)]
     AX = -3                                         # axis height (top of the radius-3 body at up 0)
-    tail, band0, band1, nose = round(-16 * s), round(7 * s), round(9 * s), round(21 * s)
+    tail, band0, band1, nose = round(-16 * s), round(7 * s), round(9 * s), round(21 * s) - 1   # nose start 1 back (Kuoyi)
     tip = round(31 * s)
     L = tip - nose
     rings = [(tail, 3, 2), (band0, 3, 2), (band1, 3, 2), (nose, 3, 2)]   # nose: one straight cone to the tip
