@@ -15,13 +15,13 @@ import fa_weapons
 from f18g_growler import orient, lathe, FLAT, GREY
 
 T, A9, A7, A54, NONE = S.TANK, S.AIM9, S.AIM7, S.AIM54, S.NONE
-# Kuoyi's F14.PT (2026-11-16) gives each weapon's centre (where FA launches it), x / up / fwd:
-#   hp4 AIM-7 x4 (4, -6, 50)  hp5 tank x2 (16, -14, 19)  hp6 AIM-54 x2 (27, -7, 34)  hp7 AIM-9 x2 (30, -1, 30)
+# Kuoyi's F14.PT (2026-11-16, second version) gives each weapon's centre (where FA launches it), x / up / fwd:
+#   hp4 AIM-7 x4 (5, -6, 42)  hp5 tank x2 (16, -14, 19)  hp6 AIM-54 x2 (28, -7, 30)  hp7 AIM-9 x2 (30, -1, 30)
 # The PT has one point for the four AIM-7s: that is the front pair (x +-4); the rear pair sits right behind it.
 # Stores are FA's own models at their own size, centred on those points (as F18-11); attach = store top.
 # Cross sections (fwd 25): tunnel roof up -6.7 for |x| < 7 (-6.3 at fwd 45, so the AIM-7s are half recessed),
 # nacelles x 9..20 with bottom -9.5 (-10 at fwd 19), glove underside up 2..4 at x 20..34, main gear x 21..28, fwd 0..8.
-PT = {4: (4, -6, 50), 5: (16, -14, 19), 6: (27, -7, 34), 7: (30, -1, 30)}
+PT = {4: (5, -6, 42), 5: (16, -14, 19), 6: (28, -7, 30), 7: (30, -1, 30)}
 TANK_R = 3.5                 # Kuoyi: use the F/A-18 tank (tank480, radius 3.5)
 
 
