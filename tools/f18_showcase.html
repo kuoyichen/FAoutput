@@ -186,6 +186,41 @@ function parseSH(u8){
     block(t, t - 1, new Set());
     o += 6;
   }
+  // Loadout stores (tools/shgen/f18_stores.py): new 06 nodes and leaf blocks are chained into the model's BSP, and each
+  // store slot is an F0 stub `F0 00 68 imm32 E8 rel32` + an i16 table of C4 lists per store kind; in the game the stub reads
+  // the aircraft's actual loadout, here the default kind (imm32 >> 16) is drawn.  Walk the whole main BSP from the root
+  // and place the C4 parts that were added (beyond the original shape data), once each.
+  const added = lod[lod.length - 1].e, placed = new Set();
+  const storeWalk = (t, depth) => {
+    for (let guard = 0; guard < 4000 && depth < 60 && t > 0 && t < L - 2; guard++){
+      const op = c[t];
+      if (op === 0x00 && c[t+1] === 0 || op === 0x1E) return;
+      if (op === 0x82 && c[t+1] === 0) t += 6 + 6 * cv.getUint16(t+2, true);
+      else if (op === 0xFC){ const fl = cv.getUint16(t+1, true); let p = t + 5 + (fl & 0x60 ? (fl & 0x200 ? 9 : 12) : 0); const n = c[p++]; p += fl & 0x400 ? 2*n : n; if (fl & 4) p += n * (fl & 0x100 ? 2 : 4); t = p; }
+      else if (op === 0xF6) t += 7;
+      else if ((op === 0xD0 || op === 0xE0) && c[t+1] === 0) t += 4;
+      else if (op === 0xE2 && c[t+1] === 0) t += 16;
+      else if (op === 0x06 && c[t+1] === 0){ storeWalk(t + 16 + cv.getInt16(t+14, true), depth+1); storeWalk(t + 18 + cv.getInt16(t+16, true), depth+1); t += 18; }
+      else if ((op === 0x0C || op === 0x0E || op === 0x10) && c[t+1] === 0){ storeWalk(t + 12 + cv.getInt16(t+10, true), depth+1); storeWalk(t + 14 + cv.getInt16(t+12, true), depth+1); t += 14; }
+      else if (op === 0x6C && c[t+1] === 0){ storeWalk(t + 8 + cv.getInt16(t+6, true), depth+1); storeWalk(t + 10 + cv.getInt16(t+8, true), depth+1); t += 10; }
+      else if (op === 0x12 && c[t+1] === 0){ storeWalk(t + 4 + cv.getInt16(t+2, true), depth+1); t += 4; }
+      else if (op === 0x38) t = t + 3 + cv.getInt16(t+1, true);
+      else if (op === 0x48 && c[t+1] === 0) t = t + 4 + cv.getInt16(t+2, true);
+      else if (op === 0xC4 && c[t+1] === 0){
+        if (t > added && !placed.has(t)){ placed.add(t); placePart(t + 16 + cv.getInt16(t+14, true), [0,1,2].map(k => cv.getInt16(t+2+2*k, true))); }
+        t += 16;
+      }
+      else if (op === 0xF0 && c[t+1] === 0){
+        if (c[t+2] === 0x68 && c[t+7] === 0xE8){   // store slot stub: draw its default kind
+          const kind = c[t+5], tb = t + 12; if (kind) storeWalk(tb + cv.getInt16(tb + 2*kind, true), depth+1); return;
+        }
+        let r = null; for (let q = t+2; q < t+200 && q < L-5; q++) if (c[q] === 0x68){ const x = cv.getUint32(q+1, true) - SH_VA; if (x > 0 && x < L){ r = x; break; } }
+        if (r == null) return; t = r;
+      }
+      else return;
+    }
+  };
+  { let r = main.e; while (c[r] === 0xF6) r += 7; storeWalk(r, 0); }
   if (!f.length) return null;
   let span = 0; for (let i=0;i<main.n;i++) span = Math.max(span, Math.abs(v[i][0]));
   const parts = [];
@@ -606,7 +641,7 @@ const VAR = [
   { sh: "F18C", name: "F/A-18C", sub: "Single-seat Hornet", len: "56.0 ft (17.1 m)", span: "40.4 ft (12.3 m)", h: "15.3 ft (4.7 m)",
     note: "Reworked stock FA model: narrower fuselage, lower fuselage and canopy, longer nose and tail, smaller vertical and horizontal tails. Keeps the small LEX and round intakes. Main gear doors are half their original height.", subZh: "單座 Hornet", noteZh: "改造 FA 原廠模型：機身變窄、機身和座艙罩降低、機鼻和機尾加長、垂直尾翼和水平尾翼縮小。保留小的邊條和圓形進氣口。主起落架艙門高度減半。" },
   { sh: "F18", name: "F/A-18D", sub: "Two-seat Hornet", len: "56.0 ft (17.1 m)", span: "40.4 ft (12.3 m)", h: "15.3 ft (4.7 m)",
-    note: "The F/A-18C changes applied to the stock two-seat model, keeping the front and rear cockpits; otherwise the same shape as the C. Main gear doors are half their original height.", subZh: "雙座 Hornet", noteZh: "把 F/A-18C 的修改套用到原廠雙座模型，保留前後座艙；其他外形和 C 型相同。主起落架艙門高度減半。" },
+    note: "The F/A-18C changes applied to the stock two-seat model, keeping the front and rear cockpits; otherwise the same shape as the C. Main gear doors are half their original height. Carries its loadout: in the game the model reads what each station actually holds (AIM-9, AIM-7, AIM-120, AIM-54, HARM, GBU, JDAM, Mk-82, 480-gal tank, drawn with FA's own weapon models), shows pylons always, drops a store when it is fired and a tank when it is empty or jettisoned. Shown here with the default loadout.", subZh: "雙座 Hornet", noteZh: "把 F/A-18C 的修改套用到原廠雙座模型，保留前後座艙；其他外形和 C 型相同。主起落架艙門高度減半。會畫出外掛：遊戲中模型會讀每個掛點實際裝的武器（AIM-9、AIM-7、AIM-120、AIM-54、HARM、GBU、JDAM、Mk-82、480 加侖油箱，用 FA 原本的武器模型），派龍架一直都在，武器發射後消失，油箱用完或拋棄時消失。這裡顯示預設掛載。" },
   { sh: "F18E", name: "F/A-18E", sub: "Single-seat Super Hornet", len: "60.3 ft (18.4 m)", span: "44.7 ft (13.6 m)", h: "16.0 ft (4.9 m)",
     note: "Hand-edited from the F/A-18C: longer fuselage, larger wing and LEX, recomputed normals and wingtip vapor-trail points. The low-detail (distant) model has the larger wing too. Main gear doors are half their original height.", subZh: "單座 Super Hornet", noteZh: "從 F/A-18C 手工修改：機身加長、機翼和邊條加大，重算法向量和翼尖凝結尾跡的起點。遠距離的低細節模型也換上較大的機翼。主起落架艙門高度減半。" },
   { sh: "F18F", name: "F/A-18F", sub: "Two-seat Super Hornet", len: "60.3 ft (18.4 m)", span: "44.7 ft (13.6 m)", h: "16.0 ft (4.9 m)",

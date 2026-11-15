@@ -62,7 +62,7 @@ def main_lod(c):
         if o >= le and t//8 == lt + ln: bufs.append((o, n, t//8, e))
     return bufs
 
-def insert_blocks(d, pe, secs, code, c, tail, blocks):
+def insert_blocks(d, pe, secs, code, c, tail, blocks, extra_relocs=()):
     """把 blocks 插在 CODE 的簽章（位置 tail）之前，修正重定位、區段大小與位置，回傳新的檔案內容。"""
     L = len(blocks)
     c = c[:tail] + blocks + c[tail:]
@@ -85,6 +85,7 @@ def insert_blocks(d, pe, secs, code, c, tail, blocks):
             off = r - code['va']; val = struct.unpack_from('<I', c, off)[0]
             if cut <= val < cend: struct.pack_into('<I', c, off, val + L)
         new_ents.append((t, r))
+    new_ents += [(3, code['va'] + tail + o) for o in extra_relocs]   # HIGHLOW dwords inside the new blocks
     # 其他區段裡指到簽章後面的絕對位址（理論上沒有，檢查一下）
     for t, r in ents:
         if not code['va'] <= r < cend:
