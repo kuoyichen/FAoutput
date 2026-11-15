@@ -23,7 +23,7 @@ T, A9, A7, A54, NONE = S.TANK, S.AIM9, S.AIM7, S.AIM54, S.NONE
 # nacelles x 9..20 with bottom -9.5 (-10 at fwd 19), glove underside up 2..4 at x 20..34, main gear x 21..28, fwd 0..8.
 PT = {4: (4, -7, 36), 5: (16, -14, 19), 6: (28, -7, 18), 7: (30, -1, 18)}   # AIM-54 / AIM-9 moved back 6 twice (Kuoyi)
 TANK_R = 3.5                 # Kuoyi: use the F/A-18 tank (tank480, radius 3.5)
-TANK_PITCH = 4               # Kuoyi: tank nose up 4 degrees to follow the nacelle bottom (it rises toward the front)
+TANK_PITCH = 2               # Kuoyi: tank nose up 2 degrees (4 was too much) to follow the nacelle bottom (it rises toward the front)
 
 
 def tank():
@@ -52,7 +52,7 @@ A54_LEN = round(.8 * 47) + 3   # Kuoyi: AIM-54 at 80% of FA's PHENX (47 long), t
 
 def aim54():
     """AIM-54 built here (FA's PHENX body is a 4-sided diamond with a one-step nose): octagonal body (radius 3),
-    ogive nose that closes over four rings (Kuoyi: more rings, smoother line), PHENX's fins and blue band scaled
+    straight pointed nose, PHENX's fins and blue band scaled
     to A54_LEN.  Frame as fa_weapons.load: body top at up 0, LAST_TOP = height of the top above FA's origin."""
     s = A54_LEN / 47
     R0 = lambda r, a: [(0, r), (a, a), (r, 0), (a, -a), (0, -r), (-a, -a), (-r, 0), (-a, a)]
@@ -60,8 +60,8 @@ def aim54():
     tail, band0, band1, nose = round(-16 * s), round(7 * s), round(9 * s), round(21 * s)
     tip = round(31 * s)
     L = tip - nose
-    rings = [(tail, 3, 2), (band0, 3, 2), (band1, 3, 2), (nose, 3, 2), (nose + .28 * L, 2, 2), (nose + .56 * L, 2, 1),
-             (nose + .8 * L, 1, 1)]
+    rings = [(tail, 3, 2), (band0, 3, 2), (band1, 3, 2), (nose, 3, 2)]   # nose: one straight cone to the tip
+    # (Kuoyi: the four-ring nose looked lumpy on the integer grid, a clean point is better)
     V, rid = [], []
     for f, r, a in rings:
         rid.append([])
