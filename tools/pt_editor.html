@@ -541,7 +541,17 @@ const DESC = { "F18R.SEE": "APG-65", "M61.JT": "M61 Vulcan Cannon", "F150.GAS": 
   "MICA.JT": "MICA", "R550.JT": "R.550 Magic", "R530.JT": "R.530", "PYTHON4.JT": "Python 4", "GAU8.JT": "GAU-8 Avenger", "GAU12.JT": "GAU-12 Equalizer",
   "GSH30.JT": "GSh-30 cannon", "GSH301.JT": "GSh-301 cannon", "GSH23.JT": "GSh-23 cannon", "ADEN.JT": "ADEN cannon", "DEFA.JT": "DEFA cannon", "BK27.JT": "BK-27 cannon",
   "FAB250.JT": "FAB-250 bomb", "FAB500.JT": "FAB-500 bomb", "AS14.JT": "AS-14 Kedge", "ALARM.JT": "ALARM" };
-const descOf = n => DESC[String(n).toUpperCase()] || "";
+// each store's own .JT (repo JT/) names its flight shape and description: { shape, desc } once loaded
+const JT_INFO = new Map();
+async function jtInfo(type){
+  const t = String(type || "").toUpperCase(); if (!/\.JT$/.test(t)) return null;
+  if (!JT_INFO.has(t)) JT_INFO.set(t, (async () => { const u8 = await fetchAny(["JT/" + t]); if (!u8) return null;
+    try { const j = P.parse(bytesToStr(u8)); return { shape: P.str(j, "shape").toUpperCase().replace(/\.SH$/, ""), desc: P.str(j, "ot_names", 1) }; } catch(e){ return null; } })());
+  return JT_INFO.get(t);
+}
+const jtDone = new Map();   // type -> resolved info (sync lookup)
+async function prefetchJT(){ if (!pt) return; await Promise.all(pt.hp.map(async h => { const i = await jtInfo(h.type); if (i) jtDone.set(h.type.toUpperCase(), i); })); }
+const descOf = n => jtDone.get(String(n).toUpperCase())?.desc || DESC[String(n).toUpperCase()] || "";
 
 // JT store -> weapon SH shape (FA's own models).  A store's .JT names its flight shape; these are the ones known from FA (AIM9M -> SIDEM.SH…)
 // plus close stand-ins.  Anything else: the store's own name as SH (if it is store-sized), else a simple stand-in shape.  Users can override per type.
@@ -557,14 +567,15 @@ function storeKind(type, loc){
   if (!t) return "none";
   if (/\.GAS$/.test(t)) return "tank";
   if (/\.(SEE|ECM)$/.test(t)) return "sensor";
-  if (loc === 2) return "gun";
+  if (loc === 2 || /^(TRACER|BULLET)$/.test(jtDone.get(t)?.shape || "")) return "gun";
   if (/^(LAU|B8|B13|B32|272FFAR|C_|SUU|MIS\.)/.test(t)) return "pod";
   return "jt";
 }
 function shapeCandidates(type){
   const t = String(type || "").toUpperCase(), base = t.replace(/\.\w+$/, "");
   if (SHAPE_OVR[t]) return [SHAPE_OVR[t].toUpperCase().replace(/\.SH$/, "")];
-  const out = []; for (const [p, s] of SHAPE_PREFIX) if (base.startsWith(p)){ out.push(s); break; }
+  const out = [], ji = jtDone.get(t); if (ji && ji.shape) out.push(ji.shape);
+  for (const [p, s] of SHAPE_PREFIX) if (base.startsWith(p)){ out.push(s); break; }
   out.push(base); return out;
 }
 
@@ -607,6 +618,7 @@ const weaponCache = new Map();   // store type -> { faces, src }
 async function weaponModel(type, loc){
   const key = String(type).toUpperCase() + "|" + loc + "|" + (SHAPE_OVR[String(type).toUpperCase()] || "");
   if (weaponCache.has(key)) return weaponCache.get(key);
+  { const i = await jtInfo(type); if (i) jtDone.set(String(type).toUpperCase(), i); }
   const kind = storeKind(type, loc); let out = null;
   if (kind === "tank"){ const g = +(/(\d+)/.exec(type)?.[1] || 300); out = { ...tankShape(g), src: L("drop tank (stand-in)", "副油箱（示意形狀）") }; }
   else if (kind === "sensor") out = { ...marker(COL.sensor), src: L("sensor / ECM marker", "感測器／電戰標記") };
@@ -858,7 +870,7 @@ function renderHpTable(){
     const tr = document.createElement("tr"); if (k === selHp) tr.className = "sel";
     tr.innerHTML = `<td>${k}</td><td>${locSelect(h.loc)}</td><td><input class="q" type="number" data-f="qty" value="${h.qty}"></td><td><input list="storeList" data-f="type" value="${esc(h.type)}" spellcheck="false"></td><td class="desc">${esc(descOf(h.type))}</td>`;
     tr.onclick = ev => { if (selHp !== k) selectHp(k); };
-    tr.querySelectorAll("[data-f]").forEach(el => el.onchange = () => { const f = el.dataset.f; h[f] = f === "type" ? el.value.trim().toUpperCase() : +el.value; el.value = h[f]; tr.querySelector(".desc").textContent = descOf(h.type); hpChanged(true); });
+    tr.querySelectorAll("[data-f]").forEach(el => el.onchange = () => { const f = el.dataset.f; h[f] = f === "type" ? el.value.trim().toUpperCase() : +el.value; el.value = h[f]; tr.querySelector(".desc").textContent = descOf(h.type); hpChanged(true); if (f === "type") jtInfo(h.type).then(i => { if (i){ jtDone.set(h.type, i); renderHpRow(k); buildScene(false); } }); });
     tb.appendChild(tr);
   });
   $("hpCount").textContent = L(`${pt.hp.length} hardpoints`, `${pt.hp.length} 個掛點`);
@@ -896,7 +908,7 @@ function renderHpForm(valuesOnly){
     </div></div>`;
   const apply = el => { const f = el.dataset.f;
     if (f === "flags") h.flags = el.checked ? h.flags | (1 << +el.dataset.bit) : h.flags & ~(1 << +el.dataset.bit);
-    else if (f === "type") h.type = el.value.trim().toUpperCase();
+    else if (f === "type"){ h.type = el.value.trim().toUpperCase(); jtInfo(h.type).then(i => { if (i){ jtDone.set(h.type, i); renderHpTable(); buildScene(false); updateShapeSrc(); } }); }
     else if (/^slew|^lim/.test(f)) h[f] = Math.round(+el.value * 182);
     else if (f === "wt") h.wt = Math.max(0, Math.min(255, Math.round(+el.value / 100)));
     else h[f] = Math.round(+el.value);
@@ -1057,6 +1069,7 @@ async function openPT(name, text){
   try { localStorage.setItem("pt_last", ptName); } catch(e){}
   $("saveBtn").disabled = false; $("ghBtn").disabled = false; $("ptList").value = ptName;
   renderTitle(); renderHpTable(); renderHpForm(); renderForms(); showTab(); msg("");
+  prefetchJT().then(() => { renderHpTable(); });
   history.replaceState(null, "", "?pt=" + encodeURIComponent(ptName));
   await loadAircraft(P.ptrStr(pt, "OBJ", 6));
 }
