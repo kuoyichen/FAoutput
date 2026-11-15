@@ -1,6 +1,7 @@
 import sys,struct
 sys.path.insert(0, 'tools/shgen')   # run from the repo root: python3 tools/shgen/emu_fall_test.py F14_before_stores.SH
-import f14_stores as F, f18_stores as S
+import f18_stores as S
+if 'F14' in sys.argv[1].upper(): import f14_stores as F
 from sh_subdivide import pe_sections
 from unicorn import *
 from unicorn.x86_const import *
@@ -14,12 +15,12 @@ mu.mem_map(0x0,0x40000); mu.mem_write(0x1000,bytes(c))
 mu.mem_map(0x500000,0x100000); mu.mem_map(0x800000,0x10000); mu.mem_map(0x900000,0x10000)
 mu.mem_write(0x5F0000,b'\xa1'+struct.pack('<I',0x5F0100)+b'\xc3')
 mu.mem_write(0x593758,struct.pack('<I',0x5F0000))
-def setup(obj_at=0x800000, idx=5, cnt=2, td=0x805000):
+def setup(obj_at=0x800000, idx=5, cnt=2, td=0x805000, st=5, cls=8):
     mu.mem_write(0x51ce26,struct.pack('<I',0x00030000|idx)); mu.mem_write(0x580bec,struct.pack('<H',idx))
     mu.mem_write(0x553848+idx*4,struct.pack('<I',obj_at))
     b=bytearray(0x400); b[0]=4; struct.pack_into('<I',b,0x114,0x2BB)
-    mu.mem_write(td,bytes([8])+b'\0'*0x20)
-    struct.pack_into('<IH',b,0x2BB+5*0x11,td,cnt); mu.mem_write(obj_at,bytes(b))
+    mu.mem_write(td,bytes([cls])+b'\0'*0x20)
+    struct.pack_into('<IH',b,0x2BB+st*0x11,td,cnt); mu.mem_write(obj_at,bytes(b))
 def run(slot, T):
     mu.mem_write(0x5F0100,struct.pack('<I',T))
     sp0=0x90f000; mu.reg_write(UC_X86_REG_ESP,sp0)
@@ -32,12 +33,16 @@ def run(slot, T):
     if ret==at['EMPTY']: return 'EMPTY'
     q=at[('LF',slot)]; assert ret==q,(hex(ret))
     return 'FALL', struct.unpack('<6h',mu.mem_read(0x1000+q+2,12))
-print('base', S.SLOTS['TL'][3], S.SLOTS['TR'][3])
-setup(cnt=2); print('full t=100', run('TL',100), run('TR',100))
-setup(cnt=0); print('jettison t=1000', run('TL',1000), run('TR',1000))
-print('t=1500', run('TL',1500), run('TR',1500))
-print('t=2900', run('TL',2900))
-print('t=3100', run('TL',3100), run('TR',3100))
-print('t=4000', run('TL',4000))
-setup(cnt=0, obj_at=0x808000); print('new object empty', run('TL',5000), run('TL',5100))
-mu.mem_write(0x51ce26,struct.pack('<I',0)); print('no object', run('TL',6000))
+A, B = ('TL', 'TR') if 'TL' in S.FALL_SLOTS else ('C4', 'R7')
+sta = S.SLOTS[A][0]
+print('base', S.SLOTS[A][3])
+setup(cnt=2, st=sta); print('full t=100', run(A,100))
+setup(cnt=0, st=sta); print('jettison t=1000', run(A,1000))
+print('t=1500', run(A,1500))
+print('t=2900', run(A,2900))
+print('t=3100', run(A,3100))
+setup(cnt=0, obj_at=0x808000, st=sta); print('new object empty', run(A,5000), run(A,5100))
+if B == 'R7':
+    setup(cnt=2, st=7, cls=7, obj_at=0x80a000); print('missile full', run(B, 6000))
+    setup(cnt=0, st=7, cls=7, obj_at=0x80a000); print('missile fired (no fall)', run(B, 6100), run(B, 6500))
+mu.mem_write(0x51ce26,struct.pack('<I',0)); print('no object', run(A,7000))

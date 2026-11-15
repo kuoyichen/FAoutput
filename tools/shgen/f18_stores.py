@@ -149,7 +149,7 @@ def top_of(kind):
 #   hp4 tank (0, -9, 9)   hp5 AIM-120 (11, -5, -4)   hp6 (25, -6, 17)   hp7 (42, -6, 9)   hp8 AIM-9 (55, 0, -8)
 # The default store's centre goes exactly on that point; the attach point (store top = pylon bottom) is above it.
 # Wing underside: up 2.1 at x 25 (chord fwd -17..13), up 1 at x 42 (chord -17..4); belly up -4.4 at x 0.
-PT = {4: (0, -9, 9), 5: (11, -5, -4), 6: (25, -6, 17), 7: (42, -6, 9), 8: (55, 0, -8)}
+PT = {4: (0, -9, 9), 5: (11, -5, -4), 6: (25, -6, 13), 7: (42, -6, 5), 8: (55, 0, -8)}   # hp6/hp7 4 back (Kuoyi 2026-11-16)
 DEF = {4: TANK, 5: AAM, 6: LGB, 7: ARM, 8: AIM9}
 ATT = {st: (x, round(u + top_of(DEF[st])), f) for st, (x, u, f) in PT.items()}
 mx = lambda p: (-p[0],) + tuple(p[1:])
@@ -163,8 +163,8 @@ SLOTS = {   # right side rank 2, left side rank 1: FA fires the right store of a
 # pylons: bottom on the store top, around the store centre; top inside the wing, ahead of the flap / aileron hinge
 UNDER = {6: 2.1, 7: 1.0, 4: -4.4}
 PYLONS = {
-    'pyW6': pylon(round(UNDER[6] + 1 - ATT[6][1]), (ATT[6][2] + 8, ATT[6][2] - 12), (11, -6)),
-    'pyW7': pylon(round(UNDER[7] + 1 - ATT[7][1]), (ATT[7][2] + 6, ATT[7][2] - 12), (2, -8)),
+    'pyW6': pylon(round(UNDER[6] + 1 - ATT[6][1]), (ATT[6][2] + 8, ATT[6][2] - 12), (7, -10)),     # top moved back 4 with the store
+    'pyW7': pylon(round(UNDER[7] + 1 - ATT[7][1]), (ATT[7][2] + 6, ATT[7][2] - 12), (-2, -12)),
     'pyC': pylon(round(UNDER[4] + 1 - ATT[4][1]), (ATT[4][2] + 6, ATT[4][2] - 6), (ATT[4][2] + 7, ATT[4][2] - 7)),
 }
 
@@ -184,7 +184,7 @@ def f18_pylon_units():
 PYLON_UNITS = f18_pylon_units      # an aircraft module (f14_stores.py) replaces SLOTS, PYLONS and this
 HIDE_EMPTY_PYLONS = True           # pylon drawn only if its station holds a weapon type (fired: type kept)
 KIND_POS = {}                      # (slot, kind) -> attach point when that kind is loaded there (else the slot's)
-FALL_SLOTS = {}                    # tank slot -> fall index k: when its tank is jettisoned, draw it falling away
+FALL_SLOTS = {'C4': 0, 'R6': 1, 'L6': 2, 'R7': 3, 'L7': 4}   # slot -> fall index k: a jettisoned tank there falls away
 FALL_MS = 2000                     # for this long (wall clock, timeGetTime)
 FALL_NSTATE = 128                  # aircraft tracked (object index & 127; the object pointer guards collisions)
 PLACER = None                      # e.g. sh_order-based placement: PLACER(c, ROOT, unit geometry, unit boxes)
@@ -400,7 +400,8 @@ def fall_table():
 
 def fall_bytes(fall_at, sub_at):
     """Falling jettisoned tank.  Stub `F0 00 68 imm32(station | k << 8) E8 rel32` + i16 table [EMPTY, list, base up,
-    base fwd] (relative to the table).  Per aircraft and tank slot a 16-byte state (object ptr, start time, last count)
+    base fwd] (relative to the table).  Per aircraft and tank slot a 16-byte state (object ptr, start time, last count,
+    class of the last weapon type: only a .GAS tank (class 8) falls, so a slot that can also hold missiles works)
     sits in a zeroed table after the routine (CODE is writable: FA's own F0s patch C4 angles).  When the station's count
     drops from > 0 to 0 the start time is recorded; for FALL_MS after it the routine sets the list's C4 from
     fall_table() (64 ms steps: pitch, up and fwd offsets) and returns the list."""
@@ -443,22 +444,34 @@ def fall_bytes(fall_at, sub_at):
         add eax, ecx
         movzx edx, word ptr [eax + 4]
         and edx, 0x7fff
+        mov edi, dword ptr [eax]
+        test edi, edi
+        jz NOCLS
+        movzx edi, byte ptr [edi]
+        jmp CLS
+    NOCLS:
+        xor edi, edi
+    CLS:
         cmp dword ptr [esi], ecx
         je SAME
         mov dword ptr [esi], ecx
         mov dword ptr [esi + 8], edx
+        mov dword ptr [esi + 12], edi
         mov dword ptr [esi + 4], 0
         jmp NONE
     SAME:
         test edx, edx
         jz ZERO
         mov dword ptr [esi + 8], edx
+        mov dword ptr [esi + 12], edi
         mov dword ptr [esi + 4], 0
         jmp NONE
     ZERO:
         cmp dword ptr [esi + 8], 0
         je RUN
         mov dword ptr [esi + 8], 0
+        cmp dword ptr [esi + 12], 8
+        jne RUN
         call dword ptr [0x593758]
         or eax, 1
         mov dword ptr [esi + 4], eax
