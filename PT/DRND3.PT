@@ -1,0 +1,612 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 5
+    word 468
+    word 490
+	ptr ot_names
+    dword $2bf3
+    word $4000
+	ptr shape
+	ptr shadowShape
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 20
+    dword 0
+    dword 0
+    word -20
+    word 0
+    word 0
+    dword 0
+    dword 1969
+    word 234
+    word 0
+    word 100
+    word 100
+    word 100
+    word 65
+    word 0
+    word 54
+    word 255
+    word 255
+    word 255
+    word 255
+    word 255
+    byte 30
+    byte 0
+    dword 2600
+    word 199
+
+;---------------- movement info ----------------
+
+    word 0
+    word 10920
+    word 14560
+    word -14560
+    word 16380
+    word 0
+    word 0
+    word 0
+    dword ^0
+    dword ^0
+    dword ^300
+    dword ^42000
+	symbol _PLANEProc	; utilProc
+
+;---------------- sound info ----------------
+
+	ptr loopSound
+	ptr secondSound
+	ptr engineOnSound
+	ptr engineOffSound
+    byte 1
+    word 15000
+    word 320
+    word 160
+    word 20
+    word 1600
+    word 0
+    word 10
+    word 60
+	ptr hudName
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+
+;---------------- START OF NPC_TYPE ----------------
+
+    dword $0
+	ptr ctName
+    byte 12
+    byte 32
+    byte 20
+    word 32767
+    word 0
+    byte 1
+	ptr hards
+
+;---------------- END OF NPC_TYPE ----------------
+
+
+;---------------- START OF PLANE_TYPE ----------------
+
+    dword $1001
+	ptr env
+    word -2
+    word 4
+    word 1182
+    word 1735
+    word -73
+    word 0
+    word 73
+    word 73
+    word -146
+    word 146
+    word 7
+    word 7
+    word -146
+    word 146
+    word 73
+    word 73
+    word -60
+    word 60
+    word 51
+    word 102
+    word 0
+    word 0
+    word 4
+    word 4
+    word -45
+    word 45
+    word 90
+    word 90
+    word 20
+    word 70
+    word 15
+    word 132
+    word -1
+    word 1
+    word 1
+    word 3
+    word 10
+    word 128
+    word 5
+    word -60
+    word 60
+    word 51
+    word 102
+    word -60
+    word 60
+    word 51
+    word 102
+    word -60
+    word 60
+    word 51
+    word 102
+    word 512
+    word 512
+    word 256
+    word 30
+    word 0
+    word -2
+    word 120
+    word 180
+    word 30
+    word 70
+    word 15
+    word 5
+    word 0
+    word 330
+    word 51
+    word 95
+    word 25
+    word 10
+    byte 1
+    word 0
+    dword 1920
+    dword 0
+    word 40
+    word 60
+    word 0
+    word 0
+    word 0
+    word 1
+    word 0
+    dword 1000
+    word 256
+    word 25
+    word 256
+    word 102
+    word 76
+    word 23
+    word 0
+    word 51
+    word 30
+    word 13
+    word 40
+    word 40
+    word 40
+    word 2560
+    word 5120
+    byte 20
+    byte 22
+    byte 20
+    byte 148
+    byte 22
+    byte 20
+    byte 20
+    byte 20
+    byte 20
+    byte 148
+    byte 148
+    byte 148
+    byte 20
+    byte 20
+    byte 20
+    byte 148
+    byte 20
+    byte 22
+    byte 20
+    byte 20
+    byte 20
+    byte 22
+    byte 22
+    byte 20
+    byte 20
+    byte 20
+    byte 148
+    byte 22
+    byte 36
+    byte 148
+    byte 36
+    byte 0
+    byte 0
+    byte 0
+    byte 22
+    byte 150
+    byte 20
+    byte 22
+    byte 22
+    byte 22
+    byte 6
+    byte 6
+    byte 6
+    byte 6
+    byte 6
+    word 10
+    word 10
+    dword 3830
+:hards
+;-------- hardpoint 0
+    word $8
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+	ptr defaultTypeName0
+    byte 0
+    word 1
+    byte 1
+:env
+
+;--- envelope for G = -2
+    word -2
+    word 6
+    word 3
+    word 4
+    word 360
+    dword 0
+    word 415
+    dword 7000
+    word 482
+    dword 13500
+    word 570
+    dword 18000
+    word 740
+    dword 18000
+    word 830
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+
+;--- envelope for G = -1
+    word -1
+    word 8
+    word 4
+    word 7
+    word 280
+    dword 0
+    word 335
+    dword 17000
+    word 392
+    dword 25500
+    word 481
+    dword 35750
+    word 570
+    dword 43000
+    word 710
+    dword 41000
+    word 850
+    dword 34000
+    word 910
+    dword 0
+    word 1000
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+
+;--- envelope for G = 0
+    word 0
+    word 9
+    word 4
+    word 8
+    word 200
+    dword 0
+    word 255
+    dword 21000
+    word 317
+    dword 30500
+    word 418
+    dword 41750
+    word 570
+    dword 50000
+    word 715
+    dword 49000
+    word 877
+    dword 46000
+    word 970
+    dword 36000
+    word 1000
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+
+;--- envelope for G = 1
+    word 1
+    word 9
+    word 4
+    word 8
+    word 240
+    dword 0
+    word 295
+    dword 21000
+    word 357
+    dword 30500
+    word 458
+    dword 41750
+    word 570
+    dword 50000
+    word 715
+    dword 49000
+    word 847
+    dword 45000
+    word 920
+    dword 36000
+    word 950
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+
+;--- envelope for G = 2
+    word 2
+    word 8
+    word 4
+    word 7
+    word 280
+    dword 0
+    word 335
+    dword 17000
+    word 392
+    dword 25500
+    word 481
+    dword 36750
+    word 570
+    dword 45000
+    word 710
+    dword 41000
+    word 850
+    dword 34000
+    word 910
+    dword 0
+    word 950
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+
+;--- envelope for G = 3
+    word 3
+    word 6
+    word 3
+    word 5
+    word 320
+    dword 0
+    word 385
+    dword 13000
+    word 457
+    dword 21500
+    word 570
+    dword 35000
+    word 780
+    dword 26000
+    word 870
+    dword 0
+    word 850
+    dword 34000
+    word 910
+    dword 0
+    word 950
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+
+;--- envelope for G = 4
+    word 4
+    word 6
+    word 3
+    word 4
+    word 360
+    dword 0
+    word 415
+    dword 7000
+    word 482
+    dword 13500
+    word 570
+    dword 18000
+    word 740
+    dword 18000
+    word 830
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+;-------------------------------- DR-D2
+; 4G area = 0.327200
+; 0 = rating for DR-D2
+
+;---------------- END OF PLANE_TYPE ----------------
+
+:ot_names
+	string "AQM-34L"
+	string "Drone: AQM-34L Compass Bin"
+	string "DRND3.PT"
+:shape
+	string "da1.SH"
+:shadowShape
+	string "da1_s.SH"
+:loopSound
+	string "&JET1N.11K"
+:secondSound
+	string "&JET1A.11K"
+:engineOnSound
+	string "&powerup.5k"
+:engineOffSound
+	string "&powerdn.5k"
+:hudName
+	string "f31v.HUD"
+:ctName
+	string "f.BI"
+:defaultTypeName0
+	string "VIS340.SEE"
+	end
