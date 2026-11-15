@@ -565,8 +565,18 @@ void main(){
 }`;
 const TVS = `attribute vec3 aP; attribute vec3 aCol; attribute vec3 aN; uniform mat4 uPV; uniform vec3 uOff, uSun; varying vec3 vCol; varying vec3 vW;
 void main(){ vec3 w = aP + uOff; vW = w; vCol = aCol * (0.45 + 0.65 * max(dot(aN, uSun), 0.0)); gl_Position = uPV * vec4(w, 1.0); }`;
-const TFS = `precision highp float; varying vec3 vCol; varying vec3 vW; uniform vec3 uFogC; uniform vec2 uFog;
-void main(){ gl_FragColor = vec4(mix(vCol, uFogC, smoothstep(uFog.x, uFog.y, length(vW))), 1.0); }`;
+const TFS = `precision highp float; varying vec3 vCol; varying vec3 vW; uniform vec3 uFogC; uniform vec2 uFog; uniform vec3 uEye; uniform float uWave, uTime;
+void main(){
+  vec3 c = vCol; float d = length(vW);
+  if (uWave > 0.5){   // sea: swell plus short chop (faded with distance) so you can see a ship move over it
+    vec2 p = vW.xy + uEye.xy;
+    float w = sin(dot(p, vec2(0.011, 0.007)) + uTime * 0.9) + 0.7 * sin(dot(p, vec2(-0.006, 0.013)) + uTime * 0.7);
+    float near = 1.0 - smoothstep(600.0, 5000.0, d);
+    float ch = sin(dot(p, vec2(0.031, 0.017)) + 0.8 * sin(p.y * 0.009) + uTime * 1.1) * sin(dot(p, vec2(-0.014, 0.036)) + 0.8 * sin(p.x * 0.011) - uTime * 0.8);
+    c *= 0.92 + 0.06 * w + 0.10 * ch * near;
+    c = mix(c, vec3(0.80, 0.86, 0.92), smoothstep(0.7, 0.98, ch) * near * 0.35);
+  }
+  gl_FragColor = vec4(mix(c, uFogC, smoothstep(uFog.x, uFog.y, d)), 1.0); }`;
 function mkProg(vs, fs){
   const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
   const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
@@ -627,9 +637,12 @@ function getMesh(s, st = {}){
 const world = { objs: [], platforms: [] };   // obj: { s, mesh, pos, q, hdg }
 const CARRIER = { x: 42000, y: 9000, hdg: 0 };
 const RUNWAY_SPAWN = { x: -884, y: -2050, hdg: 0 };
+// FA ship shapes put their origin anywhere from the keel to mid-height: float the keel a little below the sea (draft)
+const waterZ = mesh => -mesh.lo[2] - Math.min(30, 0.08 * (mesh.hi[2] - mesh.lo[2]));
 async function addObj(name, x, y, z, hdg, st, platform){
   try {
     const s = await loadShape(name), mesh = getMesh(s, st || { gear: true }), q = qAxis([0,0,1], hdg);
+    if (s.isShip && z === 0) z = waterZ(mesh);
     const o = { s, mesh, pos: [x, y, z], q, hdg }; world.objs.push(o);
     if (platform){ const c = Math.cos(hdg), sn = Math.sin(hdg);
       for (const f of mesh.flat) world.platforms.push({ pts: f.pts.map(([a, b]) => [x + a*c - b*sn, y + a*sn + b*c]), z: z + f.z, kind: platform }); }
@@ -778,7 +791,7 @@ function stepDrive(dt){
   const blocked = ship ? g.kind !== "water" || terrainH(np[0] + f[0]*len, np[1] + f[1]*len) > -12 : g.kind === "water" || g.h > P.pos[2] + 40;
   if (blocked){ P.speed = 0; return; }
   P.pos = np;
-  if (ship){ P.pos[2] = 0; P.q = qFromHP(P.hdg, 0); return; }
+  if (ship){ P.pos[2] = waterZ(curMesh()); P.q = qFromHP(P.hdg, 0); return; }
   P.pos[2] = g.h;
   const hf = groundAt(P.pos[0] + f[0]*len, P.pos[1] + f[1]*len).h, hb = groundAt(P.pos[0] - f[0]*len, P.pos[1] - f[1]*len).h;
   P.q = qFromHP(P.hdg, Math.atan2(hf - hb, 2*len));
@@ -788,6 +801,18 @@ function step(dt){
   if (!P.crashed){ if (P.mode === "fly") stepFly(dt); else stepDrive(dt); }
   stepCombat(dt);
   stepMission(dt);
+  stepWake(dt);
+}
+// foam wake behind a ship you sail: white patches that spread and fade
+const WAKE = []; let wakeT = 0;
+function stepWake(dt){
+  for (const w of WAKE) w.age += dt;
+  while (WAKE.length && WAKE[0].age > 25) WAKE.shift();
+  if (P.mode !== "sail" || P.crashed || Math.abs(P.speed) < 2) return;
+  wakeT -= dt; if (wakeT > 0) return; wakeT = 0.15;
+  const m = curMesh(), f = [-Math.sin(P.hdg), Math.cos(P.hdg)], back = -m.lo[1] * 0.92, beam = Math.max(5, (m.hi[0] - m.lo[0]) / 4);
+  WAKE.push({ pos: [P.pos[0] - f[0] * back, P.pos[1] - f[1] * back, -1], r: beam, age: 0 });
+  WAKE.push({ pos: [P.pos[0] + f[0] * m.hi[1] * 0.85, P.pos[1] + f[1] * m.hi[1] * 0.85, -1], r: beam * 0.5, age: 0, bow: true });
 }
 
 // ===== weapons and targets =====
@@ -844,7 +869,7 @@ function placeTarget(t, dt){
     t.vel = vmul(vsub([x, y, z], t.pos), dt > 0 ? 1 / dt : 0); t.pos = [x, y, z];
     t.q = qMul(qFromHP(o.ph + (o.dir > 0 ? 0 : Math.PI), 0), qAxis([0,1,0], -0.55 * o.dir)); return; }
   t.vel = [0, 0, 0];
-  if (t.kind === "sea") t.pos[2] = 0;
+  if (t.kind === "sea") t.pos[2] = waterZ(t.mesh);
   else if (t.kind === "bld"){ if (dt) return; const m = t.mesh; let h = 1e9;
     for (const [a, b] of [[m.lo[0], m.lo[1]], [m.hi[0], m.lo[1]], [m.lo[0], m.hi[1]], [m.hi[0], m.hi[1]], [0, 0]]) h = Math.min(h, terrainH(t.pos[0] + a, t.pos[1] + b));
     t.pos[2] = Math.max(0, h) - m.lo[2]; }
@@ -1000,11 +1025,14 @@ function renderCombat(eye){
     bindModelAttrs(lineBuf); gl.drawArrays(gl.LINES, 0, L2.length / 10);
   }
   // fireballs
-  if (W.booms.length || FL.length){
+  if (W.booms.length || FL.length || WAKE.length){
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
     for (const b of W.booms){ const t = (performance.now() - b.t0) / 2500;
       gl.uniform4f(mProg.U("uTint"), 1, 0.55 - 0.35 * t, 0.12, 0.85); gl.uniform1f(mProg.U("uAlpha"), (1 - t) * 0.9);
       drawModel({ picTex: blankTex, pic: null }, sphere, modelMat([0,0,0,1], vsub(b.pos, eye), b.size * (0.4 + 1.2 * Math.sqrt(t))), false); }
+    gl.uniform4f(mProg.U("uTint"), 0.95, 0.97, 1, 1);
+    for (const w of WAKE){ if (w.bow && w.age > 3) continue; const k = w.age / (w.bow ? 3 : 25), M = modelMat([0,0,0,1], vsub(w.pos, eye), w.r * (1 + w.age * (w.bow ? 0.4 : 0.12))); M[10] *= 0.01;
+      gl.uniform1f(mProg.U("uAlpha"), 0.3 * (1 - k) * (1 - k)); drawModel({ picTex: blankTex, pic: null }, sphere, M, false); }
     gl.uniform4f(mProg.U("uTint"), 1, 0.95, 0.75, 1);
     for (const f of FL){ gl.uniform1f(mProg.U("uAlpha"), Math.min(1, f.life)); drawModel({ picTex: blankTex, pic: null }, sphere, modelMat([0,0,0,1], vsub(f.pos, eye), 14 + 6 * Math.sin(f.life * 30)), false); }
     gl.uniform4f(mProg.U("uTint"), 0, 0, 0, 0); gl.uniform1f(mProg.U("uAlpha"), 1); gl.depthMask(true); gl.disable(gl.BLEND);
@@ -1148,7 +1176,8 @@ function render(){
   gl.uniformMatrix4fv(tProg.U("uPV"), false, PV); gl.uniform3fv(tProg.U("uSun"), SUN); gl.uniform3fv(tProg.U("uFogC"), SKY); gl.uniform2fv(tProg.U("uFog"), FOG);
   gl.uniform3fv(tProg.U("uOff"), vmul(eye, -1));
   const tA = (buf) => { gl.bindBuffer(gl.ARRAY_BUFFER, buf); for (const [n, sz, off] of [["aP",3,0],["aCol",3,12],["aN",3,24]]){ const l = tProg.A(n); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, 36, off); } };
-  tA(waterBuf); gl.drawArrays(gl.TRIANGLES, 0, 6);
+  gl.uniform3fv(tProg.U("uEye"), eye); gl.uniform1f(tProg.U("uTime"), performance.now() / 1000 % 10000); gl.uniform1f(tProg.U("uWave"), 1);
+  tA(waterBuf); gl.drawArrays(gl.TRIANGLES, 0, 6); gl.uniform1f(tProg.U("uWave"), 0);
   for (const c of TMAP.chunks){ tA(c.vb); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, c.ib); gl.drawElements(gl.TRIANGLES, c.count, gl.UNSIGNED_SHORT, 0); }
   for (const n of ["aCol"]) gl.disableVertexAttribArray(tProg.A(n));
   // models
