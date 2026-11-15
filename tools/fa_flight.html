@@ -800,7 +800,7 @@ const fwdOf = q => qRot(q, [0,1,0]);
 // line of sight over the terrain (no lock on targets hidden behind a ridge)
 function clearLine(a, b){ for (let i = 1; i < 24; i++){ const k = i / 24, x = a[0] + (b[0]-a[0])*k, y = a[1] + (b[1]-a[1])*k, z = a[2] + (b[2]-a[2])*k; if (terrainH(x, y) > z + 20) return false; } return true; }
 function nextWeapon(){ if (P.mode !== "fly") return; W.sel = (W.sel + 1) % WEAPONS.length; W.lock = null; updButtons(); }
-function launchFrom(){ const r = curMesh().radius, f = fwdOf(P.q), rt = qRot(P.q, [1,0,0]), up = qRot(P.q, [0,0,1]); W.side = -W.side;
+function launchFrom(){ const r = getMesh(P.s, {}).radius, f = fwdOf(P.q), rt = qRot(P.q, [1,0,0]), up = qRot(P.q, [0,0,1]); W.side = -W.side;
   return vadd(P.pos, vadd(vmul(rt, W.side * r * 0.25), vadd(vmul(up, -r * 0.08), vmul(f, r * 0.1)))); }
 function fireOnce(){
   if (P.mode !== "fly" || P.crashed) return;
@@ -832,7 +832,7 @@ function stepCombat(dt){
   // gun
   W.gunT -= dt;
   if (W.fireHeld && w.id === "gun" && P.mode === "fly" && !P.crashed && W.ammo[0] > 0 && W.gunT <= 0){
-    W.gunT = 0.06; W.ammo[0]--; const f = fwdOf(P.q), r = curMesh().radius, v0 = P.vel || vmul(f, P.speed);
+    W.gunT = 0.06; W.ammo[0]--; const f = fwdOf(P.q), r = getMesh(P.s, {}).radius, v0 = P.vel || vmul(f, P.speed);
     // a little aim help: bullets bend toward a target close to the gun line
     W.bullets.push({ pos: vadd(P.pos, vmul(f, r * 0.55)), vel: vadd(v0, vmul(f, 3300)), life: 1.6 });
     if (W.ammo[0] % 10 === 0) updButtons();
@@ -931,7 +931,7 @@ function drawOverlay(){
 
 // ===== camera =====
 function camera(dt){
-  const mesh = curMesh(), r = mesh.radius;   // a turned view stays until the Front button (or a double-tap) brings it back
+  const mesh = getMesh(P.s, {}), r = mesh.radius;   // framed on the clean model, so the afterburner flame, gear or speed brake never change the size; a turned view stays until the Front button (or a double-tap) brings it back
   const center0 = vadd(P.pos, [0, 0, (mesh.hi[2] + mesh.lo[2]) / 2]);
   if (cam.rc && cam.rcEye){
     // RC view: you stand at the runway end, beside where the jet started, and follow it with your eyes. The zoom follows the
