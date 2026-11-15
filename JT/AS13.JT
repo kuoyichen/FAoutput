@@ -1,0 +1,193 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 7
+    word 315
+    word 52
+	ptr ot_names
+    dword $37
+    word $80
+	ptr shape
+    dword 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 1980
+    word 59
+    word 0
+    word 100
+    word 100
+    word 100
+    word 100
+    word 0
+    word 25
+    word 600
+    word 850
+    word 800
+    word 600
+    word 600
+    byte 30
+    byte 9
+    dword 2051
+    word 0
+
+;---------------- movement info ----------------
+
+    word 0
+    word 0
+    word 16380
+    word -16380
+    word 16380
+    word 0
+    word 1074
+    word 1074
+    dword ^513
+    dword ^146
+    dword ^0
+    dword $7fffff00
+	symbol _PROJProc	; utilProc
+
+;---------------- sound info ----------------
+
+	ptr loopSound
+    dword 0
+    dword 0
+    dword 0
+    byte 1
+    word 7000
+    word 300
+    word 130
+    word 20
+    word 1600
+    word 0
+    word 0
+    word 0
+    dword 0
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+
+;---------------- START OF PROJ_TYPE ----------------
+
+    dword $6a16f
+    word 1
+    byte 10
+	ptr si_names
+    word 0
+    byte $0
+    byte 0
+    byte $0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    word 8190
+    word 8190
+    dword ^63414
+    dword ^453654
+    dword $8011c180
+    dword $7fee3e80
+    word 8190
+    word 8190
+    dword ^63414
+    dword ^453654
+    dword $8011c180
+    dword $7fee3e80
+    byte 35
+    byte 40
+    byte 20
+    byte 5
+    byte 0
+    word 0
+    word 0
+    word 0
+    word 0
+    byte 1
+    byte 1
+    byte 1
+    byte 0
+    byte 40
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 31
+    word 0
+    word 733
+    word 2
+    word 600
+    word 3000
+    word 7280
+    word 7280
+    byte 100
+    byte 100
+    byte 40
+    byte 14
+    byte 40
+    byte 14
+    word 0
+    word 1
+    word 16
+    byte 100
+    byte 8
+    byte 12
+    byte 2
+    byte 10
+    byte 30
+    byte 75
+    byte 75
+    byte 70
+    byte 35
+    byte 0
+    byte 0
+    byte 0
+    byte 99
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 9
+    word 4
+    word 100
+    byte 0
+    byte 21
+    byte 34
+	ptr fireSound
+    word 6000
+    word 0
+    word 1000
+    word 75
+
+;---------------- END OF PROJ_TYPE ----------------
+
+:ot_names
+	string "Kh-59ME"
+	string "Kh-59ME Kazoo"
+	string "AS13.JT"
+:shape
+	string "kedge.SH"
+:loopSound
+	string "&ashmis.11k"
+:si_names
+	string "Kh-59ME"
+	string "Kh-59ME Kazoo"
+	string "AS13.JT"
+:fireSound
+	string "&bomb.11K"
+	end
