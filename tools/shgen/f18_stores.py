@@ -327,7 +327,13 @@ def build(d, static=False, debug=False):
         b = bytearray(struct.pack('<BBHH', 0x82, 0, len(V), BASE*8))
         for v in V: b += struct.pack('<hhh', *v)
         b += faces_bytes(V, F) + b'\x00\x00'
-        return b + b'\x00' * (len(b) % 2)
+        return HDR + b + b'\x00' * (len(b) % 2)
+    # C4 (0x4d3194) reads 3 words just BEFORE its target (model extents x, up, fwd) to pick the eye precision shift;
+    # garbage there (negative/huge) wrecks the eye and the part is not drawn.  Copy the header of the file's own parts.
+    hc = next(t for t in (i + 16 + struct.unpack_from('<h', c, i+14)[0] for i in range(len(c) - 16)
+                          if c[i] == 0xC4 and c[i+1] == 0) if 6 <= t < len(c) - 2 and c[t] == 0x82 and c[t+1] == 0)
+    HDR = bytes(c[hc-6:hc])
+    assert all(v > 0 for v in struct.unpack('<3h', HDR)), HDR
     shapes = {k: f() for k, f in SHAPES.items()}
     parts = {('K', k): part_bytes(*v) for k, v in shapes.items()}
     parts.update({('P', k): part_bytes(*v) for k, v in PYLONS.items()})
@@ -363,7 +369,7 @@ def build(d, static=False, debug=False):
     p += sub_len
     pad = p % 2; p += pad     # parts must start on an even address: odd ones are not drawn by FA (seen in game)
     relocs = []
-    for k in parts: at[k] = p; p += len(parts[k])
+    for k in parts: at[k] = p + len(HDR); p += len(parts[k])   # target = the 82 after the header
     L = p - tail                                      # inserted length; thunk moves by L
     thunk_new = thunk_old + L
 
