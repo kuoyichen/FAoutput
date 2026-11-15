@@ -101,12 +101,18 @@
     "Cruise missile flight", "Set goal speed to max speed", "Ordnance is a gun", "Launcher must guide", "Launcher must use radar to guide",
     "Launcher must use laser to guide", "Continuous fire", "Final collision check early", "Final collision check late", "Compute target lead",
     "Enable target window view", "Can damage planes", "Can damage ground targets", "Shake screen when launched"];
+  // Object Info dialog (OBJ flags dword).  AIM54C.JT = $37 ticks exactly the first five boxes, so they are bits 0,1,2,4,5 in order
+  // (bit 3 is never set in any repo JT).  The other boxes' bits are not known yet: [label, bit or null].
+  const OBJ_FLAGS = [["Others can collide into object", 0], ["Object can collide into others", 1], ["Non-players can collide", 2], ["Object is visible on radar", 4],
+    ["Object is targetable", 5], ["Remove object when killed", null], ["Projectiles pass thru object", null], ["Not collidable when destroyed", null],
+    ["Object is an airport", null], ["Object has a catapult", null], ["Object has arrestor wires", null], ["Object has a short runway", null],
+    ["Object has a long runway", null], ["Aircraft can land on object", null], ["Low visibility at night", null]];
   // value lists seen in the repo files; names confirmed by the AIM54C dialogs where marked
   const GUIDANCE = { 0: "None", 1: "Laser / designator", 2: "Infrared", 3: "Active Radar", 4: "Anti-Radiation" };
   const ORD_TYPE = { 0: "Bomb", 4: "Gun / rocket", 8: "Bomb (Soviet)", 12: "Air-to-Air", 20: "Air-to-Ground", 40: "Anti-Ship" };
   const EXPLOSIONS = { 21: "Medium Ground Explosion", 30: "Large Air Explosion", 34: "Large Water Explosion" };
   const SMOKE = { 0: "None", 8: "Grey Smoke" };
 
-  const api = { F, getF, setF, setRaw, setName, FLAGS, GUIDANCE, ORD_TYPE, EXPLOSIONS, SMOKE, KTS, NM };
+  const api = { F, getF, setF, setRaw, setName, FLAGS, OBJ_FLAGS, GUIDANCE, ORD_TYPE, EXPLOSIONS, SMOKE, KTS, NM };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.JTCore = api;
 })(typeof window !== "undefined" ? window : globalThis);
