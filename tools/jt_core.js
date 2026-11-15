@@ -5,7 +5,8 @@
 //   PROJ_TYPE  (90 values)  ordnance: flags, guidance, seeker ranges, firing, motor, smoke, hit modifiers, collateral damage
 // followed by :ot_names / :shape / :loopSound / :si_names / :fireSound string blocks.
 // Field positions come from the original editor's AIM54C.JT dialogs plus a comparison of all 181 JT files in the repo.
-// Confirmed against Kuoyi's dialogs of the repo AIM54C.JT: Ordnance, Missile Info, Damage, Movement, Firing, Ordnance Parameters, Sound.
+// Confirmed against Kuoyi's dialogs of the repo AIM54C.JT: Ordnance, Object Info (5 bits), Missile Info, Targeting
+// (ranges, FOV, LookDown = PROJ8), Firing, Damage, Movement, Ordnance Parameters, Sound.
 // Fields marked `g` (guess) are placed by value patterns only and are shown as "unconfirmed" in the editor.
 (function (root) {
   "use strict";
@@ -29,12 +30,12 @@
     accel: ["OBJ", 45, "fx"], decel: ["OBJ", 46, "fx"], minAlt: ["OBJ", 47, "ft"], maxAlt: ["OBJ", 48, "ft"],
     // ----- PROJ_TYPE -----
     flags: ["PROJ", 0], podQty: ["PROJ", 1], guidance: ["PROJ", 6],
-    chaff: ["PROJ", 8, "", "g"], ecm: ["PROJ", 9, "", "g"], irSun: ["PROJ", 12, "", "g"],
+    lookDown: ["PROJ", 8], chaff: ["PROJ", 25, "", "g"], ecm: ["PROJ", 26, "", "g"], irSun: ["PROJ", 12, "", "g"],
     rFovH: ["PROJ", 13, "deg"], rFovP: ["PROJ", 14, "deg"], rMin: ["PROJ", 15, "nm"], rMax: ["PROJ", 16, "nm"], rMinAlt: ["PROJ", 17, "nm"], rMaxAlt: ["PROJ", 18, "nm"],
     tFovH: ["PROJ", 19, "deg"], tFovP: ["PROJ", 20, "deg"], tMin: ["PROJ", 21, "nm"], tMax: ["PROJ", 22, "nm"], tMinAlt: ["PROJ", 23, "nm"], tMaxAlt: ["PROJ", 24, "nm"],
-    lookDown: ["PROJ", 25, "", "g"], allAspect: ["PROJ", 29, "", "g"], ordType: ["PROJ", 27],
+    allAspect: ["PROJ", 29, "", "g"], ordType: ["PROJ", 27],
     dopAbove: ["PROJ", 30, "", "g"], dopBelow: ["PROJ", 31, "", "g"], dopMin: ["PROJ", 32, "", "g"],
-    perRound: ["PROJ", 34], burst: ["PROJ", 35, "", "g"], carpet: ["PROJ", 36, "", "g"], delay: ["PROJ", 37, "qs", "g"], reload: ["PROJ", 38, "qs"],
+    perRound: ["PROJ", 34], burst: ["PROJ", 35, "", "g"], carpet: ["PROJ", 36, "", "g"], delay: ["PROJ", 37, "qs"], reload: ["PROJ", 38, "qs"],
     initSpd: ["PROJ", 45], finalSpd: ["PROJ", 46], ignition: ["PROJ", 47], fuelTime: ["PROJ", 48], removal: ["PROJ", 49],
     turnPow: ["PROJ", 50, "deg"], turnUnpow: ["PROJ", 51, "deg"], perfSL: ["PROJ", 52], perf20k: ["PROJ", 53],
     cr1Dist: ["PROJ", 54], cr1Alt: ["PROJ", 55], cr2Dist: ["PROJ", 56], cr2Alt: ["PROJ", 57],
