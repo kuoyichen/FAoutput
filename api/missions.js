@@ -4,13 +4,14 @@
 // GET /api/missions?id=<path>  -> { mission: { ... } } for one shared link
 // GET /api/missions?status     -> which storage settings the function can see (names only, no values)
 import { list } from "@vercel/blob";
-import { PREFIX, PATH_RE, json, configured, blobOpts, uploadMode, envNames, rwToken, storeId, groupMissions, keyOf, attachInfo } from "./_missions.js";
+import { PREFIX, PATH_RE, json, configured, blobOpts, uploadMode, envNames, rwToken, storeId, adminKey, groupMissions, keyOf, attachInfo } from "./_missions.js";
 
 export async function GET(request) {
   const q = new URL(request.url).searchParams;
   if (q.has("status")) {
     const out = { configured: configured(), uploadMode: uploadMode(), readWriteToken: !!rwToken(), storeId: !!storeId(),
-      oidcHeader: !!request.headers.get("x-vercel-oidc-token"), envNames: envNames(), listWorks: null };
+      oidcHeader: !!request.headers.get("x-vercel-oidc-token"), envNames: envNames(), listWorks: null,
+      adminKeySet: !!adminKey(), deployment: process.env.VERCEL_ENV || null };
     if (out.configured) {
       try {
         await Promise.race([list({ prefix: PREFIX, limit: 1, ...blobOpts() }),
