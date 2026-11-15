@@ -934,9 +934,12 @@ function camera(dt){
   const mesh = curMesh(), r = mesh.radius;   // a turned view stays until the Front button (or a double-tap) brings it back
   const center0 = vadd(P.pos, [0, 0, (mesh.hi[2] + mesh.lo[2]) / 2]);
   if (cam.rc && cam.rcEye){
-    // RC view: you stand at the runway end, beside where the jet started, and follow it with your eyes; the view zooms in as it flies away
-    const eye = cam.rcEye, dist = vlen(vsub(center0, eye));
-    return { eye, target: center0, up: [0,0,1], fov: clamp(2 * Math.atan(r * 3.2 / Math.max(dist, 1)) / cam.zoom, 0.08, 1.1) };
+    // RC view: you stand at the runway end, beside where the jet started, and follow it with your eyes. The zoom follows the
+    // distance smoothly so the jet always fills about half the screen (pinch changes that share)
+    const eye = cam.rcEye, dist = vlen(vsub(center0, eye)), asp = cv.width / Math.max(1, cv.height);
+    const want = clamp(3 * Math.atan(r / Math.max(dist, 1)) / Math.min(1, asp) * cam.zoom, 0.003, 1.2);
+    cam.rcFov = cam.rcFov ? Math.exp(Math.log(cam.rcFov) + (Math.log(want) - Math.log(cam.rcFov)) * (1 - Math.exp(-dt * 4))) : want;
+    return { eye, target: center0, up: [0,0,1], fov: cam.rcFov };
   }
   const tq = P.mode === "fly" ? P.q : qFromHP(P.hdg, 0);
   cam.q = qNorm(qSlerp(cam.q, tq, 1 - Math.exp(-dt * (P.onGround ? 8 : 4))));
@@ -1103,7 +1106,7 @@ function toggleGear(){ if (P.mode !== "fly" || P.onGround || P.crashed) return; 
 function toggleBrake(){ P.brake = !P.brake; updButtons(); }
 function frontView(){ cam.yaw = cam.pitch = 0; cam.zoom = 1; cam.rc = false; updButtons(); }
 $("bFront").onclick = frontView;
-$("bRC").onclick = () => { cam.rc = !cam.rc; cam.zoom = 1; updButtons(); sub(cam.rc ? L("RC view: watching from the runway end, like flying a model plane. Pinch to zoom.", "遙控視角：站在跑道頭看飛機，像在飛遙控飛機。兩指可縮放。") : L("Chase view", "追蹤視角")); };
+$("bRC").onclick = () => { cam.rc = !cam.rc; cam.zoom = 1; cam.rcFov = 0; updButtons(); sub(cam.rc ? L("RC view: watching from the runway end, like flying a model plane. Pinch to zoom.", "遙控視角：站在跑道頭看飛機，像在飛遙控飛機。兩指可縮放。") : L("Chase view", "追蹤視角")); };
 $("bGear").onclick = toggleGear; $("bBrake").onclick = toggleBrake; $("bReset").onclick = () => spawn();
 $("bView").onclick = () => { cam.mode = (cam.mode + 1) % 3; cam.yaw = cam.pitch = 0; cam.rc = false; updButtons(); sub([L("Chase view", "追蹤視角"), L("Far chase view", "遠距追蹤"), L("Close view", "近距視角")][cam.mode]); };
 $("menuBtn").onclick = () => $("panel").classList.toggle("open");
