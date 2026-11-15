@@ -128,7 +128,11 @@ def pylon(h, bot, top):
     return V, orient(V, [(FLAT, GREY, f) for f in q])
 
 
-SHAPES = {TANK: tank480, AIM9: aim9, AAM: aim120, ARM: harm, LGB: gbu10, BOMB: mk82}
+import fa_weapons
+# FA's own weapon models (with their colour bands), scaled to real length in F18 units (~9.5 units per metre)
+SHAPES = {TANK: tank480, AIM9: lambda: fa_weapons.load('SIDEM.SH', 29), AAM: lambda: fa_weapons.load('AMRAM.SH', 37),
+          ARM: lambda: fa_weapons.load('HARM.SH', 42), LGB: lambda: fa_weapons.load('PAVE.SH', 42),
+          BOMB: lambda: fa_weapons.load('MK82.SH', 21)}
 
 # ---------------------------------------------------------------- slots: (station, rank, default kind, attach x, up, fwd)
 # x / fwd from F18.PT; up = pylon bottom (wing pylons) or a point just under the belly / on the wingtip rail
