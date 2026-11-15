@@ -1,0 +1,1162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PT Editor</title>
+<style>
+:root{ --bg:#14181d; --card:#1d232b; --card2:#232a33; --line:#2e3742; --text:#dde3ea; --muted:#8b96a5; --accent:#ffd54a; --bad:#ff6a50; --ok:#7bd88f; --sel:#3a3320; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0 8px 0 0;font-weight:600}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+button,select,input,label.btn{background:#262e38;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font:inherit}
+button,label.btn{cursor:pointer}
+button:hover,label.btn:hover{border-color:var(--muted)}
+button.on{border-color:var(--accent);color:var(--accent)}
+button.prim{background:var(--accent);color:#14181d;font-weight:600;border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:default}
+input[type=number]{width:84px;text-align:right}
+input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
+#msg{color:var(--accent)} #msg.err{color:var(--bad)}
+#title{padding:8px 16px 0;font-size:15px;font-weight:700;color:#8fc3ff}
+#title span{color:var(--muted);font-weight:400;font-size:12px;margin-left:8px}
+nav#tabs{display:flex;flex-wrap:wrap;gap:4px;padding:8px 16px 0;border-bottom:1px solid var(--line)}
+nav#tabs button{border-radius:6px 6px 0 0;border-bottom:none;background:var(--card)}
+nav#tabs button.on{background:var(--card2);color:var(--accent);border-color:var(--accent)}
+main{padding:12px 16px 40px}
+.panel{display:none}.panel.on{display:block}
+fieldset{border:1px solid var(--line);border-radius:8px;padding:8px 10px 10px;margin:0;background:var(--card);min-width:0}
+legend{color:#ff8f70;font-weight:700;padding:0 6px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));align-items:start}
+.row{display:flex;align-items:center;gap:8px;margin:4px 0}
+.row>label:first-child{flex:1;min-width:0}
+.row input[type=text]{flex:1.4;min-width:0}
+.unit{color:var(--muted);font-size:12px;min-width:26px}
+.note{color:var(--muted);font-size:12px;margin:6px 0 0}
+.chk{display:flex;align-items:center;gap:6px;margin:3px 0;cursor:pointer}
+.guess{color:var(--muted);font-size:11px}
+/* hardpoints */
+#hpWrap{display:grid;grid-template-columns:minmax(0,1fr) 470px;gap:12px}
+#hpTable td:nth-child(2){width:112px}#hpTable td:nth-child(4){width:112px}
+#view{position:relative;min-width:0}
+#cv{width:100%;height:min(70vh,640px);display:block;touch-action:none;background:radial-gradient(#2f3843,#181d23);border-radius:8px;cursor:grab}
+#cv.move{cursor:move}
+#vbar{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:8px;padding:6px 8px;background:var(--card);border:1px solid var(--line);border-radius:8px}
+#vbar .grp{display:inline-flex;gap:3px;align-items:center}
+#vhint{color:var(--muted);font-size:12px;margin-top:6px}
+#hpTable{width:100%;border-collapse:collapse;font-size:12px}
+#hpTable th{color:#ff8f70;text-align:left;font-weight:600;padding:2px 4px}
+#hpTable td{padding:2px 3px;border-top:1px solid var(--line)}
+#hpTable tr.sel td{background:var(--sel)}
+#hpTable tr{cursor:pointer}
+#hpTable input{width:100%;padding:2px 4px}
+#hpTable input.q{width:46px;text-align:right}
+#hpTable select{padding:2px;width:100%}
+#hpTable .desc{color:var(--muted)}
+#hpEdit{margin-top:10px}
+#hpEdit .cols{display:grid;grid-template-columns:1fr 1.2fr;gap:10px}
+.stepper input{width:64px}
+.small{font-size:12px}
+.stepper{display:inline-flex;gap:2px}.stepper button{padding:0 6px;line-height:20px}
+/* envelope */
+#envWrap{display:grid;grid-template-columns:260px minmax(0,1fr);gap:12px;align-items:start}
+#envTable{border-collapse:collapse;font-size:12px;width:100%}
+#envTable td,#envTable th{padding:1px 3px;border-top:1px solid var(--line)}
+#envTable input{width:80px;padding:1px 4px;text-align:right}
+#envTable tr.peak td{color:var(--accent)}
+#envCv{width:100%;height:420px;background:#0e7f86;border-radius:8px;display:block}
+/* raw */
+.raw{border-collapse:collapse;font:12px ui-monospace,Consolas,monospace;width:100%}
+.raw td{padding:1px 4px;border-top:1px solid var(--line)}
+.raw input{width:110px;font:inherit;padding:1px 4px}
+.raw .lab{color:var(--muted)}
+.rawcols{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px;align-items:start}
+dialog{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;max-width:440px}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+@media (max-width:1000px){ #hpWrap{grid-template-columns:1fr} #envWrap{grid-template-columns:1fr} }
+@media (max-width:600px){ header,main,nav#tabs{padding-left:10px;padding-right:10px} #hpEdit .cols{grid-template-columns:1fr} }
+</style>
+<script src="fashion_i18n.js"></script>
+<script src="pt_core.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <h1>PT Editor</h1>
+  <select id="ptList" title="PT files in the FAoutput repository"><option value="">PT file…</option></select>
+  <label class="btn" title="Open a .PT file from your disk">📂 Open .PT<input type="file" id="ptFile" accept=".pt,.PT" hidden></label>
+  <button id="saveBtn" disabled title="Download the edited .PT file">⬇ Save .PT</button>
+  <button id="ghBtn" disabled title="Write this PT file to PT/ on GitHub (admin key required)">☁ Commit to GitHub</button>
+  <span id="langSlot"></span>
+  <span id="msg"></span>
+</header>
+<div id="title"></div>
+<nav id="tabs"></nav>
+<main>
+  <section class="panel" id="p-hard">
+    <div id="hpWrap">
+      <div id="view">
+        <canvas id="cv"></canvas>
+        <div id="vbar">
+          <span class="grp"><button data-v="iso">3/4</button><button data-v="top">Top</button><button data-v="bottom">Bottom</button><button data-v="side">Side</button><button data-v="front">Front</button><button data-v="rear">Rear</button></span>
+          <span class="grp"><b class="small">Drag:</b><button id="mMove" class="on" title="Drag a store to move it">✥ Move</button><button id="mRot" title="Drag a store to slew it (heading / pitch)">⟳ Rotate</button></span>
+          <span class="grp"><b class="small">Axis:</b><button data-ax="" class="on" title="Move in the screen plane">Free</button><button data-ax="0" title="Right / left only">X</button><button data-ax="1" title="Up / down only">Y</button><button data-ax="2" title="Front / back only">Z</button></span>
+          <label class="chk small"><input type="checkbox" id="showSens"> Sensors / ECM</label>
+          <label class="chk small"><input type="checkbox" id="showBaked"> Model's own stores</label>
+          <label class="chk small"><input type="checkbox" id="gearDown" checked> Gear down</label>
+          <label class="chk small"><input type="checkbox" id="wire"> Wireframe</label>
+          <span class="grp small">Attach <select id="attach"><option value="c">store centre</option><option value="t">store top</option></select></span>
+        </div>
+        <div id="vhint">Drag empty space to orbit · scroll to zoom · click a store to select it, drag it to move (Shift = rotate) · arrow keys / PgUp PgDn nudge the selected store by 1 (Shift ×5)</div>
+      </div>
+      <div>
+        <fieldset><legend>Hardpoints</legend>
+          <div class="row" style="margin-top:0"><span class="small" id="hpCount"></span><span style="flex:1"></span>
+            <button id="hpAdd" title="Add a hardpoint at the end">＋ Add</button><button id="hpDup" title="Copy the selected hardpoint">⧉ Copy</button><button id="hpDel" title="Delete the selected hardpoint">✕ Delete</button></div>
+          <table id="hpTable"><thead><tr><th>#</th><th>Location</th><th>Qty</th><th>Store Type</th><th>Store Description</th></tr></thead><tbody></tbody></table>
+        </fieldset>
+        <fieldset id="hpEdit"><legend id="hpEditTitle">Edit Hardpoint</legend><div id="hpForm"></div></fieldset>
+      </div>
+    </div>
+  </section>
+  <section class="panel" id="p-aircraft"></section>
+  <section class="panel" id="p-class"></section>
+  <section class="panel" id="p-general"></section>
+  <section class="panel" id="p-damage"></section>
+  <section class="panel" id="p-movement"></section>
+  <section class="panel" id="p-controls"></section>
+  <section class="panel" id="p-engines"></section>
+  <section class="panel" id="p-sound"></section>
+  <section class="panel" id="p-envelope">
+    <div id="envWrap">
+      <fieldset><legend>Flight Envelope</legend>
+        <div class="row"><label>G-Envelope</label><select id="envG"></select></div>
+        <div class="row"><label>Data Points</label><b id="envN"></b></div>
+        <div class="row"><label>Max Speed Ptr</label><b id="envSp"></b></div>
+        <div class="row"><label>Max Alt Ptr</label><b id="envAp"></b></div>
+        <table id="envTable"><thead><tr><th>Point</th><th>Speed (kts)</th><th>Altitude (ft)</th></tr></thead><tbody></tbody></table>
+        <p class="note">Points run from the low-speed edge over the top to the high-speed edge. Empty rows (speed 0) are not used; Data Points and the two pointers are worked out for you.</p>
+      </fieldset>
+      <div><canvas id="envCv"></canvas><p class="note" id="envNote"></p></div>
+    </div>
+  </section>
+  <section class="panel" id="p-aero"></section>
+  <section class="panel" id="p-raw"></section>
+</main>
+<dialog id="ghDlg">
+  <h3 style="margin:0 0 8px">Commit to GitHub</h3>
+  <p class="small" id="ghWhat"></p>
+  <div class="row"><label>Admin key</label><input type="password" id="ghKey" autocomplete="current-password"></div>
+  <div class="row"><label>Commit message</label><input type="text" id="ghMsgIn"></div>
+  <p class="small" id="ghRes"></p>
+  <div class="row" style="justify-content:flex-end"><button id="ghCancel">Cancel</button><button id="ghGo" class="prim">Commit</button></div>
+</dialog>
+<script>
+"use strict";
+// ----- shared with tools/f18_showcase.html: SH parser, SH control code (x86) emulator, PIC + palette loaders -----
+let PARSE_NO_STORES = false;   // true: skip the loadout stores built into an SH (tools/shgen/f18_stores.py)
+// ===== SH parser (from sh_gallery.html; also reads each face's colour index and texture coordinates) =====
+const FACE_OPS = new Set([0x41,0x44,0x49,0x4C,0x51,0x54,0x59,0x5C,0x61,0x63,0x64,0x69,0x6B,0x6C,0x71,0x73,0x7C,0xCD,0xDD,0xED,0xEE,0xFE]);
+function parseSH(u8){
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  let base = 0x400;
+  if (u8[0] === 0x4D && u8[1] === 0x5A){
+    const pe = dv.getUint32(0x3C, true), ns = dv.getUint16(pe+6, true), opt = dv.getUint16(pe+20, true);
+    for (let i=0;i<ns;i++){ const s = pe+24+opt+i*40; if (String.fromCharCode(...u8.subarray(s, s+4)) === "CODE"){ base = dv.getUint32(s+20, true); break; } }
+  }
+  const c = u8.subarray(base), cv = new DataView(c.buffer, c.byteOffset, c.byteLength), L = c.length;
+  const shift = L > 8 ? cv.getUint16(6, true) : 8, scale = shift >= 4 && shift <= 16 ? Math.pow(2, shift - 8) : 1;
+  // Find every vertex buffer of the first LOD (each target must follow on from the previous count)
+  const bufs = [], maxAbs = (o, n) => { let m = 0; for (let i = 0; i < 3*n; i++) m = Math.max(m, Math.abs(cv.getInt16(o + 6 + 2*i, true))); return m; };
+  for (let o=0;o<L-6;o++){
+    if (c[o] !== 0x82 || c[o+1] !== 0) continue;
+    const n = cv.getUint16(o+2,true), t = cv.getUint16(o+4,true), e = o+6+6*n;
+    if (!n || n > 4000 || t % 8 || e >= L) continue;
+    if (!bufs.length){ if (t === 0 && n >= 3) bufs.push({ o, n, t:0, e }); continue; }
+    const last = bufs[bufs.length-1];
+    if (bufs.length === 1 && t === 0 && o < last.e && n >= 3 && maxAbs(o, n) * 4 < maxAbs(last.o, last.n)){ bufs[0] = { o, n, t:0, e }; continue; }   // the first one was a fake 82 inside the header (e.g. C5); the real buffer lies inside its range
+    if (t === 0 && o >= last.e && (c[o-1] === 0 || c[o-1] === 0x1E)){ bufs.push({ o, n, t:-1 }); break; }   // next LOD
+    const gap = t/8 - (last.t + last.n);   // targets usually follow on; some files (F35A, Y141, SU27…) skip a few slots
+    if (o >= last.e && (gap === 0 || gap > 0 && gap <= 64 && (c[o-1] === 0 || c[o-1] === 0x1E) && maxAbs(o, n) < 8192)){ bufs.push({ o, n, t: t/8, e }); }
+  }
+  if (!bufs.length) return null;
+  const lod = bufs.filter(b => b.t >= 0), stop = bufs.find(b => b.t < 0)?.o ?? L;
+  const v = [];
+  for (const b of lod) for (let i=0;i<b.n;i++) v[b.t+i] = [cv.getInt16(b.o+6+6*i,true), cv.getInt16(b.o+8+6*i,true), cv.getInt16(b.o+10+6*i,true)];
+  const facetsIn = (from, to, lo, hi) => {
+    const f = [];
+    for (let o=from; o<to-18; o++){
+      if (c[o] !== 0xFC) continue;
+      const fl = cv.getUint16(o+1,true), hl = fl & 0x200 ? 14 : 17;
+      if (fl & 0x200 ? fl & 0xF000 || !FACE_OPS.has(fl & 0xFF) && (fl & 0xFF) !== 0xFD && (fl & 0xFF) !== 0x74 : !FACE_OPS.has(fl & 0xFF) || fl >= 0x1000) continue;   // only accept known flag bytes (plus FD and 74 used by the F-14), so data is not misread as faces; the fake triangle in front of the SPE tail is 7F
+      const n = c[o+hl], wide = fl & 0x400; let p = o+hl+1;
+      if (n < 3 || n > 16 || p + n*(wide?2:1) > to) continue;
+      const idx = []; for (let k=0;k<n;k++){ idx.push(wide ? cv.getUint16(p,true) : c[p]); p += wide?2:1; }
+      if (idx.some(i => i < lo || i >= hi || !v[i]) || new Set(idx).size < n) continue;
+      // Texture coords: flag 0x04 = has UVs (pixel coords in the PIC); 0x100 = 1 byte per coord, otherwise 2 bytes
+      let uv = null;
+      if (fl & 4){ uv = []; for (let k=0;k<n;k++){ if (fl & 0x100){ uv.push([c[p], c[p+1]]); p += 2; } else { uv.push([cv.getUint16(p,true), cv.getUint16(p+2,true)]); p += 4; } } }
+      idx.uv = uv; idx.col = c[o+3]; idx.fl = fl;
+      f.push(idx); o = p - 1;   // skip this face's data so no fake face is read from its indices (the right-hand triangle on F5EV)
+    }
+    return f;
+  };
+  const main = lod[0], mainEnd = lod[1]?.o ?? stop;
+  const f = facetsIn(main.e, mainEnd, 0, main.n);
+  // Edited SH files (tools/shgen/sh_subdivide.py, f14_nose.py): an original face or node becomes `12 00 rel16` (call) + `38 rel16` (skip);
+  // the called block holds an 82 vertex buffer, F6 per-vertex shading, FC faces, 06/0C plane tests (follow forward branches only; backward ones are the original BSP) and 00 00 return
+  const faceAt = t => {
+    const fl = cv.getUint16(t+1, true); let p = t + 5 + (fl & 0x60 ? (fl & 0x200 ? 9 : 12) : 0);
+    const n = c[p++], wide = fl & 0x400, idx = [];
+    for (let k = 0; k < n; k++){ idx.push(wide ? cv.getUint16(p, true) : c[p]); p += wide ? 2 : 1; }
+    let uv = null; if (fl & 4){ uv = []; for (let k = 0; k < n; k++){ if (fl & 0x100){ uv.push([c[p], c[p+1]]); p += 2; } else { uv.push([cv.getUint16(p, true), cv.getUint16(p+2, true)]); p += 4; } } }
+    idx.uv = uv; idx.col = c[t+3]; idx.fl = fl; f.push(idx); return p;
+  };
+  // C4 00 x up fwd hdg pitch roll rel16 inside a hooked block (f18g_growler.py): draw the part at an offset (rotation 0).
+  // Each placement gets its own vertex slots, so one shared part can be drawn several times.
+  const placePart = (t, pos) => {
+    if (c[t] !== 0x82 || c[t+1] !== 0) return;
+    const n = cv.getUint16(t+2, true), tg = cv.getUint16(t+4, true) / 8, base = Math.max(v.length, 1000);
+    for (let i = 0; i < n; i++) v[base+i] = [cv.getInt16(t+6+6*i, true) + pos[0], cv.getInt16(t+8+6*i, true) + pos[2], cv.getInt16(t+10+6*i, true) + pos[1]];
+    let p = t + 6 + 6*n; while (c[p] === 0xF6) p += 7;
+    // faces, and 06 plane nodes inside the part (store/pylon order): follow both branches
+    const walk = (p, depth) => {
+      for (let g = 0; g < 500 && p > t && p < L - 2; g++){
+        if (c[p] === 0xFC){ p = faceAt(p); const idx = f[f.length-1]; for (let k = 0; k < idx.length; k++) if (idx[k] >= tg && idx[k] < tg + n) idx[k] = base + idx[k] - tg; }
+        else if (c[p] === 0x06 && c[p+1] === 0 && depth < 8){ walk(p + 16 + cv.getInt16(p+14, true), depth+1); walk(p + 18 + cv.getInt16(p+16, true), depth+1); p += 18; }
+        else return;
+      }
+    };
+    walk(p, 0);
+  };
+  const block = (t, from, seen) => {
+    for (let guard = 0; guard < 2000 && t > 0 && t < L - 2 && !seen.has(t); guard++){
+      seen.add(t);
+      if (c[t] === 0x82 && c[t+1] === 0){ const n = cv.getUint16(t+2, true), tg = cv.getUint16(t+4, true) / 8;
+        for (let i = 0; i < n; i++) v[tg+i] = [cv.getInt16(t+6+6*i, true), cv.getInt16(t+8+6*i, true), cv.getInt16(t+10+6*i, true)]; t += 6 + 6*n; }
+      else if (c[t] === 0xF6) t += 7;
+      else if (c[t] === 0xFC) t = faceAt(t);
+      else if (c[t] === 0xC4 && c[t+1] === 0){ placePart(t + 16 + cv.getInt16(t+14, true), [0,1,2].map(k => cv.getInt16(t+2+2*k, true))); t += 16; }
+      else if ((c[t] === 0x06 || c[t] === 0x0C) && c[t+1] === 0){ const k = c[t] === 0x06 ? 14 : 10;
+        for (const [r, e] of [[t+k, t+k+2], [t+k+2, t+k+4]]){ const g = e + cv.getInt16(r, true); if (g > from) block(g, from, seen); }
+        t += k + 4; }
+      else return;
+    }
+  };
+  for (let o = main.e; o < mainEnd - 7; o++){
+    if (c[o] !== 0x12 || c[o+1] !== 0 || c[o+4] !== 0x38) continue;
+    const t = o + 4 + cv.getInt16(o+2, true); if (t <= mainEnd || t >= L - 6 || ![0x82, 0xFC, 0x06].includes(c[t])) continue;
+    block(t, t - 1, new Set());
+    o += 6;
+  }
+  // Loadout stores (tools/shgen/f18_stores.py): new 06 nodes and leaf blocks are chained into the model's BSP, and each
+  // store slot is an F0 stub `F0 00 68 imm32 E8 rel32` + an i16 table of C4 lists per store kind; in the game the stub reads
+  // the aircraft's actual loadout, here the default kind (imm32 >> 16) is drawn.  Walk the whole main BSP from the root
+  // and place the C4 parts that were added (beyond the original shape data), once each.
+  const added = lod[lod.length - 1].e, placed = new Set();
+  const storeWalk = (t, depth) => {
+    for (let guard = 0; guard < 4000 && depth < 60 && t > 0 && t < L - 2; guard++){
+      const op = c[t];
+      if (op === 0x00 && c[t+1] === 0 || op === 0x1E) return;
+      if (op === 0x82 && c[t+1] === 0) t += 6 + 6 * cv.getUint16(t+2, true);
+      else if (op === 0xFC){ const fl = cv.getUint16(t+1, true); let p = t + 5 + (fl & 0x60 ? (fl & 0x200 ? 9 : 12) : 0); const n = c[p++]; p += fl & 0x400 ? 2*n : n; if (fl & 4) p += n * (fl & 0x100 ? 2 : 4); t = p; }
+      else if (op === 0xF6) t += 7;
+      else if ((op === 0xD0 || op === 0xE0) && c[t+1] === 0) t += 4;
+      else if (op === 0xE2 && c[t+1] === 0) t += 16;
+      else if (op === 0x06 && c[t+1] === 0){ storeWalk(t + 16 + cv.getInt16(t+14, true), depth+1); storeWalk(t + 18 + cv.getInt16(t+16, true), depth+1); t += 18; }
+      else if ((op === 0x0C || op === 0x0E || op === 0x10) && c[t+1] === 0){ storeWalk(t + 12 + cv.getInt16(t+10, true), depth+1); storeWalk(t + 14 + cv.getInt16(t+12, true), depth+1); t += 14; }
+      else if (op === 0x6C && c[t+1] === 0){ storeWalk(t + 8 + cv.getInt16(t+6, true), depth+1); storeWalk(t + 10 + cv.getInt16(t+8, true), depth+1); t += 10; }
+      else if (op === 0x12 && c[t+1] === 0){ storeWalk(t + 4 + cv.getInt16(t+2, true), depth+1); t += 4; }
+      else if (op === 0x38) t = t + 3 + cv.getInt16(t+1, true);
+      else if (op === 0x48 && c[t+1] === 0) t = t + 4 + cv.getInt16(t+2, true);
+      else if (op === 0xC4 && c[t+1] === 0){
+        if (t > added && !placed.has(t)){ placed.add(t); placePart(t + 16 + cv.getInt16(t+14, true), [0,1,2].map(k => cv.getInt16(t+2+2*k, true))); }
+        t += 16;
+      }
+      else if (op === 0xF0 && c[t+1] === 0){
+        if (c[t+2] === 0x68 && c[t+7] === 0xE8){   // store slot stub: draw its default kind
+          const kind = c[t+5], tb = t + 12; if (kind) storeWalk(tb + cv.getInt16(tb + 2*kind, true), depth+1); return;
+        }
+        let r = null; for (let q = t+2; q < t+200 && q < L-5; q++) if (c[q] === 0x68){ const x = cv.getUint32(q+1, true) - SH_VA; if (x > 0 && x < L){ r = x; break; } }
+        if (r == null) return; t = r;
+      }
+      else return;
+    }
+  };
+  if (!PARSE_NO_STORES){ let r = main.e; while (c[r] === 0xF6) r += 7; storeWalk(r, 0); }
+  if (!f.length) return null;
+  let span = 0; for (let i=0;i<main.n;i++) span = Math.max(span, Math.abs(v[i][0]));
+  const parts = [];
+  for (let k=1;k<lod.length;k++){
+    const b = lod[k], to = lod[k+1]?.o ?? stop; if (b.n < 12) continue;
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (let i=0;i<b.n;i++){ const p = v[b.t+i]; x0 = Math.min(x0,p[0]); x1 = Math.max(x1,p[0]); z0 = Math.min(z0,p[2]); z1 = Math.max(z1,p[2]); }
+    const ax = Math.max(Math.abs(x0), Math.abs(x1));
+    if (ax < span*0.6 || z1 - z0 > (x1 - x0)*0.5) continue;
+    const pf = facetsIn(b.e, to, b.t, b.t + b.n); if (!pf.length) continue;
+    const pts = []; for (let i=0;i<b.n;i++) pts.push(v[b.t+i]);
+    // pivot: the outermost leading corner of the wing glove (main-body vertex within the wing chord, farthest from the fuselage and most forward)
+    const side = Math.sign(x0 + x1), tipX = side > 0 ? x1 : -x0;
+    const ys = pts.map(p => p[1]), wy0 = Math.min(...ys), wy1 = Math.max(...ys), lenY = 2*span;
+    let g = null; for (let i=0;i<main.n;i++){ const p = v[i], ax2 = p[0]*side;
+      if (ax2 > 0 && ax2 < tipX*0.6 && p[1] >= wy0 && p[1] <= wy1 + 0.15*lenY && (!g || ax2 > g[0]*side || (ax2 === g[0]*side && p[1] > g[1]))) g = p; }
+    const piv = g ? [g[0], g[1]] : [0, 0];
+    parts.push({ f: pf, wing: true, side, pivot: [piv[0], piv[1], 0] });
+  }
+  // all sub-part vertex sets of the first LOD (gear, flaps, speed brake…) and the code that controls them
+  const subs = lod.slice(1).map((b, k) => ({ o: b.o, t: b.t, n: b.n, f: facetsIn(b.e, lod[k+2]?.o ?? stop, b.t, b.t + b.n),
+    local: b.o >= 14 && c[b.o-14] === 0xFF && c[b.o-13] === 0xFF }));
+  return { v: v.map(p => p || [0,0,0]), f, parts, scale, subs, code: c, ctl: parseCtl(c, cv, subs), imp: shImports(u8, c) };
+}
+
+// SH import table: each control variable is a global provided by FA.EXE, named in the import table (e.g. _PLgearDown, _PLleftFlap)
+// returns { name: address used by the code } (address = location of the ff 25 [IAT] thunk)
+function shImports(u8, c){
+  const out = {}; if (u8[0] !== 0x4D || u8[1] !== 0x5A) return out;
+  try {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), pe = dv.getUint32(0x3C, true), ns = dv.getUint16(pe+6, true), opt = dv.getUint16(pe+20, true);
+    const secs = []; for (let i = 0; i < ns; i++){ const s = pe+24+opt+i*40; secs.push([dv.getUint32(s+12, true), Math.max(dv.getUint32(s+8, true), dv.getUint32(s+16, true)), dv.getUint32(s+20, true)]); }
+    const r2o = r => { for (const [va, sz, ro] of secs) if (r >= va && r < va + sz) return r - va + ro; return -1; };
+    const str = o => { let s = ""; while (o >= 0 && o < u8.length && u8[o]) s += String.fromCharCode(u8[o++]); return s; };
+    let d = r2o(dv.getUint32(pe+24+104, true));
+    for (; d >= 0 && dv.getUint32(d+12, true); d += 20){
+      const iat = dv.getUint32(d+16, true); let t = r2o(dv.getUint32(d, true) || iat);
+      for (let k = 0; t >= 0 && dv.getUint32(t, true); k++, t += 4){
+        const name = str(r2o(dv.getUint32(t, true)) + 2), a = iat + 4*k;
+        for (let o = 0; o < c.length - 6; o++) if (c[o] === 0xFF && c[o+1] === 0x25 && c[o+2] === (a & 255) && c[o+3] === (a >> 8 & 255) && c[o+4] === (a >> 16 & 255) && c[o+5] === (a >>> 24)){ out[name] = o + 0x1000; break; }
+      }
+    }
+  } catch(e){}
+  return out;
+}
+// F0 blocks in an SH are raw x86 code that the game runs directly. Common patterns:
+//   cmp word [var], value ; jne …        → condition (gear down, flaps down…)
+//   call $+5 ; pop ebx ; add ebx, n ; mov ax, [angle var] ; sar/shl/add/sub/neg ; mov [ebx+d], ax
+//                                          → patches a field of the following C4 op at run time (gear retraction, swing-wing sweep)
+//   push retAddr ; push interpreter ; ret → back to the bytecode, continuing at retAddr
+// The op at retAddr: C4 00 x up fwd hdg pitch roll rel16 = place the vertex set at (x, up, fwd), rotate and draw; 12 00 rel16 = draw it in place
+// A tiny x86 emulator runs these for a given state to work out which parts to draw and where.
+const SH_VA = 0x1000;
+function x86Run(mem, start, maxSteps = 400){
+  const dv = new DataView(mem.buffer, mem.byteOffset, mem.byteLength), L = mem.length;
+  const rd16 = va => { const o = va - SH_VA; return o >= 0 && o + 1 < L ? dv.getInt16(o, true) : 0; };
+  const rd32 = va => { const o = va - SH_VA; return o >= 0 && o + 3 < L ? dv.getInt32(o, true) : 0; };
+  const wr16 = (va, x) => { const o = va - SH_VA; if (o >= 0 && o + 1 < L) dv.setInt16(o, x, true); };
+  const s16 = x => (x << 16) >> 16;
+  let p = start, ax = 0, cx = 0, eax = 0, ebx = 0, fa = 0, fb = 0, sz = 16; const stack = [];
+  const cc = op => { const sa = sz === 8 ? (fa << 24) >> 24 : sz === 16 ? s16(fa) : fa | 0, sb = sz === 8 ? (fb << 24) >> 24 : sz === 16 ? s16(fb) : fb | 0;
+    const m = sz === 32 ? 0xFFFFFFFF : (1 << sz) - 1, ua = (fa & m) >>> 0, ub = (fb & m) >>> 0;
+    switch (op & 0xF){ case 2: return ua < ub; case 3: return ua >= ub; case 4: return sa === sb; case 5: return sa !== sb;
+      case 6: return ua <= ub; case 7: return ua > ub; case 0xC: return sa < sb; case 0xD: return sa >= sb; case 0xE: return sa <= sb; case 0xF: return sa > sb; } return null; };
+  for (let n = 0; n < maxSteps; n++){
+    const o = p - SH_VA; if (o < 0 || o >= L - 1) return null;
+    const b0 = mem[o], b1 = mem[o+1], b2 = mem[o+2];
+    if (b0 === 0x66){
+      if (b1 === 0x83 && b2 === 0x3D){ fa = rd16(rd32(p+3)); fb = (mem[o+7] << 24) >> 24; sz = 16; p += 8; continue; }
+      if (b1 === 0x81 && b2 === 0x3D){ fa = rd16(rd32(p+3)); fb = dv.getInt16(o+7, true); sz = 16; p += 9; continue; }
+      if (b1 === 0xA1){ ax = rd16(rd32(p+2)); p += 6; continue; }
+      if (b1 === 0x8B && b2 === 0xC8){ cx = ax; p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0xC1){ cx = ax; p += 3; continue; }
+      if (b1 === 0x8B && b2 === 0xC1){ ax = cx; p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0xC8){ ax = cx; p += 3; continue; }
+      if (b1 === 0xD1 && b2 === 0xF8){ ax = s16(ax) >> 1; p += 3; continue; }
+      if (b1 === 0xD1 && b2 === 0xF9){ cx = s16(cx) >> 1; p += 3; continue; }
+      if (b1 === 0xC1 && b2 === 0xF8){ ax = s16(ax) >> mem[o+3]; p += 4; continue; }
+      if (b1 === 0xC1 && b2 === 0xF9){ cx = s16(cx) >> mem[o+3]; p += 4; continue; }
+      if (b1 === 0xD1 && b2 === 0xE0){ ax = s16(ax << 1); p += 3; continue; }
+      if (b1 === 0xC1 && b2 === 0xE0){ ax = s16(ax << mem[o+3]); p += 4; continue; }
+      if ((b1 === 0x03 && b2 === 0xC1) || (b1 === 0x01 && b2 === 0xC8)){ ax = s16(ax + cx); p += 3; continue; }
+      if ((b1 === 0x2B && b2 === 0xC1) || (b1 === 0x29 && b2 === 0xC8)){ ax = s16(ax - cx); p += 3; continue; }
+      if (b1 === 0x05){ ax = s16(ax + dv.getInt16(o+2, true)); p += 4; continue; }
+      if (b1 === 0x2D){ ax = s16(ax - dv.getInt16(o+2, true)); p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xC0){ ax = s16(ax + ((mem[o+3] << 24) >> 24)); p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xE8){ ax = s16(ax - ((mem[o+3] << 24) >> 24)); p += 4; continue; }
+      if (b1 === 0x3D){ fa = ax; fb = dv.getInt16(o+2, true); sz = 16; p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xF8){ fa = ax; fb = (mem[o+3] << 24) >> 24; sz = 16; p += 4; continue; }
+      if (b1 === 0xB8){ ax = dv.getInt16(o+2, true); p += 4; continue; }
+      if (b1 === 0xF7 && b2 === 0xD8){ ax = s16(-ax); p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0x43){ wr16(ebx + ((mem[o+3] << 24) >> 24), ax); p += 4; continue; }
+      if (b1 === 0x89 && b2 === 0x83){ wr16(ebx + dv.getInt32(o+3, true), ax); p += 7; continue; }
+      if (b1 === 0xA3){ wr16(rd32(p+2), ax); p += 6; continue; }
+      return null;
+    }
+    if (b0 === 0x80 && b1 === 0x3D){ const a = rd32(p+2) - SH_VA; fa = a >= 0 && a < L ? mem[a] : 0; fb = mem[o+6]; sz = 8; p += 7; continue; }
+    if (b0 === 0x83 && b1 === 0x3D){ fa = rd32(rd32(p+2)); fb = (mem[o+6] << 24) >> 24; sz = 32; p += 7; continue; }
+    if (b0 === 0xA1){ eax = rd32(rd32(p+1)); ax = s16(eax); p += 5; continue; }
+    if (b0 >= 0x70 && b0 <= 0x7F){ const t = cc(b0); if (t == null) return null; p += 2 + (t ? (b1 << 24) >> 24 : 0); continue; }
+    if (b0 === 0x0F && b1 >= 0x80 && b1 <= 0x8F){ const t = cc(b1); if (t == null) return null; p += 6 + (t ? dv.getInt32(o+2, true) : 0); continue; }
+    if (b0 === 0xEB){ p += 2 + ((b1 << 24) >> 24); continue; }
+    if (b0 === 0xE9){ p += 5 + dv.getInt32(o+1, true); continue; }
+    if (b0 === 0xE8){ stack.push(p + 5); p += 5 + dv.getInt32(o+1, true); continue; }
+    if (b0 === 0x5B){ ebx = stack.pop() ?? 0; p += 1; continue; }
+    if (b0 === 0x53){ stack.push(ebx); p += 1; continue; }
+    if (b0 === 0x81 && b1 === 0xC3){ ebx += dv.getInt32(o+2, true); p += 6; continue; }
+    if (b0 === 0x83 && b1 === 0xC3){ ebx += (b2 << 24) >> 24; p += 3; continue; }
+    if (b0 === 0x68){ stack.push(dv.getInt32(o+1, true)); p += 5; continue; }
+    if (b0 === 0xC3){ stack.pop(); return stack.length ? stack.pop() : null; }   // push retAddr ; push interpreter ; ret → retAddr
+    return null;
+  }
+  return null;
+}
+// Static scan: find every F0 block, the variables and values it compares, and the angle variables it reads
+function parseCtl(c, cv, subs){
+  // a jump target may be a sub-shape header or short op before the vertex set: take the first vertex set within 16 bytes
+  const idxOf = { get: t => { let best = null; subs.forEach((s, i) => { if (s.o >= t && s.o - t <= 16 && (best == null || s.o < subs[best].o)) best = i; }); return best ?? undefined; } };
+  const blocks = [], vars = new Map();
+  for (let o = 0; o < c.length - 12; o++){
+    if (c[o] !== 0xF0 || c[o+1] !== 0) continue;
+    if (x86Run(c, o + 2 + SH_VA) == null) continue;   // not code that runs through to ret
+    blocks.push(o + 2);
+    // scan this block up to ret, collecting variables
+    for (let p = o + 2, n = 0; p < c.length - 8 && n < 60; n++){
+      if (c[p] === 0x66 && c[p+1] === 0x83 && c[p+2] === 0x3D){ const v = cv.getUint32(p+3, true); const s = vars.get(v) || { vals: new Set(), ang: false }; s.vals.add((c[p+7] << 24) >> 24); vars.set(v, s); p += 8; continue; }
+      if (c[p] === 0x66 && c[p+1] === 0xA1){ const v = cv.getUint32(p+2, true); const s = vars.get(v) || { vals: new Set(), ang: false }; s.ang = true; vars.set(v, s); p += 6; continue; }
+      if (c[p] === 0x68 && c[p+5] === 0x68 && c[p+10] === 0xC3) break; p++;
+    }
+  }
+  // unconditional C4s in the main bytecode (e.g. the two B-2 parts): the target must be exactly a vertex set
+  const statics = [], exact = new Map(); subs.forEach((s, i) => { exact.set(s.o, i); exact.set(s.o - 14, i); });
+  const end = subs.length ? Math.min(...subs.map(s => s.o)) : 0;
+  const pushed = new Set(); for (let o = 0; o < c.length - 5; o++) if (c[o] === 0x68) pushed.add(cv.getUint32(o + 1, true) - SH_VA);   // ops that an F0 block returns to do not count
+  for (let o = 0; o < end - 16; o++) if (c[o] === 0xC4 && c[o+1] === 0 && !pushed.has(o)){ const i = exact.get(o + 16 + cv.getInt16(o + 14, true)); if (i != null) statics.push(o); }
+  return { blocks, statics, vars: [...vars].map(([v, s]) => ({ v, vals: [...s.vals], ang: s.ang })), idxOf };
+}
+// Run every block for a state (var → value) and return the parts to draw: { part, op, f6:[x, up, fwd, hdg, pitch, roll] }
+function evalCtl(m, state){
+  const c = m.code, mem = c.slice(), dv = new DataView(mem.buffer), out = [], seen = new Set();
+  for (const [v, x] of Object.entries(state)){ const o = +v - SH_VA; if (o >= 0 && o + 1 < mem.length) dv.setInt16(o, x, true); }
+  for (const b of m.ctl.blocks){
+    const r = x86Run(mem, b + SH_VA); if (r == null) continue; const t = r - SH_VA; if (t < 0 || t > mem.length - 16 || seen.has(t)) continue;
+    let part, f6 = null;
+    if (mem[t] === 0xC4){ part = m.ctl.idxOf.get(t + 16 + dv.getInt16(t + 14, true)); f6 = [0,1,2,3,4,5].map(k => dv.getInt16(t + 2 + 2*k, true)); }
+    else if (mem[t] === 0x12) part = m.ctl.idxOf.get(t + 4 + dv.getInt16(t + 2, true));
+    if (part == null) continue; seen.add(t); out.push({ part, op: mem[t], f6, at: t, blk: b });
+  }
+  for (const t of m.ctl.statics || []) if (!seen.has(t)){ seen.add(t); out.push({ part: m.ctl.idxOf.get(t + 16 + dv.getInt16(t + 14, true)), op: 0xC4, f6: [0,1,2,3,4,5].map(k => dv.getInt16(t + 2 + 2*k, true)), at: t }); }
+  // a block that sits inside a C4 part's code (e.g. flaps behind a swing wing) draws its part in that part's frame
+  const subs = m.subs, owner = o => { for (let k = subs.length - 1; k >= 0; k--) if (subs[k].o <= o) return o < (subs[k+1]?.o ?? subs[k].o + 0x2000) ? k : null; return null; };
+  for (const e of out){ if (e.blk == null) continue; const k = owner(e.blk); if (k == null || k === e.part) continue;
+    const p = out.find(x => x.part === k && x.op === 0xC4); if (p) e.parent = p; }
+  return out;
+}
+
+// ===== SH loading: browser cache → picked folder → ../SH/ (when served over HTTP) → GitHub =====
+
+function rotateDeg(v, hdg, pitch, roll){
+  let [x,y,z] = v; const r = roll*Math.PI/180, p = -pitch*Math.PI/180, h = hdg*Math.PI/180;
+  [x,y] = [x*Math.cos(r) - y*Math.sin(r), x*Math.sin(r) + y*Math.cos(r)];
+  [y,z] = [y*Math.cos(p) - z*Math.sin(p), y*Math.sin(p) + z*Math.cos(p)];
+  return [x*Math.cos(h) + z*Math.sin(h), y, -x*Math.sin(h) + z*Math.cos(h)];
+}
+function partTf(e){
+  let tf = v => [v[0], v[2], v[1]];
+  if (e.op === 0xC4){
+    const deg = e.f6.slice(3).map(a => a * 360 / 65536), pos = e.f6.slice(0, 3);   // pos = (x, up, fwd); angles = heading, pitch, roll
+    tf = v => { const r = rotateDeg([v[0], v[2], v[1]], deg[0], deg[1], deg[2]); return [pos[0] + r[0], pos[1] + r[1], pos[2] + r[2]]; };
+  }
+  if (!e.parent) return tf;
+  const up = partTf(e.parent);
+  return v => { const d = tf(v); return up([d[0], d[2], d[1]]); };
+}
+
+// ===== File loading: ../SH, ../PIC (when served over HTTP) → GitHub =====
+const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
+const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
+async function fetchAny(paths){
+  const urls = [];
+  for (const p of paths){ if (/^https?:$/.test(location.protocol)) urls.push(new URL("../" + p, location.href).href); }
+  for (const p of paths) urls.push(REMOTE + p);
+  for (const u of urls){ try { const r = await fetch(u); if (r.ok) return new Uint8Array(await r.arrayBuffer()); } catch(e){} }
+  return null;
+}
+
+// ===== PIC format (FA _XXX.PIC; format 0 = uncompressed 8-bit colour indices) =====
+// 0: u16 format ; 2: u32 width ; 6: u32 height ; 10: u32 pixel offset ; 14: u32 pixel length ; 18: u32 palette offset ; 22: u32 palette length (0 = use the game palette)
+// 0x22: u32 row table offset ; 0x26: u32 table length (height × 4; one u32 per row = file offset of that row)
+// Note: rows are stored bottom-up (file row 0 = bottom row); SH UVs use the top-left as origin
+function parsePIC(u8){
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const fmt = dv.getUint16(0, true), w = dv.getUint32(2, true), h = dv.getUint32(6, true), po = dv.getUint32(10, true), ps = dv.getUint32(14, true);
+  const palO = dv.getUint32(18, true), palS = dv.getUint32(22, true), rowO = dv.getUint32(0x22, true), rowS = dv.getUint32(0x26, true);
+  if (fmt !== 0 || !w || !h || w > 4096 || h > 4096) throw new Error(`PIC format ${fmt} (${w}×${h}) is not supported`);
+  const px = new Uint8Array(w * h);
+  const rows = rowS >= 4 * h && rowO + rowS <= u8.length;
+  // rows are stored bottom-up (like BMP): SH v = 0 is the last file row, so flip on load and use UVs directly as pixel coords
+  for (let y = 0; y < h; y++){ const s = rows ? dv.getUint32(rowO + 4*y, true) : po + y*w; px.set(u8.subarray(s, s + w), (h - 1 - y)*w); }
+  let pal = null; if (palO && palS >= 768 && palO + 768 <= u8.length) pal = palFromBytes(u8.subarray(palO, palO + palS));
+  return { w, h, px, pal, fmt, po, ps, rows };
+}
+// Palette: 768-byte RGB (×4 if 6-bit VGA), RIFF PAL or JASC-PAL text; in a LIB, look for a 768-byte 6-bit palette
+function palFromBytes(u8){
+  const txt = String.fromCharCode(...u8.subarray(0, 8));
+  if (txt.startsWith("JASC-PAL")){ const n = new TextDecoder().decode(u8).trim().split(/\s+/).slice(3).map(Number), p = new Uint8Array(768); p.set(n.slice(0, 768)); return p; }
+  if (txt.startsWith("RIFF")){ const p = new Uint8Array(768); for (let i = 0; i < 256; i++) for (let k = 0; k < 3; k++) p[3*i+k] = u8[24 + 4*i + k] || 0; return p; }
+  if (u8.length < 768) return null;
+  const p = u8.slice(0, 768); let mx = 0; for (const b of p) mx = Math.max(mx, b);
+  if (mx < 64) for (let i = 0; i < 768; i++) p[i] = p[i] << 2 | p[i] >> 4;
+  return p;
+}
+function palFromLib(u8){
+  // find the name "PALETTE.PAL" in the LIB and take the 32-bit offset after it; otherwise the first 768 bytes all < 64 that are not uniform
+  const s = new TextDecoder("latin1").decode(u8), i = s.toUpperCase().indexOf("PALETTE.PAL");
+  if (i >= 0){ const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    for (let k = i + 11; k < i + 20 && k + 4 <= u8.length; k++){ const o = dv.getUint32(k, true); if (o > i && o + 768 <= u8.length){ const seg = u8.subarray(o, o + 768); if (seg.every(b => b < 64) && new Set(seg).size > 32) return palFromBytes(seg); } } }
+  return null;
+}
+const PAL_GRAY = (() => { const p = new Uint8Array(768); for (let i = 0; i < 256; i++) p[3*i] = p[3*i+1] = p[3*i+2] = i; return p; })();
+const PAL_HUE = (() => { const p = new Uint8Array(768); for (let i = 0; i < 256; i++){ const h = (i * 137.508) % 360 / 60, l = 0.35 + 0.4 * ((i >> 4) / 15), c = 0.8 * (1 - Math.abs(2*l - 1)), x = c * (1 - Math.abs(h % 2 - 1)), m = l - c/2;
+  const [r, g, b] = h < 1 ? [c,x,0] : h < 2 ? [x,c,0] : h < 3 ? [0,c,x] : h < 4 ? [0,x,c] : h < 5 ? [x,0,c] : [c,0,x]; p[3*i] = (r+m)*255; p[3*i+1] = (g+m)*255; p[3*i+2] = (b+m)*255; } return p; })();
+let gamePal = null;
+try { const s = localStorage.getItem("fa_palette"); if (s) gamePal = Uint8Array.from(atob(s), ch => ch.charCodeAt(0)); } catch(e){}
+async function loadGamePal(){
+  if (gamePal) return gamePal;
+  for (const n of ["PIC/PALETTE.PAL", "PIC/palette.PAL", "PIC/palette.pal", "PALETTE.PAL"]){ const u8 = await fetchAny([n]); if (u8 && u8.length >= 768){ gamePal = palFromBytes(u8); return gamePal; } }
+  return null;
+}
+
+// ======================================================================================================
+// PT Editor
+// ======================================================================================================
+const P = PTCore, GH_API = "https://api.github.com/repos/kuoyichen/FAoutput/contents/PT";
+const VERCEL = "https://fashion-hawke.vercel.app";
+let pt = null, ptName = "", dirty = false;
+const msg = (t, err) => { $("msg").textContent = t || ""; $("msg").className = err ? "err" : ""; };
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const bytesToStr = u8 => { let s = ""; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return s; };
+const strToBytes = s => { const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 255; return u; };
+function touch(){ dirty = true; $("saveBtn").disabled = !pt; renderTitle(); }
+
+// ---------- store names and descriptions ----------
+const STORE_NAMES = "20MM_4.JT 272FFAR.JT 2S6.JT A10.ECM A102.ECM A10R.SEE A6.ECM A6R.SEE A7.ECM A7R.SEE AA1.JT AA10.JT AA10B.JT AA10C.JT AA10D.JT AA10E.JT AA11.JT AA11B.JT AA12.JT AA2.JT AA6.JT AA7B.JT AA7D.JT AA8.JT AA9.JT AAA20.JT AAA30.JT AAML.JT AAS38.SEE AC130.ECM AC130I.SEE AC130R.SEE ADEN.JT ADENIN.JT AEMP1.JT AGM114.JT AGM114A.JT AGM157.JT AGM45.JT AGM65A.JT AGM65D.JT AGM65G.JT AGM84A.JT AGM84E.JT AGM88.JT AIM120.JT AIM4C.JT AIM4D.JT AIM54C.JT AIM7.JT AIM7E.JT AIM9B.JT AIM9D.JT AIM9M.JT AIM9X.JT AIR2A.JT ALARM.JT ALE40.ECM ALQ167.ECM ALQ72.ECM AM39.JT APACHE.JT APSET95.JT AS11.JT AS12.JT AS13.JT AS14.JT AS30.JT AS5.JT AS7.JT ASROC.JT AT12.JT AT2.JT AV8.ECM AV82.ECM AV83.ECM AV8IR.SEE AV8L.SEE AV8R.SEE B13.JT B1B.ECM B32.JT B52.ECM B52R.SEE B8.JT BK27.JT BMP2.JT BTR80.JT C_105.JT C_25.JT C_40.JT CBU87.JT CBU89.JT DEFA.JT DERB.JT E2R.SEE E3R.SEE E6R.SEE E8R.SEE EA6.ECM EA6R.SEE EA6R2.SEE F104.ECM F104R.SEE F14.ECM F14IR.SEE F14R.SEE F15.ECM F15R.SEE F15X.ECM F150.GAS F18.ECM F18R.SEE F22.ECM F22R.SEE F250.GAS F350.GAS F4.ECM F4BR.SEE F4JR.SEE F4R.SEE F500.GAS F8.ECM F86R.SEE F8R.SEE FAB250.JT FAB2X2.JT FAB500.JT FIM92.JT GAU12.JT GAU13.JT GAU8.JT GBU10.JT GBU10A.JT GBU28.JT GBU29.JT GBU29P.JT GBU30.JT GSH23.JT GSH30.JT GSH301.JT GSH6_23.JT GSH6_30.JT HQ61.JT J7.ECM J7ER.SEE KA50.ECM KA502.ECM KA50L.SEE KAB50.JT LAU10.JT LAU61.JT M1.JT M109.JT M113.JT M163.JT M1939.JT M2.JT M61.JT MICA.JT MIG21.ECM MIG21R.SEE MIG27.ECM MIG27R.SEE MIG29.ECM MIG29I.SEE MIG29R.SEE MIG31.ECM MIG31R.SEE MIM23.JT MIS.JT MK12.JT MK46.JT MK82.JT MK82AIR.JT MK82HD.JT MK82P3.JT MK82X2.JT MK84.JT MLRS.JT NR23.JT PAVESPK.SEE PAVEWA3.JT PAVEWAY.JT PHALANX.JT PL12.JT PL7.JT PL8.JT PYTHON4.JT R440.JT R530.JT R550.JT RBK250.JT RBK500.JT SA14.JT SA15.JT SA16.JT SA19.JT SAN5.JT SAN8.JT SAN9.JT SEAHAR.ECM SEAHARR.SEE SLOT2.JT SMLARMS.JT SSN9.JT SU24.ECM SU24L.SEE SU27.ECM SU27I.SEE SU27R.SEE SU35R.SEE SU37.ECM SU37I.SEE SU37L.SEE SU37R.SEE SUU16.JT T12_4.JT T30_1.JT TU160.ECM TU160R.SEE TU26.ECM TU26R.SEE TU95.ECM TU95R.SEE VIS180.SEE VIS240.SEE VIS300.SEE VIS340.SEE VYYU.SEE YAK141.ECM YAK141R.SEE YJ6.JT".split(" ");
+const DESC = { "F18R.SEE": "APG-65", "M61.JT": "M61 Vulcan Cannon", "F150.GAS": "150 gal external drop tank", "F250.GAS": "250 gal external drop tank",
+  "F350.GAS": "350 gal external drop tank", "F500.GAS": "500 gal external drop tank", "AIM120.JT": "AIM-120 AMRAAM", "GBU10.JT": "GBU-10E Paveway II",
+  "AGM88.JT": "AGM-88 HARM", "AIM9M.JT": "AIM-9M Sidewinder", "AIM9B.JT": "AIM-9B Sidewinder", "AIM9D.JT": "AIM-9D Sidewinder", "AIM9X.JT": "AIM-9X Sidewinder",
+  "AIM7.JT": "AIM-7 Sparrow", "AIM7E.JT": "AIM-7E Sparrow", "AIM54C.JT": "AIM-54C Phoenix", "AIM4C.JT": "AIM-4C Falcon", "AIM4D.JT": "AIM-4D Falcon",
+  "AGM65A.JT": "AGM-65A Maverick", "AGM65D.JT": "AGM-65D Maverick", "AGM65G.JT": "AGM-65G Maverick", "AGM84A.JT": "AGM-84A Harpoon", "AGM84E.JT": "AGM-84E SLAM",
+  "AGM114.JT": "AGM-114 Hellfire", "AGM114A.JT": "AGM-114A Hellfire", "AGM45.JT": "AGM-45 Shrike", "MK82.JT": "Mk 82 500 lb bomb", "MK82HD.JT": "Mk 82 Snakeye",
+  "MK84.JT": "Mk 84 2000 lb bomb", "GBU29.JT": "GBU-29 JDAM", "GBU30.JT": "GBU-30 JDAM", "GBU28.JT": "GBU-28", "PAVEWAY.JT": "Paveway", "LAU10.JT": "LAU-10 Zuni rockets",
+  "LAU61.JT": "LAU-61 Hydra rockets", "AA11.JT": "AA-11 Archer", "AA10.JT": "AA-10 Alamo", "AA12.JT": "AA-12 Adder", "AA8.JT": "AA-8 Aphid", "AA2.JT": "AA-2 Atoll",
+  "MICA.JT": "MICA", "R550.JT": "R.550 Magic", "R530.JT": "R.530", "PYTHON4.JT": "Python 4", "GAU8.JT": "GAU-8 Avenger", "GAU12.JT": "GAU-12 Equalizer",
+  "GSH30.JT": "GSh-30 cannon", "GSH301.JT": "GSh-301 cannon", "GSH23.JT": "GSh-23 cannon", "ADEN.JT": "ADEN cannon", "DEFA.JT": "DEFA cannon", "BK27.JT": "BK-27 cannon",
+  "FAB250.JT": "FAB-250 bomb", "FAB500.JT": "FAB-500 bomb", "AS14.JT": "AS-14 Kedge", "ALARM.JT": "ALARM" };
+// each store's own .JT (repo JT/) names its flight shape and description: { shape, desc } once loaded
+const JT_INFO = new Map();
+async function jtInfo(type){
+  const t = String(type || "").toUpperCase(); if (!/\.JT$/.test(t)) return null;
+  if (!JT_INFO.has(t)) JT_INFO.set(t, (async () => { const u8 = await fetchAny(["JT/" + t]); if (!u8) return null;
+    try { const j = P.parse(bytesToStr(u8)); return { shape: P.str(j, "shape").toUpperCase().replace(/\.SH$/, ""), desc: P.str(j, "ot_names", 1) }; } catch(e){ return null; } })());
+  return JT_INFO.get(t);
+}
+const jtDone = new Map();   // type -> resolved info (sync lookup)
+async function prefetchJT(){ if (!pt) return; await Promise.all(pt.hp.map(async h => { const i = await jtInfo(h.type); if (i) jtDone.set(h.type.toUpperCase(), i); })); }
+const descOf = n => jtDone.get(String(n).toUpperCase())?.desc || DESC[String(n).toUpperCase()] || "";
+
+// JT store -> weapon SH shape (FA's own models).  A store's .JT names its flight shape; these are the ones known from FA (AIM9M -> SIDEM.SH…)
+// plus close stand-ins.  Anything else: the store's own name as SH (if it is store-sized), else a simple stand-in shape.  Users can override per type.
+const SHAPE_PREFIX = [["AIM9B","SIDEB"],["AIM9D","SIDEB"],["AIM9","SIDEM"],["AIM120","AMRAM"],["AIM54","PHENX"],["AIM7","SPAR"],["AIM4","SIDEB"],["AGM88","HARM"],["ALARM","HARM"],
+  ["AGM65","MAVRK"],["AGM84E","SLAM"],["AGM84","HARPN"],["GBU10","PAVE"],["GBU28","PAVE"],["PAVEWA","PAVE"],["KAB","PAVE"],["GBU29","GB27"],["GBU30","GB27"],["MK82","MK82"],["MK84","MK84"],
+  ["MK83","MK83"],["MK81","MK81"],["FAB250","MK82"],["FAB2X2","MK82"],["FAB500","MK83"],["FAB1000","MK84"],["RBK","MK83"],["CBU","MK20"],["M117","M117"],["AA11","ARCHR"],["AA10","ALAMO"],["AA9","ALAMO"],
+  ["AA8","APHID"],["AA2","ATOLL"],["AA12","AAML"],["AAML","AAML"],["MICA","MICA"],["R550","SIDEM"],["PYTHON","SIDEM"],["PL8","SIDEM"],["PL7","SIDEM"],["PL12","AMRAM"],["R530","SPAR"],
+  ["AA7","SPAR"],["AA6","SPAR"],["AS30","AS30"],["AS12","AS12"],["AS14","KEDGE"],["AS7","KIKBK"],["AS11","KIKBK"],["AS5","KLINOK"],["AGM45","SIDEB"],["AGM114","MAVRK"]];
+const SHAPE_OVR = (() => { try { return JSON.parse(localStorage.getItem("pt_shape_override") || "{}"); } catch(e){ return {}; } })();
+const saveOvr = () => { try { localStorage.setItem("pt_shape_override", JSON.stringify(SHAPE_OVR)); } catch(e){} };
+function storeKind(type, loc){
+  const t = String(type || "").toUpperCase();
+  if (!t) return "none";
+  if (/\.GAS$/.test(t)) return "tank";
+  if (/\.(SEE|ECM)$/.test(t)) return "sensor";
+  if (loc === 2 || /^(TRACER|BULLET)$/.test(jtDone.get(t)?.shape || "")) return "gun";
+  if (/^(LAU|B8|B13|B32|272FFAR|C_|SUU|MIS\.)/.test(t)) return "pod";
+  return "jt";
+}
+function shapeCandidates(type){
+  const t = String(type || "").toUpperCase(), base = t.replace(/\.\w+$/, "");
+  if (SHAPE_OVR[t]) return [SHAPE_OVR[t].toUpperCase().replace(/\.SH$/, "")];
+  const out = [], ji = jtDone.get(t); if (ji && ji.shape) out.push(ji.shape);
+  for (const [p, s] of SHAPE_PREFIX) if (base.startsWith(p)){ out.push(s); break; }
+  out.push(base); return out;
+}
+
+// ---------- palette helpers ----------
+let PAL = PAL_GRAY;
+function palNear(r, g, b){ let best = 0, bd = 1e9; for (let i = 1; i < 255; i++){ const d = (PAL[3*i]-r)**2 + (PAL[3*i+1]-g)**2 + (PAL[3*i+2]-b)**2; if (d < bd){ bd = d; best = i; } } return best; }
+let COL = { store: 0x94, tank: 0x93, sensor: 1, gun: 1, sel: 1 };
+function pickColours(){ COL = { store: palNear(200, 204, 208), tank: palNear(160, 165, 170), sensor: palNear(80, 200, 255), gun: palNear(255, 120, 60), pod: palNear(120, 130, 120), nose: palNear(70, 70, 70) }; }
+
+// ---------- stand-in shapes (vertices in model units, axes [x, up, fwd]) ----------
+function lathe(prof, col, fins){   // prof: [[fwd, radius]...] nose first
+  const n = 12, faces = [], ring = (f, r) => Array.from({ length: n }, (_, k) => [r * Math.cos(2*Math.PI*k/n), r * Math.sin(2*Math.PI*k/n), f]);
+  const R = prof.map(([f, r]) => ring(f, r));
+  for (let i = 0; i < R.length - 1; i++) for (let k = 0; k < n; k++){ const a = R[i][k], b = R[i][(k+1)%n], c = R[i+1][(k+1)%n], d = R[i+1][k];
+    faces.push({ pts: prof[i][1] < 0.01 ? [a, c, d] : prof[i+1][1] < 0.01 ? [a, b, c] : [a, b, c, d], col }); }
+  if (prof[prof.length-1][1] > 0.01) faces.push({ pts: R[R.length-1].slice().reverse(), col });
+  if (fins){ const [f0, f1, h] = fins; for (let k = 0; k < 4; k++){ const ang = Math.PI/4 + k*Math.PI/2, c = Math.cos(ang), s = Math.sin(ang), r0 = prof[prof.length-1][1];
+    faces.push({ pts: [[c*r0, s*r0, f0], [c*(r0+h), s*(r0+h), f1 + (f0-f1)*0.3], [c*(r0+h), s*(r0+h), f1], [c*r0, s*r0, f1]], col }); } }
+  return { faces };
+}
+function tankShape(gal){ const L = 30 + 0.04 * Math.max(100, Math.min(gal || 300, 600)), r = 2.2 + 0.0045 * Math.max(100, Math.min(gal || 300, 600));
+  return lathe([[L/2, 0], [L/2 - L*0.12, r*0.55], [L/2 - L*0.3, r], [-L/2 + L*0.25, r], [-L/2 + L*0.05, r*0.4], [-L/2, 0]], COL.tank); }
+const missileShape = () => lathe([[16, 0], [12, 1.2], [-16, 1.2]], COL.store, [-10, -16, 3]);
+const podShape = () => lathe([[10, 0], [8, 2.6], [-9, 2.6], [-10, 1.8]], COL.pod);
+function marker(col, r = 2.2){ const v = [[r,0,0],[-r,0,0],[0,r,0],[0,-r,0],[0,0,r],[0,0,-r]], F = [[0,2,4],[2,1,4],[1,3,4],[3,0,4],[2,0,5],[1,2,5],[3,1,5],[0,3,5]];
+  return { faces: F.map(f => ({ pts: f.map(i => v[i]), col })) }; }
+const gunShape = () => ({ faces: [...lathe([[6, 0.6], [-6, 0.6]], COL.gun).faces, ...marker(COL.gun, 1.6).faces] });
+
+// ---------- weapon SH cache ----------
+const shCache = new Map();   // name -> Promise<parsed SH | null>
+function loadSH(name){
+  name = name.toUpperCase().replace(/\.SH$/, "");
+  if (!shCache.has(name)) shCache.set(name, (async () => {
+    const u8 = await fetchAny(["SH/" + name + ".SH"]); if (!u8) return null;
+    try { PARSE_NO_STORES = true; return { u8, m: parseSH(u8) }; } catch(e){ return null; } finally { PARSE_NO_STORES = false; }
+  })());
+  return shCache.get(name);
+}
+const weaponCache = new Map();   // store type -> { faces, src }
+async function weaponModel(type, loc){
+  const key = String(type).toUpperCase() + "|" + loc + "|" + (SHAPE_OVR[String(type).toUpperCase()] || "");
+  if (weaponCache.has(key)) return weaponCache.get(key);
+  { const i = await jtInfo(type); if (i) jtDone.set(String(type).toUpperCase(), i); }
+  const kind = storeKind(type, loc); let out = null;
+  if (kind === "tank"){ const g = +(/(\d+)/.exec(type)?.[1] || 300); out = { ...tankShape(g), src: L("drop tank (stand-in)", "副油箱（示意形狀）") }; }
+  else if (kind === "sensor") out = { ...marker(COL.sensor), src: L("sensor / ECM marker", "感測器／電戰標記") };
+  else if (kind === "gun") out = { ...gunShape(), src: L("gun muzzle marker", "機砲位置標記") };
+  else if (kind === "pod") out = { ...podShape(), src: L("rocket pod (stand-in)", "火箭莢艙（示意形狀）") };
+  else {
+    for (const s of shapeCandidates(type)){
+      const r = await loadSH(s); if (!r || !r.m) continue;
+      const m = r.m, sc = m.scale / (acScale || 1), faces = [];
+      for (const idx of m.f){
+        if (idx.uv && !(idx.col & 255)) continue;   // missile smoke trail: textured colour-0 faces behind the motor
+        faces.push({ pts: idx.map(i => { const v = m.v[i]; return [v[0]*sc, v[2]*sc, v[1]*sc]; }), col: (idx.col & 255) || COL.store });
+      }
+      if (!faces.length) continue;
+      let lo = [1e9,1e9,1e9], hi = [-1e9,-1e9,-1e9]; for (const f of faces) for (const p of f.pts) for (let k = 0; k < 3; k++){ lo[k] = Math.min(lo[k], p[k]); hi[k] = Math.max(hi[k], p[k]); }
+      if (hi[2] - lo[2] > 160 || hi[0] - lo[0] > 80) continue;   // not store-sized (e.g. M1.SH is the Abrams tank)
+      out = { faces, src: s + ".SH" }; break;
+    }
+    if (!out) out = { ...missileShape(), src: L("generic missile (no SH found)", "一般飛彈（找不到 SH）") };
+  }
+  // bounding box for the attach point
+  let lo = [1e9,1e9,1e9], hi = [-1e9,-1e9,-1e9]; for (const f of out.faces) for (const p of f.pts) for (let k = 0; k < 3; k++){ lo[k] = Math.min(lo[k], p[k]); hi[k] = Math.max(hi[k], p[k]); }
+  out.lo = lo; out.hi = hi; weaponCache.set(key, out); return out;
+}
+
+// ======================================================================================================
+// 3D view: aircraft SH + PIC + stores at the hardpoints
+// ======================================================================================================
+const cv = $("cv"), gl = cv.getContext("webgl", { antialias: true });
+const VS = `attribute vec3 aP; attribute vec2 aUV; attribute vec3 aN; attribute vec2 aC;
+uniform mat4 uM; uniform float uZB; varying vec2 vUV; varying vec3 vN; varying vec2 vC;
+void main(){ vUV = aUV; vN = aN; vC = aC; gl_Position = uM * vec4(aP, 1.0); gl_Position.z -= uZB * gl_Position.w; }`;
+const FS = `precision mediump float; varying vec2 vUV; varying vec3 vN; varying vec2 vC;
+uniform sampler2D uPic; uniform sampler2D uPal; uniform vec2 uSize; uniform float uTex; uniform float uSel; uniform float uFlat;
+void main(){
+  float idx; bool own = true;
+  float d = abs(dot(normalize(vN), normalize(vec3(0.35, 0.85, 0.4))));
+  if (vC.y > 0.5 && uTex > 0.5){
+    idx = floor(texture2D(uPic, (floor(vUV) + 0.5) / uSize).r * 255.0 + 0.5); own = false;
+    if (idx > 254.5){ if (vC.x < 0.5) discard; idx = vC.x; own = true; }
+  } else idx = vC.x;
+  if (uFlat < 0.5 && own && idx >= 144.0 && idx <= 155.0) idx = clamp(idx + floor((0.75 - d) * 8.0 + 0.5), 144.0, 155.0);
+  vec3 c = texture2D(uPal, vec2((idx + 0.5) / 256.0, 0.5)).rgb;
+  if (uFlat > 0.5) c = vec3(1.0, 0.85, 0.2);
+  else if (!(own && idx >= 144.0 && idx <= 155.0)) c *= 0.7 + 0.4 * d;
+  if (uSel > 0.5) c = mix(c, vec3(1.0, 0.82, 0.15), 0.5);
+  gl_FragColor = vec4(c, 1.0);
+}`;
+function mkProg(){
+  const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+  const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(p); return p;
+}
+const prog = gl ? mkProg() : null, U = n => gl.getUniformLocation(prog, n), A = n => gl.getAttribLocation(prog, n);
+const vbo = gl?.createBuffer(), selVbo = gl?.createBuffer(), edgeVbo = gl?.createBuffer(), picTex = gl?.createTexture(), palTex = gl?.createTexture();
+function setTex(t, w, h, fmt, data){ gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, fmt, w, h, 0, fmt, gl.UNSIGNED_BYTE, data);
+  for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); }
+if (gl) setTex(picTex, 1, 1, gl.LUMINANCE, new Uint8Array([0]));
+
+let ac = null, acScale = 1;               // aircraft: { name, m, pic, faces }
+let scene = null;                         // { faces, tris, n, center, radius }
+const view = { yaw: 0.8, pitch: 0.45, zoom: 1.25 };
+let selHp = -1, dragMode = "move", axisLock = "";
+
+function texNames(u8){ const names = new Set();
+  for (let i = 0; i < u8.length - 16; i++) if (u8[i] === 0xE2 && u8[i+1] === 0){ let s = ""; for (let k = 2; k < 16 && u8[i+k]; k++) s += String.fromCharCode(u8[i+k]); if (/^[\w-]+\.PIC$/i.test(s)) names.add(s.toUpperCase()); }
+  return [...names]; }
+async function loadAircraft(shape){
+  const name = String(shape || "").toUpperCase().replace(/\.SH$/, "");
+  ac = null; scene = null;
+  if (!name){ draw(); return; }
+  const u8 = await fetchAny(["SH/" + name + ".SH"]);
+  if (!u8){ msg(L("Cannot find ", "找不到 ") + name + ".SH", true); draw(); return; }
+  PARSE_NO_STORES = !$("showBaked").checked; let m;
+  try { m = parseSH(u8); } finally { PARSE_NO_STORES = false; }
+  if (!m){ msg(L("Cannot read ", "無法解析 ") + name + ".SH", true); return; }
+  const tn = texNames(u8), picName = (tn[0] || "_" + name + ".PIC").toUpperCase();
+  let pic = null; const pu8 = await fetchAny(["PIC/" + picName]); try { if (pu8) pic = parsePIC(pu8); } catch(e){}
+  ac = { name, m, pic, u8 }; acScale = m.scale;
+  if (pic && gl) setTex(picTex, pic.w, pic.h, gl.LUMINANCE, pic.px);
+  // body + parts for the chosen configuration (gear down / up), as in the showcase
+  const faces = [], add = (idx, tf) => faces.push({ pts: idx.map(i => tf(m.v[i])), uv: idx.uv, col: idx.col, fl: idx.fl, hp: -1 });
+  for (const idx of m.f) add(idx, v => [v[0], v[2], v[1]]);
+  const nm = Object.fromEntries(Object.entries(m.imp || {}).map(([n, a]) => [a, n])), g = $("gearDown").checked, vars = {};
+  const on = { _PLgearDown: g ? 1 : 0, _PLgearPos: g ? 0 : 32767 };
+  for (const x of m.ctl.vars) vars[x.v] = nm[x.v] ? (on[nm[x.v]] ?? 0) : x.vals.length ? x.vals[0] : 0;
+  const drawn = new Set();
+  for (const e of evalCtl(m, vars)){ if (drawn.has(e.part)) continue; drawn.add(e.part); const tf = partTf(e); for (const idx of m.subs[e.part].f) add(idx, tf); }
+  ac.faces = faces;
+  await buildScene(true);
+}
+function rot(p, hdg, pitch){   // heading about up (+ = nose right), pitch about x (+ = nose up); degrees
+  const h = hdg * Math.PI / 180, q = pitch * Math.PI / 180;
+  let [x, y, z] = p; [y, z] = [y*Math.cos(q) + z*Math.sin(q), -y*Math.sin(q) + z*Math.cos(q)];
+  return [x*Math.cos(h) + z*Math.sin(h), y, -x*Math.sin(h) + z*Math.cos(h)];
+}
+// stores: every hardpoint draws its store at (x, up, fwd); symmetrical hardpoints also at -x (heading mirrored)
+async function storeFaces(){
+  const out = []; if (!pt) return out;
+  const top = $("attach").value === "t";
+  for (let k = 0; k < pt.hp.length; k++){
+    const h = pt.hp[k], kind = storeKind(h.type, h.loc);
+    if (kind === "none" && h.loc !== 2) continue;
+    if (kind === "sensor" && !$("showSens").checked) continue;
+    const w = kind === "none" ? { ...gunShape(), lo: [-1,-1,-6], hi: [1,1,6] } : await weaponModel(h.type, h.loc);
+    const off = [-(w.lo[0] + w.hi[0]) / 2, top && kind !== "sensor" && kind !== "gun" ? -w.hi[1] : -(w.lo[1] + w.hi[1]) / 2, -(w.lo[2] + w.hi[2]) / 2];
+    const sides = h.flags & 4 && h.x !== 0 ? [1, -1] : [1];
+    for (const s of sides){
+      const hd = s * h.slewH / 182, pc = h.slewP / 182;
+      for (const f of w.faces) out.push({ pts: f.pts.map(p => { const r = rot([p[0] + off[0], p[1] + off[1], p[2] + off[2]], hd, pc); return [r[0] + s*h.x, r[1] + h.up, r[2] + h.fwd]; }), col: f.col, uv: null, hp: k, side: s });
+    }
+  }
+  return out;
+}
+let buildSeq = 0;
+async function buildScene(refit){
+  const seq = ++buildSeq, st = await storeFaces(); if (seq !== buildSeq) return;
+  const faces = [...(ac ? ac.faces : []), ...st];
+  const data = [], ed = [];
+  for (const f of faces){
+    const p = f.pts; let nx = 0, ny = 0, nz = 0;
+    for (let k = 0; k < p.length; k++){ const q = p[k], r = p[(k+1) % p.length]; nx += (q[1]-r[1])*(q[2]+r[2]); ny += (q[2]-r[2])*(q[0]+r[0]); nz += (q[0]-r[0])*(q[1]+r[1]); }
+    f.n = [nx, ny, nz]; f.first = data.length / 10;
+    for (let k = 1; k < p.length - 1; k++) for (const j of [0, k, k+1]){ const q = p[j], uv = f.uv ? f.uv[j] : [0, 0]; data.push(q[0], q[1], q[2], uv[0], uv[1], nx, ny, nz, f.col & 255, f.uv ? 1 : 0); }
+    f.cnt = data.length / 10 - f.first;
+    for (let k = 0; k < p.length; k++){ const q = p[k], r = p[(k+1) % p.length]; ed.push(...q, 0,0, 0,0,0, 0,0, ...r, 0,0, 0,0,0, 0,0); }
+  }
+  scene = scene || {}; scene.faces = faces; scene.n = data.length / 10; scene.en = ed.length / 10;
+  if (gl){ gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, edgeVbo); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ed), gl.DYNAMIC_DRAW); }
+  if (refit || !scene.radius){
+    let lo = [1e9,1e9,1e9], hi = [-1e9,-1e9,-1e9]; for (const f of (ac ? ac.faces : faces)) for (const q of f.pts) for (let k = 0; k < 3; k++){ lo[k] = Math.min(lo[k], q[k]); hi[k] = Math.max(hi[k], q[k]); }
+    if (lo[0] > hi[0]){ lo = [-50,-50,-50]; hi = [50,50,50]; }
+    scene.center = lo.map((x, k) => (x + hi[k]) / 2); scene.radius = Math.max(10, Math.hypot(hi[0]-lo[0], hi[1]-lo[1], hi[2]-lo[2]) / 2);
+  }
+  buildSel(); draw();
+}
+function buildSel(){
+  if (!gl || !scene) return; const d = [];
+  for (const f of scene.faces) if (f.hp === selHp && selHp >= 0){ const p = f.pts; for (let k = 1; k < p.length - 1; k++) for (const j of [0, k, k+1]) d.push(...p[j], 0, 0, ...f.n, f.col & 255, 0); }
+  gl.bindBuffer(gl.ARRAY_BUFFER, selVbo); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(d), gl.DYNAMIC_DRAW); scene.selN = d.length / 10;
+}
+function mul(a, b){ const o = new Array(16); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++){ let s = 0; for (let k = 0; k < 4; k++) s += a[k*4+j] * b[i*4+k]; o[i*4+j] = s; } return o; }
+function camera(){
+  const w = cv.width || 1, h = cv.height || 1, r = scene.radius, dist = r * 2.6 / view.zoom, f = 1 / Math.tan(0.5 * 0.7), near = Math.max(dist - r * 3, dist * 0.02), far = dist + r * 3;
+  const P = [f * h / w,0,0,0, 0,f,0,0, 0,0,(far+near)/(near-far),-1, 0,0,2*far*near/(near-far),0];
+  const cy = Math.cos(view.yaw), sy = Math.sin(view.yaw), cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
+  const R = [cy, sy*sp, -sy*cp, 0,  0, cp, sp, 0,  sy, -cy*sp, cy*cp, 0,  0, 0, 0, 1];
+  const T = [1,0,0,0, 0,1,0,0, 0,0,1,0, -scene.center[0], -scene.center[1], -scene.center[2], 1];
+  const V = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,-dist,1];
+  return { M: mul(P, mul(V, mul(R, T))), R, dist, f };
+}
+function resize(){ const d = Math.min(2, devicePixelRatio || 1), w = Math.round(cv.clientWidth * d), h = Math.round(cv.clientHeight * d); if (cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; } }
+function bindAttrs(buf){ gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  for (const [n, sz, off] of [["aP",3,0],["aUV",2,12],["aN",3,20],["aC",2,32]]){ const l = A(n); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, 40, off); } }
+function draw(){
+  if (!gl) return; resize(); gl.viewport(0, 0, cv.width, cv.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  if (!scene || !scene.n) return;
+  const rgb = new Uint8Array(768); rgb.set(PAL); setTex(palTex, 256, 1, gl.RGB, rgb);
+  gl.useProgram(prog); gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
+  gl.uniformMatrix4fv(U("uM"), false, camera().M); gl.uniform1f(U("uZB"), 0);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, picTex); gl.uniform1i(U("uPic"), 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, palTex); gl.uniform1i(U("uPal"), 1);
+  gl.uniform2f(U("uSize"), ac?.pic ? ac.pic.w : 1, ac?.pic ? ac.pic.h : 1); gl.uniform1f(U("uTex"), ac?.pic ? 1 : 0); gl.uniform1f(U("uFlat"), 0); gl.uniform1f(U("uSel"), 0);
+  gl.enable(gl.POLYGON_OFFSET_FILL); bindAttrs(vbo);
+  // FA paints faces in order and decals share planes with the body: later faces are pulled slightly forward
+  scene.faces.forEach((f, i) => { if (!f.cnt) return; gl.polygonOffset(f.hp >= 0 ? 0 : -i * 0.004, f.hp >= 0 ? 0 : -i * 0.5); gl.drawArrays(gl.TRIANGLES, f.first, f.cnt); });
+  if (scene.selN){ gl.polygonOffset(-2, -400); bindAttrs(selVbo); gl.uniform1f(U("uSel"), 1); gl.uniform1f(U("uTex"), 0); gl.drawArrays(gl.TRIANGLES, 0, scene.selN); }
+  gl.disable(gl.POLYGON_OFFSET_FILL);
+  if ($("wire").checked && scene.en){ bindAttrs(edgeVbo); gl.uniform1f(U("uFlat"), 1); gl.uniform1f(U("uSel"), 0); gl.uniform1f(U("uZB"), 0.0008); gl.drawArrays(gl.LINES, 0, scene.en); gl.uniform1f(U("uZB"), 0); }
+}
+function project(M, q, w, h){ const x = M[0]*q[0]+M[4]*q[1]+M[8]*q[2]+M[12], y = M[1]*q[0]+M[5]*q[1]+M[9]*q[2]+M[13], z = M[2]*q[0]+M[6]*q[1]+M[10]*q[2]+M[14], ww = M[3]*q[0]+M[7]*q[1]+M[11]*q[2]+M[15];
+  return [(x/ww*0.5+0.5)*w, (0.5-y/ww*0.5)*h, z/ww]; }
+function pick(mx, my){   // nearest face under the pointer: { face, i }
+  if (!scene) return null; const { M } = camera(), w = cv.clientWidth, h = cv.clientHeight; let best = null, bz = Infinity;
+  scene.faces.forEach((f, i) => { if (!f.cnt) return; const p = f.pts.map(q => project(M, q, w, h));
+    for (let k = 1; k < p.length - 1; k++){ const [a, b, c] = [p[0], p[k], p[k+1]], d = (b[1]-c[1])*(a[0]-c[0]) + (c[0]-b[0])*(a[1]-c[1]); if (Math.abs(d) < 1e-9) continue;
+      const l1 = ((b[1]-c[1])*(mx-c[0]) + (c[0]-b[0])*(my-c[1])) / d, l2 = ((c[1]-a[1])*(mx-c[0]) + (a[0]-c[0])*(my-c[1])) / d, l3 = 1 - l1 - l2;
+      if (l1 < 0 || l2 < 0 || l3 < 0) continue; const z = l1*a[2] + l2*b[2] + l3*c[2] - (f.hp >= 0 ? 1e-4 : 0); if (z < bz){ bz = z; best = f; } } });
+  return best;
+}
+// ---------- mouse / touch ----------
+{
+  let drag = null;
+  cv.addEventListener("pointerdown", e => {
+    cv.setPointerCapture(e.pointerId);
+    const r = cv.getBoundingClientRect(), f = pick(e.clientX - r.left, e.clientY - r.top);
+    if (f && f.hp >= 0){
+      selectHp(f.hp); const h = pt.hp[f.hp];
+      drag = { kind: e.shiftKey || dragMode === "rot" ? "rot" : "move", x: e.clientX, y: e.clientY, side: f.side || 1, start: { x: h.x, up: h.up, fwd: h.fwd, slewH: h.slewH, slewP: h.slewP }, acc: [0, 0, 0], moved: 0 };
+      cv.classList.add("move");
+    } else drag = { kind: "orbit", x: e.clientX, y: e.clientY, moved: 0 };
+  });
+  cv.addEventListener("pointermove", e => {
+    if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.moved += Math.abs(dx) + Math.abs(dy); drag.x = e.clientX; drag.y = e.clientY;
+    if (drag.kind === "orbit"){ view.yaw += dx * 0.01; view.pitch = Math.max(-1.55, Math.min(1.55, view.pitch + dy * 0.01)); draw(); return; }
+    const h = pt.hp[selHp]; if (!h) return;
+    if (drag.kind === "move"){
+      const { R, dist, f } = camera(), upp = 2 * dist / f / cv.clientHeight;   // world units per CSS pixel at the model's distance
+      const right = [R[0], R[4], R[8]], up = [R[1], R[5], R[9]];
+      for (let k = 0; k < 3; k++) drag.acc[k] += (dx * right[k] - dy * up[k]) * upp;
+      const d = drag.acc.map(v => Math.round(v)); if (axisLock !== "") for (let k = 0; k < 3; k++) if (String(k) !== axisLock) d[k] = 0;
+      h.x = drag.start.x + d[0] * drag.side; h.up = drag.start.up + d[1]; h.fwd = drag.start.fwd + d[2];
+    } else {
+      drag.acc[0] += dx * 0.5; drag.acc[1] -= dy * 0.5;
+      h.slewH = Math.round(drag.start.slewH + Math.round(drag.acc[0]) * 182 * drag.side); h.slewP = Math.round(drag.start.slewP + Math.round(drag.acc[1]) * 182);
+    }
+    hpChanged(false);
+  });
+  const up = () => { if (drag && drag.kind !== "orbit" && drag.moved > 0) hpChanged(true); drag = null; cv.classList.remove("move"); };
+  cv.addEventListener("pointerup", e => {
+    if (drag && drag.kind === "orbit" && drag.moved < 4){ selectHp(-1); }
+    up();
+  });
+  cv.addEventListener("pointercancel", up);
+  cv.addEventListener("wheel", e => { e.preventDefault(); view.zoom = Math.max(0.3, Math.min(20, view.zoom * Math.exp(-e.deltaY * 0.0015))); draw(); }, { passive: false });
+  addEventListener("resize", draw);
+  addEventListener("keydown", e => {
+    if (!$("p-hard").classList.contains("on") || selHp < 0 || /INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName)) return;
+    const h = pt.hp[selHp], s = e.shiftKey ? 5 : 1, rotMode = dragMode === "rot";
+    const k = { ArrowLeft: rotMode ? ["slewH", -182] : ["x", -1], ArrowRight: rotMode ? ["slewH", 182] : ["x", 1], ArrowUp: rotMode ? ["slewP", 182] : ["fwd", 1], ArrowDown: rotMode ? ["slewP", -182] : ["fwd", -1], PageUp: ["up", 1], PageDown: ["up", -1] }[e.key];
+    if (!k) return; e.preventDefault(); h[k[0]] += k[1] * s; hpChanged(true);
+  });
+}
+const VIEWS = { iso: [0.8, 0.45], top: [Math.PI, 1.55], bottom: [Math.PI, -1.55], side: [Math.PI/2, 0], front: [0, 0], rear: [Math.PI, 0] };
+document.querySelectorAll("#vbar [data-v]").forEach(b => b.onclick = () => { [view.yaw, view.pitch] = VIEWS[b.dataset.v]; draw(); });
+$("mMove").onclick = () => { dragMode = "move"; $("mMove").classList.add("on"); $("mRot").classList.remove("on"); };
+$("mRot").onclick = () => { dragMode = "rot"; $("mRot").classList.add("on"); $("mMove").classList.remove("on"); };
+document.querySelectorAll("#vbar [data-ax]").forEach(b => b.onclick = () => { axisLock = b.dataset.ax; document.querySelectorAll("#vbar [data-ax]").forEach(x => x.classList.toggle("on", x === b)); });
+for (const id of ["showSens", "attach"]) $(id).onchange = () => buildScene(false);
+for (const id of ["showBaked", "gearDown"]) $(id).onchange = () => ac && loadAircraft(ac.name);
+$("wire").onchange = draw;
+
+// ======================================================================================================
+// Hardpoint list and editor
+// ======================================================================================================
+let hpTimer = 0;
+function hpChanged(final){
+  touch(); renderHpRow(selHp); renderHpForm(true);
+  clearTimeout(hpTimer); if (final) buildScene(false); else hpTimer = setTimeout(() => buildScene(false), 0);
+}
+function selectHp(k){ selHp = k; document.querySelectorAll("#hpTable tbody tr").forEach((tr, i) => tr.classList.toggle("sel", i === k)); renderHpForm(); buildSel(); draw(); }
+function locSelect(v){ return `<select data-f="loc">${P.HP_LOC.map((n, i) => `<option value="${i}"${i === v ? " selected" : ""}>${esc(L(n, LOC_ZH[i]))}</option>`).join("")}${v > 5 ? `<option value="${v}" selected>${v}</option>` : ""}</select>`; }
+const LOC_ZH = ["中線", "機身", "內建機砲", "內部彈艙", "機翼", "翼尖"];
+function renderHpTable(){
+  const tb = $("#hpTable".slice(1)).querySelector("tbody"); tb.innerHTML = "";
+  if (!pt) return;
+  pt.hp.forEach((h, k) => {
+    const tr = document.createElement("tr"); if (k === selHp) tr.className = "sel";
+    tr.innerHTML = `<td>${k}</td><td>${locSelect(h.loc)}</td><td><input class="q" type="number" data-f="qty" value="${h.qty}"></td><td><input list="storeList" data-f="type" value="${esc(h.type)}" spellcheck="false"></td><td class="desc">${esc(descOf(h.type))}</td>`;
+    tr.onclick = ev => { if (selHp !== k) selectHp(k); };
+    tr.querySelectorAll("[data-f]").forEach(el => el.onchange = () => { const f = el.dataset.f; h[f] = f === "type" ? el.value.trim().toUpperCase() : +el.value; el.value = h[f]; tr.querySelector(".desc").textContent = descOf(h.type); hpChanged(true); if (f === "type") jtInfo(h.type).then(i => { if (i){ jtDone.set(h.type, i); renderHpRow(k); buildScene(false); } }); });
+    tb.appendChild(tr);
+  });
+  $("hpCount").textContent = L(`${pt.hp.length} hardpoints`, `${pt.hp.length} 個掛點`);
+}
+function renderHpRow(k){
+  const tr = document.querySelectorAll("#hpTable tbody tr")[k], h = pt?.hp[k]; if (!tr || !h) return;
+  for (const el of tr.querySelectorAll("[data-f]")) if (document.activeElement !== el) el.value = h[el.dataset.f];
+  tr.querySelector(".desc").textContent = descOf(h.type);
+}
+const HP_FLAGS_ZH = ["外部掛點", "副武器", "對稱掛載", "必要掛載", "可掛 - 鳳凰飛彈", "可掛 - 主動雷達飛彈", "可掛 - 半主動雷達飛彈", "可掛 - 紅外線導引", "可掛 - 其他飛彈", "可掛 - 副油箱", "可掛 - 其他外掛", "啟用自動旋轉", "不可掛 - 空對空"];
+function renderHpForm(valuesOnly){
+  const box = $("hpForm"), h = pt?.hp[selHp];
+  $("hpEditTitle").textContent = h ? L(`Edit Hardpoint #${selHp}`, `編輯掛點 #${selHp}`) : L("Edit Hardpoint", "編輯掛點");
+  if (!h){ box.innerHTML = `<p class="note">${L("Click a store in the 3D view or a row in the list.", "在 3D 畫面點外掛，或在清單點一列。")}</p>`; return; }
+  if (valuesOnly && box.dataset.k === String(selHp)){
+    for (const el of box.querySelectorAll("[data-f]")) if (document.activeElement !== el){ const f = el.dataset.f;
+      if (el.type === "checkbox") el.checked = !!(h.flags & (1 << +el.dataset.bit)); else el.value = /^slew|^lim/.test(f) ? +(h[f] / 182).toFixed(1) : f === "wt" ? h.wt * 100 : h[f]; }
+    return;
+  }
+  box.dataset.k = selHp;
+  const num = (f, lab, labZh, unit) => `<div class="row"><label>${L(lab, labZh)}</label><span class="stepper"><button data-step="${f}" data-d="-1">−</button><input type="number" data-f="${f}" step="${unit === "°" ? "0.5" : "1"}"><button data-step="${f}" data-d="1">+</button></span><span class="unit">${unit || ""}</span></div>`;
+  box.innerHTML = `<div class="row"><label>${L("Location", "位置")}</label>${locSelect(h.loc)}<label style="flex:0">${L("Qty", "數量")}</label><input type="number" data-f="qty" style="width:60px"></div>
+    <div class="row"><label>${L("Store Type", "外掛類型")}</label><input list="storeList" type="text" data-f="type" spellcheck="false"></div>
+    <div class="row"><label>${L("3D shape shown", "顯示的 3D 形狀")}</label><input type="text" id="shapeOvr" placeholder="${esc(L("auto", "自動"))}" title="${esc(L("SH file used to draw this store type here (only for this page; not saved in the PT)", "這個外掛類型在本頁用哪個 SH 畫（只影響本頁，不寫進 PT）"))}" spellcheck="false"></div>
+    <p class="note" id="shapeSrc"></p>
+    <div class="cols"><div>
+      <b class="small" style="color:#ff8f70">${L("Hardpoint Loading Data", "掛點掛載設定")}</b>
+      ${P.HP_FLAGS.map((n, b) => `<label class="chk small"><input type="checkbox" data-f="flags" data-bit="${b}">${esc(L(n, HP_FLAGS_ZH[b]))}</label>`).join("")}
+    </div><div>
+      ${num("x", "Right/Left Offset", "右／左偏移")}${num("up", "Up/Down Offset", "上／下偏移")}${num("fwd", "Front/Back Offset", "前／後偏移")}
+      <hr style="border-color:var(--line)">${num("slewH", "Slew Heading", "旋轉航向", "°")}${num("slewP", "Slew Pitch", "旋轉俯仰", "°")}
+      <hr style="border-color:var(--line)">${num("limH", "Slew Limit Heading", "旋轉限制航向", "°")}${num("limP", "Slew Limit Pitch", "旋轉限制俯仰", "°")}
+      <hr style="border-color:var(--line)"><div class="row"><label>${L("Max Weight", "最大重量")}</label><input type="number" data-f="wt" step="100"><span class="unit">lbs</span></div>
+      <p class="note">${L("Offsets are in SH model units (x right, up, front). Angles: the file stores 182 per degree. Symmetrical hardpoints are mirrored to the left side.", "偏移是 SH 模型單位（x 右、上、前）。角度：檔案以每度 182 儲存。對稱掛點會鏡射到左側。")}</p>
+    </div></div>`;
+  const apply = el => { const f = el.dataset.f;
+    if (f === "flags") h.flags = el.checked ? h.flags | (1 << +el.dataset.bit) : h.flags & ~(1 << +el.dataset.bit);
+    else if (f === "type"){ h.type = el.value.trim().toUpperCase(); jtInfo(h.type).then(i => { if (i){ jtDone.set(h.type, i); renderHpTable(); buildScene(false); updateShapeSrc(); } }); }
+    else if (/^slew|^lim/.test(f)) h[f] = Math.round(+el.value * 182);
+    else if (f === "wt") h.wt = Math.max(0, Math.min(255, Math.round(+el.value / 100)));
+    else h[f] = Math.round(+el.value);
+    renderHpTable(); hpChanged(true); updateShapeSrc(); };
+  box.querySelectorAll("[data-f]").forEach(el => el.onchange = () => apply(el));
+  box.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { const f = b.dataset.step; h[f] += (/^slew|^lim/.test(f) ? 182 : 1) * +b.dataset.d; hpChanged(true); });
+  const so = $("shapeOvr"); so.value = SHAPE_OVR[h.type] || "";
+  so.onchange = () => { const v = so.value.trim().toUpperCase(); if (v) SHAPE_OVR[h.type] = v; else delete SHAPE_OVR[h.type]; saveOvr(); buildScene(false).then(updateShapeSrc); };
+  renderHpForm(true); updateShapeSrc();
+}
+async function updateShapeSrc(){ const h = pt?.hp[selHp], el = $("shapeSrc"); if (!h || !el) return;
+  const k = storeKind(h.type, h.loc); if (k === "none" && h.loc !== 2){ el.textContent = L("Empty hardpoint (nothing drawn).", "空掛點（不顯示）。"); return; }
+  if (k === "sensor" && !$("showSens").checked){ el.textContent = L("Sensor / ECM: turn on “Sensors / ECM” to show its marker.", "感測器／電戰：勾選「Sensors / ECM」才會顯示標記。"); return; }
+  const w = k === "none" ? null : await weaponModel(h.type, h.loc); el.textContent = L("Drawn with: ", "目前顯示：") + (w ? w.src : L("gun muzzle marker", "機砲位置標記")); }
+$("hpAdd").onclick = () => { if (!pt) return; pt.hp.push({ flags: 0x401, x: 0, up: -10, fwd: 0, slewH: 0, slewP: 0, limH: 0, limP: 0, type: "", wt: 10, qty: 1, loc: 1, _orig: -1 }); renderHpTable(); selectHp(pt.hp.length - 1); hpChanged(true); };
+$("hpDup").onclick = () => { if (!pt || selHp < 0) return; pt.hp.push({ ...pt.hp[selHp], _orig: -1 }); renderHpTable(); selectHp(pt.hp.length - 1); hpChanged(true); };
+$("hpDel").onclick = () => { if (!pt || selHp < 0) return; pt.hp.splice(selHp, 1); selHp = Math.min(selHp, pt.hp.length - 1); renderHpTable(); selectHp(selHp); hpChanged(true); };
+
+// ======================================================================================================
+// Other tabs (fields from the original PT editor's dialogs)
+// ======================================================================================================
+const TABS = [["hard", "Hardpoints", "掛點"], ["aircraft", "Aircraft", "飛機"], ["class", "Class", "類別"], ["general", "General", "一般"], ["damage", "Damage", "損傷"],
+  ["movement", "Movement", "運動"], ["controls", "Controls", "操控"], ["engines", "Engines / Fuel", "引擎／燃油"], ["sound", "Sound", "聲音"],
+  ["envelope", "Flight Envelope", "飛行包線"], ["aero", "Aerodynamics", "空氣動力"], ["raw", "All values", "全部數值"]];
+let curTab = "hard"; try { curTab = localStorage.getItem("pt_tab") || "hard"; } catch(e){}
+function renderTabs(){
+  const nav = $("tabs"); nav.innerHTML = "";
+  for (const [id, en, zh] of TABS){ const b = document.createElement("button"); b.textContent = L(en, zh); b.className = id === curTab ? "on" : "";
+    b.onclick = () => { curTab = id; try { localStorage.setItem("pt_tab", id); } catch(e){} renderTabs(); showTab(); }; nav.appendChild(b); }
+}
+function showTab(){ document.querySelectorAll("main .panel").forEach(p => p.classList.toggle("on", p.id === "p-" + curTab)); if (curTab === "hard") draw(); if (curTab === "envelope") renderEnvelope(); if (curTab === "raw") renderRaw(); }
+
+// small form builders bound to pt_core fields
+function fNum(key, en, zh, unit){ return `<div class="row"><label>${L(en, zh)}</label><input type="number" data-key="${key}" step="any"><span class="unit">${unit || ""}</span></div>`; }
+function fStr(kind, ref, en, zh, ph){ return `<div class="row"><label>${L(en, zh)}</label><input type="text" data-str="${kind}" data-ref="${ref}" placeholder="${esc(ph || "")}" spellcheck="false"></div>`; }
+function fBit(key, bit, en, zh, guess){ return `<label class="chk"><input type="checkbox" data-bitkey="${key}" data-bit="${bit}">${L(en, zh)}${guess ? ` <span class="guess">${L("(bit " + bit + ", unconfirmed)", "（第 " + bit + " 位，未確認）")}</span>` : ""}</label>`; }
+const box = (en, zh, inner, note) => `<fieldset><legend>${L(en, zh)}</legend>${inner}${note ? `<p class="note">${note}</p>` : ""}</fieldset>`;
+// strings: label "ot_names" #n, or a pointer field "OBJ:6"
+function getStr(kind, ref){ if (kind === "lab"){ const [l, n] = ref.split("#"); return P.str(pt, l, +n); } const [s, k] = ref.split(":"); return P.ptrStr(pt, s, +k); }
+function setStr(kind, ref, v){ if (kind === "lab"){ const [l, n] = ref.split("#"); P.setStr(pt, l, +n, v); } else { const [s, k] = ref.split(":"); P.setPtrStr(pt, s, +k, v, { "OBJ:63": "hudName", "NPC:1": "ctName" }[ref] || "str" + s + k); } }
+function bindPanel(el){
+  el.querySelectorAll("[data-key]").forEach(i => { i.value = P.getF(pt, i.dataset.key); i.onchange = () => { P.setF(pt, i.dataset.key, i.value); i.value = P.getF(pt, i.dataset.key); touch(); }; });
+  el.querySelectorAll("[data-str]").forEach(i => { i.value = getStr(i.dataset.str, i.dataset.ref); i.onchange = () => { setStr(i.dataset.str, i.dataset.ref, i.value.trim()); touch(); if (i.dataset.ref === "OBJ:6") loadAircraft(i.value.trim()); }; });
+  el.querySelectorAll("[data-bitkey]").forEach(i => { const key = i.dataset.bitkey, b = +i.dataset.bit, get = () => P.getF(pt, key) >>> 0;
+    i.checked = !!(get() & (2 ** b)); i.onchange = () => { let v = get(); v = i.checked ? (v | (2 ** b)) >>> 0 : (v & ~(2 ** b)) >>> 0; P.setF(pt, key, v); touch(); bindPanel(el); }; });
+  el.querySelectorAll("[data-hex]").forEach(i => { const key = i.dataset.hex; i.value = "$" + (P.getF(pt, key) >>> 0).toString(16); i.onchange = () => { const v = parseInt(i.value.replace(/^\$|^0x/i, ""), 16); if (!isNaN(v)){ P.setF(pt, key, v); touch(); } bindPanel(el); }; });
+  el.querySelectorAll("[data-cls]").forEach(i => { i.checked = ((P.getF(pt, "cls") & 0xffff) === +i.dataset.cls); i.onchange = () => { if (i.checked){ P.setF(pt, "cls", +i.dataset.cls); touch(); } }; });
+}
+const CLASSES = [[0x8000, "Fighter", "戰鬥機"], [0x4000, "Bomber / other aircraft", "轟炸機／其他飛機"], [0x2000, "Ship", "船艦"], [0x1000, "Surface-to-Air Missile (SAM)", "地對空飛彈"],
+  [0x800, "Anti-Aircraft Artillery (AAA)", "防空砲"], [0x400, "Unarmored Vehicle", "無裝甲車輛"], [0x200, "Armored Vehicle", "裝甲車輛"], [0x100, "Structure", "建築"], [0x80, "Missile", "飛彈"], [0x40, "Other", "其他"]];
+function renderForms(){
+  if (!pt) return;
+  const stem = ptName.replace(/\.PT$/i, "").toUpperCase();
+  $("p-aircraft").innerHTML = `<div class="grid">
+    ${box("Aircraft", "飛機", fStr("lab", "ot_names#0", "Internal Name", "內部名稱") + `<div class="row"><label>${L("Object Name", "物件名稱")}</label><input type="text" value="${esc(stem)}" disabled></div>` + fStr("lab", "ot_names#1", "Description", "說明") + fStr("lab", "ot_names#2", "Object file", "物件檔名"))}
+    ${box("Files", "檔案", fStr("ptr", "OBJ:6", "3D Shape", "3D 模型") + fStr("ptr", "OBJ:7", "Shadow Shape", "影子模型") + fStr("ptr", "NPC:1", "AI Profile", "AI 設定") + fStr("ptr", "OBJ:63", "HUD to Display", "抬頭顯示器", stem + ".HUD") + fNum("year", "Year", "年份"),
+      L("HUD: empty = the aircraft's own NAME.HUD. Selection icon = NAME.PTS (same name as the PT).", "HUD：空白 = 用飛機自己的 NAME.HUD。選單圖示 = NAME.PTS（和 PT 同名）。"))}
+    ${box("Weight", "重量", fNum("maxWt", "Maximum", "最大", "lbs") + fNum("emptyWt", "Empty", "空重", "lbs"))}
+    ${box("G Loading", "G 值", fNum("gMin", "Min", "最小") + fNum("gMax", "Max", "最大"))}
+    ${box("Flyable in FA?", "FA 中可飛？", fBit("objFlags", 14, "Flyable (player can select it)", "可飛（玩家可選）", true))}
+    ${box("Special Functions", "特殊功能", fBit("planeFlags", 13, "Provide AWACS info", "提供 AWACS 資訊") + fBit("planeFlags", 9, "Do carpet bombing", "地毯式轟炸"))}
+  </div>`;
+  $("p-class").innerHTML = `<div class="grid">${box("Object Class Types", "物件類別", CLASSES.map(([v, en, zh]) => `<label class="chk"><input type="radio" name="cls" data-cls="${v}">${L(en, zh)}</label>`).join(""),
+    L("Stored as one bit in the object type word (Fighter = $8000, Bomber/other = $4000, … Missile = $80).", "儲存在物件類型字組的一個位元（戰鬥機 = $8000、轟炸機／其他 = $4000 … 飛彈 = $80）。"))}</div>`;
+  $("p-general").innerHTML = `<div class="grid">${box("General Info", "一般資訊",
+      fBit("objFlags", 16, "Aircraft is prop driven", "螺旋槳飛機", true) + fBit("planeFlags", 0, "Aircraft has jet engine(s)", "噴射引擎") + fBit("planeFlags", 1, "Arrestor hook equipped", "有攔截鉤") +
+      fBit("planeFlags", 2, "Two-seat cockpit", "雙座座艙") + fBit("planeFlags", 3, "Aircraft is a helicopter", "直升機", true) + fBit("planeFlags", 4, "Crew can bail out", "機組可跳傘") +
+      fBit("planeFlags", 5, "Aircraft has VTOL capability", "可垂直起降") + fBit("planeFlags", 6, "Aircraft can takeoff/land from ships", "可在艦上起降") + fBit("objFlags", 24, "Aircraft has a weapons bay", "有內部彈艙", true))}
+    ${box("Raw flags", "原始旗標", `<div class="row"><label>${L("Object flags", "物件旗標")}</label><input type="text" data-hex="objFlags"></div><div class="row"><label>${L("Plane flags", "飛機旗標")}</label><input type="text" data-hex="planeFlags"></div>`,
+      L("Bits matched against all 333 PT files (e.g. VTOL is set on AV-8, Yak-38 and helicopters; AWACS on E-2, E-3, A-50). Bits marked unconfirmed are best guesses; the hex values show every bit.", "位元是比對 333 個 PT 檔推出來的（例如 VTOL 出現在 AV-8、Yak-38 和直升機；AWACS 在 E-2、E-3、A-50）。標示未確認的是推測；十六進位值顯示全部位元。"))}</div>`;
+  $("p-damage").innerHTML = `<div class="grid">${box("Explosion If Destroyed", "被摧毀時的爆炸", fNum("explType", "Type", "類型") + fNum("crater", "Crater Size", "彈坑大小"), L("Type 30 = Large Air Explosion.", "類型 30 = 大型空中爆炸。"))}
+    ${box("Object Hit Points", "耐打值", fNum("hp", "Hit Points", "耐打值"))}
+    ${box("Damage Inflicted", "造成的損傷", fNum("dmgPlane", "Plane", "飛機") + fNum("dmgShip", "Ship", "船艦") + fNum("dmgStruct", "Structure", "建築") + fNum("dmgArmor", "Armor", "裝甲") + fNum("dmgOther", "Other", "其他"))}</div>`;
+  $("p-movement").innerHTML = `<div class="grid">${box("Maneuvering", "機動", fNum("turnRate", "Turn Rate", "轉彎率", "°") + fNum("bankRate", "Bank Rate", "滾轉率", "°") + fNum("maxClimb", "Max Climb", "最大爬升", "°") + fNum("maxDive", "Max Dive", "最大俯衝", "°") + fNum("maxBank", "Max Bank", "最大傾斜", "°") + fNum("accel", "Acceleration", "加速") + fNum("decel", "Deceleration", "減速"))}
+    ${box("Altitude Limits", "高度限制", fNum("minAlt", "Min Altitude", "最低高度", "ft") + fNum("maxAlt", "Max Altitude", "最高高度", "ft"))}
+    ${box("Speed Values", "速度", fNum("minSpd", "Min Speed", "最低速度") + fNum("cornerSpd", "Corner Speed", "角速度") + fNum("maxSpd", "Max Speed", "最高速度"), L("Greyed out in the original editor for aircraft (the flight envelope is used instead).", "原編輯器中飛機的這些欄位是灰色的（改用飛行包線）。"))}</div>`;
+  $("p-controls").innerHTML = `<div class="grid">${box("Drag Characteristics", "阻力特性", fNum("brakeDrag", "Air Brake Drag", "減速板阻力") + fNum("flapDrag", "Flap Drag", "襟翼阻力") + fNum("wheelDrag", "Wheel Brakes Drag", "輪煞阻力") + fNum("bayDrag", "Weapons Bay Drag", "彈艙阻力"))}
+    ${box("Structural Speed Limits", "結構速度限制", fNum("vneSL", "Sea Level", "海平面", "kts") + fNum("vne36", "Altitude 36K", "36000 呎", "kts"), L("Stored in ft/s (1192 = 813 kts).", "以 ft/s 儲存（1192 = 813 節）。"))}
+    ${box("Turbulence", "亂流", fNum("turb", "Turbulence Factor", "亂流係數", "%"))}</div>`;
+  $("p-engines").innerHTML = `<div class="grid">${box("Engines / Fuel", "引擎／燃油", fNum("engines", "Number of Engines", "引擎數") + fNum("fuel", "Internal Fuel Capacity", "機內燃油", "lbs"))}
+    ${box("Thrust", "推力", fNum("thrMil", "Military", "軍用推力", "lbs") + fNum("thrAB", "Afterburner", "後燃器", "lbs"))}
+    ${box("Fuel Consumption", "耗油", fNum("fuelMil", "Military", "軍用推力") + fNum("fuelAB", "Afterburner", "後燃器"))}</div>`;
+  $("p-sound").innerHTML = `<div class="grid">${box("Aircraft Sound", "飛機聲音", fStr("ptr", "OBJ:50", "Loop Sound", "循環聲") + fStr("ptr", "OBJ:51", "Second Sound", "第二聲音") + fStr("ptr", "OBJ:52", "Engine On Sound", "引擎啟動聲") + fStr("ptr", "OBJ:53", "Engine Off Sound", "引擎關閉聲"))}</div>`;
+  $("p-aero").innerHTML = `<div class="grid">
+    ${box("Throttle", "油門", fNum("throtAcc", "Acceleration", "加速") + fNum("throtDec", "Deceleration", "減速"))}
+    ${box("Crash", "墜毀", fNum("crashFwd", "Forward Speed", "前進速度") + fNum("crashSide", "Side Speed", "側向速度") + fNum("crashVert", "Vertical Speed", "垂直速度") + fNum("crashPitch", "Pitch", "俯仰") + fNum("crashRoll", "Roll", "滾轉"))}
+    ${box("Stall", "失速", fNum("stallWarn", "Warning Delay", "警告延遲") + fNum("stallDelay", "Delay", "延遲") + fNum("stallSev", "Severity", "嚴重度") + fNum("stallPitch", "Pitch Down", "機頭下沉"))}
+    ${box("Rudder", "方向舵", fNum("rudMinYaw", "Min Yaw", "最小偏航") + fNum("rudMaxYaw", "Max Yaw", "最大偏航") + fNum("rudYawAcc", "Yaw Acc", "偏航加速") + fNum("rudYawDacc", "Yaw Dacc", "偏航減速") + fNum("rudSlip", "Slip", "側滑") + fNum("rudDrag", "Drag", "阻力") + fNum("rudBank", "Bank", "傾斜"))}
+    ${box("Spin", "螺旋", fNum("spinEntry", "Entry", "進入") + fNum("spinExit", "Exit", "改出") + fNum("spinYawLo", "Yaw Low", "偏航低") + fNum("spinYawHi", "Yaw High", "偏航高") + fNum("spinAoaLo", "AOA Low", "攻角低") + fNum("spinAoaHi", "AOA High", "攻角高") + fNum("spinBankLo", "Bank Low", "傾斜低") + fNum("spinBankHi", "Bank High", "傾斜高"))}
+    ${box("Loaded", "掛載時", fNum("ldDrag", "Drag", "阻力") + fNum("ldGDrag", "GPull Drag", "拉 G 阻力") + fNum("ldElev", "Elevator", "升降舵") + fNum("ldAil", "Aileron", "副翼") + fNum("ldRud", "Rudder", "方向舵"))}
+    ${box("AOA", "攻角", fNum("aoaG", "G Pull", "拉 G") + fNum("aoaLowSpd", "Low AOA Speed", "低攻角速度") + fNum("aoaLowPitch", "Low AOA Pitch", "低攻角俯仰"))}
+    ${box("Coefficients", "係數", fNum("coefDrag", "Drag", "阻力") + fNum("coefGDrag", "G Pull Drag", "拉 G 阻力"))}
+    ${box("Vectored Thrust", "向量推力", fNum("vecUp", "Limit Up", "上限") + fNum("vecDown", "Limit Down", "下限") + fNum("vecSpd", "Speed", "速度"))}</div>`;
+  for (const id of ["aircraft", "class", "general", "damage", "movement", "controls", "engines", "sound", "aero"]) bindPanel($("p-" + id));
+}
+
+// ---------- flight envelope ----------
+let envList = [], envSel = 0;
+function renderEnvelope(){
+  if (!pt) return; envList = P.envList(pt);
+  const sel = $("envG"); if (!envList.length){ sel.innerHTML = ""; $("envNote").textContent = L("This file has no flight envelope.", "這個檔案沒有飛行包線。"); return; }
+  if (envSel >= envList.length) envSel = 0;
+  if (!envList[envSel]) envSel = 0;
+  if (sel.options.length !== envList.length){ sel.innerHTML = envList.map((e, i) => `<option value="${i}">${e.g}</option>`).join(""); const one = envList.findIndex(e => e.g === 1); if (one >= 0 && !renderEnvelope.done){ envSel = one; renderEnvelope.done = 1; } }
+  sel.value = envSel; sel.onchange = () => { envSel = +sel.value; renderEnvelope(); };
+  const e = envList[envSel], tb = $("envTable").querySelector("tbody"); tb.innerHTML = "";
+  e.pts.forEach((p, k) => { const tr = document.createElement("tr"); if (k === e.spdIdx || k === e.altIdx) tr.className = "peak";
+    tr.innerHTML = `<td>${k + 1}</td><td><input type="number" value="${p[0] || ""}"></td><td><input type="number" value="${p[0] || p[1] ? p[1] : ""}"></td>`;
+    tr.querySelectorAll("input").forEach((inp, c) => inp.onchange = () => { e.pts[k][c] = Math.round(+inp.value || 0); commitEnv(e); }); tb.appendChild(tr); });
+  $("envN").textContent = e.n; $("envSp").textContent = e.spdIdx + 1; $("envAp").textContent = e.altIdx + 1;
+  drawEnvelope(e);
+}
+function commitEnv(e){
+  // used points = up to the last row with a speed; pointers = the fastest and the highest point
+  let n = 0; e.pts.forEach((p, k) => { if (p[0]) n = k + 1; }); e.n = n;
+  let sp = 0, ap = 0; for (let k = 0; k < n; k++){ if (e.pts[k][0] > e.pts[sp][0]) sp = k; if (e.pts[k][1] > e.pts[ap][1]) ap = k; }
+  e.spdIdx = sp; e.altIdx = ap; P.setEnv(pt, envSel, e); touch(); renderEnvelope();
+}
+function drawEnvelope(e){
+  const c = $("envCv"), d = Math.min(2, devicePixelRatio || 1); c.width = c.clientWidth * d; c.height = c.clientHeight * d; const x = c.getContext("2d"); x.scale(d, d);
+  const W = c.clientWidth, H = c.clientHeight, pad = 40; x.clearRect(0, 0, W, H);
+  let ms = 100, ma = 1000; for (const g of envList) for (const p of g.pts.slice(0, g.n)){ ms = Math.max(ms, p[0]); ma = Math.max(ma, p[1]); }
+  ms = Math.ceil(ms / 200) * 200; ma = Math.ceil(ma / 10000) * 10000;
+  const X = s => pad + (W - pad - 12) * s / ms, Y = a => H - pad - (H - pad - 12) * a / ma;
+  x.strokeStyle = "rgba(255,255,255,.25)"; x.fillStyle = "#e8f6f7"; x.font = "11px system-ui"; x.lineWidth = 1;
+  for (let s = 0; s <= ms; s += 200){ x.beginPath(); x.moveTo(X(s), Y(0)); x.lineTo(X(s), Y(ma)); x.stroke(); x.fillText(s, X(s) - 8, H - pad + 14); }
+  for (let a = 0; a <= ma; a += 10000){ x.beginPath(); x.moveTo(X(0), Y(a)); x.lineTo(X(ms), Y(a)); x.stroke(); x.fillText(a / 1000 + "k", 6, Y(a) + 4); }
+  x.fillText(L("speed (kts)", "速度（節）"), W - 80, H - 6);
+  for (const g of envList){ if (g === e || !g.n) continue; x.strokeStyle = "rgba(0,0,0,.25)"; x.beginPath(); g.pts.slice(0, g.n).forEach((p, k) => k ? x.lineTo(X(p[0]), Y(p[1])) : x.moveTo(X(p[0]), Y(p[1]))); x.stroke(); }
+  x.strokeStyle = "#111"; x.lineWidth = 2; x.beginPath(); e.pts.slice(0, e.n).forEach((p, k) => k ? x.lineTo(X(p[0]), Y(p[1])) : x.moveTo(X(p[0]), Y(p[1]))); x.stroke();
+  e.pts.slice(0, e.n).forEach((p, k) => { x.fillStyle = k === e.spdIdx || k === e.altIdx ? "#ffd54a" : "#c0392b"; x.beginPath(); x.arc(X(p[0]), Y(p[1]), 3.5, 0, 7); x.fill(); });
+  $("envNote").textContent = L(`G = ${e.g}: ${e.n} points. Dark lines = the other G values.`, `G = ${e.g}：${e.n} 個點。暗線 = 其他 G 值。`);
+}
+addEventListener("resize", () => { if (curTab === "envelope" && envList[envSel]) drawEnvelope(envList[envSel]); });
+
+// ---------- all values ----------
+function renderRaw(){
+  if (!pt) return; const lab = {}; for (const [k, [s, i]] of Object.entries(P.F)) lab[s + i] = k;
+  const tbl = sec => `<fieldset><legend>${sec}_TYPE</legend><table class="raw">${pt.fields[sec].map((e, i) => `<tr><td>${i}</td><td>${e.kind}</td><td><input data-sec="${sec}" data-i="${i}" value="${esc(e.raw)}" ${e.kind === "ptr" || e.kind === "symbol" ? "disabled" : ""}></td><td class="lab">${e.kind === "ptr" ? esc(e.raw + " → " + P.str(pt, e.raw)) : esc(lab[sec + i] || "")}</td></tr>`).join("")}</table></fieldset>`;
+  $("p-raw").innerHTML = `<p class="note">${L("Every value of the three type records, in file order. Named ones are edited on the other tabs too; the rest are not identified yet. Values can be decimal, $hex or ^fixed as in the file.", "三個類型記錄的每個數值（依檔案順序）。有名稱的也可在其他分頁編輯；其他尚未辨識。數值可以是十進位、$十六進位或 ^ 定點，和檔案一樣。")}</p><div class="rawcols">${tbl("OBJ")}${tbl("NPC")}${tbl("PLANE")}</div>`;
+  $("p-raw").querySelectorAll("input[data-sec]").forEach(i => i.onchange = () => { const e = pt.fields[i.dataset.sec][+i.dataset.i], v = i.value.trim();
+    if (!/^\^?(\$[0-9a-fA-F]+|-?\d+)$/.test(v)){ i.value = e.raw; msg(L("Not a number: ", "不是數字：") + v, true); return; }
+    e.raw = v; pt.lines[e.i] = e.ind + e.kind + e.sp + v + e.rest; touch(); renderForms(); });
+}
+
+// ======================================================================================================
+// Loading and saving
+// ======================================================================================================
+function renderTitle(){
+  if (!pt){ $("title").innerHTML = ""; return; }
+  $("title").innerHTML = `${esc(ptName)} &nbsp;${esc(P.str(pt, "ot_names", 1))}<span>${dirty ? L("● edited, not saved", "● 已修改，尚未儲存") : ""}</span>`;
+  $("ghBtn").disabled = !pt;
+}
+async function openPT(name, text){
+  try { pt = P.parse(text); } catch(e){ msg(L("Cannot read this PT: ", "無法讀取這個 PT：") + e.message, true); return; }
+  if (!pt.fields.OBJ.length || !pt.fields.PLANE.length){ msg(L("This is not an aircraft PT file.", "這不是飛機 PT 檔。"), true); pt = null; return; }
+  ptName = name.toUpperCase(); dirty = false; selHp = -1; renderEnvelope.done = 0; envSel = 0;
+  try { localStorage.setItem("pt_last", ptName); } catch(e){}
+  $("saveBtn").disabled = false; $("ghBtn").disabled = false; $("ptList").value = ptName;
+  renderTitle(); renderHpTable(); renderHpForm(); renderForms(); showTab(); msg("");
+  prefetchJT().then(() => { renderHpTable(); });
+  history.replaceState(null, "", "?pt=" + encodeURIComponent(ptName));
+  await loadAircraft(P.ptrStr(pt, "OBJ", 6));
+}
+async function openRepoPT(name){
+  if (dirty && !confirm(L("Discard the changes to " + ptName + "?", "放棄對 " + ptName + " 的修改？"))) { $("ptList").value = ptName; return; }
+  msg(L("Loading ", "載入 ") + name + "…");
+  const u8 = await fetchAny(["PT/" + name]); if (!u8){ msg(L("Cannot download ", "無法下載 ") + name, true); return; }
+  await openPT(name, bytesToStr(u8));
+}
+$("ptList").onchange = () => $("ptList").value && openRepoPT($("ptList").value);
+$("ptFile").onchange = async e => { const f = e.target.files[0]; if (!f) return; e.target.value = "";
+  if (dirty && !confirm(L("Discard the changes to " + ptName + "?", "放棄對 " + ptName + " 的修改？"))) return;
+  if (![...$("ptList").options].some(o => o.value === f.name.toUpperCase())) $("ptList").add(new Option(f.name.toUpperCase() + " " + L("(local)", "（本機）"), f.name.toUpperCase()));
+  await openPT(f.name, bytesToStr(new Uint8Array(await f.arrayBuffer()))); };
+$("saveBtn").onclick = () => {
+  if (!pt) return; const blob = new Blob([strToBytes(P.serialize(pt))], { type: "application/octet-stream" }), a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = ptName; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  dirty = false; renderTitle(); msg(L("Saved ", "已儲存 ") + ptName);
+};
+async function listRepoPT(){
+  const sel = $("ptList"); let names = [];
+  try { const r = await fetch(GH_API + "?ref=main"); if (r.ok) names = (await r.json()).map(x => x.name).filter(n => /\.PT$/i.test(n)); } catch(e){}
+  if (!names.length) names = ["F18.PT", "F14.PT", "F16.PT", "F15.PT", "AV8.PT", "F22.PT", "SU27.PT", "MIG29.PT"];
+  for (const n of names.sort()) sel.add(new Option(n, n.toUpperCase()));
+}
+
+// ---------- commit to GitHub (Vercel function, admin key) ----------
+const API = /vercel\.app$|^localhost$|^127\./.test(location.hostname) ? "" : VERCEL;
+$("ghBtn").onclick = () => {
+  if (!pt) return; let key = ""; try { key = localStorage.getItem("fashion_admin_key") || ""; } catch(e){}
+  $("ghKey").value = key; $("ghMsgIn").value = `PT editor: update ${ptName}`; $("ghRes").textContent = "";
+  $("ghWhat").textContent = L(`Writes PT/${ptName} on the main branch of kuoyichen/FAoutput. Only the site admin key can do this.`, `會把 PT/${ptName} 寫到 kuoyichen/FAoutput 的 main 分支。只有網站管理金鑰可以使用。`);
+  $("ghDlg").showModal();
+  // tell the admin up front whether the server side is ready (admin key + GITHUB_TOKEN set in Vercel)
+  fetch(API + "/api/pt-commit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ check: true, adminKey: key }) })
+    .then(r => r.json()).then(j => { if ($("ghRes").textContent) return;
+      $("ghRes").textContent = !j.githubConfigured ? L("Server: GITHUB_TOKEN is not set in Vercel yet.", "伺服器：Vercel 尚未設定 GITHUB_TOKEN。")
+        : key && j.admin ? L("Server ready (GitHub token set, admin key OK).", "伺服器已就緒（GitHub token 已設定，管理金鑰正確）。") : L("Server ready (GitHub token set).", "伺服器已就緒（GitHub token 已設定）。"); })
+    .catch(() => {});
+};
+$("ghCancel").onclick = () => $("ghDlg").close();
+$("ghGo").onclick = async () => {
+  const key = $("ghKey").value.trim(); if (!key){ $("ghRes").textContent = L("Enter the admin key.", "請輸入管理金鑰。"); return; }
+  $("ghGo").disabled = true; $("ghRes").textContent = L("Committing…", "提交中…");
+  try {
+    const bytes = strToBytes(P.serialize(pt)); let b64 = ""; for (let i = 0; i < bytes.length; i += 8192) b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+    const r = await fetch(API + "/api/pt-commit", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ adminKey: key, name: ptName, content: btoa(b64), message: $("ghMsgIn").value.trim() }) });
+    const j = await r.json().catch(() => ({ error: "HTTP " + r.status }));
+    if (!r.ok || !j.ok) throw new Error(j.error || "HTTP " + r.status);
+    try { localStorage.setItem("fashion_admin_key", key); } catch(e){}
+    $("ghRes").innerHTML = j.unchanged ? esc(L("No change: GitHub already has this exact file.", "沒有變更：GitHub 上已經是同樣的檔案。")) : `${esc(L("Committed", "已提交"))} <a href="${esc(j.commitUrl)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc((j.sha || "").slice(0, 7))}</a>`;
+    dirty = false; renderTitle();
+  } catch(e){ $("ghRes").textContent = L("Failed: ", "失敗：") + e.message; }
+  $("ghGo").disabled = false;
+};
+
+// ======================================================================================================
+FAI18N.register({
+  "FAshion home": "FAshion 首頁", "PT Editor": "PT 編輯器", "PT file…": "PT 檔…", "📂 Open .PT": "📂 開啟 .PT", "⬇ Save .PT": "⬇ 儲存 .PT", "☁ Commit to GitHub": "☁ 提交到 GitHub",
+  "Open a .PT file from your disk": "從電腦開啟 .PT 檔", "Download the edited .PT file": "下載修改後的 .PT 檔", "Write this PT file to PT/ on GitHub (admin key required)": "把這個 PT 檔寫到 GitHub 的 PT/（需要管理金鑰）",
+  "PT files in the FAoutput repository": "FAoutput 儲存庫中的 PT 檔",
+  "Top": "上視", "Bottom": "下視", "Side": "側視", "Front": "前視", "Rear": "後視", "Drag:": "拖曳：", "✥ Move": "✥ 移動", "⟳ Rotate": "⟳ 旋轉", "Axis:": "軸：", "Free": "自由",
+  "Drag a store to move it": "拖曳外掛來移動", "Drag a store to slew it (heading / pitch)": "拖曳外掛來旋轉（航向／俯仰）", "Move in the screen plane": "在螢幕平面移動",
+  "Right / left only": "只動左右", "Up / down only": "只動上下", "Front / back only": "只動前後",
+  "Sensors / ECM": "感測器／電戰", "Model's own stores": "模型內建外掛", "Gear down": "起落架放下", "Wireframe": "線框", "Attach": "掛點位置", "store centre": "外掛中心", "store top": "外掛頂部",
+  "Drag empty space to orbit · scroll to zoom · click a store to select it, drag it to move (Shift = rotate) · arrow keys / PgUp PgDn nudge the selected store by 1 (Shift ×5)":
+    "拖曳空白處旋轉視角 · 滾輪縮放 · 點外掛選取，拖曳移動（按住 Shift = 旋轉）· 方向鍵／PgUp PgDn 每次移動 1（Shift ×5）",
+  "Hardpoints": "掛點", "＋ Add": "＋ 新增", "⧉ Copy": "⧉ 複製", "✕ Delete": "✕ 刪除", "Add a hardpoint at the end": "在最後新增一個掛點", "Copy the selected hardpoint": "複製選取的掛點", "Delete the selected hardpoint": "刪除選取的掛點",
+  "Location": "位置", "Qty": "數量", "Store Type": "外掛類型", "Store Description": "外掛說明", "Edit Hardpoint": "編輯掛點",
+  "Flight Envelope": "飛行包線", "G-Envelope": "G 包線", "Data Points": "資料點數", "Max Speed Ptr": "最大速度點", "Max Alt Ptr": "最大高度點", "Point": "點", "Speed (kts)": "速度（節）", "Altitude (ft)": "高度（呎）",
+  "Points run from the low-speed edge over the top to the high-speed edge. Empty rows (speed 0) are not used; Data Points and the two pointers are worked out for you.": "點從低速邊界經過頂端到高速邊界。空白列（速度 0）不使用；資料點數和兩個指標會自動計算。",
+  "Commit to GitHub": "提交到 GitHub", "Admin key": "管理金鑰", "Commit message": "提交說明", "Cancel": "取消", "Commit": "提交"
+});
+$("langSlot").append(FAI18N.picker()); FAI18N.apply();
+FAI18N.onChange(() => { renderTabs(); if (pt){ renderTitle(); renderHpTable(); renderHpForm(); renderForms(); if (curTab === "envelope") renderEnvelope(); if (curTab === "raw") renderRaw(); } });
+{ const dl = document.createElement("datalist"); dl.id = "storeList"; dl.innerHTML = STORE_NAMES.map(n => `<option value="${n}">`).join(""); document.body.appendChild(dl); }
+renderTabs(); showTab();
+(async () => {
+  await loadGamePal(); if (gamePal) PAL = gamePal; pickColours();
+  await listRepoPT();
+  let start = new URLSearchParams(location.search).get("pt"); if (!start){ try { start = localStorage.getItem("pt_last"); } catch(e){} }
+  start = (start || "F18.PT").toUpperCase(); if (!/\.PT$/.test(start)) start += ".PT";
+  await openRepoPT(start);
+})();
+addEventListener("beforeunload", e => { if (dirty){ e.preventDefault(); e.returnValue = ""; } });
+window.ptEditor = { get pt(){ return pt; }, P, selectHp, buildScene, get scene(){ return scene; }, view, draw };
+</script>
+</body>
+</html>
