@@ -239,8 +239,8 @@ function renderForms(){
   $("p-params").innerHTML = `<div class="grid" style="grid-template-columns:1fr">${box("Ordnance Parameters", "武器參數",
       `<div class="flags">${J.FLAGS.map((n, b) => `<label class="chk"><input type="checkbox" data-bitkey="flags" data-bit="${b}">${esc(L(n, FLAGS_ZH[b]))}</label>`).join("")}</div>
        <div class="row" style="max-width:300px"><label>${L("Raw flags", "原始旗標")}</label><input type="text" data-hex="flags"></div>`,
-      L("Bits 0–18 in dialog order (left column, then right). Checked against M61 (gun + continuous fire), AIM-7 (launcher must guide with radar), GBU-10 (laser) and Mk 82 (free-fall arc).",
-        "第 0–18 位，依對話框順序（先左欄再右欄）。已用 M61（機砲＋連續射擊）、AIM-7（發射者以雷達導引）、GBU-10（雷射）與 Mk 82（自由落體）驗證。"))}</div>`;
+      L("Bits 0–18 in dialog order (left column, then right); AIM54C.JT ($5206f) matches the original editor's dialog exactly. Also checked against M61 (gun + continuous fire), AIM-7 (launcher must guide with radar), GBU-10 (laser) and Mk 82 (free-fall arc).",
+        "第 0–18 位，依對話框順序（先左欄再右欄）；AIM54C.JT（$5206f）和原編輯器對話框完全一致。另外也用 M61（機砲＋連續射擊）、AIM-7（發射者以雷達導引）、GBU-10（雷射）與 Mk 82（自由落體）驗證。"))}</div>`;
   $("p-hit").innerHTML = `<div class="grid">
     ${box("Deception Modifiers", "欺騙修正", fNum("chaff", "Chaff / Flare", "干擾絲／熱焰彈", "%") + fNum("ecm", "ECM Jamming", "電子干擾", "%") + fNum("irSun", "IR Target Sun", "紅外線 太陽", "%"))}
     ${box("Hit Percentages", "命中率", fNum("hit0", "0% of Max Track", "最大追蹤 0%", "%") + fNum("hit25", "25% Max Track", "最大追蹤 25%", "%") + fNum("hit50", "50% Max Track", "最大追蹤 50%", "%") + fNum("hit100", "100% Max Track", "最大追蹤 100%", "%"))}
