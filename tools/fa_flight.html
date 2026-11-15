@@ -29,8 +29,13 @@ button.on{border-color:var(--accent);color:var(--accent)}
 .stick{position:fixed;width:130px;height:130px;margin:-65px 0 0 -65px;border-radius:50%;border:2px solid #ffffff55;background:#00000026;pointer-events:none;z-index:3;transition:opacity .2s}
 .stick i{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:#ffffff55;border:2px solid #fff9}
 .stick span{position:absolute;left:0;right:0;top:-20px;text-align:center;font-size:11px;color:#fff;text-shadow:0 1px 2px #000}
-#btns{position:fixed;right:calc(10px + env(safe-area-inset-right));top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px;z-index:5}
-#btns button{width:64px;padding:9px 0;font-weight:600;font-size:12px;background:#0e1216aa}
+#btns{position:fixed;left:calc(10px + env(safe-area-inset-left));top:calc(50px + env(safe-area-inset-top));display:grid;grid-template-columns:repeat(2,58px);gap:6px;z-index:5}
+#btns button{padding:7px 0;font-weight:600;font-size:12px;background:#0e1216aa}
+#wpn{position:fixed;right:calc(36px + env(safe-area-inset-right));top:calc(176px + env(safe-area-inset-top));display:flex;flex-direction:column;align-items:center;gap:8px;z-index:5}
+#bWpn{min-width:96px;font:700 13px/1.2 ui-monospace,Consolas,monospace;padding:7px 8px;background:#0e1216bb;color:var(--hud)}
+#bFire{width:76px;height:76px;border-radius:50%;font-weight:800;font-size:15px;background:#c0392bcc;border:2px solid #ffffffaa;color:#fff;touch-action:none}
+#bFire.on{background:#ff5a3c}
+#ov{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;pointer-events:none;z-index:2}
 #panel{position:fixed;top:calc(48px + env(safe-area-inset-top));left:calc(10px + env(safe-area-inset-left));width:min(330px,calc(100vw - 20px));max-height:calc(100dvh - 70px);overflow:auto;background:#161c22f2;border:1px solid var(--line);border-radius:12px;padding:12px;z-index:6;display:none}
 #panel.open{display:block}
 #panel h2{font-size:14px;margin:0 0 8px}
@@ -58,12 +63,15 @@ button.on{border-color:var(--accent);color:var(--accent)}
   <div>SPD<b id="hSpd">0</b>kt</div>
   <div>ALT<b id="hAlt">0</b>ft</div>
   <div>HDG<b id="hHdg">000</b>°</div>
+  <div id="hKillD">KILL<b id="hKill">0</b>&nbsp;</div>
 </div>
 <div id="thr"><i id="thrBar"></i></div>
 <div id="sub"></div>
 <div id="msg"></div>
 <div class="stick" id="stL"><span id="stLt">Throttle / Rudder</span><i></i></div>
 <div class="stick" id="stR"><span id="stRt">Pitch / Roll</span><i></i></div>
+<canvas id="ov"></canvas>
+<div id="wpn"><button id="bWpn">GUN</button><button id="bFire">FIRE</button></div>
 <div id="btns">
   <button id="bGear">Gear</button>
   <button id="bBrake">Brake</button>
@@ -81,8 +89,8 @@ button.on{border-color:var(--accent);color:var(--accent)}
   <div class="row"><button id="bGo">▶ Start</button></div>
   <label class="ck"><input type="checkbox" id="inv"> Invert pitch (push stick up = nose up)</label>
   <label class="ck"><input type="checkbox" id="tex" checked> Textures</label>
-  <p id="help1">Right stick: pitch and roll. Left stick: up/down changes the throttle (it stays where you leave it), left/right is rudder. Drag anywhere else to look around, pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult.</p>
-  <p id="help2">Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, R restart, mouse drag to look, wheel to zoom.</p>
+  <p id="help1">Right stick: pitch and roll. Left stick: up/down changes the throttle (it stays where you leave it), left/right is rudder. Drag anywhere else to look around, pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult. The weapon button on the right picks gun, AIM-9, AIM-120 (air targets), AGM-65 (ground and ships) or MK-82 bombs; missiles lock the target nearest your nose. To land, slow down, lower the gear and raise the nose: the jet settles gently nose-high, and the throttle sets how fast it sinks.</p>
+  <p id="help2">Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, R restart, mouse drag to look, wheel to zoom.</p>
 </div>
 <div id="load"><div id="loadT">Loading…</div><small id="loadS"></small></div>
 <script>
@@ -499,14 +507,14 @@ const MVS = `attribute vec3 aP; attribute vec2 aUV; attribute vec3 aN; attribute
 uniform mat4 uPV, uM; uniform vec3 uSun; varying vec2 vUV; varying vec2 vC; varying float vL; varying float vD;
 void main(){ vec4 w = uM * vec4(aP, 1.0); vUV = aUV; vC = aC; vec3 n = normalize(mat3(uM) * aN); vL = abs(dot(n, uSun)); vD = length(w.xyz); gl_Position = uPV * w; }`;
 const MFS = `precision mediump float; varying vec2 vUV; varying vec2 vC; varying float vL; varying float vD;
-uniform sampler2D uPic, uPal; uniform vec2 uSize; uniform float uTex, uShadow; uniform vec3 uFogC; uniform vec2 uFog; uniform vec4 uTint;
+uniform sampler2D uPic, uPal; uniform vec2 uSize; uniform float uTex, uShadow; uniform vec3 uFogC; uniform vec2 uFog; uniform vec4 uTint; uniform float uAlpha;
 void main(){
   if (uShadow > 0.5){ gl_FragColor = vec4(0.0, 0.0, 0.0, 0.35 * (1.0 - smoothstep(uFog.x, uFog.y, vD))); return; }
   float idx = vC.x;
   if (vC.y > 0.5 && uTex > 0.5){ float t = floor(texture2D(uPic, (floor(vUV) + 0.5) / uSize).r * 255.0 + 0.5); if (t > 254.5){ if (vC.x < 0.5) discard; } else idx = t; }
   vec3 c = texture2D(uPal, vec2((idx + 0.5) / 256.0, 0.5)).rgb * (0.55 + 0.6 * vL);
   c = mix(c, uTint.rgb, uTint.a);
-  gl_FragColor = vec4(mix(c, uFogC, smoothstep(uFog.x, uFog.y, vD)), 1.0);
+  gl_FragColor = vec4(mix(c, uFogC, smoothstep(uFog.x, uFog.y, vD)), uAlpha);
 }`;
 const TVS = `attribute vec3 aP; attribute vec3 aCol; attribute vec3 aN; uniform mat4 uPV; uniform vec3 uOff, uSun; varying vec3 vCol; varying vec3 vW;
 void main(){ vec3 w = aP + uOff; vW = w; vCol = aCol * (0.45 + 0.65 * max(dot(aN, uSun), 0.0)); gl_Position = uPV * vec4(w, 1.0); }`;
@@ -595,7 +603,7 @@ const P = { s: null, mode: "fly", pos: [0,0,0], q: [0,0,0,1], speed: 0, sink: 0,
 const cam = { q: [0,0,0,1], yaw: 0, pitch: 0, zoom: 1, lastTouch: 0, mode: 0 };
 const input = { pitch: 0, roll: 0, yaw: 0, thrRate: 0 };
 const FT_KT = 1 / 1.68781, G = 32.17;
-const AC = { vStall: 215, vRot: 235, mil: 24, ab: 42, drag: 1.7e-5 };
+const AC = { vStall: 215, vRot: 235, mil: 24, ab: 42, drag: 1.7e-5, v1: 506, a1: 0.0524, aStall: 0.45, aMax: 0.5, gMax: 9 };   // v1 / a1: 1 g at 300 kt needs 3° alpha
 
 function playerMode(){ const sel = $("selMode").value; if (sel !== "auto") return sel; return P.s.isPlane ? "fly" : P.s.isShip ? "sail" : "drive"; }
 function spawn(){
@@ -604,14 +612,15 @@ function spawn(){
   let where = $("selSpawn").value;
   if (mode === "sail") where = "sea"; else if (where === "sea") where = mode === "fly" ? "air" : "runway";
   if (where === "carrier" && mode === "drive") where = "carrier";
-  P.gear = true; P.thr = 0; P.speed = 0; P.onGround = true;
+  P.gear = true; P.thr = 0; P.speed = 0; P.onGround = true; P.vel = null; P.alpha = 0; P.gammaHold = null;
   if (where === "runway"){ P.pos = [RUNWAY_SPAWN.x, RUNWAY_SPAWN.y, 0]; P.hdg = 0; }
   else if (where === "carrier"){ P.pos = [CARRIER.x + 136, CARRIER.y - 120, 0]; P.hdg = CARRIER.hdg; }
-  else if (where === "air"){ P.pos = [RUNWAY_SPAWN.x, RUNWAY_SPAWN.y - 14000, 0]; P.pos[2] = Math.max(2500, groundAt(P.pos[0], P.pos[1]).h + 2000); P.hdg = 0; P.onGround = false; P.gear = false; P.thr = 0.7; P.speed = 520; }
+  else if (where === "air"){ P.pos = [RUNWAY_SPAWN.x, RUNWAY_SPAWN.y - 14000, 0]; P.pos[2] = Math.max(2500, groundAt(P.pos[0], P.pos[1]).h + 2000); P.hdg = 0; P.onGround = false; P.gear = false; P.thr = 0.7; P.speed = 520; P.vel = [0, 520, 0]; }
   else { P.pos = [CARRIER.x - 3000, CARRIER.y - 6000, 0]; P.hdg = 0; }
   P.pitch = 0; P.q = qFromHP(P.hdg, 0);
   if (P.onGround){ const g = groundAt(P.pos[0], P.pos[1]); P.pos[2] = g.h + (mode === "fly" ? gearH() : 0); }
   cam.q = P.q.slice();
+  W.ammo = WEAPONS.map(w => w.ammo); W.lock = null;
   $("msg").textContent = ""; updButtons();
   sub(mode === "fly" ? (where === "air" ? L("Flying. Lower the gear to land on the runway or the carrier.", "飛行中。放下起落架就能降落在跑道或航艦上。")
       : where === "carrier" ? L("Push the throttle to full: the catapult launches you. Pull up off the bow.", "油門推到底：彈射器會把你彈出去，到艦首時拉起。")
@@ -626,7 +635,7 @@ function crash(why){ P.crashed = true; P.speed = 0; P.boom = performance.now(); 
 function stepFly(dt){
   const fwd = qRot(P.q, [0,1,0]), right = qRot(P.q, [1,0,0]);
   const ab = P.thr > 0.9, thrust = (P.thr / 0.9 > 1 ? AC.mil + (AC.ab - AC.mil) * (P.thr - 0.9) / 0.1 : AC.mil * P.thr / 0.9) * (ab ? 1 : 1);
-  const drag = AC.drag + (P.gear ? 1.0e-5 : 0) + (P.brake ? 2.2e-5 : 0);
+  const drag = AC.drag + (P.gear ? 3.5e-5 : 0) + (P.brake ? 2.2e-5 : 0);
   if (P.onGround){
     const g = groundAt(P.pos[0], P.pos[1]);
     let acc = thrust - drag * P.speed * P.speed - 1.2 - (P.brake ? 18 : 0) * Math.sign(P.speed);
@@ -634,33 +643,57 @@ function stepFly(dt){
     P.speed = Math.max(0, P.speed + acc * dt);
     const steer = clamp(input.yaw + input.roll * 0.6, -1, 1);
     P.hdg -= steer * 0.7 * Math.min(1, P.speed / 40) * dt * (P.speed > 200 ? 0.4 : 1);
-    if (P.speed > AC.vRot * 0.92) P.pitch = clamp(P.pitch + input.pitch * 0.45 * dt, 0, 0.28); else P.pitch = Math.max(0, P.pitch - 0.3 * dt);
+    if (P.speed > AC.vRot * 0.92) P.pitch = clamp(P.pitch + input.pitch * 0.45 * dt, 0, 0.35); else P.pitch = Math.max(0, P.pitch - 0.3 * dt);
     const f = [-Math.sin(P.hdg), Math.cos(P.hdg), 0];
     P.pos = vadd(P.pos, vmul(f, P.speed * dt));
     const g2 = groundAt(P.pos[0], P.pos[1]);
     P.q = qFromHP(P.hdg, P.pitch);
     if (g2.kind === "water" || g2.h < g.h - 25){   // rolled off the deck or the shore
-      if (P.speed > AC.vStall * 0.85){ P.onGround = false; P.sink = 0; return; }
+      if (P.speed > AC.vStall * 0.85){ P.onGround = false; P.vel = vmul(f, P.speed); return; }
       if (g2.kind === "water"){ crash(L("Into the water!", "掉進海裡了！")); return; }
     }
     if (g2.h > g.h + 25){ crash(L("Hit an obstacle!", "撞到障礙物！")); return; }
     P.pos[2] = g2.h + gearH();
-    if (P.speed > AC.vStall && P.pitch > 0.05){ P.onGround = false; P.sink = 0; P.pos[2] += 1; }
+    if (P.speed > AC.vStall * 0.9 && P.pitch > 0.05){ P.onGround = false; P.vel = vmul(f, P.speed); P.pos[2] += 1; }
     return;
   }
-  // in the air
-  const a = clamp((P.speed - 60) / (AC.vStall - 60), 0, 1), lift = Math.min(1, (P.speed / AC.vStall) ** 2);
-  const pr = input.pitch * (0.9 + 0.5 * a) * a, rr = input.roll * 3.0 * Math.max(0.25, a), yr = input.yaw * 0.45 * a;
+  // in the air: the nose and the flight path are separate. Lift grows with speed² and angle of attack (alpha), so at low
+  // speed the nose rises to hold the path; pull further and the jet mushes down nose-high, as on a carrier approach.
+  if (!P.vel) P.vel = vmul(fwd, P.speed);
+  let V = P.vel, spd = Math.max(1, vlen(V));
+  const up = qRot(P.q, [0,0,1]), alpha = Math.atan2(-vdot(V, up), Math.max(1, vdot(V, fwd)));
+  const a = clamp((spd - 50) / 120, 0, 1), dyn = (spd / AC.v1) ** 2;
+  // fly-by-wire: with the stick centred it trims to the alpha that holds a level path (also in a banked turn, up to ~70°)
+  const cosBank = up[2] / Math.max(0.2, Math.sqrt(1 - fwd[2] * fwd[2]));
+  const nNeed = cosBank > 0.05 ? Math.min(3, 1 / Math.max(cosBank, 0.34)) * Math.max(0, 1 - Math.abs(fwd[2]) * 0.6) : 0;
+  // and with the stick centred it holds the climb / dive angle it had when you let go
+  const gamma = Math.asin(clamp(V[2] / spd, -1, 1)), free = Math.abs(input.pitch) < 0.15;
+  if (!free || P.gammaHold == null || Math.abs(fwd[2]) > 0.85) P.gammaHold = gamma;
+  const nHold = cosBank > 0.05 ? nNeed + clamp((P.gammaHold - gamma) * 6, -1, 1) : nNeed;
+  const aTrim = clamp(nHold * AC.a1 / Math.max(dyn, 1e-3), -0.2, AC.aMax);
+  // the stick commands alpha (like the real jet's flight controls): full back = the most the wing gives, but never past 9 g
+  const aHi = Math.min(AC.aMax, AC.gMax * AC.a1 / Math.max(dyn, 1e-3)), aLo = Math.max(-0.25, -3 * AC.a1 / Math.max(dyn, 1e-3));
+  const ip = free ? 0 : input.pitch, aCmd = ip >= 0 ? aTrim + ip * Math.max(0, aHi - aTrim) : aTrim + ip * Math.max(0, aTrim - aLo);
+  let pr = clamp((aCmd - alpha) * 4, -1.4, 1.4) * Math.max(0.4, a);
+  const rr = input.roll * 3.0 * Math.max(0.3, a) * (alpha > 0.45 ? 0.6 : 1), yr = input.yaw * 0.45 * Math.max(0.3, a);
   P.q = qNorm(qMul(P.q, qMul(qAxis([1,0,0], pr * dt), qMul(qAxis([0,1,0], rr * dt), qAxis([0,0,1], -yr * dt)))));
-  // bank turns the nose a little on its own (arcade feel); stalled = the nose drops
-  const turn = right[2] * G / Math.max(P.speed, 150) * 0.85 * lift;
-  P.q = qNorm(qMul(qAxis([0,0,1], turn * dt), P.q));
-  if (lift < 1 && fwd[2] > -0.8){ const axis = vnorm(vcross(fwd, [0,0,-1])); if (vlen(vcross(fwd, [0,0,-1])) > 0.05) P.q = qNorm(qMul(qAxis(axis, (1 - lift) * 0.9 * dt), P.q)); }
-  const acc = thrust - drag * P.speed * P.speed - G * fwd[2] - 9 * Math.abs(input.pitch) * a;
-  P.speed = Math.max(0, P.speed + acc * dt);
-  P.sink += (G * (1 - lift) - P.sink * 1.5 * lift) * dt; P.sink = clamp(P.sink, 0, 400);
-  const vel = vadd(vmul(qRot(P.q, [0,1,0]), P.speed), [0, 0, -P.sink]);
-  P.vz = vel[2];
+  // forces
+  const cl = alpha < AC.aStall ? alpha : alpha < 1.2 ? AC.aStall - (alpha - AC.aStall) * 0.6 : 0.2;
+  // slow (approach speeds) the wing runs out of lift: raising the nose then mostly bleeds speed and the jet settles gently,
+  // nose high, instead of zooming up; at fighting speeds it gives up to 9 g
+  const kt = spd * FT_KT, gCap = clamp(0.92 + (kt - 185) / 150 * 8, 0.92, AC.gMax);
+  const liftAcc = clamp(G * dyn * cl / AC.a1, -Math.min(4, gCap) * G, gCap * G), d = vmul(V, 1 / spd);
+  let ld = vsub(up, vmul(d, vdot(up, d))); ld = vlen(ld) > 1e-3 ? vnorm(ld) : up;
+  const dragAcc = drag * spd * spd * (1 + 9 * alpha * alpha);
+  let acc = vadd(vadd(vmul(ld, liftAcc), vmul(fwd, thrust)), vadd(vmul(d, -dragAcc), [0, 0, -G]));
+  V = vadd(V, vmul(acc, dt));
+  // sideslip dies out quickly (the fin keeps the path lined up with the nose)
+  // the fin turns the nose into the airflow (so a banked, pulling jet turns), and leftover sideslip dies out
+  const right2 = qRot(P.q, [1,0,0]), beta = Math.atan2(vdot(V, right2), Math.max(1, vdot(V, fwd)));
+  P.q = qNorm(qMul(P.q, qAxis([0,0,1], -beta * Math.min(1, 5 * dt) * Math.max(0.3, a))));
+  V = vsub(V, vmul(right2, vdot(V, right2) * Math.min(1, 0.8 * dt)));
+  P.vel = V; P.speed = vlen(V); P.alpha = alpha; P.vz = V[2];
+  const vel = V;
   P.pos = vadd(P.pos, vmul(vel, dt));
   // ground contact
   const g = groundAt(P.pos[0], P.pos[1]), hh = P.gear ? gearH() : Math.max(0, -getMesh(P.s, {}).lo[2]);
@@ -671,8 +704,8 @@ function stepFly(dt){
     if (g.kind === "water") crash(L("Splash! You hit the sea.", "撲通！掉進海裡了。"));
     else if (!P.gear) crash(L("Crashed: the gear was up.", "墜毀：起落架沒放下。"));
     else if (deep > 40) crash(L("Crashed into the side!", "撞上側面了！"));
-    else if (vel[2] < -32 || Math.abs(roll) > 0.4 || pitch < -0.12 || pitch > 0.4 || !flatOk) crash(vel[2] < -32 ? L("Crashed: touched down too hard.", "墜毀：落地太重。") : L("Crashed!", "墜毀！"));
-    else { P.onGround = true; P.hdg = Math.atan2(-f[0], f[1]); P.pitch = Math.max(0, pitch); P.speed = Math.hypot(vel[0], vel[1]); P.pos[2] = g.h + hh; P.sink = 0;
+    else if (vel[2] < -32 || Math.abs(roll) > 0.4 || pitch < -0.12 || pitch > 0.55 || !flatOk) crash(vel[2] < -32 ? L("Crashed: touched down too hard.", "墜毀：落地太重。") : L("Crashed!", "墜毀！"));
+    else { P.onGround = true; P.hdg = Math.atan2(-f[0], f[1]); P.pitch = Math.max(0, pitch); P.speed = Math.hypot(vel[0], vel[1]); P.pos[2] = g.h + hh; P.vel = null;
       sub(L(`Touchdown at ${Math.round(-vel[2] * 60)} ft/min. Brake to stop.`, `落地，下降率 ${Math.round(-vel[2] * 60)} 呎/分。按煞車停下。`)); }
   }
 }
@@ -694,9 +727,180 @@ function stepDrive(dt){
 }
 function step(dt){
   P.thr = clamp(P.thr + input.thrRate * dt * 0.7, P.mode === "drive" ? -0.3 : 0, 1);
-  if (P.crashed) return;
-  if (P.mode === "fly") stepFly(dt); else stepDrive(dt);
+  if (!P.crashed){ if (P.mode === "fly") stepFly(dt); else stepDrive(dt); }
+  stepCombat(dt);
 }
+
+// ===== weapons and targets =====
+const WEAPONS = [
+  { id: "gun", name: "GUN", ammo: 600 },
+  { id: "aim9", name: "AIM-9", sh: "SIDEM", ammo: 4, air: true, range: 16000, cone: 0.55, spd: 2600, g: 30, dmg: 10 },
+  { id: "aim120", name: "AIM-120", sh: "AMRAM", ammo: 4, air: true, range: 50000, cone: 0.45, spd: 3200, g: 22, dmg: 10 },
+  { id: "agm65", name: "AGM-65", sh: "MAVRK", ammo: 4, gnd: true, range: 32000, cone: 0.45, spd: 1500, g: 12, dmg: 14 },
+  { id: "mk82", name: "MK-82", sh: "MK82", ammo: 6, bomb: true, dmg: 14, blast: 500 },
+];
+const W = { sel: 0, ammo: WEAPONS.map(w => w.ammo), bullets: [], shots: [], booms: [], lock: null, fireHeld: false, gunT: 0, kills: 0, side: 1 };
+const targets = [];
+let lastPV = null, lastEye = [0,0,0], sphere = null, COL = {};
+function nearestPal(rgb, r, g, b){ let bi = 0, bd = 1e9; for (let i = 0; i < 256; i++){ const d = (rgb[3*i]-r)**2 + (rgb[3*i+1]-g)**2 + (rgb[3*i+2]-b)**2; if (d < bd){ bd = d; bi = i; } } return bi; }
+function buildSphere(col){   // fireball: a small lat/long sphere in the model vertex format
+  const data = [], ring = (i, j) => { const th = Math.PI * i / 6, ph = 2 * Math.PI * j / 10; return [Math.sin(th)*Math.cos(ph), Math.sin(th)*Math.sin(ph), Math.cos(th)]; };
+  for (let i = 0; i < 6; i++) for (let j = 0; j < 10; j++){ const a = ring(i, j), b = ring(i+1, j), c = ring(i+1, j+1), d = ring(i, j+1);
+    for (const q of [a, b, c, a, c, d]) data.push(q[0], q[1], q[2], 0, 0, q[0], q[1], q[2], col, 0); }
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+  return { buf, faces: [0, data.length / 10], n: data.length / 10, lo: [-1,-1,-1], hi: [1,1,1], radius: 1, flat: [] };
+}
+const lineBuf = gl.createBuffer();
+async function initCombat(rgb){
+  COL = { tracer: nearestPal(rgb, 255, 225, 90), smoke: nearestPal(rgb, 210, 210, 205), fire: nearestPal(rgb, 255, 140, 30) };
+  sphere = buildSphere(COL.fire);
+  await Promise.all(WEAPONS.filter(w => w.sh).map(w => loadShape(w.sh).catch(() => null)));
+  const air = (name, cx, cy, alt, R, ph, dir) => ({ name, kind: "air", hp: 8, orbit: { cx, cy, alt, R, ph, dir, w: 620 / R } });
+  const list = [
+    air("MIG29", -884, 22000, 5500, 9000, 0, 1), air("MIG29", 18000, -8000, 7000, 12000, 2, -1), air("SU27", -26000, 12000, 9000, 9000, 4, 1), air("MIG29", 42000, 26000, 3500, 10000, 1, -1),
+    { name: "T72", kind: "gnd", hp: 6, x: -15000, y: -9000, hdg: 0.6 }, { name: "T72", kind: "gnd", hp: 6, x: -14400, y: -9500, hdg: 0.9 }, { name: "T72", kind: "gnd", hp: 6, x: -15600, y: -8300, hdg: 0.3 },
+    { name: "SA6", kind: "gnd", hp: 6, x: -13600, y: -7800, hdg: 2 }, { name: "ZSU23", kind: "gnd", hp: 5, x: -16200, y: -9800, hdg: 1 },
+    { name: "KIROV", kind: "sea", hp: 40, x: 62000, y: -14000, hdg: 0.4 }, { name: "KRIVAK", kind: "sea", hp: 25, x: 56000, y: -19000, hdg: 0.4 },
+  ];
+  for (const t of list){ try { t.s = await loadShape(t.name); t.mesh = getMesh(t.s, { gear: t.kind !== "air" }); t.maxHp = t.hp; t.dead = 0; t.pos = [t.x || 0, t.y || 0, 0]; t.q = qAxis([0,0,1], t.hdg || 0); placeTarget(t, 0); targets.push(t); } catch(e){ console.warn(e); } }
+}
+function placeTarget(t, dt){
+  if (t.kind === "air"){ const o = t.orbit; o.ph += o.w * o.dir * dt;
+    const x = o.cx + o.R * Math.cos(o.ph), y = o.cy + o.R * Math.sin(o.ph), z = Math.max(o.alt + 400 * Math.sin(o.ph * 2), terrainH(x, y) + 1500);
+    t.vel = vmul(vsub([x, y, z], t.pos), dt > 0 ? 1 / dt : 0); t.pos = [x, y, z];
+    t.q = qMul(qFromHP(o.ph + (o.dir > 0 ? 0 : Math.PI), 0), qAxis([0,1,0], -0.55 * o.dir)); return; }
+  t.vel = [0, 0, 0];
+  if (t.kind === "sea") t.pos[2] = 0; else t.pos[2] = Math.max(0, terrainH(t.pos[0], t.pos[1]));
+}
+const fwdOf = q => qRot(q, [0,1,0]);
+function nextWeapon(){ if (P.mode !== "fly") return; W.sel = (W.sel + 1) % WEAPONS.length; W.lock = null; updButtons(); }
+function launchFrom(){ const r = curMesh().radius, f = fwdOf(P.q), rt = qRot(P.q, [1,0,0]), up = qRot(P.q, [0,0,1]); W.side = -W.side;
+  return vadd(P.pos, vadd(vmul(rt, W.side * r * 0.25), vadd(vmul(up, -r * 0.08), vmul(f, r * 0.1)))); }
+function fireOnce(){
+  if (P.mode !== "fly" || P.crashed) return;
+  const w = WEAPONS[W.sel]; if (w.id === "gun" || W.ammo[W.sel] <= 0) return;
+  W.ammo[W.sel]--; updButtons();
+  const v0 = P.vel ? P.vel.slice() : vmul(fwdOf(P.q), P.speed), pos = launchFrom();
+  W.shots.push({ w, pos, vel: w.bomb ? vadd(v0, [0, 0, -15]) : vadd(v0, vmul(fwdOf(P.q), 80)), target: w.bomb ? null : W.lock, life: w.bomb ? 90 : 25, trail: [pos.slice()], t: 0 });
+}
+function damage(t, n, at){
+  if (t.dead) return; t.hp -= n;
+  if (t.hp <= 0){ t.dead = performance.now(); W.kills++; $("hKill").textContent = W.kills; boom(t.pos, t.mesh.radius * 1.4);
+    sub(L(`${t.name} destroyed!`, `擊毀 ${t.name}！`)); if (W.lock === t) W.lock = null; }
+  else boom(at || t.pos, 30);
+}
+function boom(pos, size){ W.booms.push({ pos: pos.slice(), size, t0: performance.now() }); }
+function hitTarget(p, extra){ for (const t of targets) if (!t.dead && vlen(vsub(p, t.pos)) < t.mesh.radius * 0.6 + extra) return t; return null; }
+function stepCombat(dt){
+  for (const t of targets){ if (t.dead && performance.now() - t.dead > 30000){ t.dead = 0; t.hp = t.maxHp; } if (!t.dead) placeTarget(t, dt); }
+  const w = WEAPONS[W.sel];
+  // lock: the valid target nearest the nose, inside the seeker cone and range
+  if (P.mode === "fly" && !P.crashed && (w.air || w.gnd)){
+    const f = fwdOf(P.q); let best = null, ba = 1e9;
+    for (const t of targets){ if (t.dead || (w.air ? t.kind !== "air" : t.kind === "air")) continue;
+      const d = vsub(t.pos, P.pos), dist = vlen(d), ang = Math.acos(clamp(vdot(d, f) / dist, -1, 1));
+      if (dist < w.range && ang < w.cone && ang < ba){ ba = ang; best = t; } }
+    W.lock = best;
+  } else W.lock = null;
+  // gun
+  W.gunT -= dt;
+  if (W.fireHeld && w.id === "gun" && P.mode === "fly" && !P.crashed && W.ammo[0] > 0 && W.gunT <= 0){
+    W.gunT = 0.06; W.ammo[0]--; const f = fwdOf(P.q), r = curMesh().radius, v0 = P.vel || vmul(f, P.speed);
+    // a little aim help: bullets bend toward a target close to the gun line
+    W.bullets.push({ pos: vadd(P.pos, vmul(f, r * 0.55)), vel: vadd(v0, vmul(f, 3300)), life: 1.6 });
+    if (W.ammo[0] % 10 === 0) updButtons();
+  }
+  for (const b of W.bullets){
+    const p0 = b.pos; b.vel[2] -= G * dt; b.pos = vadd(b.pos, vmul(b.vel, dt)); b.life -= dt; b.prev = p0;
+    const t = hitTarget(b.pos, 40); if (t){ damage(t, 1, b.pos); b.life = 0; }
+    else if (b.pos[2] < terrainH(b.pos[0], b.pos[1]) || b.pos[2] < 0) b.life = 0;
+  }
+  W.bullets = W.bullets.filter(b => b.life > 0);
+  // missiles and bombs
+  for (const m of W.shots){
+    m.t += dt; m.life -= dt; const spd = vlen(m.vel);
+    if (m.w.bomb) m.vel = vadd(vmul(m.vel, 1 - 0.02 * dt), [0, 0, -G * dt]);
+    else {
+      const ns = Math.min(m.w.spd, spd + 900 * dt); let dir = vmul(m.vel, 1 / spd);
+      if (m.t > 0.25 && m.target && !m.target.dead){
+        const tt = vlen(vsub(m.target.pos, m.pos)) / Math.max(ns, 1), aim = vnorm(vsub(vadd(m.target.pos, vmul(m.target.vel || [0,0,0], tt)), m.pos));
+        const maxTurn = m.w.g * G / Math.max(ns, 300) * dt, ang = Math.acos(clamp(vdot(dir, aim), -1, 1));
+        dir = ang <= maxTurn ? aim : vnorm(vadd(vmul(dir, Math.sin(ang - maxTurn)), vmul(aim, Math.sin(maxTurn))));
+      } else if (m.t < 0.25) dir = vnorm(vadd(dir, [0, 0, -0.3 * dt]));
+      m.vel = vmul(dir, ns);
+    }
+    m.pos = vadd(m.pos, vmul(m.vel, dt));
+    if ((m.trail.length < 2 || vlen(vsub(m.pos, m.trail[m.trail.length - 1])) > 150) && !m.w.bomb){ m.trail.push(m.pos.slice()); if (m.trail.length > 40) m.trail.shift(); }
+    const t = hitTarget(m.pos, m.w.bomb ? 20 : 90), gh = Math.max(0, terrainH(m.pos[0], m.pos[1]));
+    if (t && !m.w.bomb){ damage(t, m.w.dmg, m.pos); m.life = 0; }
+    else if (m.pos[2] <= gh || t){
+      m.life = 0; boom(m.pos, m.w.bomb ? 160 : 60);
+      if (m.w.bomb) for (const u of targets) if (!u.dead && u.kind !== "air" && vlen(vsub(u.pos, m.pos)) < m.w.blast + u.mesh.radius * 0.5) damage(u, m.w.dmg, u.pos);
+    }
+  }
+  W.shots = W.shots.filter(m => m.life > 0);
+  W.booms = W.booms.filter(b => performance.now() - b.t0 < 2500);
+}
+function renderCombat(eye){
+  for (const t of targets){
+    if (vlen(vsub(t.pos, eye)) > FOG[1] + t.mesh.radius) continue;
+    if (t.dead){ if (t.kind === "air") continue; gl.uniform4f(mProg.U("uTint"), 0.08, 0.07, 0.06, 0.75); }
+    drawModel(t.s, t.mesh, modelMat(t.q, vsub(t.pos, eye)), false);
+    if (t.dead) gl.uniform4f(mProg.U("uTint"), 0, 0, 0, 0);
+  }
+  for (const m of W.shots){ const s = shapes[m.w.sh]; if (!s) continue; const d = vnorm(m.vel);
+    drawModel(s, getMesh(s, {}), modelMat(qFromHP(Math.atan2(-d[0], d[1]), Math.asin(clamp(d[2], -1, 1))), vsub(m.pos, eye), 0.8), false); }
+  // tracers and smoke trails as lines
+  const L2 = [], push = (a, b, col) => { for (const q of [a, b]) L2.push(q[0] - eye[0], q[1] - eye[1], q[2] - eye[2], 0, 0, SUN[0], SUN[1], SUN[2], col, 0); };
+  for (const b of W.bullets) if (b.prev) push(vsub(b.pos, vmul(b.vel, 0.03)), b.pos, COL.tracer);
+  for (const m of W.shots) for (let i = 1; i < m.trail.length; i++) push(m.trail[i-1], i === m.trail.length - 1 ? m.pos : m.trail[i], COL.smoke);
+  for (const m of W.shots) if (m.trail.length && !m.w.bomb) push(m.trail[m.trail.length - 1], m.pos, COL.smoke);
+  if (L2.length){
+    gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(L2), gl.DYNAMIC_DRAW);
+    gl.uniformMatrix4fv(mProg.U("uM"), false, new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1])); gl.uniform1f(mProg.U("uTex"), 0);
+    bindModelAttrs(lineBuf); gl.drawArrays(gl.LINES, 0, L2.length / 10);
+  }
+  // fireballs
+  if (W.booms.length){
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+    for (const b of W.booms){ const t = (performance.now() - b.t0) / 2500;
+      gl.uniform4f(mProg.U("uTint"), 1, 0.55 - 0.35 * t, 0.12, 0.85); gl.uniform1f(mProg.U("uAlpha"), (1 - t) * 0.9);
+      drawModel({ picTex: blankTex, pic: null }, sphere, modelMat([0,0,0,1], vsub(b.pos, eye), b.size * (0.4 + 1.2 * Math.sqrt(t))), false); }
+    gl.uniform4f(mProg.U("uTint"), 0, 0, 0, 0); gl.uniform1f(mProg.U("uAlpha"), 1); gl.depthMask(true); gl.disable(gl.BLEND);
+  }
+}
+const ov = $("ov"), ox = ov.getContext("2d");
+function project(p){ if (!lastPV) return null; const v = vsub(p, lastEye), M = lastPV;
+  const x = M[0]*v[0] + M[4]*v[1] + M[8]*v[2] + M[12], y = M[1]*v[0] + M[5]*v[1] + M[9]*v[2] + M[13], w = M[3]*v[0] + M[7]*v[1] + M[11]*v[2] + M[15];
+  if (w <= 1) return null; return [(x / w * 0.5 + 0.5) * innerWidth, (0.5 - y / w * 0.5) * innerHeight]; }
+function drawOverlay(){
+  const d = Math.min(2, devicePixelRatio || 1); if (ov.width !== Math.round(innerWidth * d)){ ov.width = Math.round(innerWidth * d); ov.height = Math.round(innerHeight * d); }
+  ox.setTransform(d, 0, 0, d, 0, 0); ox.clearRect(0, 0, innerWidth, innerHeight);
+  if (P.mode !== "fly" || !P.s) return;
+  ox.lineWidth = 1.5; ox.font = "600 11px ui-monospace,Consolas,monospace"; ox.textAlign = "center";
+  const w = WEAPONS[W.sel];
+  for (const t of targets){ if (t.dead) continue; const dist = vlen(vsub(t.pos, P.pos)); if (dist > 70000) continue;
+    const s = project(t.pos); if (!s) continue; const lock = W.lock === t, valid = w.air ? t.kind === "air" : w.gnd || w.bomb ? t.kind !== "air" : true, r = lock ? 16 : 10;
+    ox.strokeStyle = lock ? "#ff4040" : valid ? "#9dffb0" : "#9dffb066"; ox.fillStyle = ox.strokeStyle;
+    if (t.kind === "air"){ ox.beginPath(); ox.moveTo(s[0], s[1] - r); ox.lineTo(s[0] + r, s[1]); ox.lineTo(s[0], s[1] + r); ox.lineTo(s[0] - r, s[1]); ox.closePath(); ox.stroke(); }
+    else ox.strokeRect(s[0] - r, s[1] - r, 2*r, 2*r);
+    if (lock){ ox.strokeRect(s[0] - r - 4, s[1] - r - 4, 2*r + 8, 2*r + 8); ox.fillText("LOCK", s[0], s[1] - r - 9); }
+    ox.fillText(dist > 9000 ? (dist / 6076).toFixed(1) + "nm" : Math.round(dist) + "ft", s[0], s[1] + r + 13);
+  }
+  if (P.crashed) return;
+  // gun cross / bomb impact point
+  const f = fwdOf(P.q);
+  if (w.id === "gun"){ const s = project(vadd(P.pos, vmul(f, 3000))); if (s){ ox.strokeStyle = "#9dffb0"; ox.beginPath(); ox.arc(s[0], s[1], 9, 0, 7); ox.moveTo(s[0] - 16, s[1]); ox.lineTo(s[0] - 9, s[1]); ox.moveTo(s[0] + 9, s[1]); ox.lineTo(s[0] + 16, s[1]); ox.stroke(); } }
+  else if (w.bomb && !P.onGround){ let p = P.pos.slice(), v = (P.vel || vmul(f, P.speed)).slice();
+    for (let i = 0; i < 900 && p[2] > Math.max(0, terrainH(p[0], p[1])); i++){ v[2] -= G * 0.05; p = vadd(p, vmul(v, 0.05)); }
+    const s = project(p); if (s){ ox.strokeStyle = "#ffd54a"; ox.beginPath(); ox.arc(s[0], s[1], 12, 0, 7); ox.moveTo(s[0], s[1] - 4); ox.lineTo(s[0], s[1] + 4); ox.stroke(); ox.fillStyle = "#ffd54a"; ox.fillText(L("IMPACT", "落點"), s[0], s[1] + 26); } }
+  else { const s = project(vadd(P.pos, vmul(f, 6000))); if (s){ ox.strokeStyle = W.lock ? "#ff4040" : "#9dffb0"; ox.beginPath(); ox.arc(s[0], s[1], 40, 0, 7); ox.stroke(); } }
+}
+{ const b = $("bFire");
+  b.addEventListener("pointerdown", e => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch(err){} W.fireHeld = true; b.classList.add("on"); fireOnce(); });
+  const up = () => { W.fireHeld = false; b.classList.remove("on"); updButtons(); };
+  b.addEventListener("pointerup", up); b.addEventListener("pointercancel", up);
+  $("bWpn").onclick = nextWeapon; }
 
 // ===== camera =====
 function camera(dt){
@@ -763,9 +967,11 @@ function render(){
   // models
   gl.useProgram(mProg);
   gl.uniformMatrix4fv(mProg.U("uPV"), false, PV); gl.uniform3fv(mProg.U("uSun"), SUN); gl.uniform3fv(mProg.U("uFogC"), SKY); gl.uniform2fv(mProg.U("uFog"), FOG);
-  gl.uniform4f(mProg.U("uTint"), 0, 0, 0, 0); gl.uniform1f(mProg.U("uShadow"), 0);
+  gl.uniform4f(mProg.U("uTint"), 0, 0, 0, 0); gl.uniform1f(mProg.U("uShadow"), 0); gl.uniform1f(mProg.U("uAlpha"), 1);
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, palTex); gl.uniform1i(mProg.U("uPal"), 1); gl.uniform1i(mProg.U("uPic"), 0);
   for (const o of world.objs){ if (vlen(vsub(o.pos, eye)) > FOG[1] + o.mesh.radius) continue; drawModel(o.s, o.mesh, modelMat(o.q, vsub(o.pos, eye)), false); }
+  renderCombat(eye);
+  lastPV = PV; lastEye = eye;
   const mesh = curMesh();
   if (!P.crashed || performance.now() - P.boom < 120){
     // shadow on the ground under the player
@@ -793,7 +999,7 @@ function hud(){
   if (P.mode === "fly" && !P.onGround){ const f = qRot(P.q, [0,1,0]); $("hHdg").textContent = String(Math.round(((Math.atan2(f[0], f[1]) * 180 / Math.PI) + 360) % 360)).padStart(3, "0"); }
   const tb = $("thrBar"), t = Math.max(0, P.thr); tb.style.height = (t * 100) + "%"; tb.classList.toggle("ab", P.mode === "fly" && P.thr > 0.9);
   if (P.mode === "fly" && !P.onGround && !P.crashed){
-    const agl = P.pos[2] - g.h, warn = P.speed < AC.vStall * 0.95 ? L("STALL", "失速") : agl < 400 && !P.gear && (P.vz || 0) < -20 ? L("PULL UP", "拉起") : "";
+    const agl = P.pos[2] - g.h, warn = (P.alpha || 0) > AC.aStall && (P.vz || 0) < -30 ? L("STALL", "失速") : agl < 400 && !P.gear && (P.vz || 0) < -20 ? L("PULL UP", "拉起") : "";
     if ($("msg").textContent !== warn) $("msg").textContent = warn;
   }
 }
@@ -835,8 +1041,9 @@ cv.addEventListener("wheel", e => { e.preventDefault(); cam.zoom = clamp(cam.zoo
 addEventListener("resize", placeSticks);
 const keys = new Set();
 addEventListener("keydown", e => { if (e.target.tagName === "SELECT") return; keys.add(e.code);
-  if (e.code === "KeyG") toggleGear(); if (e.code === "KeyB") toggleBrake(); if (e.code === "KeyR") spawn(); if (e.code === "KeyV") $("bView").click(); });
-addEventListener("keyup", e => keys.delete(e.code));
+  if (e.code === "KeyG") toggleGear(); if (e.code === "KeyB") toggleBrake(); if (e.code === "KeyR") spawn(); if (e.code === "KeyV") $("bView").click();
+  if (e.code === "KeyF" || e.code === "KeyX") nextWeapon(); if (e.code === "Space" && !e.repeat){ e.preventDefault(); W.fireHeld = true; fireOnce(); } });
+addEventListener("keyup", e => { keys.delete(e.code); if (e.code === "Space") W.fireHeld = false; });
 addEventListener("blur", () => keys.clear());
 function readInput(){
   const k = c => keys.has(c) ? 1 : 0, inv = $("inv").checked ? -1 : 1;
@@ -852,6 +1059,8 @@ function readInput(){
 function updButtons(){
   $("bGear").classList.toggle("on", P.gear); $("bBrake").classList.toggle("on", P.brake); $("bView").classList.toggle("on", !!cam.lock);
   $("bGear").style.display = P.mode === "fly" ? "" : "none";
+  $("wpn").style.display = $("hKillD").style.display = P.mode === "fly" ? "" : "none";
+  const w = WEAPONS[W.sel]; $("bWpn").textContent = (w.id === "gun" ? L("GUN", "機砲") : w.name) + " ×" + W.ammo[W.sel];
   $("stRt").textContent = P.mode === "fly" ? L("Pitch / Roll", "俯仰 / 滾轉") : L("Steer", "轉向");
   $("stLt").textContent = P.mode === "fly" ? L("Throttle / Rudder", "油門 / 方向舵") : L("Throttle", "油門");
 }
@@ -875,7 +1084,7 @@ let lastT = 0, lastDt = 0.016;
 function frame(t){
   const dt = Math.min(0.05, (t - (lastT || t)) / 1000); lastT = t; lastDt = dt || 0.016;
   if (P.s){ readInput(); const n = Math.ceil(lastDt / 0.01); for (let i = 0; i < n; i++) step(lastDt / n); }
-  render(); hud(); requestAnimationFrame(frame);
+  render(); hud(); drawOverlay(); requestAnimationFrame(frame);
 }
 
 FAI18N.register({
@@ -884,11 +1093,11 @@ FAI18N.register({
   "Auto (by model)": "自動（依模型判斷）", "Fly (aircraft)": "飛行（飛機）", "Drive (ground vehicle)": "駕駛（地面車輛）", "Sail (ship)": "航行（船艦）",
   "Start position": "起始位置", "Airfield runway": "機場跑道", "Carrier deck": "航艦甲板", "In the air": "空中", "At sea (ships)": "海上（船艦）",
   "▶ Start": "▶ 開始", "Invert pitch (push stick up = nose up)": "反轉俯仰（搖桿往上推 = 機頭抬起）", "Textures": "貼圖",
-  "Right stick: pitch and roll. Left stick: up/down changes the throttle (it stays where you leave it), left/right is rudder. Drag anywhere else to look around, pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult.":
-    "右搖桿：俯仰和滾轉。左搖桿：上下調整油門（放開後會停在那個位置），左右是方向舵。在其他地方拖曳可以轉動視角，兩指縮放，點兩下讓鏡頭回到後方。油門推到底會開後燃器；在航艦上也會啟動彈射器。",
-  "Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, R restart, mouse drag to look, wheel to zoom.":
-    "鍵盤：W/S 俯仰、A/D 滾轉、Q/E 方向舵、Shift/Ctrl 油門、G 起落架、B 煞車、R 重來，滑鼠拖曳轉視角、滾輪縮放。",
-  "Pitch / Roll": "俯仰 / 滾轉", "Throttle / Rudder": "油門 / 方向舵", "Loading…": "載入中…"
+  "Right stick: pitch and roll. Left stick: up/down changes the throttle (it stays where you leave it), left/right is rudder. Drag anywhere else to look around, pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult. The weapon button on the right picks gun, AIM-9, AIM-120 (air targets), AGM-65 (ground and ships) or MK-82 bombs; missiles lock the target nearest your nose. To land, slow down, lower the gear and raise the nose: the jet settles gently nose-high, and the throttle sets how fast it sinks.":
+    "右搖桿：俯仰和滾轉。左搖桿：上下調整油門（放開後會停在那個位置），左右是方向舵。在其他地方拖曳可以轉動視角，兩指縮放，點兩下讓鏡頭回到後方。油門推到底會開後燃器；在航艦上也會啟動彈射器。右側的武器按鈕可切換機砲、AIM-9、AIM-120（打空中目標）、AGM-65（打地面和船艦）或 MK-82 炸彈；飛彈會鎖定最靠近機頭的目標。降落時減速、放下起落架、抬起機頭：飛機會以機頭朝上的姿態緩緩下降，用油門控制下降速度。",
+  "Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, R restart, mouse drag to look, wheel to zoom.":
+    "鍵盤：W/S 俯仰、A/D 滾轉、Q/E 方向舵、Shift/Ctrl 油門、G 起落架、B 煞車、空白鍵 發射、F 換武器、R 重來，滑鼠拖曳轉視角、滾輪縮放。",
+  "Pitch / Roll": "俯仰 / 滾轉", "FIRE": "發射", "Throttle / Rudder": "油門 / 方向舵", "Loading…": "載入中…"
 });
 $("langSlot").append(FAI18N.picker()); FAI18N.apply(); FAI18N.onChange(updButtons);
 
@@ -901,6 +1110,7 @@ $("langSlot").append(FAI18N.picker()); FAI18N.apply(); FAI18N.onChange(updButton
     const rgb = new Uint8Array(768); if (pal){ rgb.set(pal); for (let i = 0; i < 256; i++) if (rgb[3*i] > 240 && rgb[3*i+1] < 10 && rgb[3*i+2] > 240) rgb.set([196, 196, 188], 3*i); }   // magenta = slots FA fills per theatre at run time
     else for (let i = 0; i < 768; i++) rgb[i] = Math.floor(i / 3);
     palTex = mkTex(256, 1, gl.RGB, rgb);
+    await initCombat(rgb);
     // airfield: runway shape at the origin (strip along north), tower and hangars; carrier group at sea to the east
     await Promise.all([
       addObj("RNWY1", 0, 0, AIR_Z, 0, null, "runway"),
