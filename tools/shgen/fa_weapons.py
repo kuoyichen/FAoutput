@@ -46,20 +46,28 @@ def faces_of(c, start):
     return out
 
 
-def load(name, length, white=150):
+def load(name, length, white=150, roll=0):
+    """roll (degrees) turns the store about its axis, e.g. 45 so + fins become X fins clear of the pylon."""
     d = open(os.path.join(SHDIR, name), 'rb').read()
     pe, opt, secs = pe_sections(d); code = next(s for s in secs if s['name'] == 'CODE')
     c = d[code['ro']:code['ro']+code['vs']]
     o, n, t, e = main_lod(c)[0]
     V0 = [struct.unpack_from('<hhh', c, o+6+6*i) for i in range(n)]
-    f0, f1 = min(v[1] for v in V0), max(v[1] for v in V0)
+    # missiles carry their smoke trail: textured colour-0 faces behind the motor.  Drop them (and their vertices).
+    FF = [(p, fl, col, [i for i in idx if i < n]) for p, fl, col, idx in faces_of(c, o)]
+    FF = [f for f in FF if not (f[1] & 4 and not f[2] & 0xFF)]
+    used0 = {i for f in FF for i in f[3]}
+    f0, f1 = min(V0[i][1] for i in used0), max(V0[i][1] for i in used0)
     s = length / (f1 - f0)
-    V = [(round(x * s), round(f * s), round(u * s)) for x, f, u in V0]
-    top = max(v[2] for v in V)
+    import math
+    ca, sa = math.cos(math.radians(roll)), math.sin(math.radians(roll))
+    V = [(round((x * ca - u * sa) * s), round(f * s), round((x * sa + u * ca) * s)) for x, f, u in V0]
+    # attach at the top of the body, not of the fins: fin faces lie in the x = 0 or up = 0 plane, body faces do not
+    body = [f[3] for f in FF if any(V0[i][0] for i in f[3]) and any(V0[i][2] for i in f[3])]
+    top = max(V[i][2] for q in body for i in q)
     V = [(x, f, u - top) for x, f, u in V]                       # top of the store at local up 0 (pylon attach)
     F = []
-    for p, fl, col, idx in faces_of(c, o):
-        idx = [i for i in idx if i < n]
+    for p, fl, col, idx in FF:
         q = []
         for i in idx:                                            # drop vertices merged by the rounding
             if not q or V[q[-1]] != V[i]: q.append(i)

@@ -131,7 +131,7 @@ def pylon(h, bot, top):
 import fa_weapons
 # FA's own weapon models (with their colour bands), scaled to real length in F18 units (~9.5 units per metre)
 SHAPES = {TANK: tank480, AIM9: lambda: fa_weapons.load('SIDEM.SH', 29), AAM: lambda: fa_weapons.load('AMRAM.SH', 37),
-          ARM: lambda: fa_weapons.load('HARM.SH', 42), LGB: lambda: fa_weapons.load('PAVE.SH', 42),
+          ARM: lambda: fa_weapons.load('HARM.SH', 42), LGB: lambda: fa_weapons.load('PAVE.SH', 42, roll=45),
           BOMB: lambda: fa_weapons.load('MK82.SH', 21)}
 
 # ---------------------------------------------------------------- slots: (station, rank, default kind, attach x, up, fwd)
