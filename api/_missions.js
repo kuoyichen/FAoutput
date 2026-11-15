@@ -7,6 +7,11 @@ export const MAX_EXTRA = 2 * 1024 * 1024;          // optional .M mission / .MT 
 // .M (mission) and .MT (briefing) files share its "<time>-<random>" key: missions/<key>_<NAME>.M
 export const PATH_RE = /^missions\/[0-9a-z]{6,12}-[0-9a-z]{6}_[A-Za-z0-9._-]{1,80}\.bin$/;
 export const ANY_RE = /^missions\/([0-9a-z]{6,12}-[0-9a-z]{6})_[A-Za-z0-9._-]{1,80}\.(bin|m|mt)$/i;
+// uploader name + short description, written by the server: missions/<key>_info.json
+export const INFO_RE = /^missions\/([0-9a-z]{6,12}-[0-9a-z]{6})_info\.json$/;
+export const MAX_NAME = 40, MAX_DESC = 500;
+export const cleanText = (v, max) => String(v ?? "").replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "").replace(/\r\n?/g, "\n").trim().slice(0, max);
+export const keyIsRecent = key => Math.abs(Date.now() - parseInt(String(key).split("-")[0], 36)) < 30 * 60 * 1000;
 export const kindOf = pathname => { const m = ANY_RE.exec(pathname); return m ? m[2].toLowerCase() : null; };
 export const keyOf = pathname => { const m = ANY_RE.exec(pathname); return m ? m[1] : null; };
 
@@ -56,11 +61,30 @@ export const displayName = pathname => pathname.slice(PREFIX.length).replace(/^[
 export function groupMissions(blobs) {
   const by = new Map();
   for (const b of blobs) {
-    const k = keyOf(b.pathname), kind = kindOf(b.pathname); if (!k) continue;
+    const im = INFO_RE.exec(b.pathname);
+    const k = im ? im[1] : keyOf(b.pathname), kind = im ? "info" : kindOf(b.pathname); if (!k) continue;
     const g = by.get(k) || {}; g[kind] = b; by.set(k, g);
   }
   const file = b => b && { name: displayName(b.pathname), size: b.size, url: b.url };
   return [...by.values()].filter(g => g.bin && PATH_RE.test(g.bin.pathname)).map(g => ({
     id: g.bin.pathname, name: displayName(g.bin.pathname), size: g.bin.size, uploadedAt: g.bin.uploadedAt, url: g.bin.url,
-    m: file(g.m), mt: file(g.mt) }));
+    m: file(g.m), mt: file(g.mt), infoUrl: g.info ? g.info.url : undefined }));
+}
+
+// read each mission's info.json (uploader name, description) into it; a few at a time
+export async function attachInfo(missions) {
+  const todo = missions.filter(m => m.infoUrl);
+  let i = 0;
+  const worker = async () => {
+    while (i < todo.length) {
+      const m = todo[i++];
+      try {
+        const r = await fetch(m.infoUrl);
+        if (r.ok) { const j = await r.json(); m.by = cleanText(j.by, MAX_NAME) || undefined; m.desc = cleanText(j.desc, MAX_DESC) || undefined; }
+      } catch (e) {}
+      delete m.infoUrl;
+    }
+  };
+  await Promise.all(Array.from({ length: 8 }, worker));
+  return missions;
 }
