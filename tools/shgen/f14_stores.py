@@ -22,8 +22,16 @@ T, A9, A7, A54, NONE = S.TANK, S.AIM9, S.AIM7, S.AIM54, S.NONE
 # Cross sections (fwd 25): tunnel roof up -6.7 for |x| < 7 (-6.3 at fwd 45, so the AIM-7s are half recessed),
 # nacelles x 9..20 with bottom -9.5 (-10 at fwd 19), glove underside up 2..4 at x 20..34, main gear x 21..28, fwd 0..8.
 PT = {4: (4, -6, 50), 5: (16, -14, 19), 6: (27, -7, 34), 7: (30, -1, 30)}
-TANK_R = 4.5
-S.SHAPES[A7] = S._W('SPAR.SH', 36, 45)          # X fins: two side by side fit in the tunnel
+TANK_R = 3.5                 # Kuoyi: use the F/A-18 tank (tank480, radius 3.5)
+
+
+def aim7():
+    """FA's SPAR model with X fins (two side by side fit in the tunnel) and its red bands painted blue."""
+    V, F = S._W('SPAR.SH', 36, 45)()
+    return V, [(fl, 169 if col == 161 else col, q) for fl, col, q in F]
+
+
+S.SHAPES[A7] = aim7
 
 
 def att(st, kind, side=1, dfwd=0):
@@ -54,7 +62,6 @@ def tank267():
     return V, F
 
 
-S.SHAPES[T] = tank267
 
 
 def solid(sections, col=GREY):
@@ -78,7 +85,7 @@ def solid(sections, col=GREY):
 
 def glove_pylon(side):
     """Seen from the front the glove pylon leaves the glove, bends outboard and drops straight to the AIM-54;
-    2 units thick.  Local x 0 = AIM-54 centre line, up 0 = AIM-54 top; side +1 right, -1 left."""
+    1 unit thick (Kuoyi: a third of the first one).  Local x 0 = AIM-54 centre line, up 0 = AIM-54 top; side +1 right, -1 left."""
     H = GLOVE_UNDER + 1 - S.SLOTS['GR'][3][1]                     # store top up into the glove
     cl = [(-4, H, -14, 14), (-3, .7 * H, -13, 13), (-1.3, .45 * H, -12, 12), (0, .24 * H, -11, 11), (0, 0, -10, 10)]
     secs = []
@@ -86,9 +93,9 @@ def glove_pylon(side):
         a, b = cl[max(i - 1, 0)], cl[min(i + 1, len(cl) - 1)]
         tx, tu = b[0] - a[0], b[1] - a[1]; L = math.hypot(tx, tu); nx, nu = -tu / L, tx / L   # normal, outboard side
         if nx < 0: nx, nu = -nx, -nu
-        secs.append((side * round(x + nx, 1), round(u + nu, 1), side * round(x - nx, 1), round(u - nu, 1), f0, f1))
+        secs.append((side * round(x + nx), round(u + nu), side * round(x), round(u), f0, f1))   # 1 unit thick
     V, F = solid(secs)
-    return [(round(x), f, round(u)) for x, f, u in V], F
+    return V, F
 
 
 def small_pylon(h, f0, f1, half=1):
