@@ -325,9 +325,9 @@
     byte 1
 ;-------- hardpoint 6
     word $d5
-    word -27
+    word -28
     word -7
-    word 34
+    word 30
     word 0
     word 0
     word 0
