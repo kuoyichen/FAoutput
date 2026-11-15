@@ -145,6 +145,20 @@ PYLONS = {'pyW': pylon(6, (5, -5), (6, -6)), 'pyC': pylon(3, (5, -6), (6, -7))}
 PYFWD = {6: -1, 7: -4}
 
 
+def f18_pylon_units():
+    """Pylons drawn always: (unit name, pylon part, position (x, up, fwd), top of its box for the draw order)."""
+    pos = {k: v[3] for k, v in SLOTS.items()}
+    out = []
+    for s in ('R6', 'L6', 'R7', 'L7'):
+        ps = pos[s][:2] + (PYFWD[SLOTS[s][0]],); out.append(('py' + s, 'pyW', ps, ps[1] + 3))
+    cpy = pos['C4'][:2] + (pos['C4'][2] + 15,)                    # centre pylon at the middle of the tank
+    out.append(('pyC4', 'pyC', cpy, cpy[1] + 2))
+    return out
+
+
+PYLON_UNITS = f18_pylon_units      # an aircraft module (f14_stores.py) replaces SLOTS, PYLONS and this
+
+
 # ---------------------------------------------------------------- x86
 def asm(src, addr=0):
     ks = keystone.Ks(keystone.KS_ARCH_X86, keystone.KS_MODE_32)
@@ -397,7 +411,10 @@ def build(d, static=False, debug=False):
     o0, n, _, e = main_lod(c)[0]
     ROOT = e
     while c[ROOT] == 0xF6: ROOT += 7
-    assert c[ROOT] == 0x06 and c[ROOT+1] == 0 and c[ROOT+18] == 0x38, 'root is not the expected 06 node + 38'
+    HOOK = None
+    if c[ROOT] == 0x12 and c[ROOT+1] == 0:            # root already hooked by an earlier edit (e.g. the F-14N nose):
+        HOOK = ROOT; ROOT = ROOT + 4 + struct.unpack_from('<h', c, ROOT+2)[0]   # the real root node is its target
+    assert c[ROOT] == 0x06 and c[ROOT+1] == 0, 'root is not a 06 node'
     tail = bytes(c).find(SIG)
     thunk_old = find_thunk(c, tail)
 
@@ -419,12 +436,9 @@ def build(d, static=False, debug=False):
     if BASE + nv > 900: sys.exit('vertex table over 900')
 
     # ---- draw order: every store unit is inserted into the model's own BSP tree (see place_units)
-    pos = {k: v[3] for k, v in SLOTS.items()}
-    pyp = lambda s: pos[s][:2] + (PYFWD[SLOTS[s][0]],)
-    cpy = pos['C4'][:2] + (pos['C4'][2] + 15,)                    # centre pylon at the middle of the tank
     leaves = {s: [('call', s)] for s in SLOTS}
-    leaves.update({'py' + s: [('c4', ('P', 'pyW'), pyp(s))] for s in ('R6', 'L6', 'R7', 'L7')})
-    leaves['pyC4'] = [('c4', ('P', 'pyC'), cpy)]
+    pyu = PYLON_UNITS()
+    for name, part, ps, top in pyu: leaves[name] = [('c4', ('P', part), ps)]
 
     def box(V, ps, clip_up=None):
         P = [(ps[0] + x, ps[1] + u, ps[2] + f) for x, f, u in V]
@@ -432,8 +446,7 @@ def build(d, static=False, debug=False):
         if clip_up is not None: hi[1] = min(hi[1], clip_up)
         return lo, hi
     ubox = {k: box(shapes[v[2]][0], v[3]) for k, v in SLOTS.items()}
-    for s in ('R6', 'L6', 'R7', 'L7'): ubox['py' + s] = box(PYLONS['pyW'][0], pyp(s), pyp(s)[1] + 3)
-    ubox['pyC4'] = box(PYLONS['pyC'][0], cpy, cpy[1] + 2)
+    for name, part, ps, top in pyu: ubox[name] = box(PYLONS[part][0], ps, top)
     plan, rootrefs = place_units(c, ROOT, ubox)
     nodes = []                                        # (key, plane n, d, A target, B leaf)
     chain_top = {}
@@ -447,6 +460,7 @@ def build(d, static=False, debug=False):
     STUB = 2 + 5 + 5 + 2 * NK                       # F0 00, push imm32, call rel32, kind table
     order = ['BODY'] + [k for k, *_ in nodes] + list(leaves)
     size = {k: 20 for k in order}
+    if HOOK is not None: size['BODY'] = 22
     size.update({k: sum(isz(it) for it in v) + 2 for k, v in leaves.items()})
     at, p = {}, tail
     for k in order: at[k] = p; p += size[k]
@@ -473,7 +487,9 @@ def build(d, static=False, debug=False):
     o = at['BODY']                                    # copy of the root node; its branches may lead into chains
     ta = addr(chain_top[TA]) if TA in chain_top else TA
     tb = addr(chain_top[TB]) if TB in chain_top else TB
-    blk += bytes(c[ROOT:ROOT+14]) + struct.pack('<hh', ta - (o+16), tb - (o+18)) + b'\x00\x00'
+    blk += bytes(c[ROOT:ROOT+14]) + struct.pack('<hh', ta - (o+16), tb - (o+18))
+    # hooked root: BODY replaces the node inside the hook's block, so it continues with what followed it there
+    blk += (b'\x38' + struct.pack('<h', ROOT + 18 - (o+21)) + b'\x1e') if HOOK is not None else b'\x00\x00'
     for k, nn, dd, a, u in nodes:
         o = at[k]
         blk += struct.pack('<BB6h', 0x06, 0, nn[0], dd[0], nn[1], dd[1], nn[2], dd[2]) + \
@@ -481,8 +497,11 @@ def build(d, static=False, debug=False):
     for T, (fa, base) in rootrefs.items():            # original branch fields that now lead into a chain
         if T in chain_top and fa is not None: struct.pack_into('<h', c, fa, addr(chain_top[T]) - base)
     top = addr(chain_top['ROOT']) if 'ROOT' in chain_top else at['BODY']
-    patch = b'\x12\x00' + struct.pack('<h', top - (ROOT+4)) + b'\x38' + struct.pack('<h', ROOT + 18 - (ROOT+7))
-    c[ROOT:ROOT+18] = patch + b'\x1e' * (18 - len(patch))
+    if HOOK is not None:
+        struct.pack_into('<h', c, HOOK+2, top - (HOOK+4))
+    else:
+        patch = b'\x12\x00' + struct.pack('<h', top - (ROOT+4)) + b'\x38' + struct.pack('<h', ROOT + 18 - (ROOT+7))
+        c[ROOT:ROOT+18] = patch + b'\x1e' * (18 - len(patch))
     for k, items in leaves.items():
         o = at[k]
         for it in items:
