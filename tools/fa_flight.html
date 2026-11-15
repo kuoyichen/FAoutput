@@ -1,0 +1,924 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>FA Flight</title>
+<style>
+:root{ --bg:#0e1216; --card:#161c22cc; --line:#2e3742; --text:#e2e8ee; --muted:#8b96a5; --accent:#ffd54a; --hud:#9dffb0; }
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#87a9c9;color:var(--text);font:13px/1.4 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif;overscroll-behavior:none;touch-action:none;-webkit-user-select:none;user-select:none}
+#cv{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;display:block;touch-action:none}
+header{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:8px;padding:calc(6px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) 6px calc(10px + env(safe-area-inset-left));pointer-events:none;z-index:5}
+header>*{pointer-events:auto}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;white-space:nowrap;text-shadow:0 1px 3px #000a;background:#0e1216aa;padding:6px 9px;border-radius:8px}a.fhome b{color:#ffd54a}
+header h1{font-size:13px;margin:0;font-weight:600;color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap}
+header .sp{flex:1;pointer-events:none}
+button,select{background:#1d232bdd;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit;cursor:pointer}
+button.on{border-color:var(--accent);color:var(--accent)}
+#hud{position:fixed;top:calc(46px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;gap:14px;font:600 13px/1.2 ui-monospace,Consolas,monospace;color:var(--hud);text-shadow:0 0 3px #000,0 1px 2px #000;pointer-events:none;z-index:4;white-space:nowrap}
+#hud b{font-size:17px;color:#fff;display:block}
+#hud div{text-align:center}
+#thr{position:fixed;right:calc(14px + env(safe-area-inset-right));top:calc(46px + env(safe-area-inset-top));width:12px;height:120px;border:1px solid #fff8;border-radius:6px;background:#0006;pointer-events:none;z-index:4;overflow:hidden}
+#thr i{position:absolute;left:0;right:0;bottom:0;background:var(--hud)}
+#thr i.ab{background:#ff9a3c}
+#msg{position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);font:700 22px/1.3 system-ui,sans-serif;color:#fff;text-shadow:0 2px 6px #000;text-align:center;pointer-events:none;z-index:4;white-space:pre-line}
+#sub{position:fixed;top:calc(100px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);font-size:12px;color:#fff;text-shadow:0 1px 3px #000;pointer-events:none;z-index:4;white-space:nowrap}
+.stick{position:fixed;width:130px;height:130px;margin:-65px 0 0 -65px;border-radius:50%;border:2px solid #ffffff55;background:#00000026;pointer-events:none;z-index:3;transition:opacity .2s}
+.stick i{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:#ffffff55;border:2px solid #fff9}
+.stick span{position:absolute;left:0;right:0;top:-20px;text-align:center;font-size:11px;color:#fff;text-shadow:0 1px 2px #000}
+#btns{position:fixed;right:calc(10px + env(safe-area-inset-right));top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px;z-index:5}
+#btns button{width:64px;padding:9px 0;font-weight:600;font-size:12px;background:#0e1216aa}
+#panel{position:fixed;top:calc(48px + env(safe-area-inset-top));left:calc(10px + env(safe-area-inset-left));width:min(330px,calc(100vw - 20px));max-height:calc(100dvh - 70px);overflow:auto;background:#161c22f2;border:1px solid var(--line);border-radius:12px;padding:12px;z-index:6;display:none}
+#panel.open{display:block}
+#panel h2{font-size:14px;margin:0 0 8px}
+#panel label{display:block;margin:8px 0 3px;color:var(--muted);font-size:12px}
+#panel select{width:100%}
+#panel .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+#panel .row button{flex:1}
+#panel p{color:var(--muted);font-size:12px;margin:10px 0 0}
+#panel .ck{display:flex;align-items:center;gap:6px;color:var(--text);font-size:13px}
+#load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0e1216;color:var(--text);z-index:10;font-size:15px;flex-direction:column;gap:10px}
+#load small{color:var(--muted)}
+#rot{display:none}
+</style>
+<script src="fashion_i18n.js"></script>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <button id="menuBtn">☰ Menu</button>
+  <span class="sp"></span>
+  <span id="langSlot"></span>
+</header>
+<div id="hud">
+  <div>SPD<b id="hSpd">0</b>kt</div>
+  <div>ALT<b id="hAlt">0</b>ft</div>
+  <div>HDG<b id="hHdg">000</b>°</div>
+</div>
+<div id="thr"><i id="thrBar"></i></div>
+<div id="sub"></div>
+<div id="msg"></div>
+<div class="stick" id="stL"><span id="stLt">Pitch / Roll</span><i></i></div>
+<div class="stick" id="stR"><span id="stRt">Throttle / Rudder</span><i></i></div>
+<div id="btns">
+  <button id="bGear">Gear</button>
+  <button id="bBrake">Brake</button>
+  <button id="bView">View</button>
+  <button id="bReset">Restart</button>
+</div>
+<div id="panel">
+  <h2>Flight setup</h2>
+  <label for="selShape">Model to drive (any SH)</label>
+  <select id="selShape"></select>
+  <label for="selMode">Control mode</label>
+  <select id="selMode"><option value="auto">Auto (by model)</option><option value="fly">Fly (aircraft)</option><option value="drive">Drive (ground vehicle)</option><option value="sail">Sail (ship)</option></select>
+  <label for="selSpawn">Start position</label>
+  <select id="selSpawn"><option value="runway">Airfield runway</option><option value="carrier">Carrier deck</option><option value="air">In the air</option><option value="sea">At sea (ships)</option></select>
+  <div class="row"><button id="bGo">▶ Start</button></div>
+  <label class="ck"><input type="checkbox" id="inv"> Invert pitch (push stick up = nose up)</label>
+  <label class="ck"><input type="checkbox" id="tex" checked> Textures</label>
+  <p id="help1">Left stick: pitch and roll. Right stick: up/down changes the throttle (it stays where you leave it), left/right is rudder. Drag anywhere else to look around, pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult.</p>
+  <p id="help2">Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, R restart, mouse drag to look, wheel to zoom.</p>
+</div>
+<div id="load"><div id="loadT">Loading…</div><small id="loadS"></small></div>
+<script>
+"use strict";
+// ===== SH parser and part control (same as tools/f18_showcase.html) =====
+const FACE_OPS = new Set([0x41,0x44,0x49,0x4C,0x51,0x54,0x59,0x5C,0x61,0x63,0x64,0x69,0x6B,0x6C,0x71,0x73,0x7C,0xCD,0xDD,0xED,0xEE,0xFE]);
+function parseSH(u8){
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  let base = 0x400;
+  if (u8[0] === 0x4D && u8[1] === 0x5A){
+    const pe = dv.getUint32(0x3C, true), ns = dv.getUint16(pe+6, true), opt = dv.getUint16(pe+20, true);
+    for (let i=0;i<ns;i++){ const s = pe+24+opt+i*40; if (String.fromCharCode(...u8.subarray(s, s+4)) === "CODE"){ base = dv.getUint32(s+20, true); break; } }
+  }
+  const c = u8.subarray(base), cv = new DataView(c.buffer, c.byteOffset, c.byteLength), L = c.length;
+  const shift = L > 8 ? cv.getUint16(6, true) : 8, scale = shift >= 4 && shift <= 16 ? Math.pow(2, shift - 8) : 1;
+  // Find every vertex buffer of the first LOD (each target must follow on from the previous count)
+  const bufs = [], maxAbs = (o, n) => { let m = 0; for (let i = 0; i < 3*n; i++) m = Math.max(m, Math.abs(cv.getInt16(o + 6 + 2*i, true))); return m; };
+  for (let o=0;o<L-6;o++){
+    if (c[o] !== 0x82 || c[o+1] !== 0) continue;
+    const n = cv.getUint16(o+2,true), t = cv.getUint16(o+4,true), e = o+6+6*n;
+    if (!n || n > 4000 || t % 8 || e >= L) continue;
+    if (!bufs.length){ if (t === 0 && n >= 3) bufs.push({ o, n, t:0, e }); continue; }
+    const last = bufs[bufs.length-1];
+    if (bufs.length === 1 && t === 0 && o < last.e && n >= 3 && maxAbs(o, n) * 4 < maxAbs(last.o, last.n)){ bufs[0] = { o, n, t:0, e }; continue; }   // the first one was a fake 82 inside the header (e.g. C5); the real buffer lies inside its range
+    if (t === 0 && o >= last.e && (c[o-1] === 0 || c[o-1] === 0x1E)){ bufs.push({ o, n, t:-1 }); break; }   // next LOD
+    const gap = t/8 - (last.t + last.n);   // targets usually follow on; some files (F35A, Y141, SU27…) skip a few slots
+    if (o >= last.e && (gap === 0 || gap > 0 && gap <= 64 && (c[o-1] === 0 || c[o-1] === 0x1E) && maxAbs(o, n) < 8192)){ bufs.push({ o, n, t: t/8, e }); }
+  }
+  if (!bufs.length) return null;
+  const lod = bufs.filter(b => b.t >= 0), stop = bufs.find(b => b.t < 0)?.o ?? L;
+  const v = [];
+  for (const b of lod) for (let i=0;i<b.n;i++) v[b.t+i] = [cv.getInt16(b.o+6+6*i,true), cv.getInt16(b.o+8+6*i,true), cv.getInt16(b.o+10+6*i,true)];
+  const facetsIn = (from, to, lo, hi) => {
+    const f = [];
+    for (let o=from; o<to-18; o++){
+      if (c[o] !== 0xFC) continue;
+      const fl = cv.getUint16(o+1,true), hl = fl & 0x200 ? 14 : 17;
+      if (fl & 0x200 ? fl & 0xF000 || !FACE_OPS.has(fl & 0xFF) && (fl & 0xFF) !== 0xFD && (fl & 0xFF) !== 0x74 : !FACE_OPS.has(fl & 0xFF) || fl >= 0x1000) continue;   // only accept known flag bytes (plus FD and 74 used by the F-14), so data is not misread as faces; the fake triangle in front of the SPE tail is 7F
+      const n = c[o+hl], wide = fl & 0x400; let p = o+hl+1;
+      if (n < 3 || n > 16 || p + n*(wide?2:1) > to) continue;
+      const idx = []; for (let k=0;k<n;k++){ idx.push(wide ? cv.getUint16(p,true) : c[p]); p += wide?2:1; }
+      if (idx.some(i => i < lo || i >= hi || !v[i]) || new Set(idx).size < n) continue;
+      // Texture coords: flag 0x04 = has UVs (pixel coords in the PIC); 0x100 = 1 byte per coord, otherwise 2 bytes
+      let uv = null;
+      if (fl & 4){ uv = []; for (let k=0;k<n;k++){ if (fl & 0x100){ uv.push([c[p], c[p+1]]); p += 2; } else { uv.push([cv.getUint16(p,true), cv.getUint16(p+2,true)]); p += 4; } } }
+      idx.uv = uv; idx.col = c[o+3]; idx.fl = fl;
+      f.push(idx); o = p - 1;   // skip this face's data so no fake face is read from its indices (the right-hand triangle on F5EV)
+    }
+    return f;
+  };
+  const main = lod[0], mainEnd = lod[1]?.o ?? stop;
+  const f = facetsIn(main.e, mainEnd, 0, main.n);
+  // Edited SH files (tools/shgen/sh_subdivide.py, f14_nose.py): an original face or node becomes `12 00 rel16` (call) + `38 rel16` (skip);
+  // the called block holds an 82 vertex buffer, F6 per-vertex shading, FC faces, 06/0C plane tests (follow forward branches only; backward ones are the original BSP) and 00 00 return
+  const faceAt = t => {
+    const fl = cv.getUint16(t+1, true); let p = t + 5 + (fl & 0x60 ? (fl & 0x200 ? 9 : 12) : 0);
+    const n = c[p++], wide = fl & 0x400, idx = [];
+    for (let k = 0; k < n; k++){ idx.push(wide ? cv.getUint16(p, true) : c[p]); p += wide ? 2 : 1; }
+    let uv = null; if (fl & 4){ uv = []; for (let k = 0; k < n; k++){ if (fl & 0x100){ uv.push([c[p], c[p+1]]); p += 2; } else { uv.push([cv.getUint16(p, true), cv.getUint16(p+2, true)]); p += 4; } } }
+    idx.uv = uv; idx.col = c[t+3]; idx.fl = fl; f.push(idx); return p;
+  };
+  // C4 00 x up fwd hdg pitch roll rel16 inside a hooked block (f18g_growler.py): draw the part at an offset (rotation 0).
+  // Each placement gets its own vertex slots, so one shared part can be drawn several times.
+  const placePart = (t, pos) => {
+    if (c[t] !== 0x82 || c[t+1] !== 0) return;
+    const n = cv.getUint16(t+2, true), tg = cv.getUint16(t+4, true) / 8, base = Math.max(v.length, 1000);
+    for (let i = 0; i < n; i++) v[base+i] = [cv.getInt16(t+6+6*i, true) + pos[0], cv.getInt16(t+8+6*i, true) + pos[2], cv.getInt16(t+10+6*i, true) + pos[1]];
+    let p = t + 6 + 6*n; while (c[p] === 0xF6) p += 7;
+    // faces, and 06 plane nodes inside the part (store/pylon order): follow both branches
+    const walk = (p, depth) => {
+      for (let g = 0; g < 500 && p > t && p < L - 2; g++){
+        if (c[p] === 0xFC){ p = faceAt(p); const idx = f[f.length-1]; for (let k = 0; k < idx.length; k++) if (idx[k] >= tg && idx[k] < tg + n) idx[k] = base + idx[k] - tg; }
+        else if (c[p] === 0x06 && c[p+1] === 0 && depth < 8){ walk(p + 16 + cv.getInt16(p+14, true), depth+1); walk(p + 18 + cv.getInt16(p+16, true), depth+1); p += 18; }
+        else return;
+      }
+    };
+    walk(p, 0);
+  };
+  const block = (t, from, seen) => {
+    for (let guard = 0; guard < 2000 && t > 0 && t < L - 2 && !seen.has(t); guard++){
+      seen.add(t);
+      if (c[t] === 0x82 && c[t+1] === 0){ const n = cv.getUint16(t+2, true), tg = cv.getUint16(t+4, true) / 8;
+        for (let i = 0; i < n; i++) v[tg+i] = [cv.getInt16(t+6+6*i, true), cv.getInt16(t+8+6*i, true), cv.getInt16(t+10+6*i, true)]; t += 6 + 6*n; }
+      else if (c[t] === 0xF6) t += 7;
+      else if (c[t] === 0xFC) t = faceAt(t);
+      else if (c[t] === 0xC4 && c[t+1] === 0){ placePart(t + 16 + cv.getInt16(t+14, true), [0,1,2].map(k => cv.getInt16(t+2+2*k, true))); t += 16; }
+      else if ((c[t] === 0x06 || c[t] === 0x0C) && c[t+1] === 0){ const k = c[t] === 0x06 ? 14 : 10;
+        for (const [r, e] of [[t+k, t+k+2], [t+k+2, t+k+4]]){ const g = e + cv.getInt16(r, true); if (g > from) block(g, from, seen); }
+        t += k + 4; }
+      else return;
+    }
+  };
+  for (let o = main.e; o < mainEnd - 7; o++){
+    if (c[o] !== 0x12 || c[o+1] !== 0 || c[o+4] !== 0x38) continue;
+    const t = o + 4 + cv.getInt16(o+2, true); if (t <= mainEnd || t >= L - 6 || ![0x82, 0xFC, 0x06].includes(c[t])) continue;
+    block(t, t - 1, new Set());
+    o += 6;
+  }
+  // Loadout stores (tools/shgen/f18_stores.py): new 06 nodes and leaf blocks are chained into the model's BSP, and each
+  // store slot is an F0 stub `F0 00 68 imm32 E8 rel32` + an i16 table of C4 lists per store kind; in the game the stub reads
+  // the aircraft's actual loadout, here the default kind (imm32 >> 16) is drawn.  Walk the whole main BSP from the root
+  // and place the C4 parts that were added (beyond the original shape data), once each.
+  const added = lod[lod.length - 1].e, placed = new Set();
+  const storeWalk = (t, depth) => {
+    for (let guard = 0; guard < 4000 && depth < 60 && t > 0 && t < L - 2; guard++){
+      const op = c[t];
+      if (op === 0x00 && c[t+1] === 0 || op === 0x1E) return;
+      if (op === 0x82 && c[t+1] === 0) t += 6 + 6 * cv.getUint16(t+2, true);
+      else if (op === 0xFC){ const fl = cv.getUint16(t+1, true); let p = t + 5 + (fl & 0x60 ? (fl & 0x200 ? 9 : 12) : 0); const n = c[p++]; p += fl & 0x400 ? 2*n : n; if (fl & 4) p += n * (fl & 0x100 ? 2 : 4); t = p; }
+      else if (op === 0xF6) t += 7;
+      else if ((op === 0xD0 || op === 0xE0) && c[t+1] === 0) t += 4;
+      else if (op === 0xE2 && c[t+1] === 0) t += 16;
+      else if (op === 0x06 && c[t+1] === 0){ storeWalk(t + 16 + cv.getInt16(t+14, true), depth+1); storeWalk(t + 18 + cv.getInt16(t+16, true), depth+1); t += 18; }
+      else if ((op === 0x0C || op === 0x0E || op === 0x10) && c[t+1] === 0){ storeWalk(t + 12 + cv.getInt16(t+10, true), depth+1); storeWalk(t + 14 + cv.getInt16(t+12, true), depth+1); t += 14; }
+      else if (op === 0x6C && c[t+1] === 0){ storeWalk(t + 8 + cv.getInt16(t+6, true), depth+1); storeWalk(t + 10 + cv.getInt16(t+8, true), depth+1); t += 10; }
+      else if (op === 0x12 && c[t+1] === 0){ storeWalk(t + 4 + cv.getInt16(t+2, true), depth+1); t += 4; }
+      else if (op === 0x38) t = t + 3 + cv.getInt16(t+1, true);
+      else if (op === 0x48 && c[t+1] === 0) t = t + 4 + cv.getInt16(t+2, true);
+      else if (op === 0xC4 && c[t+1] === 0){
+        if (t > added && !placed.has(t)){ placed.add(t); placePart(t + 16 + cv.getInt16(t+14, true), [0,1,2].map(k => cv.getInt16(t+2+2*k, true))); }
+        t += 16;
+      }
+      else if (op === 0xF0 && c[t+1] === 0){
+        if (c[t+2] === 0x68 && c[t+7] === 0xE8){   // store slot stub: draw its default kind
+          const kind = c[t+5], tb = t + 12; if (kind) storeWalk(tb + cv.getInt16(tb + 2*kind, true), depth+1); return;
+        }
+        let r = null; for (let q = t+2; q < t+200 && q < L-5; q++) if (c[q] === 0x68){ const x = cv.getUint32(q+1, true) - SH_VA; if (x > 0 && x < L){ r = x; break; } }
+        if (r == null) return; t = r;
+      }
+      else return;
+    }
+  };
+  { let r = main.e; while (c[r] === 0xF6) r += 7; storeWalk(r, 0); }
+  if (!f.length) return null;
+  let span = 0; for (let i=0;i<main.n;i++) span = Math.max(span, Math.abs(v[i][0]));
+  const parts = [];
+  for (let k=1;k<lod.length;k++){
+    const b = lod[k], to = lod[k+1]?.o ?? stop; if (b.n < 12) continue;
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (let i=0;i<b.n;i++){ const p = v[b.t+i]; x0 = Math.min(x0,p[0]); x1 = Math.max(x1,p[0]); z0 = Math.min(z0,p[2]); z1 = Math.max(z1,p[2]); }
+    const ax = Math.max(Math.abs(x0), Math.abs(x1));
+    if (ax < span*0.6 || z1 - z0 > (x1 - x0)*0.5) continue;
+    const pf = facetsIn(b.e, to, b.t, b.t + b.n); if (!pf.length) continue;
+    const pts = []; for (let i=0;i<b.n;i++) pts.push(v[b.t+i]);
+    // pivot: the outermost leading corner of the wing glove (main-body vertex within the wing chord, farthest from the fuselage and most forward)
+    const side = Math.sign(x0 + x1), tipX = side > 0 ? x1 : -x0;
+    const ys = pts.map(p => p[1]), wy0 = Math.min(...ys), wy1 = Math.max(...ys), lenY = 2*span;
+    let g = null; for (let i=0;i<main.n;i++){ const p = v[i], ax2 = p[0]*side;
+      if (ax2 > 0 && ax2 < tipX*0.6 && p[1] >= wy0 && p[1] <= wy1 + 0.15*lenY && (!g || ax2 > g[0]*side || (ax2 === g[0]*side && p[1] > g[1]))) g = p; }
+    const piv = g ? [g[0], g[1]] : [0, 0];
+    parts.push({ f: pf, wing: true, side, pivot: [piv[0], piv[1], 0] });
+  }
+  // all sub-part vertex sets of the first LOD (gear, flaps, speed brake…) and the code that controls them
+  const subs = lod.slice(1).map((b, k) => ({ o: b.o, t: b.t, n: b.n, f: facetsIn(b.e, lod[k+2]?.o ?? stop, b.t, b.t + b.n),
+    local: b.o >= 14 && c[b.o-14] === 0xFF && c[b.o-13] === 0xFF }));
+  return { v: v.map(p => p || [0,0,0]), f, parts, scale, subs, code: c, ctl: parseCtl(c, cv, subs), imp: shImports(u8, c) };
+}
+
+// SH import table: each control variable is a global provided by FA.EXE, named in the import table (e.g. _PLgearDown, _PLleftFlap)
+// returns { name: address used by the code } (address = location of the ff 25 [IAT] thunk)
+function shImports(u8, c){
+  const out = {}; if (u8[0] !== 0x4D || u8[1] !== 0x5A) return out;
+  try {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), pe = dv.getUint32(0x3C, true), ns = dv.getUint16(pe+6, true), opt = dv.getUint16(pe+20, true);
+    const secs = []; for (let i = 0; i < ns; i++){ const s = pe+24+opt+i*40; secs.push([dv.getUint32(s+12, true), Math.max(dv.getUint32(s+8, true), dv.getUint32(s+16, true)), dv.getUint32(s+20, true)]); }
+    const r2o = r => { for (const [va, sz, ro] of secs) if (r >= va && r < va + sz) return r - va + ro; return -1; };
+    const str = o => { let s = ""; while (o >= 0 && o < u8.length && u8[o]) s += String.fromCharCode(u8[o++]); return s; };
+    let d = r2o(dv.getUint32(pe+24+104, true));
+    for (; d >= 0 && dv.getUint32(d+12, true); d += 20){
+      const iat = dv.getUint32(d+16, true); let t = r2o(dv.getUint32(d, true) || iat);
+      for (let k = 0; t >= 0 && dv.getUint32(t, true); k++, t += 4){
+        const name = str(r2o(dv.getUint32(t, true)) + 2), a = iat + 4*k;
+        for (let o = 0; o < c.length - 6; o++) if (c[o] === 0xFF && c[o+1] === 0x25 && c[o+2] === (a & 255) && c[o+3] === (a >> 8 & 255) && c[o+4] === (a >> 16 & 255) && c[o+5] === (a >>> 24)){ out[name] = o + 0x1000; break; }
+      }
+    }
+  } catch(e){}
+  return out;
+}
+// F0 blocks in an SH are raw x86 code that the game runs directly. Common patterns:
+//   cmp word [var], value ; jne …        → condition (gear down, flaps down…)
+//   call $+5 ; pop ebx ; add ebx, n ; mov ax, [angle var] ; sar/shl/add/sub/neg ; mov [ebx+d], ax
+//                                          → patches a field of the following C4 op at run time (gear retraction, swing-wing sweep)
+//   push retAddr ; push interpreter ; ret → back to the bytecode, continuing at retAddr
+// The op at retAddr: C4 00 x up fwd hdg pitch roll rel16 = place the vertex set at (x, up, fwd), rotate and draw; 12 00 rel16 = draw it in place
+// A tiny x86 emulator runs these for a given state to work out which parts to draw and where.
+const SH_VA = 0x1000;
+function x86Run(mem, start, maxSteps = 400){
+  const dv = new DataView(mem.buffer, mem.byteOffset, mem.byteLength), L = mem.length;
+  const rd16 = va => { const o = va - SH_VA; return o >= 0 && o + 1 < L ? dv.getInt16(o, true) : 0; };
+  const rd32 = va => { const o = va - SH_VA; return o >= 0 && o + 3 < L ? dv.getInt32(o, true) : 0; };
+  const wr16 = (va, x) => { const o = va - SH_VA; if (o >= 0 && o + 1 < L) dv.setInt16(o, x, true); };
+  const s16 = x => (x << 16) >> 16;
+  let p = start, ax = 0, cx = 0, eax = 0, ebx = 0, fa = 0, fb = 0, sz = 16; const stack = [];
+  const cc = op => { const sa = sz === 8 ? (fa << 24) >> 24 : sz === 16 ? s16(fa) : fa | 0, sb = sz === 8 ? (fb << 24) >> 24 : sz === 16 ? s16(fb) : fb | 0;
+    const m = sz === 32 ? 0xFFFFFFFF : (1 << sz) - 1, ua = (fa & m) >>> 0, ub = (fb & m) >>> 0;
+    switch (op & 0xF){ case 2: return ua < ub; case 3: return ua >= ub; case 4: return sa === sb; case 5: return sa !== sb;
+      case 6: return ua <= ub; case 7: return ua > ub; case 0xC: return sa < sb; case 0xD: return sa >= sb; case 0xE: return sa <= sb; case 0xF: return sa > sb; } return null; };
+  for (let n = 0; n < maxSteps; n++){
+    const o = p - SH_VA; if (o < 0 || o >= L - 1) return null;
+    const b0 = mem[o], b1 = mem[o+1], b2 = mem[o+2];
+    if (b0 === 0x66){
+      if (b1 === 0x83 && b2 === 0x3D){ fa = rd16(rd32(p+3)); fb = (mem[o+7] << 24) >> 24; sz = 16; p += 8; continue; }
+      if (b1 === 0x81 && b2 === 0x3D){ fa = rd16(rd32(p+3)); fb = dv.getInt16(o+7, true); sz = 16; p += 9; continue; }
+      if (b1 === 0xA1){ ax = rd16(rd32(p+2)); p += 6; continue; }
+      if (b1 === 0x8B && b2 === 0xC8){ cx = ax; p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0xC1){ cx = ax; p += 3; continue; }
+      if (b1 === 0x8B && b2 === 0xC1){ ax = cx; p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0xC8){ ax = cx; p += 3; continue; }
+      if (b1 === 0xD1 && b2 === 0xF8){ ax = s16(ax) >> 1; p += 3; continue; }
+      if (b1 === 0xD1 && b2 === 0xF9){ cx = s16(cx) >> 1; p += 3; continue; }
+      if (b1 === 0xC1 && b2 === 0xF8){ ax = s16(ax) >> mem[o+3]; p += 4; continue; }
+      if (b1 === 0xC1 && b2 === 0xF9){ cx = s16(cx) >> mem[o+3]; p += 4; continue; }
+      if (b1 === 0xD1 && b2 === 0xE0){ ax = s16(ax << 1); p += 3; continue; }
+      if (b1 === 0xC1 && b2 === 0xE0){ ax = s16(ax << mem[o+3]); p += 4; continue; }
+      if ((b1 === 0x03 && b2 === 0xC1) || (b1 === 0x01 && b2 === 0xC8)){ ax = s16(ax + cx); p += 3; continue; }
+      if ((b1 === 0x2B && b2 === 0xC1) || (b1 === 0x29 && b2 === 0xC8)){ ax = s16(ax - cx); p += 3; continue; }
+      if (b1 === 0x05){ ax = s16(ax + dv.getInt16(o+2, true)); p += 4; continue; }
+      if (b1 === 0x2D){ ax = s16(ax - dv.getInt16(o+2, true)); p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xC0){ ax = s16(ax + ((mem[o+3] << 24) >> 24)); p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xE8){ ax = s16(ax - ((mem[o+3] << 24) >> 24)); p += 4; continue; }
+      if (b1 === 0x3D){ fa = ax; fb = dv.getInt16(o+2, true); sz = 16; p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xF8){ fa = ax; fb = (mem[o+3] << 24) >> 24; sz = 16; p += 4; continue; }
+      if (b1 === 0xB8){ ax = dv.getInt16(o+2, true); p += 4; continue; }
+      if (b1 === 0xF7 && b2 === 0xD8){ ax = s16(-ax); p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0x43){ wr16(ebx + ((mem[o+3] << 24) >> 24), ax); p += 4; continue; }
+      if (b1 === 0x89 && b2 === 0x83){ wr16(ebx + dv.getInt32(o+3, true), ax); p += 7; continue; }
+      if (b1 === 0xA3){ wr16(rd32(p+2), ax); p += 6; continue; }
+      return null;
+    }
+    if (b0 === 0x80 && b1 === 0x3D){ const a = rd32(p+2) - SH_VA; fa = a >= 0 && a < L ? mem[a] : 0; fb = mem[o+6]; sz = 8; p += 7; continue; }
+    if (b0 === 0x83 && b1 === 0x3D){ fa = rd32(rd32(p+2)); fb = (mem[o+6] << 24) >> 24; sz = 32; p += 7; continue; }
+    if (b0 === 0xA1){ eax = rd32(rd32(p+1)); ax = s16(eax); p += 5; continue; }
+    if (b0 >= 0x70 && b0 <= 0x7F){ const t = cc(b0); if (t == null) return null; p += 2 + (t ? (b1 << 24) >> 24 : 0); continue; }
+    if (b0 === 0x0F && b1 >= 0x80 && b1 <= 0x8F){ const t = cc(b1); if (t == null) return null; p += 6 + (t ? dv.getInt32(o+2, true) : 0); continue; }
+    if (b0 === 0xEB){ p += 2 + ((b1 << 24) >> 24); continue; }
+    if (b0 === 0xE9){ p += 5 + dv.getInt32(o+1, true); continue; }
+    if (b0 === 0xE8){ stack.push(p + 5); p += 5 + dv.getInt32(o+1, true); continue; }
+    if (b0 === 0x5B){ ebx = stack.pop() ?? 0; p += 1; continue; }
+    if (b0 === 0x53){ stack.push(ebx); p += 1; continue; }
+    if (b0 === 0x81 && b1 === 0xC3){ ebx += dv.getInt32(o+2, true); p += 6; continue; }
+    if (b0 === 0x83 && b1 === 0xC3){ ebx += (b2 << 24) >> 24; p += 3; continue; }
+    if (b0 === 0x68){ stack.push(dv.getInt32(o+1, true)); p += 5; continue; }
+    if (b0 === 0xC3){ stack.pop(); return stack.length ? stack.pop() : null; }   // push retAddr ; push interpreter ; ret → retAddr
+    return null;
+  }
+  return null;
+}
+// Static scan: find every F0 block, the variables and values it compares, and the angle variables it reads
+function parseCtl(c, cv, subs){
+  // a jump target may be a sub-shape header or short op before the vertex set: take the first vertex set within 16 bytes
+  const idxOf = { get: t => { let best = null; subs.forEach((s, i) => { if (s.o >= t && s.o - t <= 16 && (best == null || s.o < subs[best].o)) best = i; }); return best ?? undefined; } };
+  const blocks = [], vars = new Map();
+  for (let o = 0; o < c.length - 12; o++){
+    if (c[o] !== 0xF0 || c[o+1] !== 0) continue;
+    if (x86Run(c, o + 2 + SH_VA) == null) continue;   // not code that runs through to ret
+    blocks.push(o + 2);
+    // scan this block up to ret, collecting variables
+    for (let p = o + 2, n = 0; p < c.length - 8 && n < 60; n++){
+      if (c[p] === 0x66 && c[p+1] === 0x83 && c[p+2] === 0x3D){ const v = cv.getUint32(p+3, true); const s = vars.get(v) || { vals: new Set(), ang: false }; s.vals.add((c[p+7] << 24) >> 24); vars.set(v, s); p += 8; continue; }
+      if (c[p] === 0x66 && c[p+1] === 0xA1){ const v = cv.getUint32(p+2, true); const s = vars.get(v) || { vals: new Set(), ang: false }; s.ang = true; vars.set(v, s); p += 6; continue; }
+      if (c[p] === 0x68 && c[p+5] === 0x68 && c[p+10] === 0xC3) break; p++;
+    }
+  }
+  // unconditional C4s in the main bytecode (e.g. the two B-2 parts): the target must be exactly a vertex set
+  const statics = [], exact = new Map(); subs.forEach((s, i) => { exact.set(s.o, i); exact.set(s.o - 14, i); });
+  const end = subs.length ? Math.min(...subs.map(s => s.o)) : 0;
+  const pushed = new Set(); for (let o = 0; o < c.length - 5; o++) if (c[o] === 0x68) pushed.add(cv.getUint32(o + 1, true) - SH_VA);   // ops that an F0 block returns to do not count
+  for (let o = 0; o < end - 16; o++) if (c[o] === 0xC4 && c[o+1] === 0 && !pushed.has(o)){ const i = exact.get(o + 16 + cv.getInt16(o + 14, true)); if (i != null) statics.push(o); }
+  return { blocks, statics, vars: [...vars].map(([v, s]) => ({ v, vals: [...s.vals], ang: s.ang })), idxOf };
+}
+// Run every block for a state (var → value) and return the parts to draw: { part, op, f6:[x, up, fwd, hdg, pitch, roll] }
+function evalCtl(m, state){
+  const c = m.code, mem = c.slice(), dv = new DataView(mem.buffer), out = [], seen = new Set();
+  for (const [v, x] of Object.entries(state)){ const o = +v - SH_VA; if (o >= 0 && o + 1 < mem.length) dv.setInt16(o, x, true); }
+  for (const b of m.ctl.blocks){
+    const r = x86Run(mem, b + SH_VA); if (r == null) continue; const t = r - SH_VA; if (t < 0 || t > mem.length - 16 || seen.has(t)) continue;
+    let part, f6 = null;
+    if (mem[t] === 0xC4){ part = m.ctl.idxOf.get(t + 16 + dv.getInt16(t + 14, true)); f6 = [0,1,2,3,4,5].map(k => dv.getInt16(t + 2 + 2*k, true)); }
+    else if (mem[t] === 0x12) part = m.ctl.idxOf.get(t + 4 + dv.getInt16(t + 2, true));
+    if (part == null) continue; seen.add(t); out.push({ part, op: mem[t], f6, at: t, blk: b });
+  }
+  for (const t of m.ctl.statics || []) if (!seen.has(t)){ seen.add(t); out.push({ part: m.ctl.idxOf.get(t + 16 + dv.getInt16(t + 14, true)), op: 0xC4, f6: [0,1,2,3,4,5].map(k => dv.getInt16(t + 2 + 2*k, true)), at: t }); }
+  // a block that sits inside a C4 part's code (e.g. flaps behind a swing wing) draws its part in that part's frame
+  const subs = m.subs, owner = o => { for (let k = subs.length - 1; k >= 0; k--) if (subs[k].o <= o) return o < (subs[k+1]?.o ?? subs[k].o + 0x2000) ? k : null; return null; };
+  for (const e of out){ if (e.blk == null) continue; const k = owner(e.blk); if (k == null || k === e.part) continue;
+    const p = out.find(x => x.part === k && x.op === 0xC4); if (p) e.parent = p; }
+  return out;
+}
+
+// ===== SH loading: browser cache → picked folder → ../SH/ (when served over HTTP) → GitHub =====
+
+function rotateDeg(v, hdg, pitch, roll){
+  let [x,y,z] = v; const r = roll*Math.PI/180, p = -pitch*Math.PI/180, h = hdg*Math.PI/180;
+  [x,y] = [x*Math.cos(r) - y*Math.sin(r), x*Math.sin(r) + y*Math.cos(r)];
+  [y,z] = [y*Math.cos(p) - z*Math.sin(p), y*Math.sin(p) + z*Math.cos(p)];
+  return [x*Math.cos(h) + z*Math.sin(h), y, -x*Math.sin(h) + z*Math.cos(h)];
+}
+function partTf(e){
+  let tf = v => [v[0], v[2], v[1]];
+  if (e.op === 0xC4){
+    const deg = e.f6.slice(3).map(a => a * 360 / 65536), pos = e.f6.slice(0, 3);   // pos = (x, up, fwd); angles = heading, pitch, roll
+    tf = v => { const r = rotateDeg([v[0], v[2], v[1]], deg[0], deg[1], deg[2]); return [pos[0] + r[0], pos[1] + r[1], pos[2] + r[2]]; };
+  }
+  if (!e.parent) return tf;
+  const up = partTf(e.parent);
+  return v => { const d = tf(v); return up([d[0], d[2], d[1]]); };
+}
+
+
+// ===== files: ../SH, ../PIC on this site, else GitHub =====
+const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
+const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
+async function fetchAny(paths){
+  const urls = [];
+  for (const p of paths){ if (/^https?:$/.test(location.protocol)) urls.push(new URL("../" + p, location.href).href); }
+  for (const p of paths) urls.push(REMOTE + p);
+  for (const u of urls){ try { const r = await fetch(u); if (r.ok) return new Uint8Array(await r.arrayBuffer()); } catch(e){} }
+  return null;
+}
+function parsePIC(u8){
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const fmt = dv.getUint16(0, true), w = dv.getUint32(2, true), h = dv.getUint32(6, true), po = dv.getUint32(10, true);
+  const rowO = dv.getUint32(0x22, true), rowS = dv.getUint32(0x26, true);
+  if (fmt !== 0 || !w || !h || w > 4096 || h > 4096) return null;
+  const px = new Uint8Array(w * h), rows = rowS >= 4 * h && rowO + rowS <= u8.length;
+  for (let y = 0; y < h; y++){ const s = rows ? dv.getUint32(rowO + 4*y, true) : po + y*w; px.set(u8.subarray(s, s + w), (h - 1 - y)*w); }
+  return { w, h, px };
+}
+function palFromBytes(u8){
+  if (u8.length < 768) return null;
+  const p = u8.slice(0, 768); let mx = 0; for (const b of p) mx = Math.max(mx, b);
+  if (mx < 64) for (let i = 0; i < 768; i++) p[i] = p[i] << 2 | p[i] >> 4;
+  return p;
+}
+function shTexName(u8){
+  for (let i = 0; i < u8.length - 16; i++) if (u8[i] === 0xE2 && u8[i+1] === 0){ let s = ""; for (let k = 2; k < 16 && u8[i+k]; k++) s += String.fromCharCode(u8[i+k]); if (/^[\w-]+\.PIC$/i.test(s)) return s.toUpperCase(); }
+  return null;
+}
+
+// ===== SH names (main shapes in ../SH; wrecks _A.._D and shadows _S left out) =====
+const SH_NAMES = "A10 A1G A26IN A310 A340 A37 A4 A47 A6 A6B A7 A8 AA105 AA105B AA11B AA35 AA35B AA85 AA85B AAAM AAML AC130 ACRID ADV AEGIS AEMP AFO AH1 AIDC ALAMO ALPHA ALPHB ALZ AM39 AM9X AMOS AMRAM AMSKI AN12A AN74 APA APHID APL APLL APTB1 APTLA APTLB APTLC APTM APTOLD ARBK ARCHR AS12 AS30 ASA5 AST ASTE ASTF ASTV ATF ATL ATOLL AUR AV8 AV8TNT AWACS B1 B2 B52 B5G B70 B707 B747 BAHA BARA BARG BARKSA BARKSB BASE BAST BELK BLD1 BLD2 BLD3 BLI BMP2 BNK1 BNK2 BNK3 BNK4 BNK5 BNK6 BNK7 BNK8 BNK9 BOR BR1END BR1MID BR2END BR2MID BR3END BR3MID BRD1 BRD2 BRD3 BRD4 BRDEND BRDMID BTR70 BUC BUD BULLET BUNKB BUSH1 BUSH2 BUSH3 BUSH4 C130 C17 C1G C5 C6 CAMEL CAPTL CARGO CAST CATGUY CB87 CB89 CDEG CGRP1 CGRP2 CGRP3 CH47 CHAFF CHAP CHIN CIM CITY1 CITY2 CITY3 CITY4 CITYCE CLEM CLEMT CLOUD1 CLOUDS CMHQ1 CMHQ2 COB COLTWR COMM1 COMM2 CONT1 CONT2 CONT3 CRANE CRATE CRATER CRATS1 CRATS2 CRATS3 CROPA CROPB CTOWR CTWR1 CTWR2 CTYBKA CTYBKB CTYBKC CTYBKD CTYBKE CTYBKF CTYBKG CYC DA1 DA2 DARE DARK DBK5 DBK6 DBK8 DD1 DD2 DE1 DE2 DE2E DEBRIS DEM DEST DKHOS1 DKHOS2 DOCK1 DRAK DTSTRP DURAN E111 E20 E2C EIFFEL EJECT ESSE EXO EXP F1000 F104 F105 F10A F10D F10G F111 F117 F14 F15 F15E F15I F15J F16 F16E F16F F18 F18C F18E F18F F18G F18T F18U F22 F22N F250 F26 F29 F2H F31 F31E F31F F31V F31W F35A F4 F4B F4D F4E F4G F4J F4X F500 F51 F5E F5EE F5EV F8 F84 F86 F89 F9F5 FACT1 FACTD FBC FCTYA FCTYB FGO1 FGO2 FGR1 FGR2 FGY1 FGY2 FIR FIRE FISH FLARE FSX FUEL GAD GAIN GASK GAUNT GAZ GAZE GAZV GB27 GB28 GECKO GOA GOBLET GOPH GRAIL GREM GRI GROVA GROVB GROVC GROVD GROVPA GROVPB GROVPC GUIDE HANGAR HANGR HANGRB HARM HARPN HAV HAWK HAWKS HERM HGRP1 HGRP2 HGRP3 HILT HIND HINE HIP HND_TL HOKUM HOKUT HOOCH HORMNE HOUS HOUSB HQ2J HQ61 HUMVEE I18 IL28B IL76 IL96 IND1 IND2 INVN IOWA J7E J7FBD J8F JAG JGR JH7 JSTRS JSTRT JUNK JXP K27PL K27PM KC135 KEDGE KERRY KFIR KIEV KIKBK KIN KING KIROV KITT KITTT KLINOK KNX KRIV KRIVAK KUZN LCAC LCU1 LI2 LPD LYN M1 M113 M117 M15 M17 M19 M1975 M2 M20 M20E M21F M21J M2C M2D M3 M3V M53 M55 MAVRK MEATB MERC MERCH1 MF1 MFB MFD MFG MI27M MICA MICRO MICROM MIF1 MIG21 MIG23 MIG25 MIG27 MIG29 MIG2F MIG2M MIG2V MIG31 MIG32 MIS MISTRK MK20 MK81 MK82 MK82A MK83 MK84 MM72 MN1 MOON MOOSEA MOOSEB MOSKV MOTH MOTHB MPD MR3 MR3E MR4 MR5 MRG MTCAMO MTF2 MTO MULEA MULEB MULEC NIKES NIMZ NIMZT NRD NRT_T1 NUCCT NUCOB NUCRD OLEK OLEKMA OSCAR P3C PAKFA PAVE PHENX PL10 PL7 PL8 PLMGA PLMGB PLMGC PLTDWN PMIS PMORN PRDR1 PRDR2 PSTR Q5 QUE R44 RA5C RAF RAFE RAFF RAFG RAFH RAH RBK2 RBK5 RBOAT REA REACTB REACTR REB REC REDCR REDOM RELAY RES1 RES2 RF1 RIG1 RIG2 RLD RLDM RNWY1 RNWY2 RNWY3 RNWY3A RNWY4 RNWY5 RNWY5A RNWY6 RNWY6A RNWY7 RNWY7A ROAD ROAD2 ROAD4 ROADC ROCK ROCKA ROCKB ROCKBA ROCKBB ROCKBC ROCKBD ROCKBE ROCKC ROCKD ROCKE ROCKET RPA RPB RPC RUNNER RUNWAY S17 S2TRK S37 S3VIK S71 SA13 SA14 SA15 SA19 SA2 SA3 SA3M SA3SIT SA5 SA6 SA6LTR SA6M SA6SFR SA7 SA9 SACR SACRAM SAN11 SARAN SCD SCDM SCDN SEAH SEAHR SEAI SEAJ SESHDW SFR SFRV SGRP1 SGRP2 SH3 SH60 SHELT SIDE SIDEB SIDEM SIDEP SILO SL100 SLAM SLUM01 SLUM02 SMOKE SNAKE SOLDIER SOVR SPAR SPARW SPD SPE SRDR1 SRDR2 STARS STGR STORE SU15 SU24 SU25 SU27 SU27C SU27F SU27G SU27J SU27V SU2D SU2G SU30K SU34 SU35 SU35B SU35C SU35G SU37 SU7 SUN SUPPLY SWATR SWNGR T50 T69 T72 T80 T90 TANKER TENT1 TICON TIG TKY_TW TOR TOWER TRACER TREEA TREEB TREEC TREED TROOPS TRUCK TRUCKB TSR TU16 TU160 TU22 TU26 TU95 TWNBKA TWNBKB TWNBKC TWNBKD TWNBKE TWNBKF U2DR UH1 UH60 V22 V23 VIG VOM WASP WASPT WAVE1 WAVE2 WNDMLL WTRBUF XCLEM XKITT XNIMZ XWASP Y141 YA38 ZIF31 ZSU23 ZSU30 ZSU57".trim().split(/\s+/);
+const SHIPS = new Set("NIMZ NIMZT XNIMZ KUZN KIEV KIROV IOWA AEGIS TICON MOSKV KRIV KRIVAK OSCAR LPD LCU1 LCAC SOVR DD1 DD2 DE1 DE2 DE2E KITT KITTT XKITT KNX OLEK OLEKMA WASP WASPT XWASP RBOAT MERC MERCH1 TANKER CARGO JUNK SACR SACRAM SPE SPD SWATR BELK".split(" "));
+const F18S = ["F18", "F18C", "F18E", "F18F", "F18G", "F18T", "F18U"];
+
+// ===== small vector / quaternion maths (world: x east, y north, z up, feet) =====
+const vadd = (a, b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]], vsub = (a, b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]], vmul = (a, s) => [a[0]*s, a[1]*s, a[2]*s];
+const vdot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2], vcross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+const vlen = a => Math.hypot(a[0], a[1], a[2]), vnorm = a => { const l = vlen(a) || 1; return [a[0]/l, a[1]/l, a[2]/l]; };
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const qAxis = (ax, a) => { const s = Math.sin(a/2); return [ax[0]*s, ax[1]*s, ax[2]*s, Math.cos(a/2)]; };
+const qMul = (a, b) => [a[3]*b[0] + a[0]*b[3] + a[1]*b[2] - a[2]*b[1], a[3]*b[1] - a[0]*b[2] + a[1]*b[3] + a[2]*b[0], a[3]*b[2] + a[0]*b[1] - a[1]*b[0] + a[2]*b[3], a[3]*b[3] - a[0]*b[0] - a[1]*b[1] - a[2]*b[2]];
+const qNorm = q => { const l = Math.hypot(...q) || 1; return q.map(x => x / l); };
+function qRot(q, v){ const u = [q[0], q[1], q[2]], t = vmul(vcross(u, v), 2); return vadd(vadd(v, vmul(t, q[3])), vcross(u, t)); }
+function qSlerp(a, b, t){ let d = a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + a[3]*b[3]; if (d < 0){ b = b.map(x => -x); d = -d; }
+  if (d > 0.9995) return qNorm(a.map((x, i) => x + (b[i] - x) * t));
+  const th = Math.acos(d), s = Math.sin(th), wa = Math.sin((1-t)*th) / s, wb = Math.sin(t*th) / s; return a.map((x, i) => x*wa + b[i]*wb); }
+const qFromHP = (hdg, pitch) => qMul(qAxis([0,0,1], hdg), qAxis([1,0,0], pitch));   // heading: + = turn left (counter-clockwise from north)
+function mul4(a, b){ const o = new Float32Array(16); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++){ let s = 0; for (let k = 0; k < 4; k++) s += a[k*4+j] * b[i*4+k]; o[i*4+j] = s; } return o; }
+function modelMat(q, p, s = 1){ const x = qRot(q, [s,0,0]), y = qRot(q, [0,s,0]), z = qRot(q, [0,0,s]); return new Float32Array([...x, 0, ...y, 0, ...z, 0, ...p, 1]); }
+
+// ===== terrain: an island with hills and mountains, a flat airfield at the origin and open sea to the east =====
+const T_N = 200, T_EXT = 90000, T_CELL = 2 * T_EXT / T_N;
+function hash(x, y){ let h = Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+function vnoise(x, y){ const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, sx = fx*fx*(3-2*fx), sy = fy*fy*(3-2*fy);
+  const a = hash(xi, yi), b = hash(xi+1, yi), c = hash(xi, yi+1), d = hash(xi+1, yi+1); return a + (b-a)*sx + (c-a)*sy + (a-b-c+d)*sx*sy; }
+function fbm(x, y, o){ let s = 0, a = 0.5, f = 1; for (let i = 0; i < o; i++){ s += a * vnoise(x*f, y*f); a *= 0.5; f *= 2.03; } return s; }
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t*t*(3 - 2*t); };
+const AIR_Z = 40, AIRFIELD = { x0: -6000, x1: 5000, y0: -4500, y1: 7500 };
+function rawHeight(x, y){
+  const cx = x + 12000, cy = y - 4000, r = Math.hypot(cx * 0.8, cy) + (fbm(x/14000 + 7, y/14000 + 3, 3) - 0.5) * 26000;
+  const land = (1 - smooth(38000, 52000, r)) * (1 - smooth(22000, 32000, x));   // coast; open sea east of x = 32000 ft (carrier group)                                     // island coast
+  const hills = fbm(x/9000, y/9000, 5), ridge = 1 - Math.abs(fbm(x/22000 + 11, y/22000 - 5, 4) * 2 - 1);
+  const dAir = Math.max(AIRFIELD.x0 - x, x - AIRFIELD.x1, AIRFIELD.y0 - y, y - AIRFIELD.y1, 0);
+  const mount = smooth(4000, 26000, dAir) * land;
+  let h = land * (180 + hills * 900) + mount * ridge * ridge * 7500 - (1 - land) * 900;
+  const flat = 1 - smooth(0, 3500, dAir);                                        // airfield: flat, a little below the runway shape
+  return h * (1 - flat) + (AIR_Z - 12) * flat;
+}
+let TH = null;   // height samples on the grid
+function terrainH(x, y){
+  const gx = (x + T_EXT) / T_CELL, gy = (y + T_EXT) / T_CELL;
+  if (gx < 0 || gy < 0 || gx >= T_N || gy >= T_N) return -900;
+  const i = Math.floor(gx), j = Math.floor(gy), fx = gx - i, fy = gy - j, H = (a, b) => TH[b * (T_N+1) + a];
+  // same triangles as the mesh: split along the diagonal (i,j)-(i+1,j+1)
+  return fx > fy ? H(i,j) + (H(i+1,j) - H(i,j)) * fx + (H(i+1,j+1) - H(i+1,j)) * fy : H(i,j) + (H(i,j+1) - H(i,j)) * fy + (H(i+1,j+1) - H(i,j+1)) * fx;
+}
+function buildTerrain(){
+  const n = T_N + 1; TH = new Float32Array(n * n);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) TH[j*n + i] = rawHeight(-T_EXT + i*T_CELL, -T_EXT + j*T_CELL);
+  const data = new Float32Array(n * n * 9);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++){
+    const h = TH[j*n+i], hl = TH[j*n + Math.max(0, i-1)], hr = TH[j*n + Math.min(n-1, i+1)], hd = TH[Math.max(0, j-1)*n + i], hu = TH[Math.min(n-1, j+1)*n + i];
+    const nr = vnorm([(hl - hr) / (2*T_CELL), (hd - hu) / (2*T_CELL), 1]), x = -T_EXT + i*T_CELL, y = -T_EXT + j*T_CELL;
+    const v = hash(i*7 + 3, j*13 + 1) * 0.08, slope = 1 - nr[2];
+    const dAir = Math.max(AIRFIELD.x0 - x, x - AIRFIELD.x1, AIRFIELD.y0 - y, y - AIRFIELD.y1, 0);
+    let c;
+    if (h < 25 && dAir >= 2500) c = [0.76, 0.70, 0.52];                                               // beach
+    else if (h < 2600) c = [0.30 + v, 0.46 + v + (h / 2600) * -0.08, 0.22];          // grass and forest
+    else if (h < 5200) c = [0.45 + v, 0.42 + v, 0.36];                                // rock
+    else c = [0.93, 0.94, 0.96];                                                      // snow
+    if (slope > 0.25 && h > 25) c = c.map((k, q) => k * 0.6 + [0.42, 0.38, 0.33][q] * 0.4);
+    if (dAir < 2500) c = [0.42, 0.52, 0.30];
+    data.set([x, y, h, ...c, ...nr], (j*n + i) * 9);
+  }
+  const idx = new Uint16Array(T_N * T_N * 6); let k = 0;
+  for (let j = 0; j < T_N; j++) for (let i = 0; i < T_N; i++){ const a = j*n + i, b = a + 1, c = a + n, d = c + 1; idx.set([a, b, d, a, d, c], k); k += 6; }
+  return { data, idx, count: idx.length };
+}
+
+// ===== WebGL =====
+const cv = $("cv"), gl = cv.getContext("webgl", { antialias: true, alpha: false });
+const SKY = [0.55, 0.70, 0.86], SUN = vnorm([0.4, -0.5, 0.75]);
+const MVS = `attribute vec3 aP; attribute vec2 aUV; attribute vec3 aN; attribute vec2 aC;
+uniform mat4 uPV, uM; uniform vec3 uSun; varying vec2 vUV; varying vec2 vC; varying float vL; varying float vD;
+void main(){ vec4 w = uM * vec4(aP, 1.0); vUV = aUV; vC = aC; vec3 n = normalize(mat3(uM) * aN); vL = abs(dot(n, uSun)); vD = length(w.xyz); gl_Position = uPV * w; }`;
+const MFS = `precision mediump float; varying vec2 vUV; varying vec2 vC; varying float vL; varying float vD;
+uniform sampler2D uPic, uPal; uniform vec2 uSize; uniform float uTex, uShadow; uniform vec3 uFogC; uniform vec2 uFog; uniform vec4 uTint;
+void main(){
+  if (uShadow > 0.5){ gl_FragColor = vec4(0.0, 0.0, 0.0, 0.35 * (1.0 - smoothstep(uFog.x, uFog.y, vD))); return; }
+  float idx = vC.x;
+  if (vC.y > 0.5 && uTex > 0.5){ float t = floor(texture2D(uPic, (floor(vUV) + 0.5) / uSize).r * 255.0 + 0.5); if (t > 254.5){ if (vC.x < 0.5) discard; } else idx = t; }
+  vec3 c = texture2D(uPal, vec2((idx + 0.5) / 256.0, 0.5)).rgb * (0.55 + 0.6 * vL);
+  c = mix(c, uTint.rgb, uTint.a);
+  gl_FragColor = vec4(mix(c, uFogC, smoothstep(uFog.x, uFog.y, vD)), 1.0);
+}`;
+const TVS = `attribute vec3 aP; attribute vec3 aCol; attribute vec3 aN; uniform mat4 uPV; uniform vec3 uOff, uSun; varying vec3 vCol; varying vec3 vW;
+void main(){ vec3 w = aP + uOff; vW = w; vCol = aCol * (0.45 + 0.65 * max(dot(aN, uSun), 0.0)); gl_Position = uPV * vec4(w, 1.0); }`;
+const TFS = `precision highp float; varying vec3 vCol; varying vec3 vW; uniform vec3 uFogC; uniform vec2 uFog;
+void main(){ gl_FragColor = vec4(mix(vCol, uFogC, smoothstep(uFog.x, uFog.y, length(vW))), 1.0); }`;
+function mkProg(vs, fs){
+  const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+  const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+  const u = {}, a = {}; p.U = n => u[n] ??= gl.getUniformLocation(p, n); p.A = n => a[n] ??= gl.getAttribLocation(p, n); return p;
+}
+const mProg = mkProg(MVS, MFS), tProg = mkProg(TVS, TFS);
+function mkTex(w, h, fmt, data){ const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, fmt, w, h, 0, fmt, gl.UNSIGNED_BYTE, data);
+  for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); return t; }
+const blankTex = mkTex(1, 1, gl.LUMINANCE, new Uint8Array([0]));
+let palTex = null;
+
+// ===== SH models: parse once, build a mesh per configuration (gear, afterburner, speed brake) =====
+const shapes = {};   // name -> { m, pic, picTex, meshes: {key: mesh} }
+async function loadShape(name){
+  if (shapes[name]) return shapes[name];
+  const u8 = await fetchAny(["SH/" + name + ".SH"]); if (!u8) throw new Error(L("Cannot download ", "無法下載 ") + name + ".SH");
+  const m = parseSH(u8); if (!m) throw new Error(L("Cannot read ", "無法解析 ") + name + ".SH");
+  const pn = shTexName(u8) || "_" + name + ".PIC";
+  let pic = null; const pu8 = await fetchAny(["PIC/" + pn, "PIC/" + pn.toLowerCase()]); if (pu8) try { pic = parsePIC(pu8); } catch(e){}
+  const s = { name, m, pic, picTex: pic ? mkTex(pic.w, pic.h, gl.LUMINANCE, pic.px) : blankTex, meshes: {} };
+  s.isPlane = !!(m.imp && (m.imp._PLgearDown || m.imp._PLafterBurner || m.imp._PLleftFlap)) || /^(F\d|A\d|B\d|C\d|E\d|J\d|KC|MIG|SU\d|TU\d|IL\d|AN\d|AV8|AH1|UH|CH4|V22|P3C|S3|E2C|AWACS|RAF|MIR|M2|F1|JAG|TOR|HAWK|HIND|HIP|HOKU|KA|MI2)/.test(name) && !SHIPS.has(name);
+  s.isShip = SHIPS.has(name);
+  shapes[name] = s; return s;
+}
+function ctlVars(m, st){ const vars = {}, nm = Object.fromEntries(Object.entries(m.imp || {}).map(([n, a]) => [a, n]));
+  const on = { _PLgearDown: st.gear ? 1 : 0, _PLgearPos: st.gear ? 0 : 32767, _PLleftFlap: st.flaps ? -1 : 0, _PLrightFlap: st.flaps ? -1 : 0, _PLhook: 0, _PLbrake: st.brake ? 1 : 0, _PLafterBurner: st.ab ? 1 : 0 };
+  for (const x of m.ctl.vars) vars[x.v] = nm[x.v] ? (on[nm[x.v]] ?? 0) : x.vals.length ? x.vals[0] : 0;
+  return vars; }
+function getMesh(s, st = {}){
+  const key = `${+!!st.gear}${+!!st.ab}${+!!st.brake}${+!!st.flaps}`;
+  if (s.meshes[key]) return s.meshes[key];
+  const m = s.m, k = m.scale, polys = [];
+  const add = (idx, tf) => polys.push({ pts: idx.map(i => vmul(tf(m.v[i]), k)), uv: idx.uv, col: idx.col });
+  for (const idx of m.f) add(idx, v => v);
+  try { const drawn = new Set();
+    for (const e of evalCtl(m, ctlVars(m, st))){ if (drawn.has(e.part)) continue; drawn.add(e.part);
+      const tf = partTf(e); for (const idx of m.subs[e.part].f) add(idx, v => { const g = tf(v); return [g[0], g[2], g[1]]; }); }
+  } catch(e){ console.warn(s.name, e); }
+  const data = [], faces = []; let lo = [1e9,1e9,1e9], hi = [-1e9,-1e9,-1e9];
+  const flat = [];   // near-horizontal faces facing up: surfaces you can stand on (runway, deck, roofs)
+  for (const f of polys){
+    const p = f.pts; let n = [0, 0, 0];
+    for (let q = 0; q < p.length; q++){ const a = p[q], b = p[(q+1) % p.length]; n = vadd(n, [(a[1]-b[1])*(a[2]+b[2]), (a[2]-b[2])*(a[0]+b[0]), (a[0]-b[0])*(a[1]+b[1])]); }
+    n = vnorm(n);
+    for (const q of p) for (let c = 0; c < 3; c++){ lo[c] = Math.min(lo[c], q[c]); hi[c] = Math.max(hi[c], q[c]); }
+    if (Math.abs(n[2]) > 0.97) flat.push({ pts: p.map(q => [q[0], q[1]]), z: p.reduce((a, q) => a + q[2], 0) / p.length });
+    const first = data.length / 10;
+    for (let t = 1; t < p.length - 1; t++) for (const j of [0, t, t+1]){ const q = p[j], uv = f.uv ? f.uv[j] : [0, 0]; data.push(q[0], q[1], q[2], uv[0], uv[1], n[0], n[1], n[2], f.col, f.uv ? 1 : 0); }
+    faces.push(first, data.length / 10 - first);
+  }
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+  const mesh = { buf, faces, n: data.length / 10, lo, hi, flat, radius: Math.max(20, Math.hypot(hi[0]-lo[0], hi[1]-lo[1], hi[2]-lo[2]) / 2) };
+  s.meshes[key] = mesh; return mesh;
+}
+
+// ===== world objects =====
+const world = { objs: [], platforms: [] };   // obj: { s, mesh, pos, q, hdg }
+const CARRIER = { x: 42000, y: 9000, hdg: 0 };
+const RUNWAY_SPAWN = { x: -884, y: -2050, hdg: 0 };
+async function addObj(name, x, y, z, hdg, st, platform){
+  try {
+    const s = await loadShape(name), mesh = getMesh(s, st || { gear: true }), q = qAxis([0,0,1], hdg);
+    const o = { s, mesh, pos: [x, y, z], q, hdg }; world.objs.push(o);
+    if (platform){ const c = Math.cos(hdg), sn = Math.sin(hdg);
+      for (const f of mesh.flat) world.platforms.push({ pts: f.pts.map(([a, b]) => [x + a*c - b*sn, y + a*sn + b*c]), z: z + f.z, kind: platform }); }
+    return o;
+  } catch(e){ console.warn(e); return null; }
+}
+function inPoly(px, py, pts){ let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++){ const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) c = !c; } return c; }
+// highest surface under (x, y): terrain, sea level, or a runway / deck / roof face
+function groundAt(x, y){
+  let h = terrainH(x, y), kind = "terrain";
+  if (h < 0){ h = 0; kind = "water"; }
+  for (const p of world.platforms) if (p.z > h - 30 && inPoly(x, y, p.pts)){ if (p.z > h || kind !== "runway" && kind !== "deck"){ h = Math.max(h, p.z); kind = p.kind; } }
+  return { h, kind };
+}
+
+// ===== player =====
+const P = { s: null, mode: "fly", pos: [0,0,0], q: [0,0,0,1], speed: 0, sink: 0, thr: 0, gear: true, brake: false, onGround: true, hdg: 0, pitch: 0, crashed: false, cat: 0 };
+const cam = { q: [0,0,0,1], yaw: 0, pitch: 0, zoom: 1, lastTouch: 0, mode: 0 };
+const input = { pitch: 0, roll: 0, yaw: 0, thrRate: 0 };
+const FT_KT = 1 / 1.68781, G = 32.17;
+const AC = { vStall: 215, vRot: 235, mil: 24, ab: 42, drag: 1.7e-5 };
+
+function playerMode(){ const sel = $("selMode").value; if (sel !== "auto") return sel; return P.s.isPlane ? "fly" : P.s.isShip ? "sail" : "drive"; }
+function spawn(){
+  const mode = playerMode(); P.mode = mode; P.crashed = false; P.sink = 0; P.cat = 0; P.brake = false;
+  cam.yaw = 0; cam.pitch = 0;
+  let where = $("selSpawn").value;
+  if (mode === "sail") where = "sea"; else if (where === "sea") where = mode === "fly" ? "air" : "runway";
+  if (where === "carrier" && mode === "drive") where = "carrier";
+  P.gear = true; P.thr = 0; P.speed = 0; P.onGround = true;
+  if (where === "runway"){ P.pos = [RUNWAY_SPAWN.x, RUNWAY_SPAWN.y, 0]; P.hdg = 0; }
+  else if (where === "carrier"){ P.pos = [CARRIER.x + 136, CARRIER.y - 120, 0]; P.hdg = CARRIER.hdg; }
+  else if (where === "air"){ P.pos = [RUNWAY_SPAWN.x, RUNWAY_SPAWN.y - 14000, 0]; P.pos[2] = Math.max(2500, groundAt(P.pos[0], P.pos[1]).h + 2000); P.hdg = 0; P.onGround = false; P.gear = false; P.thr = 0.7; P.speed = 520; }
+  else { P.pos = [CARRIER.x - 3000, CARRIER.y - 6000, 0]; P.hdg = 0; }
+  P.pitch = 0; P.q = qFromHP(P.hdg, 0);
+  if (P.onGround){ const g = groundAt(P.pos[0], P.pos[1]); P.pos[2] = g.h + (mode === "fly" ? gearH() : 0); }
+  cam.q = P.q.slice();
+  $("msg").textContent = ""; updButtons();
+  sub(mode === "fly" ? (where === "air" ? L("Flying. Lower the gear to land on the runway or the carrier.", "飛行中。放下起落架就能降落在跑道或航艦上。")
+      : where === "carrier" ? L("Push the throttle to full: the catapult launches you. Pull up off the bow.", "油門推到底：彈射器會把你彈出去，到艦首時拉起。")
+      : L("Push the right stick up to full throttle, pull back on the left stick at about 140 kt.", "右搖桿往上推到全油門，大約 140 節時把左搖桿往後拉。"))
+    : mode === "sail" ? L("Right stick: throttle. Left stick: steer.", "右搖桿：油門。左搖桿：轉向。") : L("Right stick: throttle (down = reverse). Left stick: steer.", "右搖桿：油門（往下 = 倒車）。左搖桿：轉向。"));
+}
+let subT = null; function sub(t){ $("sub").textContent = t; clearTimeout(subT); subT = setTimeout(() => $("sub").textContent = "", 9000); }
+function curMesh(){ return getMesh(P.s, { gear: P.mode === "fly" ? P.gear : true, ab: P.mode === "fly" && P.thr > 0.9, brake: P.mode === "fly" && P.brake && !P.onGround, flaps: P.mode === "fly" && P.gear }); }
+function gearH(){ return Math.max(0, -getMesh(P.s, { gear: P.gear, flaps: P.gear }).lo[2]); }
+function crash(why){ P.crashed = true; P.speed = 0; P.boom = performance.now(); $("msg").textContent = why + "\n" + L("Tap Restart", "按「重來」"); }
+
+function stepFly(dt){
+  const fwd = qRot(P.q, [0,1,0]), right = qRot(P.q, [1,0,0]);
+  const ab = P.thr > 0.9, thrust = (P.thr / 0.9 > 1 ? AC.mil + (AC.ab - AC.mil) * (P.thr - 0.9) / 0.1 : AC.mil * P.thr / 0.9) * (ab ? 1 : 1);
+  const drag = AC.drag + (P.gear ? 1.0e-5 : 0) + (P.brake ? 2.2e-5 : 0);
+  if (P.onGround){
+    const g = groundAt(P.pos[0], P.pos[1]);
+    let acc = thrust - drag * P.speed * P.speed - 1.2 - (P.brake ? 18 : 0) * Math.sign(P.speed);
+    if (g.kind === "deck" && P.thr > 0.95 && P.speed < 260 && P.cat < 3){ acc += 70; P.cat += dt; }
+    P.speed = Math.max(0, P.speed + acc * dt);
+    const steer = clamp(input.yaw + input.roll * 0.6, -1, 1);
+    P.hdg -= steer * 0.7 * Math.min(1, P.speed / 40) * dt * (P.speed > 200 ? 0.4 : 1);
+    if (P.speed > AC.vRot * 0.92) P.pitch = clamp(P.pitch + input.pitch * 0.45 * dt, 0, 0.28); else P.pitch = Math.max(0, P.pitch - 0.3 * dt);
+    const f = [-Math.sin(P.hdg), Math.cos(P.hdg), 0];
+    P.pos = vadd(P.pos, vmul(f, P.speed * dt));
+    const g2 = groundAt(P.pos[0], P.pos[1]);
+    P.q = qFromHP(P.hdg, P.pitch);
+    if (g2.kind === "water" || g2.h < g.h - 25){   // rolled off the deck or the shore
+      if (P.speed > AC.vStall * 0.85){ P.onGround = false; P.sink = 0; return; }
+      if (g2.kind === "water"){ crash(L("Into the water!", "掉進海裡了！")); return; }
+    }
+    if (g2.h > g.h + 25){ crash(L("Hit an obstacle!", "撞到障礙物！")); return; }
+    P.pos[2] = g2.h + gearH();
+    if (P.speed > AC.vStall && P.pitch > 0.05){ P.onGround = false; P.sink = 0; P.pos[2] += 1; }
+    return;
+  }
+  // in the air
+  const a = clamp((P.speed - 60) / (AC.vStall - 60), 0, 1), lift = Math.min(1, (P.speed / AC.vStall) ** 2);
+  const pr = input.pitch * (0.9 + 0.5 * a) * a, rr = input.roll * 3.0 * Math.max(0.25, a), yr = input.yaw * 0.45 * a;
+  P.q = qNorm(qMul(P.q, qMul(qAxis([1,0,0], pr * dt), qMul(qAxis([0,1,0], rr * dt), qAxis([0,0,1], -yr * dt)))));
+  // bank turns the nose a little on its own (arcade feel); stalled = the nose drops
+  const turn = right[2] * G / Math.max(P.speed, 150) * 0.85 * lift;
+  P.q = qNorm(qMul(qAxis([0,0,1], turn * dt), P.q));
+  if (lift < 1 && fwd[2] > -0.8){ const axis = vnorm(vcross(fwd, [0,0,-1])); if (vlen(vcross(fwd, [0,0,-1])) > 0.05) P.q = qNorm(qMul(qAxis(axis, (1 - lift) * 0.9 * dt), P.q)); }
+  const acc = thrust - drag * P.speed * P.speed - G * fwd[2] - 9 * Math.abs(input.pitch) * a;
+  P.speed = Math.max(0, P.speed + acc * dt);
+  P.sink += (G * (1 - lift) - P.sink * 1.5 * lift) * dt; P.sink = clamp(P.sink, 0, 400);
+  const vel = vadd(vmul(qRot(P.q, [0,1,0]), P.speed), [0, 0, -P.sink]);
+  P.vz = vel[2];
+  P.pos = vadd(P.pos, vmul(vel, dt));
+  // ground contact
+  const g = groundAt(P.pos[0], P.pos[1]), hh = P.gear ? gearH() : Math.max(0, -getMesh(P.s, {}).lo[2]);
+  if (P.pos[2] - hh <= g.h){
+    const f = qRot(P.q, [0,1,0]), r = qRot(P.q, [1,0,0]), pitch = Math.asin(clamp(f[2], -1, 1)), roll = Math.asin(clamp(-r[2], -1, 1));
+    const flatOk = g.kind === "runway" || g.kind === "deck" || g.kind === "terrain" && Math.abs(terrainH(P.pos[0] + 60, P.pos[1]) - terrainH(P.pos[0] - 60, P.pos[1])) < 15 && Math.abs(terrainH(P.pos[0], P.pos[1] + 60) - terrainH(P.pos[0], P.pos[1] - 60)) < 15;
+    const deep = g.h - (P.pos[2] - hh);
+    if (g.kind === "water") crash(L("Splash! You hit the sea.", "撲通！掉進海裡了。"));
+    else if (!P.gear) crash(L("Crashed: the gear was up.", "墜毀：起落架沒放下。"));
+    else if (deep > 40) crash(L("Crashed into the side!", "撞上側面了！"));
+    else if (vel[2] < -32 || Math.abs(roll) > 0.4 || pitch < -0.12 || pitch > 0.4 || !flatOk) crash(vel[2] < -32 ? L("Crashed: touched down too hard.", "墜毀：落地太重。") : L("Crashed!", "墜毀！"));
+    else { P.onGround = true; P.hdg = Math.atan2(-f[0], f[1]); P.pitch = Math.max(0, pitch); P.speed = Math.hypot(vel[0], vel[1]); P.pos[2] = g.h + hh; P.sink = 0;
+      sub(L(`Touchdown at ${Math.round(-vel[2] * 60)} ft/min. Brake to stop.`, `落地，下降率 ${Math.round(-vel[2] * 60)} 呎/分。按煞車停下。`)); }
+  }
+}
+function stepDrive(dt){
+  const ship = P.mode === "sail", maxV = ship ? 55 : 90, len = Math.max(30, (curMesh().hi[1] - curMesh().lo[1]) / 2);
+  const target = clamp(P.thr, ship ? 0 : -0.3, 1) * maxV;
+  P.speed += clamp(target - P.speed, -(P.brake ? 30 : 12) * dt, (ship ? 4 : 14) * dt);
+  if (P.brake) P.speed *= Math.max(0, 1 - 2 * dt);
+  const steer = clamp(input.roll + input.yaw, -1, 1);
+  P.hdg -= steer * (ship ? 0.12 : 0.6) * clamp(Math.abs(P.speed) / 15, 0, 1) * Math.sign(P.speed || 1) * dt;
+  const f = [-Math.sin(P.hdg), Math.cos(P.hdg), 0], np = vadd(P.pos, vmul(f, P.speed * dt)), g = groundAt(np[0], np[1]);
+  const blocked = ship ? g.kind !== "water" || terrainH(np[0] + f[0]*len, np[1] + f[1]*len) > -12 : g.kind === "water" || g.h > P.pos[2] + 40;
+  if (blocked){ P.speed = 0; return; }
+  P.pos = np;
+  if (ship){ P.pos[2] = 0; P.q = qFromHP(P.hdg, 0); return; }
+  P.pos[2] = g.h;
+  const hf = groundAt(P.pos[0] + f[0]*len, P.pos[1] + f[1]*len).h, hb = groundAt(P.pos[0] - f[0]*len, P.pos[1] - f[1]*len).h;
+  P.q = qFromHP(P.hdg, Math.atan2(hf - hb, 2*len));
+}
+function step(dt){
+  P.thr = clamp(P.thr + input.thrRate * dt * 0.7, P.mode === "drive" ? -0.3 : 0, 1);
+  if (P.crashed) return;
+  if (P.mode === "fly") stepFly(dt); else stepDrive(dt);
+}
+
+// ===== camera =====
+function camera(dt){
+  const mesh = curMesh(), r = mesh.radius, idle = performance.now() - cam.lastTouch > 1800 && !touchCam.size;
+  if (idle && !cam.lock){ cam.yaw *= Math.exp(-dt * 2.5); cam.pitch *= Math.exp(-dt * 2.5); }
+  const tq = P.mode === "fly" ? P.q : qFromHP(P.hdg, 0);
+  cam.q = qNorm(qSlerp(cam.q, tq, 1 - Math.exp(-dt * (P.onGround ? 8 : 4))));
+  const asp = cv.width / Math.max(1, cv.height), far = [2.6, 5, 1.2][cam.mode] * cam.zoom * (asp < 1 ? 1 + (1 / asp - 1) * 0.55 : 1);   // portrait: step back so the wings fit
+  const off = qRot(qMul(qAxis([0,0,1], cam.yaw), qAxis([1,0,0], -cam.pitch)), vmul([0, -1, 0.22], r * far));
+  const center = vadd(P.pos, [0, 0, (mesh.hi[2] + mesh.lo[2]) / 2]);
+  let eye = vadd(center, qRot(cam.q, off));
+  const gh = groundAt(eye[0], eye[1]).h; if (eye[2] < gh + 8) eye[2] = gh + 8;
+  const look = Math.max(0, 1 - (Math.abs(cam.yaw) + Math.abs(cam.pitch)) * 1.5);
+  const target = vadd(center, qRot(cam.q, [0, r * 1.4 * look, r * 0.15]));
+  return { eye, target, up: P.mode === "fly" ? qRot(cam.q, [0,0,1]) : [0,0,1] };
+}
+
+// ===== drawing =====
+let terrain = null, tBuf, tIdx, waterBuf;
+function initTerrain(){
+  terrain = buildTerrain();
+  tBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, tBuf); gl.bufferData(gl.ARRAY_BUFFER, terrain.data, gl.STATIC_DRAW);
+  tIdx = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, tIdx); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, terrain.idx, gl.STATIC_DRAW);
+  const W = 600000, c = [0.16, 0.34, 0.52], n = [0,0,1], wd = [];
+  for (const [x, y] of [[-W,-W],[W,-W],[W,W],[-W,-W],[W,W],[-W,W]]) wd.push(x, y, -2, ...c, ...n);
+  waterBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, waterBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(wd), gl.STATIC_DRAW);
+}
+function perspective(fov, asp, near, far){ const f = 1 / Math.tan(fov / 2); return new Float32Array([f/asp,0,0,0, 0,f,0,0, 0,0,(far+near)/(near-far),-1, 0,0,2*far*near/(near-far),0]); }
+function lookAt0(dir, up){ const f = vnorm(dir), s = vnorm(vcross(f, up)), u = vcross(s, f); return new Float32Array([s[0],u[0],-f[0],0, s[1],u[1],-f[1],0, s[2],u[2],-f[2],0, 0,0,0,1]); }
+function resize(){ const d = Math.min(2, devicePixelRatio || 1), w = Math.round(cv.clientWidth * d), h = Math.round(cv.clientHeight * d); if (cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; } }
+const FOG = [30000, 85000];
+function bindModelAttrs(buf){ gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  for (const [n, sz, off] of [["aP",3,0],["aUV",2,12],["aN",3,20],["aC",2,32]]){ const l = mProg.A(n); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, 40, off); } }
+function drawModel(s, mesh, M, shadow){
+  gl.uniformMatrix4fv(mProg.U("uM"), false, M);
+  bindModelAttrs(mesh.buf);
+  if (shadow){ gl.uniform1f(mProg.U("uShadow"), 1); gl.disable(gl.POLYGON_OFFSET_FILL); gl.drawArrays(gl.TRIANGLES, 0, mesh.n); gl.uniform1f(mProg.U("uShadow"), 0); return; }
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, s.picTex);
+  gl.uniform2f(mProg.U("uSize"), s.pic ? s.pic.w : 1, s.pic ? s.pic.h : 1);
+  gl.uniform1f(mProg.U("uTex"), s.pic && $("tex").checked ? 1 : 0);
+  // FA paints faces in order and decals share the body plane: pull each later face slightly forward
+  gl.enable(gl.POLYGON_OFFSET_FILL);
+  const F = mesh.faces;
+  for (let i = 0, k = 0; i < F.length; i += 2, k++){ gl.polygonOffset(-k * 0.004, -k * 0.5); gl.drawArrays(gl.TRIANGLES, F[i], F[i+1]); }
+  gl.disable(gl.POLYGON_OFFSET_FILL);
+}
+function render(){
+  resize(); gl.viewport(0, 0, cv.width, cv.height);
+  gl.clearColor(...SKY, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  if (!P.s || !terrain) return;
+  const c = camera(lastDt), eye = c.eye, dist = vlen(vsub(c.target, eye));
+  const above = eye[2] - groundAt(eye[0], eye[1]).h;
+  const near = clamp(Math.min(dist * 0.15, above * 0.5), 2, 60), proj = perspective(cam.mode === 2 ? 1.2 : 1.0, cv.width / cv.height, near, 260000);
+  const PV = mul4(proj, lookAt0(vsub(c.target, eye), c.up));
+  gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
+  // terrain + sea
+  gl.useProgram(tProg);
+  gl.uniformMatrix4fv(tProg.U("uPV"), false, PV); gl.uniform3fv(tProg.U("uSun"), SUN); gl.uniform3fv(tProg.U("uFogC"), SKY); gl.uniform2fv(tProg.U("uFog"), FOG);
+  gl.uniform3fv(tProg.U("uOff"), vmul(eye, -1));
+  const tA = (buf) => { gl.bindBuffer(gl.ARRAY_BUFFER, buf); for (const [n, sz, off] of [["aP",3,0],["aCol",3,12],["aN",3,24]]){ const l = tProg.A(n); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, 36, off); } };
+  tA(waterBuf); gl.drawArrays(gl.TRIANGLES, 0, 6);
+  tA(tBuf); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, tIdx); gl.drawElements(gl.TRIANGLES, terrain.count, gl.UNSIGNED_SHORT, 0);
+  for (const n of ["aCol"]) gl.disableVertexAttribArray(tProg.A(n));
+  // models
+  gl.useProgram(mProg);
+  gl.uniformMatrix4fv(mProg.U("uPV"), false, PV); gl.uniform3fv(mProg.U("uSun"), SUN); gl.uniform3fv(mProg.U("uFogC"), SKY); gl.uniform2fv(mProg.U("uFog"), FOG);
+  gl.uniform4f(mProg.U("uTint"), 0, 0, 0, 0); gl.uniform1f(mProg.U("uShadow"), 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, palTex); gl.uniform1i(mProg.U("uPal"), 1); gl.uniform1i(mProg.U("uPic"), 0);
+  for (const o of world.objs){ if (vlen(vsub(o.pos, eye)) > FOG[1] + o.mesh.radius) continue; drawModel(o.s, o.mesh, modelMat(o.q, vsub(o.pos, eye)), false); }
+  const mesh = curMesh();
+  if (!P.crashed || performance.now() - P.boom < 120){
+    // shadow on the ground under the player
+    const g = groundAt(P.pos[0], P.pos[1]), hgt = P.pos[2] - g.h;
+    if (hgt < 3000 && P.mode !== "sail"){
+      const M = modelMat(P.q, vsub(P.pos, eye)); for (let i = 0; i < 3; i++) M[i*4+2] = 0; M[14] = g.h + 1.5 - eye[2];
+      gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+      drawModel(P.s, mesh, M, true); gl.depthMask(true); gl.disable(gl.BLEND);
+    }
+    drawModel(P.s, mesh, modelMat(P.q, vsub(P.pos, eye)), false);
+  } else {
+    // crashed: a fading fireball made of the model itself, tinted orange
+    const t = (performance.now() - P.boom) / 1000, k = 1 + t * 2;
+    if (t < 4){ gl.uniform4f(mProg.U("uTint"), 1, 0.45 + 0.3 * Math.sin(t * 20), 0.1, clamp(1 - t * 0.15, 0, 1)); drawModel(P.s, mesh, modelMat(qMul(P.q, qAxis([0,1,0], t * 3)), vsub(P.pos, eye), k), false); gl.uniform4f(mProg.U("uTint"), 0,0,0,0); }
+  }
+}
+
+// ===== HUD =====
+function hud(){
+  if (!P.s) return;
+  const g = groundAt(P.pos[0], P.pos[1]);
+  $("hSpd").textContent = Math.round(Math.abs(P.speed) * FT_KT);
+  $("hAlt").textContent = Math.round(P.pos[2]);
+  $("hHdg").textContent = String(Math.round(((-P.hdg * 180 / Math.PI) % 360 + 360) % 360)).padStart(3, "0");
+  if (P.mode === "fly" && !P.onGround){ const f = qRot(P.q, [0,1,0]); $("hHdg").textContent = String(Math.round(((Math.atan2(f[0], f[1]) * 180 / Math.PI) + 360) % 360)).padStart(3, "0"); }
+  const tb = $("thrBar"), t = Math.max(0, P.thr); tb.style.height = (t * 100) + "%"; tb.classList.toggle("ab", P.mode === "fly" && P.thr > 0.9);
+  if (P.mode === "fly" && !P.onGround && !P.crashed){
+    const agl = P.pos[2] - g.h, warn = P.speed < AC.vStall * 0.95 ? L("STALL", "失速") : agl < 400 && !P.gear && (P.vz || 0) < -20 ? L("PULL UP", "拉起") : "";
+    if ($("msg").textContent !== warn) $("msg").textContent = warn;
+  }
+}
+
+// ===== touch controls: two floating sticks + free camera =====
+const sticks = { L: { el: $("stL"), id: null, ox: 0, oy: 0, x: 0, y: 0 }, R: { el: $("stR"), id: null, ox: 0, oy: 0, x: 0, y: 0 } };
+const touchCam = new Map(); let pinch = null, lastTap = 0;
+function placeSticks(){
+  const w = innerWidth, h = innerHeight, m = Math.min(110, w * 0.2);
+  for (const [k, s] of Object.entries(sticks)) if (s.id === null){ s.ox = k === "L" ? m + 10 : w - m - 10 - 64; s.oy = h - m - 10; if (k === "R" && w < 500) s.ox = w - m - 10;
+    s.el.style.left = s.ox + "px"; s.el.style.top = s.oy + "px"; s.el.querySelector("i").style.transform = ""; s.el.style.opacity = 0.55; }
+}
+function zoneOf(x, y){ const w = innerWidth, h = innerHeight; if (y > h * 0.42){ if (x < w * 0.45) return "L"; if (x > w * 0.55) return "R"; } return null; }
+cv.addEventListener("pointerdown", e => {
+  e.preventDefault(); $("panel").classList.remove("open");
+  const z = e.pointerType === "mouse" ? null : zoneOf(e.clientX, e.clientY);
+  if (z && sticks[z].id === null){ const s = sticks[z]; s.id = e.pointerId; s.ox = e.clientX; s.oy = e.clientY; s.x = s.y = 0; s.el.style.left = s.ox + "px"; s.el.style.top = s.oy + "px"; s.el.style.opacity = 1; }
+  else {
+    touchCam.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touchCam.size === 1){ const now = performance.now(); if (now - lastTap < 300){ cam.yaw = cam.pitch = 0; cam.zoom = 1; } lastTap = now; }
+    if (touchCam.size === 2){ const [a, b] = [...touchCam.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: cam.zoom }; }
+  }
+  try { cv.setPointerCapture(e.pointerId); } catch(err){}
+});
+cv.addEventListener("pointermove", e => {
+  for (const s of Object.values(sticks)) if (s.id === e.pointerId){ const R = 55; let dx = e.clientX - s.ox, dy = e.clientY - s.oy; const l = Math.hypot(dx, dy); if (l > R){ dx *= R / l; dy *= R / l; }
+    s.x = dx / R; s.y = dy / R; s.el.querySelector("i").style.transform = `translate(${dx}px,${dy}px)`; return; }
+  const t = touchCam.get(e.pointerId); if (!t) return;
+  if (touchCam.size >= 2 && pinch){ t.x = e.clientX; t.y = e.clientY; const [a, b] = [...touchCam.values()]; cam.zoom = clamp(pinch.z * pinch.d / Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)), 0.35, 6); cam.lastTouch = performance.now(); return; }
+  cam.yaw -= (e.clientX - t.x) * 0.008; cam.pitch = clamp(cam.pitch + (e.clientY - t.y) * 0.006, -1.2, 1.4);
+  t.x = e.clientX; t.y = e.clientY; cam.lastTouch = performance.now();
+});
+const endPtr = e => {
+  for (const s of Object.values(sticks)) if (s.id === e.pointerId){ s.id = null; s.x = s.y = 0; placeSticks(); }
+  touchCam.delete(e.pointerId); if (touchCam.size < 2) pinch = null; cam.lastTouch = performance.now();
+};
+cv.addEventListener("pointerup", endPtr); cv.addEventListener("pointercancel", endPtr);
+cv.addEventListener("wheel", e => { e.preventDefault(); cam.zoom = clamp(cam.zoom * Math.exp(e.deltaY * 0.0012), 0.35, 6); }, { passive: false });
+addEventListener("resize", placeSticks);
+const keys = new Set();
+addEventListener("keydown", e => { if (e.target.tagName === "SELECT") return; keys.add(e.code);
+  if (e.code === "KeyG") toggleGear(); if (e.code === "KeyB") toggleBrake(); if (e.code === "KeyR") spawn(); if (e.code === "KeyV") $("bView").click(); });
+addEventListener("keyup", e => keys.delete(e.code));
+addEventListener("blur", () => keys.clear());
+function readInput(){
+  const k = c => keys.has(c) ? 1 : 0, inv = $("inv").checked ? -1 : 1;
+  input.pitch = clamp(sticks.L.y * inv + (k("KeyS") + k("ArrowDown") - k("KeyW") - k("ArrowUp")), -1, 1);
+  input.roll = clamp(sticks.L.x + (k("KeyD") + k("ArrowRight") - k("KeyA") - k("ArrowLeft")), -1, 1);
+  input.yaw = clamp(sticks.R.x + (k("KeyE") - k("KeyQ")), -1, 1);
+  const ry = -sticks.R.y; input.thrRate = clamp((Math.abs(ry) > 0.15 ? ry : 0) + (k("ShiftLeft") + k("ShiftRight") - k("ControlLeft") - k("ControlRight")), -1, 1);
+  // smoother response near the centre
+  input.pitch = Math.sign(input.pitch) * input.pitch ** 2 * 0.6 + input.pitch * 0.4; input.roll = Math.sign(input.roll) * input.roll ** 2 * 0.5 + input.roll * 0.5;
+}
+
+// ===== buttons and setup panel =====
+function updButtons(){
+  $("bGear").classList.toggle("on", P.gear); $("bBrake").classList.toggle("on", P.brake); $("bView").classList.toggle("on", !!cam.lock);
+  $("bGear").style.display = P.mode === "fly" ? "" : "none";
+  $("stLt").textContent = P.mode === "fly" ? L("Pitch / Roll", "俯仰 / 滾轉") : L("Steer", "轉向");
+  $("stRt").textContent = P.mode === "fly" ? L("Throttle / Rudder", "油門 / 方向舵") : L("Throttle", "油門");
+}
+function toggleGear(){ if (P.mode !== "fly" || P.onGround || P.crashed) return; P.gear = !P.gear; updButtons(); }
+function toggleBrake(){ P.brake = !P.brake; updButtons(); }
+$("bGear").onclick = toggleGear; $("bBrake").onclick = toggleBrake; $("bReset").onclick = () => spawn();
+$("bView").onclick = () => { cam.mode = (cam.mode + 1) % 3; cam.yaw = cam.pitch = 0; sub([L("Chase view", "追蹤視角"), L("Far chase view", "遠距追蹤"), L("Close view", "近距視角")][cam.mode]); };
+$("menuBtn").onclick = () => $("panel").classList.toggle("open");
+{ const sel = $("selShape"), grp = (label, names) => { const g = document.createElement("optgroup"); g.label = label; for (const n of names){ const o = document.createElement("option"); o.value = n; o.textContent = n; g.appendChild(o); } sel.appendChild(g); };
+  grp("F/A-18", F18S); grp("Ships", [...SHIPS].filter(n => SH_NAMES.includes(n))); grp("All SH", SH_NAMES); sel.value = "F18"; }
+$("bGo").onclick = async () => { $("panel").classList.remove("open"); await choose($("selShape").value); };
+async function choose(name){
+  $("load").style.display = "flex"; $("loadT").textContent = L("Loading ", "載入 ") + name + ".SH…";
+  try { P.s = await loadShape(name); getMesh(P.s, {}); spawn(); try { localStorage.setItem("fa_flight_shape", name); } catch(e){} }
+  catch(e){ sub(e.message); if (!P.s){ P.s = await loadShape("F18"); spawn(); } }
+  $("load").style.display = "none";
+}
+
+// ===== main loop =====
+let lastT = 0, lastDt = 0.016;
+function frame(t){
+  const dt = Math.min(0.05, (t - (lastT || t)) / 1000); lastT = t; lastDt = dt || 0.016;
+  if (P.s){ readInput(); const n = Math.ceil(lastDt / 0.01); for (let i = 0; i < n; i++) step(lastDt / n); }
+  render(); hud(); requestAnimationFrame(frame);
+}
+
+FAI18N.register({
+  "FAshion home": "FAshion 首頁", "☰ Menu": "☰ 選單", "Gear": "起落架", "Brake": "煞車", "View": "視角", "Restart": "重來",
+  "Flight setup": "飛行設定", "Model to drive (any SH)": "要駕駛的模型（任何 SH）", "Control mode": "操控方式",
+  "Auto (by model)": "自動（依模型判斷）", "Fly (aircraft)": "飛行（飛機）", "Drive (ground vehicle)": "駕駛（地面車輛）", "Sail (ship)": "航行（船艦）",
+  "Start position": "起始位置", "Airfield runway": "機場跑道", "Carrier deck": "航艦甲板", "In the air": "空中", "At sea (ships)": "海上（船艦）",
+  "▶ Start": "▶ 開始", "Invert pitch (push stick up = nose up)": "反轉俯仰（搖桿往上推 = 機頭抬起）", "Textures": "貼圖",
+  "Left stick: pitch and roll. Right stick: up/down changes the throttle (it stays where you leave it), left/right is rudder. Drag anywhere else to look around, pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult.":
+    "左搖桿：俯仰和滾轉。右搖桿：上下調整油門（放開後會停在那個位置），左右是方向舵。在其他地方拖曳可以轉動視角，兩指縮放，點兩下讓鏡頭回到後方。油門推到底會開後燃器；在航艦上也會啟動彈射器。",
+  "Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, R restart, mouse drag to look, wheel to zoom.":
+    "鍵盤：W/S 俯仰、A/D 滾轉、Q/E 方向舵、Shift/Ctrl 油門、G 起落架、B 煞車、R 重來，滑鼠拖曳轉視角、滾輪縮放。",
+  "Pitch / Roll": "俯仰 / 滾轉", "Throttle / Rudder": "油門 / 方向舵", "Loading…": "載入中…"
+});
+$("langSlot").append(FAI18N.picker()); FAI18N.apply(); FAI18N.onChange(updButtons);
+
+(async () => {
+  try {
+    $("loadS").textContent = L("Building terrain…", "建立地形…"); await new Promise(r => setTimeout(r, 30));
+    initTerrain();
+    $("loadS").textContent = L("Loading palette and models from the FA files…", "從 FA 檔案載入調色盤和模型…");
+    const pu8 = await fetchAny(["PIC/PALETTE.PAL"]); const pal = pu8 && palFromBytes(pu8);
+    const rgb = new Uint8Array(768); if (pal){ rgb.set(pal); for (let i = 0; i < 256; i++) if (rgb[3*i] > 240 && rgb[3*i+1] < 10 && rgb[3*i+2] > 240) rgb.set([196, 196, 188], 3*i); }   // magenta = slots FA fills per theatre at run time
+    else for (let i = 0; i < 768; i++) rgb[i] = Math.floor(i / 3);
+    palTex = mkTex(256, 1, gl.RGB, rgb);
+    // airfield: runway shape at the origin (strip along north), tower and hangars; carrier group at sea to the east
+    await Promise.all([
+      addObj("RNWY1", 0, 0, AIR_Z, 0, null, "runway"),
+      addObj("NIMZ", CARRIER.x, CARRIER.y, 0, CARRIER.hdg, null, "deck"),
+      addObj("TICON", CARRIER.x + 2600, CARRIER.y + 3800, 0, 0, null, "deck"),
+      addObj("AEGIS", CARRIER.x - 2800, CARRIER.y + 1200, 0, 0, null, "deck"),
+      addObj("F18C", -1500, 1200, 0, -Math.PI / 2, { gear: true }, null),
+      addObj("F18E", -1500, 1700, 0, -Math.PI / 2, { gear: true }, null),
+      addObj("F18F", -1500, 2200, 0, -Math.PI / 2, { gear: true }, null),
+    ]);
+    // parked jets stand on their wheels
+    for (const o of world.objs) if (/^F18/.test(o.s.name)) o.pos[2] = groundAt(o.pos[0], o.pos[1]).h - o.mesh.lo[2];
+    let start = "F18"; try { const s = localStorage.getItem("fa_flight_shape"); if (s && SH_NAMES.includes(s)) start = s; } catch(e){}
+    $("selShape").value = start;
+    await choose(start);
+  } catch(e){ $("loadT").textContent = e.message; console.error(e); return; }
+  placeSticks(); requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
