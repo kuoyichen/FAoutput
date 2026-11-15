@@ -1103,6 +1103,12 @@ $("ghBtn").onclick = () => {
   $("ghKey").value = key; $("ghMsgIn").value = `PT editor: update ${ptName}`; $("ghRes").textContent = "";
   $("ghWhat").textContent = L(`Writes PT/${ptName} on the main branch of kuoyichen/FAoutput. Only the site admin key can do this.`, `會把 PT/${ptName} 寫到 kuoyichen/FAoutput 的 main 分支。只有網站管理金鑰可以使用。`);
   $("ghDlg").showModal();
+  // tell the admin up front whether the server side is ready (admin key + GITHUB_TOKEN set in Vercel)
+  fetch(API + "/api/pt-commit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ check: true, adminKey: key }) })
+    .then(r => r.json()).then(j => { if ($("ghRes").textContent) return;
+      $("ghRes").textContent = !j.githubConfigured ? L("Server: GITHUB_TOKEN is not set in Vercel yet.", "伺服器：Vercel 尚未設定 GITHUB_TOKEN。")
+        : key && j.admin ? L("Server ready (GitHub token set, admin key OK).", "伺服器已就緒（GitHub token 已設定，管理金鑰正確）。") : L("Server ready (GitHub token set).", "伺服器已就緒（GitHub token 已設定）。"); })
+    .catch(() => {});
 };
 $("ghCancel").onclick = () => $("ghDlg").close();
 $("ghGo").onclick = async () => {
