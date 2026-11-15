@@ -11,6 +11,7 @@ import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import math
 import f18_stores as S
+S.NATIVE = False             # F-14 stores: real lengths, rear end AFT behind the attach point (as v2)
 import fa_weapons
 from f18g_growler import orient, lathe, FLAT, GREY
 
