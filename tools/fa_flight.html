@@ -29,8 +29,12 @@ button.on{border-color:var(--accent);color:var(--accent)}
 .stick{position:fixed;width:130px;height:130px;margin:-65px 0 0 -65px;border-radius:50%;border:2px solid #ffffff55;background:#00000026;pointer-events:none;z-index:3;transition:opacity .2s}
 .stick i{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:#ffffff55;border:2px solid #fff9}
 .stick span{position:absolute;left:0;right:0;top:-20px;text-align:center;font-size:11px;color:#fff;text-shadow:0 1px 2px #000}
-#btns{position:fixed;left:calc(10px + env(safe-area-inset-left));top:calc(50px + env(safe-area-inset-top));display:grid;grid-template-columns:repeat(2,58px);gap:6px;z-index:5}
-#btns button{padding:7px 0;font-weight:600;font-size:12px;background:#0e1216aa}
+/* buttons split between both top corners so neither stick is covered */
+.btns{position:fixed;top:calc(50px + env(safe-area-inset-top));display:grid;grid-template-columns:repeat(2,58px);gap:6px;z-index:5}
+#btns{left:calc(10px + env(safe-area-inset-left))}
+#btnsR{right:calc(36px + env(safe-area-inset-right))}
+@media (orientation:portrait){ .btns{top:calc(96px + env(safe-area-inset-top))} #wpn{top:calc(186px + env(safe-area-inset-top))} #sub{top:calc(300px + env(safe-area-inset-top))} }
+.btns button{padding:7px 0;font-weight:600;font-size:12px;background:#0e1216aa}
 #wpn{position:fixed;right:calc(36px + env(safe-area-inset-right));top:calc(176px + env(safe-area-inset-top));display:flex;flex-direction:column;align-items:center;gap:8px;z-index:5}
 #bWpn{min-width:96px;font:700 13px/1.2 ui-monospace,Consolas,monospace;padding:7px 8px;background:#0e1216bb;color:var(--hud)}
 #bFire{width:76px;height:76px;border-radius:50%;font-weight:800;font-size:15px;background:#c0392bcc;border:2px solid #ffffffaa;color:#fff;touch-action:none}
@@ -73,14 +77,16 @@ button.on{border-color:var(--accent);color:var(--accent)}
 <div class="stick" id="stR"><span id="stRt">Pitch / Roll</span><i></i></div>
 <canvas id="ov"></canvas>
 <div id="wpn"><button id="bWpn">GUN</button><button id="bFire">FIRE</button></div>
-<div id="btns">
+<div id="btns" class="btns">
   <button id="bGear">Gear</button>
   <button id="bBrake">Brake</button>
+  <button id="bFlare" style="grid-column:span 2;color:#ffd54a">FLARE</button>
+</div>
+<div id="btnsR" class="btns">
   <button id="bView">View</button>
   <button id="bReset">Restart</button>
   <button id="bFront">Front</button>
   <button id="bRC">RC view</button>
-  <button id="bFlare" style="grid-column:span 2;color:#ffd54a">FLARE</button>
 </div>
 <div id="panel">
   <h2>Flight setup</h2>
