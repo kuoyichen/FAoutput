@@ -156,6 +156,7 @@ def f18_pylon_units():
     return out
 
 
+PLACER = None                      # e.g. sh_order-based placement: PLACER(c, ROOT, unit geometry, unit boxes)
 PYLON_UNITS = f18_pylon_units      # an aircraft module (f14_stores.py) replaces SLOTS, PYLONS and this
 
 
@@ -447,7 +448,13 @@ def build(d, static=False, debug=False):
         return lo, hi
     ubox = {k: box(shapes[v[2]][0], v[3]) for k, v in SLOTS.items()}
     for name, part, ps, top in pyu: ubox[name] = box(PYLONS[part][0], ps, top)
-    plan, rootrefs = place_units(c, ROOT, ubox)
+    if PLACER is None: plan, rootrefs = place_units(c, ROOT, ubox)
+    else:
+        ugeo = {}
+        def geo(V, F, ps): return [(bool(fl & 0x40), [(ps[0] + V[i][0], ps[1] + V[i][2], ps[2] + V[i][1]) for i in idx]) for fl, col, idx in F]
+        for k, v in SLOTS.items(): ugeo[k] = geo(*shapes[v[2]], v[3])
+        for name, part, ps, top in pyu: ugeo[name] = geo(*PYLONS[part], ps)
+        plan, rootrefs = PLACER(c, ROOT, ugeo, ubox)
     nodes = []                                        # (key, plane n, d, A target, B leaf)
     chain_top = {}
     for T, lst in plan.items():

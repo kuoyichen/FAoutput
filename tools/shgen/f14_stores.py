@@ -9,47 +9,104 @@ Usage: python3 f14_stores.py F14.SH out.SH [--static]
 """
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import math
 import f18_stores as S
-from f18g_growler import orient, FLAT, GREY
+import fa_weapons
+from f18g_growler import orient, lathe, FLAT, GREY
 
 T, A9, A7, A54, NONE = S.TANK, S.AIM9, S.AIM7, S.AIM54, S.NONE
-# (station, rank, default kind, attach x, up, fwd); every store ends 10 units behind its attach fwd.
+# (station, rank, default kind, attach x, up, fwd); the store's rear ends 10 units behind its attach fwd.
 # Pairs: left rank 1, right rank 2 (FA fires the right one first); belly: rear pair first-loaded, front pair last.
+# Cross sections (fwd 25): tunnel roof up -6.7 for |x| < 7, nacelles x 9..20 with bottom -9.5 (-11 at fwd 5,
+# -6.5 at fwd 40), glove underside up 2..4 at x 20..34, main gear x 21..28 at fwd 0..8.
+GX = 29                      # glove pylon foot (AIM-54 centre line)
 S.SLOTS = {
-    'BRL': (4, 1, A7, (-6, -8, -20)), 'BRR': (4, 2, A7, (6, -8, -20)),
-    'BFL': (4, 3, A7, (-6, -8, 16)),  'BFR': (4, 4, A7, (6, -8, 16)),
-    'TL': (5, 1, T, (-13, -12, 7)),   'TR': (5, 2, T, (13, -12, 7)),
-    'GL': (6, 1, A54, (-26, -7, 19)), 'GR': (7, 1, A54, (26, -7, 19)),
-    'SL': (8, 1, A9, (-33, -3, 13)),  'SR': (8, 2, A9, (33, -3, 13)),
+    'BRL': (4, 1, A7, (-3, -9, -20)), 'BRR': (4, 2, A7, (3, -9, -20)),
+    'BFL': (4, 3, A7, (-3, -9, 16)),  'BFR': (4, 4, A7, (3, -9, 16)),
+    'TL': (5, 1, T, (-14, -12, 14)),  'TR': (5, 2, T, (14, -12, 14)),
+    'GL': (6, 1, A54, (-GX, -7, 20)), 'GR': (7, 1, A54, (GX, -7, 20)),
+    'SL': (8, 1, A9, (-31, 0, 22)),   'SR': (8, 2, A9, (31, 0, 22)),
 }
 
-# curved glove pylon: cross-section from the glove (local 0, 0) down and inboard to the AIM-54 (-4, -10);
-# each point carries its fore/aft extent (local fwd from, to).  Right side; the left one is mirrored.
-GLOVE = [((0, 0), (-13, 14)), ((0, -4), (-12, 13)), ((-1, -7), (-11, 12)), ((-3, -9), (-10, 11)), ((-4, -10), (-9, 10))]
 
-
-def glove_pylon(side):
-    V, F = [], []
-    for (dx, u), (f0, f1) in GLOVE: V += [(side * dx, f0, u), (side * dx, f1, u)]
-    for k in range(len(GLOVE) - 1):
-        q = [2*k, 2*k+1, 2*k+3, 2*k+2]
-        F += [(FLAT, GREY, q), (FLAT, GREY, q[::-1])]          # thin plate, one face per side
-    end = [2*k for k in range(len(GLOVE))]                       # front and rear edges closed by the two quads
+def tank267():
+    """F-14 267-gal tank: fat (radius 4.5, about the intake width), blunt round nose, short tail cone."""
+    r = 4.5
+    sec = [(r * math.sin(a), r * math.cos(a)) for a in (2 * math.pi * k / 12 for k in range(12))]
+    st = [(18, 0, -r), (17.3, .45, -r), (16, .7, -r), (14, .88, -r), (11, 1, -r), (-8, 1, -r), (-12, .85, -r),
+          (-15.5, .62, -r), (-18.5, .38, -r), (-20, .2, -r)]
+    V, F, _ = lathe(sec, st, S.WHITE)
     return V, F
 
 
-S.PYLONS = {'pyGR': glove_pylon(1), 'pyGL': glove_pylon(-1), 'pyT': S.pylon(2, (5, -5), (6, -6))}
+S.SHAPES[T] = tank267
+S.SHAPES[A7] = lambda: fa_weapons.load('SPAR.SH', 36, roll=45)     # X fins: two side by side fit in the tunnel
+
+
+def solid(sections, col=GREY):
+    """Closed plate along a polyline: sections [(x_out, u_out, x_in, u_in, fwd0, fwd1)] from top to bottom
+    (x, u of the two faces of the plate, fore/aft extent).  Each segment between two sections is convex and
+    oriented about its own centre, so the bent plate is closed and back-face culled."""
+    V = []
+    for xo, uo, xi, ui, f0, f1 in sections:
+        V += [(xo, f0, uo), (xo, f1, uo), (xi, f0, ui), (xi, f1, ui)]
+    F = []
+    for k in range(len(sections) - 1):
+        a, b = 4 * k, 4 * k + 4
+        seg = [(FLAT, col, [a, a+1, b+1, b]), (FLAT, col, [a+2, a+3, b+3, b+2]),     # outer, inner side
+               (FLAT, col, [a, a+2, b+2, b]), (FLAT, col, [a+1, a+3, b+3, b+1])]     # front, rear edge
+        if k == 0: seg.append((FLAT, col, [a, a+1, a+3, a+2]))
+        if k == len(sections) - 2: seg.append((FLAT, col, [b, b+1, b+3, b+2]))
+        cen = [sum(V[i][j] for i in range(a, b + 4)) / 8 for j in range(3)]
+        F += orient(V, seg, cen)
+    return V, F
+
+
+def glove_pylon(side):
+    """Seen from the front the glove pylon leaves the glove, bends outboard and drops straight to the AIM-54;
+    2 units thick.  Local x 0 = AIM-54 centre line, up 0 = AIM-54 top; side +1 right, -1 left."""
+    cl = [(-4.5, 10.5, -14, 14), (-3.5, 7, -13, 13), (-1.5, 4.5, -12, 12), (0, 2.5, -11, 11), (0, 0, -10, 10)]
+    secs = []
+    for i, (x, u, f0, f1) in enumerate(cl):
+        a, b = cl[max(i - 1, 0)], cl[min(i + 1, len(cl) - 1)]
+        tx, tu = b[0] - a[0], b[1] - a[1]; L = math.hypot(tx, tu); nx, nu = -tu / L, tx / L   # normal, outboard side
+        if nx < 0: nx, nu = -nx, -nu
+        secs.append((side * round(x + nx, 1), round(u + nu, 1), side * round(x - nx, 1), round(u - nu, 1), f0, f1))
+    V, F = solid(secs)
+    return [(round(x), f, round(u)) for x, f, u in V], F
+
+
+def small_pylon(h, f0, f1, half=1):
+    """Short tank pylon: 2 units thick, from the tank top (up 0) up into the nacelle (up h), swept front edge."""
+    return solid([(half, h, -half, h, f0 - 1, f1), (half, 0, -half, 0, f0 + 1, f1 - 1)])
+
+
+S.PYLONS = {'pyGR': glove_pylon(1), 'pyGL': glove_pylon(-1), 'pyT': small_pylon(4, -7, 7)}
 
 
 def f14_pylon_units():
-    out = [('pyGR', 'pyGR', (30, 3, 20), -1), ('pyGL', 'pyGL', (-30, 3, 20), -1)]
+    out = []
+    for s, part in (('GR', 'pyGR'), ('GL', 'pyGL')):
+        x, u, f = S.SLOTS[s][3]
+        out.append(('py' + s, part, (x, u, 24), u + 9))     # fwd 10..38, clear of the main gear (fwd 0..8)
     for s in ('TL', 'TR'):
-        x, u, f = S.SLOTS[s][3]; ps = (x + (1 if x < 0 else 0), u, f + 13)   # slab is x -1..0: centre it
-        out.append(('py' + s, 'pyT', ps, u + 1))
+        x, u, f = S.SLOTS[s][3]
+        out.append(('py' + s, 'pyT', (x, u, f + 10), u + 2))       # middle of the tank
     return out
 
 
 S.PYLON_UNITS = f14_pylon_units
+
+
+def placer(c, ROOT, ugeo, ubox):
+    import sh_order
+    big = sorted(ugeo, key=lambda u: -(ubox[u][1][0] - ubox[u][0][0]) * (ubox[u][1][1] - ubox[u][0][1]) * (ubox[u][1][2] - ubox[u][0][2]))
+    pyl = [u for u in big if u.startswith('py')]; rest = [u for u in big if not u.startswith('py')]
+    plan, refs, *_ = sh_order.place(c, ROOT, ugeo, ubox, pyl + rest)
+    return plan, refs
+
+
+S.PLACER = placer
 
 if __name__ == '__main__':
     S.main()
