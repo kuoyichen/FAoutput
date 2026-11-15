@@ -87,7 +87,7 @@ def glove_pylon(side):
     """Seen from the front the glove pylon leaves the glove, bends outboard and drops straight to the AIM-54;
     1 unit thick (Kuoyi: a third of the first one).  Local x 0 = AIM-54 centre line, up 0 = AIM-54 top; side +1 right, -1 left."""
     H = GLOVE_UNDER + 1 - S.SLOTS['GR'][3][1]                     # store top up into the glove
-    cl = [(-4, H, -14, 14), (-3, .7 * H, -13, 13), (-1.3, .45 * H, -12, 12), (0, .24 * H, -11, 11), (0, 0, -10, 10)]
+    cl = [(-4, H, -14, 10), (-3, .7 * H, -13, 9), (-1.3, .45 * H, -12, 9), (0, .24 * H, -11, 8), (0, 0, -10, 7)]   # front cut back ~1/8 (Kuoyi)
     secs = []
     for i, (x, u, f0, f1) in enumerate(cl):
         a, b = cl[max(i - 1, 0)], cl[min(i + 1, len(cl) - 1)]
