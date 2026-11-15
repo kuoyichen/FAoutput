@@ -1,10 +1,9 @@
-// GET /api/missions            -> { missions: [{ id, name, size, uploadedAt, url }], uploadMode } newest first
+// GET /api/missions            -> { missions: [{ id, name, size, uploadedAt, url, m?, mt? }], uploadMode } newest first
+//                                 (m / mt = the optional .M mission and .MT briefing: { name, size, url })
 // GET /api/missions?id=<path>  -> { mission: { ... } } for one shared link
 // GET /api/missions?status     -> which storage settings the function can see (names only, no values)
-import { list, head } from "@vercel/blob";
-import { PREFIX, PATH_RE, json, configured, displayName, blobOpts, uploadMode, envNames, rwToken, storeId } from "./_missions.js";
-
-const item = b => ({ id: b.pathname, name: displayName(b.pathname), size: b.size, uploadedAt: b.uploadedAt, url: b.url });
+import { list } from "@vercel/blob";
+import { PREFIX, PATH_RE, json, configured, blobOpts, uploadMode, envNames, rwToken, storeId, groupMissions, keyOf } from "./_missions.js";
 
 export async function GET(request) {
   const q = new URL(request.url).searchParams;
@@ -26,17 +25,19 @@ export async function GET(request) {
   try {
     if (id) {
       if (!PATH_RE.test(id)) return json({ error: "bad-id" }, 400);
-      const b = await head(id, blobOpts()).catch(() => null);
-      if (!b) return json({ error: "not-found" }, 404);
-      return json({ mission: item({ ...b, pathname: id }) }, 200, { "cache-control": "public, s-maxage=3600" });
+      const r = await list({ prefix: `${PREFIX}${keyOf(id)}_`, limit: 10, ...blobOpts() });
+      const m = groupMissions(r.blobs).find(x => x.id === id);
+      if (!m) return json({ error: "not-found" }, 404);
+      return json({ mission: m }, 200, { "cache-control": "public, s-maxage=300" });
     }
-    const out = [];
+    const blobs = [];
     let cursor;
     do {
       const r = await list({ prefix: PREFIX, limit: 1000, cursor, ...blobOpts() });
-      out.push(...r.blobs.filter(b => PATH_RE.test(b.pathname)).map(item));
+      blobs.push(...r.blobs);
       cursor = r.hasMore ? r.cursor : undefined;
-    } while (cursor && out.length < 5000);
+    } while (cursor && blobs.length < 15000);
+    const out = groupMissions(blobs);
     out.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
     return json({ missions: out, uploadMode: uploadMode() }, 200, { "cache-control": "public, s-maxage=20, stale-while-revalidate=60" });
   } catch (e) {

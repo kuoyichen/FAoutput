@@ -2,8 +2,13 @@
 export const PREFIX = "missions/";
 export const MAX_BYTES = 30 * 1024 * 1024;          // 30 MB per mission file
 export const MAGIC = /^(FAFLT[123]|FAREC[12])$/;     // first 6 bytes of every recording fa_replay.html reads
-// missions/<base36 time>-<6 random>_<name>.bin, made by the replay page
+export const MAX_EXTRA = 2 * 1024 * 1024;          // optional .M mission / .MT briefing files
+// missions/<base36 time>-<6 random>_<name>.bin, made by the replay page; a mission's optional
+// .M (mission) and .MT (briefing) files share its "<time>-<random>" key: missions/<key>_<NAME>.M
 export const PATH_RE = /^missions\/[0-9a-z]{6,12}-[0-9a-z]{6}_[A-Za-z0-9._-]{1,80}\.bin$/;
+export const ANY_RE = /^missions\/([0-9a-z]{6,12}-[0-9a-z]{6})_[A-Za-z0-9._-]{1,80}\.(bin|m|mt)$/i;
+export const kindOf = pathname => { const m = ANY_RE.exec(pathname); return m ? m[2].toLowerCase() : null; };
+export const keyOf = pathname => { const m = ANY_RE.exec(pathname); return m ? m[1] : null; };
 
 export const json = (obj, status = 200, extra = {}) =>
   new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json", "cache-control": "no-store", ...extra } });
@@ -46,3 +51,16 @@ export function rateLimited(request, max, windowMs) {
 }
 
 export const displayName = pathname => pathname.slice(PREFIX.length).replace(/^[0-9a-z]+-[0-9a-z]+_/, "");
+
+// group blobs into missions: the .bin plus its optional .m / .mt files
+export function groupMissions(blobs) {
+  const by = new Map();
+  for (const b of blobs) {
+    const k = keyOf(b.pathname), kind = kindOf(b.pathname); if (!k) continue;
+    const g = by.get(k) || {}; g[kind] = b; by.set(k, g);
+  }
+  const file = b => b && { name: displayName(b.pathname), size: b.size, url: b.url };
+  return [...by.values()].filter(g => g.bin && PATH_RE.test(g.bin.pathname)).map(g => ({
+    id: g.bin.pathname, name: displayName(g.bin.pathname), size: g.bin.size, uploadedAt: g.bin.uploadedAt, url: g.bin.url,
+    m: file(g.m), mt: file(g.mt) }));
+}
