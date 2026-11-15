@@ -23,6 +23,21 @@ T, A9, A7, A54, NONE = S.TANK, S.AIM9, S.AIM7, S.AIM54, S.NONE
 # nacelles x 9..20 with bottom -9.5 (-10 at fwd 19), glove underside up 2..4 at x 20..34, main gear x 21..28, fwd 0..8.
 PT = {4: (4, -7, 36), 5: (16, -14, 19), 6: (28, -7, 18), 7: (30, -1, 18)}   # AIM-54 / AIM-9 moved back 6 twice (Kuoyi)
 TANK_R = 3.5                 # Kuoyi: use the F/A-18 tank (tank480, radius 3.5)
+TANK_PITCH = 4               # Kuoyi: tank nose up 4 degrees to follow the nacelle bottom (it rises toward the front)
+
+
+def tank():
+    """The F/A-18 tank480, nose up TANK_PITCH degrees about its centre: each ring is raised by fwd * tan(pitch)
+    (a shear, so the rings stay planar on the integer grid)."""
+    r = 3.5; e = r * .7; t = math.tan(math.radians(TANK_PITCH))
+    sec = [(0, r), (e, e), (r, 0), (e, -e), (0, -r), (-e, -e), (-r, 0), (-e, e)]
+    st = [(25, 0, -r), (21, .35, -r), (16, .65, -r), (11, .88, -r), (6, 1, -r), (-11, 1, -r), (-17, .75, -r),
+          (-22, .45, -r), (-25, .3, -r)]
+    V, F, _ = lathe(sec, [(f, k, dz + f * t) for f, k, dz in st], S.WHITE)
+    return V, F
+
+
+S.SHAPES[T] = tank
 
 
 def aim7():
@@ -32,8 +47,65 @@ def aim7():
 
 
 S.SHAPES[A7] = aim7
-A54_LEN = round(.8 * 47)       # Kuoyi: AIM-54 at 80% (FA's PHENX is 47 long)
-S.SHAPES[A54] = lambda: fa_weapons.load('PHENX.SH', A54_LEN)
+A54_LEN = round(.8 * 47) + 3   # Kuoyi: AIM-54 at 80% of FA's PHENX (47 long), then 3 longer
+
+
+def aim54():
+    """AIM-54 built here (FA's PHENX body is a 4-sided diamond with a one-step nose): octagonal body (radius 3),
+    ogive nose that closes over four rings (Kuoyi: more rings, smoother line), PHENX's fins and blue band scaled
+    to A54_LEN.  Frame as fa_weapons.load: body top at up 0, LAST_TOP = height of the top above FA's origin."""
+    s = A54_LEN / 47
+    R0 = lambda r, a: [(0, r), (a, a), (r, 0), (a, -a), (0, -r), (-a, -a), (-r, 0), (-a, a)]
+    AX = -3                                         # axis height (top of the radius-3 body at up 0)
+    tail, band0, band1, nose = round(-16 * s), round(7 * s), round(9 * s), round(21 * s)
+    tip = round(31 * s)
+    L = tip - nose
+    rings = [(tail, 3, 2), (band0, 3, 2), (band1, 3, 2), (nose, 3, 2), (nose + .28 * L, 2, 2), (nose + .56 * L, 2, 1),
+             (nose + .8 * L, 1, 1)]
+    V, rid = [], []
+    for f, r, a in rings:
+        rid.append([])
+        for x, u in R0(r, a): V.append((x, round(f), u + AX)); rid[-1].append(len(V) - 1)
+    V.append((0, tip, AX)); T = len(V) - 1
+    light = (.45, .25, .85)
+    def shade(q, band=False):
+        P = [V[i] for i in q]; n = [0, 0, 0]
+        for k in range(len(P)):
+            a, b = P[k], P[(k + 1) % len(P)]
+            n[0] += a[1]*b[2]-a[2]*b[1]; n[1] += a[2]*b[0]-a[0]*b[2]; n[2] += a[0]*b[1]-a[1]*b[0]
+        c = [sum(p[j] for p in P) / len(P) for j in range(3)]
+        if n[0] * c[0] + n[2] * (c[2] - AX) < 0: n = [-v for v in n]          # outward
+        m = sum(v * v for v in n) ** .5 or 1
+        d = (n[0] * light[0] + n[1] * light[1] + n[2] * light[2]) / m
+        if band: return 169 if d > -.2 else 170
+        return 144 + round(11 * (d + 1) / 2)
+    F = []
+    for k in range(len(rings) - 1):
+        A, B = rid[k], rid[k + 1]
+        for j in range(8):
+            q = [A[j], A[(j + 1) % 8], B[(j + 1) % 8], B[j]]
+            q = [v for i, v in enumerate(q) if V[v] != V[q[i - 1]]]
+            if len({V[v] for v in q}) >= 3: F.append((FLAT, shade(q, k == 1), q))
+    for j in range(8):
+        q = [rid[-1][j], rid[-1][(j + 1) % 8], T]
+        if len({V[v] for v in q}) == 3: F.append((FLAT, shade(q), q))
+    F.append((FLAT, 143, list(rid[0])))                                       # tail cap
+    # fins: PHENX faces reaching beyond its body (radius 3 about up -3), scaled about the axis
+    NV, NF = fa_weapons.load('PHENX.SH', None)
+    base = len(V); m = {}
+    for fl, col, q in NF:
+        if max(((NV[i][0]) ** 2 + (NV[i][2] + 3) ** 2) ** .5 for i in q) < 3.5: continue
+        for i in q:
+            if i not in m:
+                x, f, u = NV[i]; V.append((round(x * s), round(f * s), round((u + 3) * s) + AX)); m[i] = len(V) - 1
+        F.append((fl, col, [m[i] for i in q]))
+    body = [f for f in F if f[0] == FLAT and all(i < base for i in f[2])]
+    G = orient(V, body, [0, (tail + tip) / 2, AX]) + [f for f in F if any(i >= base for i in f[2])]
+    fa_weapons.LAST_TOP = 2                         # as the 80% PHENX: its top 2 above FA's origin (launch point)
+    return V, G
+
+
+S.SHAPES[A54] = aim54
 
 
 def att(st, kind, side=1, dfwd=0):
@@ -55,10 +127,10 @@ S.SLOTS = {
     'GL': (6, 1, A54, att(6, A54, -1)), 'GR': (6, 2, A54, att(6, A54, 1)),   # PT x is +28 (Kuoyi): right fires first like the other pairs
     'SL': (7, 1, A9, att(7, A9, -1)),          'SR': (7, 2, A9, att(7, A9, 1)),
 }
-# The tunnel stations also take AIM-54s (Kuoyi): Phoenix at 80% (fins +-5, 38 long) on x +-5, same fwd as the AIM-7s
-# (the pairs are 2 apart); top on the tunnel roof like the AIM-7s.
+# The tunnel stations also take AIM-54s (Kuoyi): Phoenix (fins +-5, 41 long) on x +-5, same fwd as the AIM-7s,
+# rear pair 3 further back (the pairs are 2 apart); top on the tunnel roof like the AIM-7s.
 for s_, (st_, rk_, kd_, (x_, u_, f_)) in list(S.SLOTS.items()):
-    if st_ == 4: S.KIND_POS[(s_, A54)] = ((5 if x_ > 0 else -5), u_, f_)
+    if st_ == 4: S.KIND_POS[(s_, A54)] = ((5 if x_ > 0 else -5), u_, f_ - 3 if s_[1] == 'R' else f_)
 GX = PT[6][0]
 GLOVE_UNDER = 2.5            # glove underside at x 22..27
 
