@@ -16,7 +16,10 @@
   let api = null;          // null = unknown, true = working, "off" = not here, "unconfigured" = no Blob store yet
   let missions = [], local = null, current = null, busy = false, mode = "token";
   const extras = { m: null, mt: null };   // optional .M mission / .MT briefing to upload with the .bin
-  const MAX_EXTRA = 2 * 1024 * 1024, EXT = { m: /\.m$/i, mt: /\.mt$/i };   // local = the open file, if it came from disk
+  const MAX_EXTRA = 2 * 1024 * 1024, EXT = { m: /\.m$/i, mt: /\.mt$/i };
+  const NAME_KEY = "fashion_uploader";
+  const form = { by: "", desc: "" };   // uploader name (remembered on this browser) + short description
+  try { form.by = localStorage.getItem(NAME_KEY) || ""; } catch (e) {}   // local = the open file, if it came from disk
 
   FAI18N.register({ "Online missions": "線上任務", "☁ Online": "☁ 線上", "Close": "關閉" });
 
@@ -29,6 +32,10 @@
   document.body.append(box);
   FAI18N.apply();
   box.addEventListener("click", e => { if (e.target === box) hide(); });
+  // drop .bin / .M / .MT files anywhere on the panel
+  box.addEventListener("dragover", e => { e.preventDefault(); e.stopPropagation(); if (api === true) box.classList.add("drag"); });
+  box.addEventListener("dragleave", e => { if (e.target === box || !box.contains(e.relatedTarget)) box.classList.remove("drag"); });
+  box.addEventListener("drop", e => { e.preventDefault(); e.stopPropagation(); box.classList.remove("drag"); if (api === true && !busy) takeFiles(e.dataTransfer.files); });
   $("m_close").onclick = hide;
   window.addEventListener("keydown", e => { if (e.key === "Escape" && !box.classList.contains("hide")) hide(); });
   function show() { box.classList.remove("hide"); render(); refresh(); }
@@ -50,10 +57,10 @@
       return;
     }
     const up = local
-      ? `<button id="m_up" ${busy ? "disabled" : ""}>${L("Upload", "上傳")} ${esc(local.name)} (${mb(local.buf.byteLength)})</button>`
-      : `<span class="mmuted">${L("Open a .bin first, or pick one here:", "先開啟一個 .bin，或在這裡選擇：")}</span>`;
+      ? `<span class="mchip mbin" title="${esc(local.name)}">${esc(local.name)} · ${mb(local.buf.byteLength)}</span>`
+      : `<span class="mmuted">${L("Drag .bin / .M / .MT files here, or", "把 .bin / .M / .MT 檔拖到這裡，或")}</span>`;
     const rows = missions.length ? missions.map(m => `<tr class="${current === m.id ? "cur" : ""}">
-        <td class="mn" title="${esc(m.name)}">${esc(m.name)}</td>
+        <td class="mn" title="${esc(m.name + (m.desc ? "\n\n" + m.desc : ""))}">${esc(m.name)}${m.by ? ` <span class="mby">${esc(L("by ", "上傳者 ") + m.by)}</span>` : ""}${m.desc ? `<div class="mdesc">${esc(m.desc)}</div>` : ""}</td>
         <td class="mx">${m.m ? `<a class="mlink" href="${esc(m.m.url)}?download=1" title="${esc(L("Download the mission file ", "下載任務檔 ") + m.m.name)}">.M</a>` : ""}
           ${m.mt ? `<a class="mlink" href="${esc(m.mt.url)}?download=1" title="${esc(L("Download the briefing ", "下載任務說明 ") + m.mt.name)}">.MT</a> <button class="mt" data-brief="${esc(m.id)}" title="${L("Read the briefing", "閱讀任務說明")}">📄</button>` : ""}</td>
         <td>${mb(m.size)}</td>
@@ -61,27 +68,28 @@
         <td><button data-play="${esc(m.id)}">▶ ${L("Play", "播放")}</button> <button data-link="${esc(m.id)}" title="${L("Copy a link that opens this mission", "複製可直接開啟這個任務的連結")}">🔗</button></td></tr>`).join("")
       : `<tr><td colspan="5" class="mmuted">${api === true ? L("No missions uploaded yet.", "還沒有人上傳任務。") : L("Loading…", "載入中…")}</td></tr>`;
     b.innerHTML = `<div class="mup">${up}
-        <label class="btn sm">${L("Choose .bin…", "選擇 .bin…")}<input id="m_file" type="file" accept=".bin" hidden></label></div>
+        <label class="btn sm">${local ? L("Change .bin…", "換一個 .bin…") : L("Choose .bin…", "選擇 .bin…")}<input id="m_file" type="file" accept=".bin" hidden></label></div>
       <div class="mup mextra"><span class="mmuted">${L("Add (optional):", "一併上傳（選填）：")}</span>
         ${["m", "mt"].map(k => extras[k]
           ? `<span class="mchip">${esc(extras[k].name)} <button data-unx="${k}" title="${L("Remove", "移除")}">✕</button></span>`
           : `<label class="btn sm">${k === "m" ? L(".M mission file", ".M 任務檔") : L(".MT briefing", ".MT 任務說明")}<input data-x="${k}" type="file" accept=".${k},.${k.toUpperCase()}" hidden></label>`).join(" ")}</div>
       <div class="mmuted msmall">${L("Uploads are public: anyone can see, play and download them. .bin up to 30 MB, .M / .MT up to 2 MB.",
         "上傳的檔案是公開的：任何人都能看到、播放與下載。.bin 最大 30 MB，.M / .MT 最大 2 MB。")}</div>
+      <div class="mform">
+        <input id="m_by" maxlength="40" placeholder="${L("Your name (optional)", "你的名字（選填）")}" value="${esc(form.by)}">
+        <textarea id="m_desc" maxlength="500" rows="2" placeholder="${L("Short description: aircraft, mission, what happens… (optional)", "簡短說明：機型、任務、精彩之處…（選填）")}">${esc(form.desc)}</textarea>
+        <button id="m_up" ${local && !busy ? "" : "disabled"}>⬆ ${L("Upload", "上傳")}</button></div>
       <div id="m_msg" class="mmsg">${msg || ""}</div><pre id="m_brief" class="hide"></pre>
       <div class="mlist"><table><thead><tr><th>${L("File", "檔案")}</th><th>${L("Mission", "任務檔")}</th><th>${L("Size", "大小")}</th><th>${L("Uploaded", "上傳時間")}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
     if ($("m_up")) $("m_up").onclick = () => uploadBuf(local.buf, local.name);
-    $("m_file").onchange = e => { const f = e.target.files[0]; if (f) f.arrayBuffer().then(buf => uploadBuf(buf, f.name)); };
+    $("m_file").onchange = e => takeFiles(e.target.files);
+    $("m_by").oninput = e => { form.by = e.target.value; };
+    $("m_desc").oninput = e => { form.desc = e.target.value; };
     b.querySelectorAll("[data-play]").forEach(x => x.onclick = () => { hide(); openMission(x.dataset.play); });
     b.querySelectorAll("[data-link]").forEach(x => x.onclick = () => copyLink(x.dataset.link));
     b.querySelectorAll("[data-brief]").forEach(x => x.onclick = () => showBrief(x.dataset.brief));
     b.querySelectorAll("[data-unx]").forEach(x => x.onclick = () => { extras[x.dataset.unx] = null; render(); });
-    b.querySelectorAll("input[data-x]").forEach(x => x.onchange = e => {
-      const k = x.dataset.x, f = e.target.files[0]; if (!f) return;
-      if (!EXT[k].test(f.name)) { say(esc(L(`Pick a .${k.toUpperCase()} file.`, `請選擇 .${k.toUpperCase()} 檔。`)), "err"); return; }
-      if (f.size > MAX_EXTRA || !f.size) { say(esc(L(`${f.name} is empty or over 2 MB.`, `${f.name} 是空的或超過 2 MB。`)), "err"); return; }
-      f.arrayBuffer().then(buf => { extras[k] = { buf, name: f.name }; render(); });
-    });
+    b.querySelectorAll("input[data-x]").forEach(x => x.onchange = e => takeFiles(e.target.files));
   }
   const say = (html, cls) => { const m = $("m_msg"); if (m) { m.className = "mmsg " + (cls || ""); m.innerHTML = html; } };
 
@@ -96,6 +104,26 @@
     } catch (e) { api = "off"; }
   }
   async function refresh() { await probe(); if (!box.classList.contains("hide")) render(); }
+
+  // ---------- picking files (buttons or drag and drop) ----------
+  async function takeFiles(list) {
+    const errs = [];
+    for (const f of [...(list || [])]) {
+      if (/\.bin$/i.test(f.name)) {
+        if (f.size > MAX_BYTES) { errs.push(L(`${f.name} is ${mb(f.size)}; the limit is 30 MB.`, `${f.name} 有 ${mb(f.size)}，上限是 30 MB。`)); continue; }
+        const buf = await f.arrayBuffer(), magic = String.fromCharCode(...new Uint8Array(buf, 0, Math.min(6, buf.byteLength)));
+        if (!MAGIC.test(magic)) { errs.push(L(`${f.name} is not an FA flight recording.`, `${f.name} 不是 FA 飛行錄製檔。`)); continue; }
+        local = { buf, name: f.name };
+      } else {
+        const k = EXT.mt.test(f.name) ? "mt" : EXT.m.test(f.name) ? "m" : null;
+        if (!k) { errs.push(L(`${f.name}: only .bin, .M and .MT files can be uploaded.`, `${f.name}：只能上傳 .bin、.M 與 .MT 檔。`)); continue; }
+        if (!f.size || f.size > MAX_EXTRA) { errs.push(L(`${f.name} is empty or over 2 MB.`, `${f.name} 是空的或超過 2 MB。`)); continue; }
+        extras[k] = { buf: await f.arrayBuffer(), name: f.name };
+      }
+    }
+    render();
+    if (errs.length) say(esc(errs.join(" ")), "err");
+  }
 
   // ---------- briefing (.MT) ----------
   function decodeText(u8) {
@@ -152,7 +180,17 @@
           entry[k] = { name: xn, size: x.buf.byteLength, url: bx.url };
         } catch (e) { failed.push(`${xn}: ${e && e.message || e}`); }
       }
-      busy = false; current = blob.pathname; local = null; extras.m = extras.mt = null;
+      const by = form.by.trim(), desc = form.desc.trim();
+      try { localStorage.setItem(NAME_KEY, by); } catch (e) {}
+      if (by || desc) {
+        try {
+          const r = await fetch(API_UPLOAD, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "mission-info", id: blob.pathname, by, desc }) });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(j.error || r.status);
+          entry.by = j.by || undefined; entry.desc = j.desc || undefined;
+        } catch (e) { failed.push(L("name / description: ", "名字 / 說明：") + (e && e.message || e)); }
+      }
+      busy = false; current = blob.pathname; local = null; extras.m = extras.mt = null; form.desc = "";
       missions.unshift(entry);
       setParam(blob.pathname);
       render(); say(L("Uploaded. Share link: ", "上傳完成，分享連結：") + `<a class="mlink" href="${esc(shareUrl(blob.pathname))}">${esc(shareUrl(blob.pathname))}</a>`
