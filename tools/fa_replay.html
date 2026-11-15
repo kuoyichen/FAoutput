@@ -109,7 +109,14 @@ a.fhome.fx{position:absolute;left:12px;top:10px;z-index:5;text-shadow:0 1px 3px 
 #mbox td.mn{max-width:260px;overflow:hidden;text-overflow:ellipsis}
 #mbox tr.cur td{color:var(--accent)}
 #mbox td button{padding:2px 8px;font-size:12px}
-@media (max-width:560px){ #mbox th:nth-child(3),#mbox td:nth-child(3){display:none} #mbox td.mn{max-width:140px} }
+#mbox .mextra{font-size:12px}
+#mbox .mchip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:10px;padding:1px 4px 1px 8px}
+#mbox .mchip button{padding:0 5px;font-size:11px;border:0}
+#mbox td.mx{font-size:12px} #mbox td.mx button{padding:0 4px}
+#mbox .mmsg .err{color:#ff7a66}
+#m_brief{margin:0;max-height:34vh;overflow:auto;white-space:pre-wrap;background:var(--dark2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:12px/1.5 ui-monospace,Consolas,monospace}
+#m_brief.hide{display:none}
+@media (max-width:560px){ #mbox th:nth-child(4),#mbox td:nth-child(4){display:none} #mbox td.mn{max-width:140px} }
 </style>
 <script src="fashion_i18n.js"></script>
 </head>
