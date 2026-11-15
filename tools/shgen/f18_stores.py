@@ -140,9 +140,8 @@ SHAPES = {TANK: tank480, AIM9: _W('SIDEM.SH', 29), AAM: _W('AMRAM.SH', 37), ARM:
 def top_of(kind):
     """Height of the store's top above its centre (FA's launch point), at FA's own size."""
     if kind == TANK: return 3.5
-    n = len(fa_weapons.TOPS); SHAPES[kind]()
-    return list(fa_weapons.TOPS.values())[-1] if len(fa_weapons.TOPS) > n else \
-        next(v for (nm, L, r), v in fa_weapons.TOPS.items() if L is None)
+    SHAPES[kind]()
+    return fa_weapons.LAST_TOP
 
 
 # ---------------------------------------------------------------- slots: (station, rank, default kind, attach x, up, fwd)

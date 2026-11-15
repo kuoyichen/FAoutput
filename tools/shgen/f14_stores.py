@@ -11,37 +11,50 @@ import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import math
 import f18_stores as S
-S.NATIVE = False             # F-14 stores: real lengths, rear end AFT behind the attach point (as v2)
 import fa_weapons
 from f18g_growler import orient, lathe, FLAT, GREY
 
 T, A9, A7, A54, NONE = S.TANK, S.AIM9, S.AIM7, S.AIM54, S.NONE
-# (station, rank, default kind, attach x, up, fwd); the store's rear ends 10 units behind its attach fwd.
-# Pairs: left rank 1, right rank 2 (FA fires the right one first); belly: rear pair first-loaded, front pair last.
-# Cross sections (fwd 25): tunnel roof up -6.7 for |x| < 7, nacelles x 9..20 with bottom -9.5 (-11 at fwd 5,
-# -6.5 at fwd 40), glove underside up 2..4 at x 20..34, main gear x 21..28 at fwd 0..8.
-GX = 29                      # glove pylon foot (AIM-54 centre line)
+# Kuoyi's F14.PT (2026-11-16) gives each weapon's centre (where FA launches it), x / up / fwd:
+#   hp4 AIM-7 x4 (4, -6, 50)  hp5 tank x2 (16, -14, 19)  hp6 AIM-54 x2 (27, -7, 34)  hp7 AIM-9 x2 (30, -1, 30)
+# The PT has one point for the four AIM-7s: that is the front pair (x +-4); the rear pair sits right behind it.
+# Stores are FA's own models at their own size, centred on those points (as F18-11); attach = store top.
+# Cross sections (fwd 25): tunnel roof up -6.7 for |x| < 7 (-6.3 at fwd 45, so the AIM-7s are half recessed),
+# nacelles x 9..20 with bottom -9.5 (-10 at fwd 19), glove underside up 2..4 at x 20..34, main gear x 21..28, fwd 0..8.
+PT = {4: (4, -6, 50), 5: (16, -14, 19), 6: (27, -7, 34), 7: (30, -1, 30)}
+TANK_R = 4.5
+S.SHAPES[A7] = S._W('SPAR.SH', 36, 45)          # X fins: two side by side fit in the tunnel
+
+
+def att(st, kind, side=1, dfwd=0):
+    x, u, f = PT[st]
+    top = TANK_R if kind == T else S.top_of(kind)
+    return (side * x, round(u + top), f + dfwd)
+
+
+A7REAR = -40                 # rear AIM-7 pair: one missile length (36) plus a gap behind the front pair
 S.SLOTS = {
-    'BRL': (4, 1, A7, (-3, -9, -20)), 'BRR': (4, 2, A7, (3, -9, -20)),
-    'BFL': (4, 3, A7, (-3, -9, 16)),  'BFR': (4, 4, A7, (3, -9, 16)),
-    'TL': (5, 1, T, (-14, -12, 14)),  'TR': (5, 2, T, (14, -12, 14)),
-    'GL': (6, 1, A54, (-GX, -7, 20)), 'GR': (7, 1, A54, (GX, -7, 20)),
-    'SL': (8, 1, A9, (-31, 0, 22)),   'SR': (8, 2, A9, (31, 0, 22)),
+    'BRL': (4, 1, A7, att(4, A7, -1, A7REAR)), 'BRR': (4, 2, A7, att(4, A7, 1, A7REAR)),
+    'BFL': (4, 3, A7, att(4, A7, -1)),         'BFR': (4, 4, A7, att(4, A7, 1)),
+    'TL': (5, 1, T, att(5, T, -1)),            'TR': (5, 2, T, att(5, T, 1)),
+    'GL': (6, 1, A54, att(6, A54, -1)),        'GR': (6, 2, A54, att(6, A54, 1)),
+    'SL': (7, 1, A9, att(7, A9, -1)),          'SR': (7, 2, A9, att(7, A9, 1)),
 }
+GX = PT[6][0]
+GLOVE_UNDER = 2.5            # glove underside at x 22..27
 
 
 def tank267():
     """F-14 267-gal tank: fat (radius 4.5, about the intake width), blunt round nose, short tail cone."""
     r = 4.5
     sec = [(r * math.sin(a), r * math.cos(a)) for a in (2 * math.pi * k / 12 for k in range(12))]
-    st = [(18, 0, -r), (17.3, .45, -r), (16, .7, -r), (14, .88, -r), (11, 1, -r), (-8, 1, -r), (-12, .85, -r),
-          (-15.5, .62, -r), (-18.5, .38, -r), (-20, .2, -r)]
+    st = [(19, 0, -r), (18.3, .45, -r), (17, .7, -r), (15, .88, -r), (12, 1, -r), (-7, 1, -r), (-11, .85, -r),
+          (-14.5, .62, -r), (-17.5, .38, -r), (-19, .2, -r)]         # centred on fwd 0 (the PT point)
     V, F, _ = lathe(sec, st, S.WHITE)
     return V, F
 
 
 S.SHAPES[T] = tank267
-S.SHAPES[A7] = lambda: fa_weapons.load('SPAR.SH', 36, roll=45)     # X fins: two side by side fit in the tunnel
 
 
 def solid(sections, col=GREY):
@@ -66,7 +79,8 @@ def solid(sections, col=GREY):
 def glove_pylon(side):
     """Seen from the front the glove pylon leaves the glove, bends outboard and drops straight to the AIM-54;
     2 units thick.  Local x 0 = AIM-54 centre line, up 0 = AIM-54 top; side +1 right, -1 left."""
-    cl = [(-4.5, 10.5, -14, 14), (-3.5, 7, -13, 13), (-1.5, 4.5, -12, 12), (0, 2.5, -11, 11), (0, 0, -10, 10)]
+    H = GLOVE_UNDER + 1 - S.SLOTS['GR'][3][1]                     # store top up into the glove
+    cl = [(-4, H, -14, 14), (-3, .7 * H, -13, 13), (-1.3, .45 * H, -12, 12), (0, .24 * H, -11, 11), (0, 0, -10, 10)]
     secs = []
     for i, (x, u, f0, f1) in enumerate(cl):
         a, b = cl[max(i - 1, 0)], cl[min(i + 1, len(cl) - 1)]
@@ -82,17 +96,14 @@ def small_pylon(h, f0, f1, half=1):
     return solid([(half, h, -half, h, f0 - 1, f1), (half, 0, -half, 0, f0 + 1, f1 - 1)])
 
 
-S.PYLONS = {'pyGR': glove_pylon(1), 'pyGL': glove_pylon(-1), 'pyT': small_pylon(4, -7, 7)}
+S.PYLONS = {'pyGR': glove_pylon(1), 'pyGL': glove_pylon(-1)}    # tanks hang close under the nacelles: no pylon
 
 
 def f14_pylon_units():
     out = []
     for s, part in (('GR', 'pyGR'), ('GL', 'pyGL')):
         x, u, f = S.SLOTS[s][3]
-        out.append(('py' + s, part, (x, u, 24), u + 9))     # fwd 10..38, clear of the main gear (fwd 0..8)
-    for s in ('TL', 'TR'):
-        x, u, f = S.SLOTS[s][3]
-        out.append(('py' + s, 'pyT', (x, u, f + 10), u + 2))       # middle of the tank
+        out.append(('py' + s, part, (x, u, 28), u + 9))     # pylon fwd 14..42: under the glove, clear of the gear
     return out
 
 
