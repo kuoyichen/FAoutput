@@ -1,5 +1,6 @@
-// POST /api/pt-commit { adminKey, name: "F18.PT", content: <base64 of the file>, message? }
-//   -> { ok, sha, commitUrl } after writing PT/<name> on main of kuoyichen/FAoutput (tools/pt_editor.html "Commit to GitHub").
+// POST /api/pt-commit { adminKey, name: "F18.PT" | "AIM54C.JT", content: <base64 of the file>, message? }
+//   -> { ok, sha, commitUrl } after writing PT/<name> or JT/<name> on main of kuoyichen/FAoutput
+//   ("Commit to GitHub" in tools/pt_editor.html and tools/jt_editor.html).
 // POST /api/pt-commit { check: true, adminKey } -> { admin, githubConfigured }
 // Only the site admin can commit: adminKey must equal MISSIONS_ADMIN_KEY (the key used by the missions panel and the board).
 // Needs a GitHub token with "Contents: read and write" on kuoyichen/FAoutput in the Vercel env var GITHUB_TOKEN
@@ -8,7 +9,7 @@ import { timingSafeEqual } from "node:crypto";
 import { adminKey, rateLimited } from "./_missions.js";
 
 const REPO = "kuoyichen/FAoutput", BRANCH = "main";
-const NAME_RE = /^[A-Z0-9_~\-]{1,12}\.PT$/;
+const NAME_RE = /^[A-Z0-9_~\-]{1,12}\.(PT|JT)$/;
 const MAX = 256 * 1024;
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-methods": "POST, OPTIONS", "access-control-allow-headers": "content-type" };
 const json = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json", "cache-control": "no-store", ...CORS } });
@@ -41,17 +42,19 @@ export async function POST(request) {
   try { bytes = Buffer.from(String(body.content || ""), "base64"); } catch { return json({ error: "bad content" }, 400); }
   if (!bytes.length || bytes.length > MAX) return json({ error: "bad size" }, 400);
   const head = bytes.subarray(0, 40).toString("latin1");
-  if (!head.startsWith("[brent's_relocatable_format]")) return json({ error: "not a PT file" }, 400);
-  if (!/START OF PLANE_TYPE/.test(bytes.toString("latin1"))) return json({ error: "not an aircraft PT" }, 400);
+  if (!head.startsWith("[brent's_relocatable_format]")) return json({ error: "not a PT / JT file" }, 400);
+  const dir = name.slice(-2);   // PT (aircraft) or JT (ordnance)
+  if (dir === "PT" && !/START OF PLANE_TYPE/.test(bytes.toString("latin1"))) return json({ error: "not an aircraft PT" }, 400);
+  if (dir === "JT" && !/START OF PROJ_TYPE/.test(bytes.toString("latin1"))) return json({ error: "not an ordnance JT" }, 400);
 
-  const path = `PT/${name}`;
+  const path = `${dir}/${name}`;
   try {
-    const cur = await gh(`contents/${encodeURIComponent("PT")}/${encodeURIComponent(name)}?ref=${BRANCH}`);
+    const cur = await gh(`contents/${dir}/${encodeURIComponent(name)}?ref=${BRANCH}`);
     if (!cur.ok && cur.status !== 404) return json({ error: `GitHub read failed (${cur.status}): ${cur.j.message || ""}` }, 502);
     const sha = cur.ok ? cur.j.sha : undefined;
     if (cur.ok && cur.j.content && Buffer.from(cur.j.content, "base64").equals(bytes)) return json({ ok: true, unchanged: true });
-    const message = String(body.message || "").replace(/[\u0000-\u001f]/g, " ").trim().slice(0, 200) || `PT editor: update ${name}`;
-    const put = await gh(`contents/PT/${encodeURIComponent(name)}`, { method: "PUT", body: JSON.stringify({ message, content: bytes.toString("base64"), branch: BRANCH, ...(sha ? { sha } : {}) }) });
+    const message = String(body.message || "").replace(/[\u0000-\u001f]/g, " ").trim().slice(0, 200) || `${dir} editor: update ${name}`;
+    const put = await gh(`contents/${dir}/${encodeURIComponent(name)}`, { method: "PUT", body: JSON.stringify({ message, content: bytes.toString("base64"), branch: BRANCH, ...(sha ? { sha } : {}) }) });
     if (!put.ok) return json({ error: `GitHub write failed (${put.status}): ${put.j.message || ""}` }, 502);
     return json({ ok: true, path, sha: put.j.commit?.sha, commitUrl: put.j.commit?.html_url });
   } catch (e) {
