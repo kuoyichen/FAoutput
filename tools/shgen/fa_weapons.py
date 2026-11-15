@@ -46,7 +46,10 @@ def faces_of(c, start):
     return out
 
 
-def load(name, length, white=150, roll=0):
+TOPS = {}
+
+
+def load(name, length=None, white=150, roll=0):
     """roll (degrees) turns the store about its axis, e.g. 45 so + fins become X fins clear of the pylon."""
     d = open(os.path.join(SHDIR, name), 'rb').read()
     pe, opt, secs = pe_sections(d); code = next(s for s in secs if s['name'] == 'CODE')
@@ -58,13 +61,14 @@ def load(name, length, white=150, roll=0):
     FF = [f for f in FF if not (f[1] & 4 and not f[2] & 0xFF)]
     used0 = {i for f in FF for i in f[3]}
     f0, f1 = min(V0[i][1] for i in used0), max(V0[i][1] for i in used0)
-    s = length / (f1 - f0)
+    s = length / (f1 - f0) if length else 1        # length None: FA's own size, so it matches the launched weapon
     import math
     ca, sa = math.cos(math.radians(roll)), math.sin(math.radians(roll))
     V = [(round((x * ca - u * sa) * s), round(f * s), round((x * sa + u * ca) * s)) for x, f, u in V0]
     # attach at the top of the body, not of the fins: fin faces lie in the x = 0 or up = 0 plane, body faces do not
     body = [f[3] for f in FF if any(V0[i][0] for i in f[3]) and any(V0[i][2] for i in f[3])]
     top = max(V[i][2] for q in body for i in q if abs(V[i][0]) <= 1)   # body top on the centreline (X fins are off it)
+    TOPS[(name, length, roll)] = top                              # body top above the model origin (weapon centre)
     V = [(x, f, u - top) for x, f, u in V]                       # top of the store at local up 0 (pylon attach)
     F = []
     for p, fl, col, idx in FF:
