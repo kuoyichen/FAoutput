@@ -762,6 +762,21 @@ async function initCombat(rgb){
     { name: "SA6", kind: "gnd", hp: 6, x: -13600, y: -7800, hdg: 2 }, { name: "ZSU23", kind: "gnd", hp: 5, x: -16200, y: -9800, hdg: 1 },
     { name: "KIROV", kind: "sea", hp: 40, x: 62000, y: -14000, hdg: 0.4 }, { name: "KRIVAK", kind: "sea", hp: 25, x: 56000, y: -19000, hdg: 0.4 },
   ];
+  // more enemy fighters and bombers on random circuits, and buildings scattered in clusters over the island (fixed seed, same every visit)
+  let seed = 7; const rnd = () => hash(seed++, 9173);
+  const PLANES = ["MIG21", "MIG23", "MIG25", "MIG29", "MIG31", "SU24", "SU25", "SU27", "TU16", "IL76"];
+  for (let i = 0; i < 10; i++){ const cx = -40000 + rnd() * 100000, cy = -40000 + rnd() * 90000, R = 6000 + rnd() * 10000;
+    list.push(air(PLANES[i % PLANES.length], cx, cy, 3000 + rnd() * 9000, R, rnd() * 6.3, rnd() < 0.5 ? 1 : -1)); }
+  const BLDS = ["BLD1", "BLD2", "BLD3", "FACT1", "CMHQ2", "COMM1", "COMM2", "FUEL", "RES1", "RES2", "BNK1", "SILO", "IND1", "IND2", "HANGR", "HOUS"];
+  for (let c = 0, tries = 0; c < 9 && tries < 400; tries++){
+    const cx = -50000 + rnd() * 75000, cy = -45000 + rnd() * 95000;
+    const dAir = Math.max(AIRFIELD.x0 - cx, cx - AIRFIELD.x1, AIRFIELD.y0 - cy, cy - AIRFIELD.y1, 0);
+    if (dAir < 6000 || terrainH(cx, cy) < 60 || terrainH(cx, cy) > 4500) continue;
+    const n = 4 + Math.floor(rnd() * 4); c++;
+    for (let k = 0; k < n; k++){ const x = cx + (rnd() - 0.5) * 3500, y = cy + (rnd() - 0.5) * 3500;
+      if (terrainH(x, y) < 30 || Math.abs(terrainH(x + 200, y) - terrainH(x - 200, y)) > 150) continue;
+      list.push({ name: BLDS[Math.floor(rnd() * BLDS.length)], kind: "bld", hp: 8, x, y, hdg: Math.floor(rnd() * 4) * Math.PI / 2 }); }
+  }
   for (const t of list){ try { t.s = await loadShape(t.name); t.mesh = getMesh(t.s, { gear: t.kind !== "air" }); t.maxHp = t.hp; t.dead = 0; t.pos = [t.x || 0, t.y || 0, 0]; t.q = qAxis([0,0,1], t.hdg || 0); placeTarget(t, 0); targets.push(t); } catch(e){ console.warn(e); } }
 }
 function placeTarget(t, dt){
@@ -770,9 +785,15 @@ function placeTarget(t, dt){
     t.vel = vmul(vsub([x, y, z], t.pos), dt > 0 ? 1 / dt : 0); t.pos = [x, y, z];
     t.q = qMul(qFromHP(o.ph + (o.dir > 0 ? 0 : Math.PI), 0), qAxis([0,1,0], -0.55 * o.dir)); return; }
   t.vel = [0, 0, 0];
-  if (t.kind === "sea") t.pos[2] = 0; else t.pos[2] = Math.max(0, terrainH(t.pos[0], t.pos[1]));
+  if (t.kind === "sea") t.pos[2] = 0;
+  else if (t.kind === "bld"){ if (dt) return; const m = t.mesh; let h = 1e9;
+    for (const [a, b] of [[m.lo[0], m.lo[1]], [m.hi[0], m.lo[1]], [m.lo[0], m.hi[1]], [m.hi[0], m.hi[1]], [0, 0]]) h = Math.min(h, terrainH(t.pos[0] + a, t.pos[1] + b));
+    t.pos[2] = Math.max(0, h) - m.lo[2]; }
+  else t.pos[2] = Math.max(0, terrainH(t.pos[0], t.pos[1]));
 }
 const fwdOf = q => qRot(q, [0,1,0]);
+// line of sight over the terrain (no lock on targets hidden behind a ridge)
+function clearLine(a, b){ for (let i = 1; i < 24; i++){ const k = i / 24, x = a[0] + (b[0]-a[0])*k, y = a[1] + (b[1]-a[1])*k, z = a[2] + (b[2]-a[2])*k; if (terrainH(x, y) > z + 20) return false; } return true; }
 function nextWeapon(){ if (P.mode !== "fly") return; W.sel = (W.sel + 1) % WEAPONS.length; W.lock = null; updButtons(); }
 function launchFrom(){ const r = curMesh().radius, f = fwdOf(P.q), rt = qRot(P.q, [1,0,0]), up = qRot(P.q, [0,0,1]); W.side = -W.side;
   return vadd(P.pos, vadd(vmul(rt, W.side * r * 0.25), vadd(vmul(up, -r * 0.08), vmul(f, r * 0.1)))); }
@@ -785,12 +806,13 @@ function fireOnce(){
 }
 function damage(t, n, at){
   if (t.dead) return; t.hp -= n;
-  if (t.hp <= 0){ t.dead = performance.now(); W.kills++; $("hKill").textContent = W.kills; boom(t.pos, t.mesh.radius * 1.4);
+  if (t.hp <= 0){ t.dead = performance.now(); W.kills++; $("hKill").textContent = W.kills; boom(tCenter(t), t.mesh.radius * (t.kind === "bld" ? 1.8 : 1.4));
     sub(L(`${t.name} destroyed!`, `擊毀 ${t.name}！`)); if (W.lock === t) W.lock = null; }
   else boom(at || t.pos, 30);
 }
 function boom(pos, size){ W.booms.push({ pos: pos.slice(), size, t0: performance.now() }); }
-function hitTarget(p, extra){ for (const t of targets) if (!t.dead && vlen(vsub(p, t.pos)) < t.mesh.radius * 0.6 + extra) return t; return null; }
+const tCenter = t => t.kind === "bld" ? vadd(t.pos, [0, 0, (t.mesh.lo[2] + t.mesh.hi[2]) / 2]) : t.pos;
+function hitTarget(p, extra){ for (const t of targets) if (!t.dead && vlen(vsub(p, tCenter(t))) < t.mesh.radius * (t.kind === "bld" ? 0.75 : 0.6) + extra) return t; return null; }
 function stepCombat(dt){
   for (const t of targets){ if (t.dead && performance.now() - t.dead > 30000){ t.dead = 0; t.hp = t.maxHp; } if (!t.dead) placeTarget(t, dt); }
   const w = WEAPONS[W.sel];
@@ -798,8 +820,8 @@ function stepCombat(dt){
   if (P.mode === "fly" && !P.crashed && (w.air || w.gnd)){
     const f = fwdOf(P.q); let best = null, ba = 1e9;
     for (const t of targets){ if (t.dead || (w.air ? t.kind !== "air" : t.kind === "air")) continue;
-      const d = vsub(t.pos, P.pos), dist = vlen(d), ang = Math.acos(clamp(vdot(d, f) / dist, -1, 1));
-      if (dist < w.range && ang < w.cone && ang < ba){ ba = ang; best = t; } }
+      const d = vsub(tCenter(t), P.pos), dist = vlen(d), ang = Math.acos(clamp(vdot(d, f) / dist, -1, 1));
+      if (dist < w.range && ang < w.cone && ang < ba && clearLine(P.pos, tCenter(t))){ ba = ang; best = t; } }
     W.lock = best;
   } else W.lock = null;
   // gun
@@ -823,7 +845,7 @@ function stepCombat(dt){
     else {
       const ns = Math.min(m.w.spd, spd + 900 * dt); let dir = vmul(m.vel, 1 / spd);
       if (m.t > 0.25 && m.target && !m.target.dead){
-        const tt = vlen(vsub(m.target.pos, m.pos)) / Math.max(ns, 1), aim = vnorm(vsub(vadd(m.target.pos, vmul(m.target.vel || [0,0,0], tt)), m.pos));
+        const tc = tCenter(m.target), tt = vlen(vsub(tc, m.pos)) / Math.max(ns, 1), aim = vnorm(vsub(vadd(tc, vmul(m.target.vel || [0,0,0], tt)), m.pos));
         const maxTurn = m.w.g * G / Math.max(ns, 300) * dt, ang = Math.acos(clamp(vdot(dir, aim), -1, 1));
         dir = ang <= maxTurn ? aim : vnorm(vadd(vmul(dir, Math.sin(ang - maxTurn)), vmul(aim, Math.sin(maxTurn))));
       } else if (m.t < 0.25) dir = vnorm(vadd(dir, [0, 0, -0.3 * dt]));
@@ -843,9 +865,9 @@ function stepCombat(dt){
 }
 function renderCombat(eye){
   for (const t of targets){
-    if (vlen(vsub(t.pos, eye)) > FOG[1] + t.mesh.radius) continue;
+    const dd = vlen(vsub(t.pos, eye)); if (dd > FOG[1] + t.mesh.radius) continue;
     if (t.dead){ if (t.kind === "air") continue; gl.uniform4f(mProg.U("uTint"), 0.08, 0.07, 0.06, 0.75); }
-    drawModel(t.s, t.mesh, modelMat(t.q, vsub(t.pos, eye)), false);
+    drawModel(t.s, t.mesh, modelMat(t.q, vsub(t.pos, eye)), false, dd > t.mesh.radius * 25);
     if (t.dead) gl.uniform4f(mProg.U("uTint"), 0, 0, 0, 0);
   }
   for (const m of W.shots){ const s = shapes[m.w.sh]; if (!s) continue; const d = vnorm(m.vel);
@@ -879,13 +901,13 @@ function drawOverlay(){
   if (P.mode !== "fly" || !P.s) return;
   ox.lineWidth = 1.5; ox.font = "600 11px ui-monospace,Consolas,monospace"; ox.textAlign = "center";
   const w = WEAPONS[W.sel];
-  for (const t of targets){ if (t.dead) continue; const dist = vlen(vsub(t.pos, P.pos)); if (dist > 70000) continue;
-    const s = project(t.pos); if (!s) continue; const lock = W.lock === t, valid = w.air ? t.kind === "air" : w.gnd || w.bomb ? t.kind !== "air" : true, r = lock ? 16 : 10;
+  for (const t of targets){ if (t.dead) continue; const dist = vlen(vsub(t.pos, P.pos)); if (dist > (t.kind === "bld" ? 30000 : 70000)) continue;
+    const s = project(tCenter(t)); if (!s) continue; const lock = W.lock === t, valid = w.air ? t.kind === "air" : w.gnd || w.bomb ? t.kind !== "air" : true, r = lock ? 16 : t.kind === "bld" ? 6 : 10;
     ox.strokeStyle = lock ? "#ff4040" : valid ? "#9dffb0" : "#9dffb066"; ox.fillStyle = ox.strokeStyle;
     if (t.kind === "air"){ ox.beginPath(); ox.moveTo(s[0], s[1] - r); ox.lineTo(s[0] + r, s[1]); ox.lineTo(s[0], s[1] + r); ox.lineTo(s[0] - r, s[1]); ox.closePath(); ox.stroke(); }
     else ox.strokeRect(s[0] - r, s[1] - r, 2*r, 2*r);
     if (lock){ ox.strokeRect(s[0] - r - 4, s[1] - r - 4, 2*r + 8, 2*r + 8); ox.fillText("LOCK", s[0], s[1] - r - 9); }
-    ox.fillText(dist > 9000 ? (dist / 6076).toFixed(1) + "nm" : Math.round(dist) + "ft", s[0], s[1] + r + 13);
+    if (lock || t.kind === "air" || t.kind === "sea") ox.fillText(dist > 9000 ? (dist / 6076).toFixed(1) + "nm" : Math.round(dist) + "ft", s[0], s[1] + r + 13);
   }
   if (P.crashed) return;
   // gun cross / bomb impact point
@@ -934,7 +956,7 @@ function resize(){ const d = Math.min(2, devicePixelRatio || 1), w = Math.round(
 const FOG = [30000, 85000];
 function bindModelAttrs(buf){ gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   for (const [n, sz, off] of [["aP",3,0],["aUV",2,12],["aN",3,20],["aC",2,32]]){ const l = mProg.A(n); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, 40, off); } }
-function drawModel(s, mesh, M, shadow){
+function drawModel(s, mesh, M, shadow, far){
   gl.uniformMatrix4fv(mProg.U("uM"), false, M);
   bindModelAttrs(mesh.buf);
   if (shadow){ gl.uniform1f(mProg.U("uShadow"), 1); gl.disable(gl.POLYGON_OFFSET_FILL); gl.drawArrays(gl.TRIANGLES, 0, mesh.n); gl.uniform1f(mProg.U("uShadow"), 0); return; }
@@ -942,6 +964,7 @@ function drawModel(s, mesh, M, shadow){
   gl.uniform2f(mProg.U("uSize"), s.pic ? s.pic.w : 1, s.pic ? s.pic.h : 1);
   gl.uniform1f(mProg.U("uTex"), s.pic && $("tex").checked ? 1 : 0);
   // FA paints faces in order and decals share the body plane: pull each later face slightly forward
+  if (far){ gl.drawArrays(gl.TRIANGLES, 0, mesh.n); return; }   // far away: one draw call, face order no longer visible
   gl.enable(gl.POLYGON_OFFSET_FILL);
   const F = mesh.faces;
   for (let i = 0, k = 0; i < F.length; i += 2, k++){ gl.polygonOffset(-k * 0.004, -k * 0.5); gl.drawArrays(gl.TRIANGLES, F[i], F[i+1]); }
@@ -969,7 +992,7 @@ function render(){
   gl.uniformMatrix4fv(mProg.U("uPV"), false, PV); gl.uniform3fv(mProg.U("uSun"), SUN); gl.uniform3fv(mProg.U("uFogC"), SKY); gl.uniform2fv(mProg.U("uFog"), FOG);
   gl.uniform4f(mProg.U("uTint"), 0, 0, 0, 0); gl.uniform1f(mProg.U("uShadow"), 0); gl.uniform1f(mProg.U("uAlpha"), 1);
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, palTex); gl.uniform1i(mProg.U("uPal"), 1); gl.uniform1i(mProg.U("uPic"), 0);
-  for (const o of world.objs){ if (vlen(vsub(o.pos, eye)) > FOG[1] + o.mesh.radius) continue; drawModel(o.s, o.mesh, modelMat(o.q, vsub(o.pos, eye)), false); }
+  for (const o of world.objs){ const dd = vlen(vsub(o.pos, eye)); if (dd > FOG[1] + o.mesh.radius) continue; drawModel(o.s, o.mesh, modelMat(o.q, vsub(o.pos, eye)), false, dd > o.mesh.radius * 25); }
   renderCombat(eye);
   lastPV = PV; lastEye = eye;
   const mesh = curMesh();
