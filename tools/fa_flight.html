@@ -1168,7 +1168,9 @@ function render(){
   if (!P.s || !TMAP) return;
   const c = camera(lastDt), eye = c.eye, dist = vlen(vsub(c.target, eye));
   const above = eye[2] - groundAt(eye[0], eye[1]).h;
-  const near = clamp(Math.min(dist * 0.15, above * 0.5), 2, 60), proj = perspective(c.fov, cv.width / cv.height, near, 260000);
+  // RC view: the eye stands on the ground (near plane would be ~3 ft) while the jet is miles away with a narrow lens, so depth
+  // precision ran out and the far side of the jet showed through the near side. Push the near plane out to half the distance.
+  const near = cam.rc && cam.rcEye ? Math.max(3, dist * 0.5) : clamp(Math.min(dist * 0.15, above * 0.5), 2, 60), proj = perspective(c.fov, cv.width / cv.height, near, 260000);
   const PV = mul4(proj, lookAt0(vsub(c.target, eye), c.up));
   gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
   // terrain + sea
