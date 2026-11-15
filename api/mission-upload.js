@@ -34,10 +34,12 @@ async function saveInfo(body) {
   const id = String(body.id || "");
   if (!PATH_RE.test(id) || !keyIsRecent(keyOf(id))) return json({ error: "Details can only be added while uploading the mission" }, 400);
   const by = cleanText(body.by, MAX_NAME), desc = cleanText(body.desc, MAX_DESC);
-  if (!by && !desc) return json({ ok: true, skipped: true });
+  // SHA-256 of a secret only the uploader's browser keeps: lets that browser delete the mission later
+  const owner = /^[0-9a-f]{64}$/.test(String(body.ownerHash || "")) ? body.ownerHash : "";
+  if (!by && !desc && !owner) return json({ ok: true, skipped: true });
   try {
     if (!(await head(id, blobOpts()).catch(() => null))) return json({ error: "Mission not found" }, 404);
-    await put(`missions/${keyOf(id)}_info.json`, JSON.stringify({ by, desc }), {
+    await put(`missions/${keyOf(id)}_info.json`, JSON.stringify({ by, desc, owner }), {
       access: "public", contentType: "application/json", addRandomSuffix: false, allowOverwrite: false, cacheControlMaxAge: 60, ...blobOpts() });
     return json({ ok: true, by, desc });
   } catch (e) { return json({ error: String(e && e.message || e) }, 400); }
