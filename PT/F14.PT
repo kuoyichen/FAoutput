@@ -324,7 +324,7 @@
     word 2
     byte 1
 ;-------- hardpoint 6
-    word $d5
+    word $f5
     word -28
     word -7
     word 30
@@ -333,7 +333,7 @@
     word 0
     word 0
 	ptr defaultTypeName6
-    byte 15
+    byte 30
     word 2
     byte 4
 ;-------- hardpoint 7
