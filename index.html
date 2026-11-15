@@ -87,6 +87,7 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
   <a href="tools/board.html"><span class="ico">✉</span>Message Board</a>
   <h3>Releases</h3>
   <a href="tools/fa_flight.html"><span class="ico">◮</span>Flight Sim (mobile)</a>
+  <a href="tools/fa_flight.html?mission=canyon"><span class="ico">⛰</span>Canyon Strike mission</a>
   <a href="tools/f18_showcase.html"><span class="ico">✈</span>F/A-18 Showcase</a>
   <h3>Tools</h3>
   <a href="tools/sh_gallery.html"><span class="ico">▦</span>SH Shape Gallery</a>
@@ -122,7 +123,7 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
     <div>
       <h3>FA Flight: play on your phone</h3>
       <p>Fly the F/A-18 over an island with hills, mountains and open sea. Take off from the FA airfield or launch from the Nimitz, with two on-screen sticks and a chase camera you can swing around. Any FA shape can be driven: pick a ship to sail or a tank to drive.</p>
-      <div class="chips"><span>Mobile</span><span>Takeoff &amp; landing</span><span>Carrier</span><span>Any SH</span></div>
+      <div class="chips"><span>Mobile</span><span>Takeoff &amp; landing</span><span>Carrier</span><span>Any SH</span><span>Canyon strike</span></div>
       <span class="go">Start flying →</span>
     </div>
   </a>
@@ -154,9 +155,9 @@ FAI18N.register({
   "Reshaped Hornets and new Super Hornets, two Blue Angels schemes and a brand-new EA-18G Growler with jamming pods. View each one in 3D with gear, flaps, hook and speed brake, then download the SH and PIC files.": "重新修整的 Hornet 和全新的 Super Hornet、兩種藍天使塗裝，以及掛著干擾莢艙的全新 EA-18G Growler。可以 3D 檢視每一架，切換起落架、襟翼、尾鉤和減速板，再下載 SH 和 PIC 檔。",
   "Blue Angels E": "藍天使 E", "Blue Angels F": "藍天使 F", "Open the F/A-18 Showcase →": "開啟 F/A-18 展示 →",
   "Next up: a rebuilt F-14 Tomcat. Watch this space.": "下一個：重建的 F-14 Tomcat，敬請期待。", "Nov 14, 2026": "2026 年 11 月 14 日", "Nov 15, 2026": "2026 年 11 月 15 日",
-  "Flight Sim (mobile)": "飛行模擬（手機）", "Message Board": "留言板", "Say hello, ask questions, or reply to other pilots.": "打個招呼、問問題，或回覆其他飛行員。", "Open →": "開啟 →", "FA Flight: play on your phone": "FA Flight：在手機上飛",
+  "Flight Sim (mobile)": "飛行模擬（手機）", "Canyon Strike mission": "峽谷轟炸任務", "Message Board": "留言板", "Say hello, ask questions, or reply to other pilots.": "打個招呼、問問題，或回覆其他飛行員。", "Open →": "開啟 →", "FA Flight: play on your phone": "FA Flight：在手機上飛",
   "Fly the F/A-18 over an island with hills, mountains and open sea. Take off from the FA airfield or launch from the Nimitz, with two on-screen sticks and a chase camera you can swing around. Any FA shape can be driven: pick a ship to sail or a tank to drive.": "駕駛 F/A-18 飛越有丘陵、高山和大海的島嶼。從 FA 的機場起飛，或從尼米茲號航艦彈射，用螢幕上的兩支搖桿操作，追蹤鏡頭可以自由轉動。任何 FA 外形都能駕駛：選船來航行，或選戰車來開。",
-  "Mobile": "手機", "Takeoff & landing": "起飛與降落", "Carrier": "航艦", "Any SH": "任何 SH", "Start flying →": "開始飛行 →"
+  "Mobile": "手機", "Takeoff & landing": "起飛與降落", "Carrier": "航艦", "Any SH": "任何 SH", "Canyon strike": "峽谷轟炸", "Start flying →": "開始飛行 →"
 });
 document.getElementById("burger").before(FAI18N.picker()); FAI18N.apply();
 // ===== SH parser, part control and PIC reader (shared with tools/f18_showcase.html) =====
