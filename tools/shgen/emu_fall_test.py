@@ -31,7 +31,7 @@ def run(slot, T):
     ret=struct.unpack('<I',mu.mem_read(sp,4))[0]-0x1000
     if ret==at['EMPTY']: return 'EMPTY'
     q=at[('LF',slot)]; assert ret==q,(hex(ret))
-    return 'FALL', struct.unpack('<3h',mu.mem_read(0x1000+q+2,6))
+    return 'FALL', struct.unpack('<6h',mu.mem_read(0x1000+q+2,12))
 print('base', S.SLOTS['TL'][3], S.SLOTS['TR'][3])
 setup(cnt=2); print('full t=100', run('TL',100), run('TR',100))
 setup(cnt=0); print('jettison t=1000', run('TL',1000), run('TR',1000))

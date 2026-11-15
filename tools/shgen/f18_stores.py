@@ -377,12 +377,33 @@ def sub_bytes(sub_at, thunk_at, debug=False):
     return bytes(b), reloc_at
 
 
+FALL_PIVOT = (-3.5, -25)           # tank tail (up, fwd in the tank part): the heavy nose drops, the tank turns about its tail
+FALL_PITCH = 50                    # nose-down degrees reached at FALL_TURN ms
+FALL_TURN = 1500
+
+
+def fall_table():
+    """32 steps of 64 ms: i16 pitch (65536 = 360 deg, positive = nose up as in the gallery), i16 up, i16 fwd offset.
+    Falls down g t^2 / 2 and back g t^2 / 4 (1 unit = 1 ft) while turning nose down about the tail (Kuoyi)."""
+    import math
+    out = b''
+    for i in range(32):
+        t = i * 64 / 1000; k = min(1, i * 64 / FALL_TURN)
+        a = math.radians(FALL_PITCH) * (1 - math.cos(math.pi * k)) / 2           # nose-down angle, eased
+        pu, pf = FALL_PIVOT
+        # rotate the pivot by pitch -a (nose down): up' = up cos a - fwd sin a ... (gallery rotateDeg with p = a)
+        ru = pu * math.cos(a) - pf * math.sin(a); rf = pu * math.sin(a) + pf * math.cos(a)
+        du = pu - ru - 16 * t * t; df = pf - rf - 8 * t * t
+        out += struct.pack('<3h', -round(a / (2 * math.pi) * 65536), round(du), round(df))
+    return out
+
+
 def fall_bytes(fall_at, sub_at):
     """Falling jettisoned tank.  Stub `F0 00 68 imm32(station | k << 8) E8 rel32` + i16 table [EMPTY, list, base up,
     base fwd] (relative to the table).  Per aircraft and tank slot a 16-byte state (object ptr, start time, last count)
     sits in a zeroed table after the routine (CODE is writable: FA's own F0s patch C4 angles).  When the station's count
-    drops from > 0 to 0 the start time is recorded; for FALL_MS after it the routine moves the list's C4 down by
-    t^2 / 65536 and back by t^2 / 131072 (t in ms: about g and g/2 at 1 unit = 1 ft) and returns the list."""
+    drops from > 0 to 0 the start time is recorded; for FALL_MS after it the routine sets the list's C4 from
+    fall_table() (64 ms steps: pitch, up and fwd offsets) and returns the list."""
     nk = max(FALL_SLOTS.values()) + 1
     src = '''
         pop ebx
@@ -454,19 +475,25 @@ def fall_bytes(fall_at, sub_at):
     POS:
         cmp eax, %d
         jae STOP
-        mov ecx, eax
-        imul ecx, eax
-        mov edx, ecx
-        shr edx, 16
-        shr ecx, 17
+        shr eax, 6
+        imul eax, eax, 6
+        call T2
+    T2:
+        pop ecx
+        add ecx, TABOFF
+        add ecx, eax
         movsx eax, word ptr [ebx + 2]
         add eax, ebx
-        movsx edi, word ptr [ebx + 4]
-        sub edi, edx
-        mov word ptr [eax + 4], di
-        movsx edi, word ptr [ebx + 6]
-        sub edi, ecx
-        mov word ptr [eax + 6], di
+        movsx edx, word ptr [ebx + 4]
+        movsx edi, word ptr [ecx + 2]
+        add edx, edi
+        mov word ptr [eax + 4], dx
+        movsx edx, word ptr [ebx + 6]
+        movsx edi, word ptr [ecx + 4]
+        add edx, edi
+        mov word ptr [eax + 6], dx
+        mov dx, word ptr [ecx]
+        mov word ptr [eax + 10], dx
         mov eax, 1
         jmp OUTJ
     STOP:
@@ -475,12 +502,17 @@ def fall_bytes(fall_at, sub_at):
         xor eax, eax
     OUTJ:
     ''' % (FALL_NSTATE - 1, nk, FALL_MS)
-    probe = asm(src.replace('STATEOFF', '0x7fffffff'))
+    tab = fall_table()
+    ph = lambda a, b: src.replace('STATEOFF', str(a)).replace('TABOFF', str(b))
+    probe = asm(ph(0x7fffffff, 0x7ffffffe))
     here = probe.index(b'\x5e\x81\xc6\xff\xff\xff\x7f')              # HERE: pop esi; add esi, imm32
-    state_off = len(probe) + 5 - here                                   # state right after the routine and its jmp OUT
-    b = bytearray(asm(src.replace('STATEOFF', '0x7fffffff').replace('0x7fffffff', str(state_off)), fall_at))
-    assert len(b) == len(probe)
+    t2 = probe.index(b'\x59\x81\xc1\xfe\xff\xff\x7f')                # T2: pop ecx; add ecx, imm32
+    end = len(probe) + 5                                                # routine + jmp OUT, then table, then state
+    b = bytearray(probe)                                                # position independent: patch the two imm32
+    struct.pack_into('<i', b, here + 3, end + len(tab) - here)
+    struct.pack_into('<i', b, t2 + 3, end - t2)
     b += b'\xe9' + struct.pack('<i', (sub_at + SUB_OUT) - (fall_at + len(b) + 5))
+    b += tab
     return bytes(b), FALL_NSTATE * nk * 16
 
 
