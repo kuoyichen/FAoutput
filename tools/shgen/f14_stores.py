@@ -45,7 +45,7 @@ S.SLOTS = {
     'BRL': (4, 1, A7, att(4, A7, -1, A7REAR)), 'BRR': (4, 2, A7, att(4, A7, 1, A7REAR)),
     'BFL': (4, 3, A7, att(4, A7, -1)),         'BFR': (4, 4, A7, att(4, A7, 1)),
     'TL': (5, 1, T, att(5, T, -1)),            'TR': (5, 2, T, att(5, T, 1)),
-    'GL': (6, 2, A54, att(6, A54, -1)),        'GR': (6, 1, A54, att(6, A54, 1)),   # PT x is -28: FA fires the left one first (Kuoyi saw it)
+    'GL': (6, 1, A54, att(6, A54, -1)), 'GR': (6, 2, A54, att(6, A54, 1)),   # PT x is +28 (Kuoyi): right fires first like the other pairs
     'SL': (7, 1, A9, att(7, A9, -1)),          'SR': (7, 2, A9, att(7, A9, 1)),
 }
 GX = PT[6][0]
