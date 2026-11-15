@@ -331,6 +331,62 @@ def find_thunk(c, tail):
     return hits.most_common(1)[0][0]
 
 
+def place_units(c, ROOT, ubox):
+    """Insert each store unit into the model's BSP tree: follow the node whose plane has the whole unit on one
+    side (positive side = B branch, drawn last when the eye is on that side), and stop at the first node that
+    cuts it or at a leaf.  There a new 06 node separates the unit from what that branch draws: the axis plane
+    against the unit's box that leaves the fewest of the branch's points (and earlier units) on the unit's side.
+    Returns {branch target: [(unit, n, d), ...]} (chained in order) and {branch target: (rel field, base)}."""
+    import sh_bsp
+    _, tree = sh_bsp.parse(bytes(c), ROOT)
+    h = lambda p: struct.unpack_from('<h', c, p)[0]
+    plan, refs = {}, {}
+
+    def pts(items):
+        out = []
+        def walk(it):
+            for x in it:
+                if x[0] == 'face': out.extend(x[2])
+                elif x[0] == 'node': walk(x[5]); walk(x[6])
+                elif x[0] == 'call': walk(x[2])
+        walk(items); return out
+    corners = lambda b: [(x, u, f) for x in (b[0][0], b[1][0]) for u in (b[0][1], b[1][1]) for f in (b[0][2], b[1][2])]
+    for u, b in ubox.items():
+        T, items, ref = 'ROOT', tree, (None, None)
+        while True:
+            nds = [x for x in items if x[0] == 'node']
+            if len(nds) != 1: break
+            nd = nds[0]; p, op, nn, dd = nd[1], nd[2], nd[3], nd[4]
+            cen = [(b[0][j] + b[1][j]) / 2 for j in range(3)]
+            if op == 0x6C:                            # variable test (gear ...): follow the branch drawing nearer things
+                def dist(items):
+                    bb = sh_bsp.bbox(items)
+                    if not bb: return 1e9
+                    return sum(max(bb[0][j] - cen[j], 0, cen[j] - bb[1][j]) ** 2 for j in range(3))
+                side = 'A' if dist(nd[5]) <= dist(nd[6]) else 'B'
+            else:                                     # plane: the side holding the unit's centre (a straddling
+                v = sum(nn[j] * (cen[j] + dd[j]) for j in range(3))   # unit is slightly misordered against it)
+                side = 'B' if v >= 0 else 'A'
+            if op == 0x6C: fa, base = (p+6, p+8) if side == 'A' else (p+8, p+10)
+            elif op == 6: fa, base = (p+14, p+16) if side == 'A' else (p+16, p+18)
+            else: fa, base = (p+10, p+12) if side == 'A' else (p+12, p+14)
+            if T == 'ROOT': fa = None                 # the root node is copied (BODY); its fields are written there
+            T, items, ref = base + h(fa if fa else p+14 if side == 'A' else p+16), nd[5] if side == 'A' else nd[6], (fa, base)
+        G = pts(items) + [q for (uu, _, _) in plan.get(T, []) for q in corners(ubox[uu])]
+        best = None
+        for j in range(3):
+            for sgn in (1, -1):
+                cc = b[0][j] if sgn > 0 else b[1][j]           # plane at the unit's near face, unit on the + side
+                bad = sum(1 for q in G if sgn * (q[j] - cc) > 0)
+                if best is None or bad < best[0]: best = (bad, j, sgn, cc)
+        bad, j, sgn, cc = best
+        nn = [0, 0, 0]; dd = [0, 0, 0]; nn[j] = 16384 * sgn; dd[j] = -cc
+        plan.setdefault(T, []).append((u, tuple(nn), tuple(dd))); refs[T] = ref
+        print(f'  {u:5s} -> {T if T == "ROOT" else hex(T)}  plane {"x up fwd".split()[j]} {"+" if sgn > 0 else "-"} at {cc}  '
+              f'({bad} of {len(G)} points on its side)')
+    return plan, refs
+
+
 def build(d, static=False, debug=False):
     d = bytearray(d)
     pe, opt, secs = pe_sections(d)
@@ -340,10 +396,6 @@ def build(d, static=False, debug=False):
     ROOT = e
     while c[ROOT] == 0xF6: ROOT += 7
     assert c[ROOT] == 0x06 and c[ROOT+1] == 0 and c[ROOT+18] == 0x38, 'root is not the expected 06 node + 38'
-    TA = ROOT + 16 + struct.unpack_from('<h', c, ROOT+14)[0]; TB = ROOT + 18 + struct.unpack_from('<h', c, ROOT+16)[0]
-    GF, GE = 0x3068, 0x3087
-    assert c[GF] == 0xFC and c[GE] == 0xF0, 'unexpected bytes at the gear hook'
-    assert c[TA] == 0x06 and c[TA+1] == 0, 'TA is not a plane node'
     tail = bytes(c).find(SIG)
     thunk_old = find_thunk(c, tail)
 
@@ -364,24 +416,35 @@ def build(d, static=False, debug=False):
     nv = max(len(v[0]) for v in list(shapes.values()) + list(PYLONS.values()))
     if BASE + nv > 900: sys.exit('vertex table over 900')
 
-    # tree leaves (same groups as the Growler): items are ('c4', part key, pos) or ('call', slot name)
+    # ---- draw order: every store unit is inserted into the model's own BSP tree (see place_units)
     pos = {k: v[3] for k, v in SLOTS.items()}
     pyp = lambda s: pos[s][:2] + (PYFWD[SLOTS[s][0]],)
-    leaves = {
-        'Ltip': [('call', 'L8')], 'Lalq': [('call', 'L7')], 'Ltank': [('call', 'L6')],
-        'C': [('c4', ('P', 'pyC'), pos['C4'][:2] + (pos['C4'][2] + 15,)),   # centre pylon at the middle of the tank
-              ('call', 'C4'), ('call', 'R5'), ('call', 'L5')],
-        'Rtank': [('call', 'R6')], 'Ralq': [('call', 'R7')], 'Rtip': [('call', 'R8')],
-        'LPY': [('c4', ('P', 'pyW'), pyp('L6')), ('c4', ('P', 'pyW'), pyp('L7'))],
-        'RPY': [('c4', ('P', 'pyW'), pyp('R6')), ('c4', ('P', 'pyW'), pyp('R7'))],
-        'F5R': [('call', 'R5')], 'F5L': [('call', 'L5')],
-    }
+    cpy = pos['C4'][:2] + (pos['C4'][2] + 15,)                    # centre pylon at the middle of the tank
+    leaves = {s: [('call', s)] for s in SLOTS}
+    leaves.update({'py' + s: [('c4', ('P', 'pyW'), pyp(s))] for s in ('R6', 'L6', 'R7', 'L7')})
+    leaves['pyC4'] = [('c4', ('P', 'pyC'), cpy)]
+
+    def box(V, ps, clip_up=None):
+        P = [(ps[0] + x, ps[1] + u, ps[2] + f) for x, f, u in V]
+        lo = [min(q[j] for q in P) for j in range(3)]; hi = [max(q[j] for q in P) for j in range(3)]
+        if clip_up is not None: hi[1] = min(hi[1], clip_up)
+        return lo, hi
+    ubox = {k: box(shapes[v[2]][0], v[3]) for k, v in SLOTS.items()}
+    for s in ('R6', 'L6', 'R7', 'L7'): ubox['py' + s] = box(PYLONS['pyW'][0], pyp(s), pyp(s)[1] + 3)
+    ubox['pyC4'] = box(PYLONS['pyC'][0], cpy, cpy[1] + 2)
+    plan, rootrefs = place_units(c, ROOT, ubox)
+    nodes = []                                        # (key, plane n, d, A target, B leaf)
+    chain_top = {}
+    for T, lst in plan.items():
+        prev = ('T', T)
+        for i, (u, nn, dd) in enumerate(lst):
+            k = ('N', T, i); nodes.append((k, nn, dd, prev, u)); prev = ('K', k)
+        chain_top[T] = prev
     isz = lambda it: 16 if it[0] == 'c4' else 4
     NK = 7
     STUB = 2 + 5 + 5 + 2 * NK                       # F0 00, push imm32, call rel32, kind table
-    order = ['PR', 'PRT', 'PL', 'PLT', 'PYR', 'PYL', 'P5R', 'P5L', 'BODY', 'MID', 'GH', 'LG', 'RG'] + list(leaves)
+    order = ['BODY'] + [k for k, *_ in nodes] + list(leaves)
     size = {k: 20 for k in order}
-    size['GH'] = GE - GF + 4 + 2
     size.update({k: sum(isz(it) for it in v) + 2 for k, v in leaves.items()})
     at, p = {}, tail
     for k in order: at[k] = p; p += size[k]
@@ -394,37 +457,30 @@ def build(d, static=False, debug=False):
     sub, _ = sub_bytes(0, 0, debug)
     sub_len = len(sub) if not static else 0
     p += sub_len
-    pad = p % 2; p += pad     # parts must start on an even address: odd ones are not drawn by FA (seen in game)
+    pad = p % 2; p += pad
     relocs = []
     for k in parts: at[k] = p + len(HDR); p += len(parts[k])   # target = the 82 after the header
     L = p - tail                                      # inserted length; thunk moves by L
     thunk_new = thunk_old + L
 
-    def node(k, nrm, dd, a, b):
-        o = at[k]
-        return struct.pack('<BB6h', 0x06, 0, nrm[0], dd[0], nrm[1], dd[1], nrm[2], dd[2]) + \
-            struct.pack('<hh', at[a] - (o+16), at[b] - (o+18)) + b'\x00\x00'
-    X = (16384, 0, 0)
+    def addr(r):                                      # ('T', original target) / ('K', node key)
+        if r[0] == 'K': return at[r[1]]
+        return at['BODY'] if r[1] == 'ROOT' else r[1]
+    TA = ROOT + 16 + struct.unpack_from('<h', c, ROOT+14)[0]; TB = ROOT + 18 + struct.unpack_from('<h', c, ROOT+16)[0]
     blk = bytearray()
-    blk += node('PR', (3604, -16384, 819), (-18, -2, 0), 'PRT', 'RG')
-    blk += node('PRT', (10923, 13107, 0), (-20, 0, 0), 'PL', 'Rtip')
-    blk += node('PL', (-3604, -16384, 819), (18, -2, 0), 'PLT', 'LG')
-    blk += node('PLT', (-10923, 13107, 0), (20, 0, 0), 'PYR', 'Ltip')
-    blk += node('PYR', (0, -16384, 0), (0, -2, 0), 'PYL', 'RPY')
-    blk += node('PYL', (0, -16384, 0), (0, -2, 0), 'P5R', 'LPY')
-    # fuselage AIM-120s (station 5) sit under the intakes: drawn again after the body when the eye is outboard /
-    # below them (plane through the missile, normal 30 deg below horizontal), otherwise the belly covers them
-    blk += node('P5R', (8192, -14189, 0), (-10, 6, 0), 'P5L', 'F5R')
-    blk += node('P5L', (-8192, -14189, 0), (10, 6, 0), 'BODY', 'F5L')
-    TAB = TA + 18 + struct.unpack_from('<h', c, TA+16)[0]; at['TAB'] = TAB
-    o = at['BODY']; blk += bytes(c[ROOT:ROOT+14]) + struct.pack('<hh', TA - (o+16), TB - (o+18)) + b'\x00\x00'
-    o = at['MID']; blk += bytes(c[TA:TA+14]) + struct.pack('<hh', at['C'] - (o+16), TAB - (o+18)) + b'\x00\x00'
-    struct.pack_into('<h', c, TA+16, at['MID'] - (TA+18))
-    o = at['GH']; blk += bytes(c[GF:GE]) + b'\x12\x00' + struct.pack('<h', at['C'] - (o + GE - GF + 4)) + b'\x00\x00'
-    hook = b'\x12\x00' + struct.pack('<h', at['GH'] - (GF+4)) + b'\x38' + struct.pack('<h', GE - (GF+7))
-    c[GF:GE] = hook + b'\x1e' * (GE - GF - len(hook))
-    blk += node('LG', X, (33, 0, 0), 'Lalq', 'Ltank')
-    blk += node('RG', X, (-33, 0, 0), 'Rtank', 'Ralq')
+    o = at['BODY']                                    # copy of the root node; its branches may lead into chains
+    ta = addr(chain_top[TA]) if TA in chain_top else TA
+    tb = addr(chain_top[TB]) if TB in chain_top else TB
+    blk += bytes(c[ROOT:ROOT+14]) + struct.pack('<hh', ta - (o+16), tb - (o+18)) + b'\x00\x00'
+    for k, nn, dd, a, u in nodes:
+        o = at[k]
+        blk += struct.pack('<BB6h', 0x06, 0, nn[0], dd[0], nn[1], dd[1], nn[2], dd[2]) + \
+            struct.pack('<hh', addr(a) - (o+16), at[u] - (o+18)) + b'\x00\x00'
+    for T, (fa, base) in rootrefs.items():            # original branch fields that now lead into a chain
+        if T in chain_top and fa is not None: struct.pack_into('<h', c, fa, addr(chain_top[T]) - base)
+    top = addr(chain_top['ROOT']) if 'ROOT' in chain_top else at['BODY']
+    patch = b'\x12\x00' + struct.pack('<h', top - (ROOT+4)) + b'\x38' + struct.pack('<h', ROOT + 18 - (ROOT+7))
+    c[ROOT:ROOT+18] = patch + b'\x1e' * (18 - len(patch))
     for k, items in leaves.items():
         o = at[k]
         for it in items:
@@ -458,8 +514,6 @@ def build(d, static=False, debug=False):
     blk += b'\x00' * pad
     for k in parts: blk += parts[k]
     assert len(blk) == L, (len(blk), L)
-    patch = b'\x12\x00' + struct.pack('<h', at['PR'] - (ROOT+4)) + b'\x38' + struct.pack('<h', ROOT + 18 - (ROOT+7))
-    c[ROOT:ROOT+18] = patch + b'\x1e' * (18 - len(patch))
     room = nxt - code['va'] - len(c)
     print({str(k): len(v) for k, v in parts.items()}, 'total', len(blk), 'room', room, 'max part verts', nv,
           'sub', sub_len, 'thunk', hex(thunk_old), '->', hex(thunk_new))
