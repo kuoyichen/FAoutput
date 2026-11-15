@@ -183,6 +183,7 @@ def f18_pylon_units():
 
 PYLON_UNITS = f18_pylon_units      # an aircraft module (f14_stores.py) replaces SLOTS, PYLONS and this
 HIDE_EMPTY_PYLONS = True           # pylon drawn only if its station holds a weapon type (fired: type kept)
+KIND_POS = {}                      # (slot, kind) -> attach point when that kind is loaded there (else the slot's)
 PLACER = None                      # e.g. sh_order-based placement: PLACER(c, ROOT, unit geometry, unit boxes)
 
 
@@ -573,7 +574,7 @@ def build(d, static=False, debug=False):
                 blk += struct.pack('<h', tgt - tb)
         for kd in range(1, NK):
             q = at[('L', s, kd)]
-            blk += struct.pack('<BB6h', 0xC4, 0, *ps, 0, 0, 0) + struct.pack('<h', at[('K', kd)] - (q+16)) + b'\x00\x00'
+            blk += struct.pack('<BB6h', 0xC4, 0, *KIND_POS.get((s, kd), ps), 0, 0, 0) + struct.pack('<h', at[('K', kd)] - (q+16)) + b'\x00\x00'
     for s, (st, part, ps) in pstub.items():
         o = at['S' + s]; assert len(blk) == o - tail
         if static: blk += b'\x12\x00' + struct.pack('<h', at[('L', s, 1)] - (o+4)) + b'\x00\x00'

@@ -17,11 +17,11 @@ from f18g_growler import orient, lathe, FLAT, GREY
 T, A9, A7, A54, NONE = S.TANK, S.AIM9, S.AIM7, S.AIM54, S.NONE
 # Kuoyi's F14.PT (2026-11-16, second version) gives each weapon's centre (where FA launches it), x / up / fwd:
 #   hp4 AIM-7 x4 (5, -6, 42)  hp5 tank x2 (16, -14, 19)  hp6 AIM-54 x2 (28, -7, 30)  hp7 AIM-9 x2 (30, -1, 30)
-# The PT has one point for the four AIM-7s: that is the front pair (x +-4); the rear pair sits right behind it.
+# The PT has one point for the four AIM-7s: that is the front pair (x +-4); the rear pair sits 40 behind it.
 # Stores are FA's own models at their own size, centred on those points (as F18-11); attach = store top.
 # Cross sections (fwd 25): tunnel roof up -6.7 for |x| < 7 (-6.3 at fwd 45, so the AIM-7s are half recessed),
 # nacelles x 9..20 with bottom -9.5 (-10 at fwd 19), glove underside up 2..4 at x 20..34, main gear x 21..28, fwd 0..8.
-PT = {4: (5, -6, 42), 5: (16, -14, 19), 6: (28, -7, 18), 7: (30, -1, 18)}   # AIM-54 / AIM-9 moved back 6 twice (Kuoyi)
+PT = {4: (4, -7, 36), 5: (16, -14, 19), 6: (28, -7, 18), 7: (30, -1, 18)}   # AIM-54 / AIM-9 moved back 6 twice (Kuoyi)
 TANK_R = 3.5                 # Kuoyi: use the F/A-18 tank (tank480, radius 3.5)
 
 
@@ -40,14 +40,23 @@ def att(st, kind, side=1, dfwd=0):
     return (side * x, round(u + top), f + dfwd)
 
 
+# Tunnel roof (x < 7): up -7.0 from fwd -32 to 0, rising to -6.4 at fwd 36.  Kuoyi: AIM-7s back 6 and a bit inward;
+# the rear pair was buried 2 units in the roof (top -5 at fwd 2), so it now hangs from the roof at fwd -4 (up -7).
 A7REAR = -40                 # rear AIM-7 pair: one missile length (36) plus a gap behind the front pair
+def a7(side, rear):
+    x, u, f = att(4, A7, side, A7REAR if rear else 0)
+    return (x, u - 1 if rear else u, f)
 S.SLOTS = {
-    'BRL': (4, 1, A7, att(4, A7, -1, A7REAR)), 'BRR': (4, 2, A7, att(4, A7, 1, A7REAR)),
-    'BFL': (4, 3, A7, att(4, A7, -1)),         'BFR': (4, 4, A7, att(4, A7, 1)),
+    'BRL': (4, 1, A7, a7(-1, 1)), 'BRR': (4, 2, A7, a7(1, 1)),
+    'BFL': (4, 3, A7, a7(-1, 0)), 'BFR': (4, 4, A7, a7(1, 0)),
     'TL': (5, 1, T, att(5, T, -1)),            'TR': (5, 2, T, att(5, T, 1)),
     'GL': (6, 1, A54, att(6, A54, -1)), 'GR': (6, 2, A54, att(6, A54, 1)),   # PT x is +28 (Kuoyi): right fires first like the other pairs
     'SL': (7, 1, A9, att(7, A9, -1)),          'SR': (7, 2, A9, att(7, A9, 1)),
 }
+# The tunnel stations also take AIM-54s (Kuoyi): Phoenix (fins +-6, nose 31 / tail 16 from its centre) on x +-6,
+# rear pair 52 behind the front one so they do not overlap; top on the tunnel roof like the AIM-7s.
+for s_, (st_, rk_, kd_, (x_, u_, f_)) in list(S.SLOTS.items()):
+    if st_ == 4: S.KIND_POS[(s_, A54)] = ((6 if x_ > 0 else -6), u_, f_ - 12 if s_[1] == 'R' else f_)
 GX = PT[6][0]
 GLOVE_UNDER = 2.5            # glove underside at x 22..27
 
