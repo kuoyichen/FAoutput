@@ -19,15 +19,20 @@
   const MAX_EXTRA = 2 * 1024 * 1024, EXT = { m: /\.m$/i, mt: /\.mt$/i };
   const NAME_KEY = "fashion_uploader";
   const form = { by: "", desc: "" };   // uploader name (remembered on this browser) + short description
-  try { form.by = localStorage.getItem(NAME_KEY) || ""; } catch (e) {}   // local = the open file, if it came from disk
+  try { form.by = localStorage.getItem(NAME_KEY) || ""; } catch (e) {}
+  // deleting: this browser keeps a secret per mission it uploaded (the server stores only its SHA-256),
+  // and the site admin can sign in with the key set as MISSIONS_ADMIN_KEY in Vercel
+  const OWN_KEY = "fashion_owned", ADMIN_KEY = "fashion_admin_key", API_DELETE = "/api/mission-delete";
+  const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+  let owned = store.get(OWN_KEY, {}), admin = store.get(ADMIN_KEY, ""), adminOpen = false, armed = null;   // local = the open file, if it came from disk
 
-  FAI18N.register({ "Online missions": "線上任務", "☁ Online": "☁ 線上", "Close": "關閉" });
+  FAI18N.register({ "Online missions": "線上任務", "☁ Online": "☁ 線上", "Close": "關閉", "Site admin": "網站管理者" });
 
   // ---------- panel ----------
   const box = document.createElement("div");
   box.id = "mbox"; box.className = "hide";
   box.innerHTML = `<div class="mpanel" role="dialog" aria-label="Online missions">
-    <div class="mhead"><b>Online missions</b><button id="m_close" title="Close">✕</button></div>
+    <div class="mhead"><b>Online missions</b><span><button id="m_admin" class="madm" title="Site admin">🔑</button> <button id="m_close" title="Close">✕</button></span></div>
     <div id="m_body"></div></div>`;
   document.body.append(box);
   FAI18N.apply();
@@ -37,6 +42,7 @@
   box.addEventListener("dragleave", e => { if (e.target === box || !box.contains(e.relatedTarget)) box.classList.remove("drag"); });
   box.addEventListener("drop", e => { e.preventDefault(); e.stopPropagation(); box.classList.remove("drag"); if (api === true && !busy) takeFiles(e.dataTransfer.files); });
   $("m_close").onclick = hide;
+  $("m_admin").onclick = () => { adminOpen = !adminOpen; render(); };
   window.addEventListener("keydown", e => { if (e.key === "Escape" && !box.classList.contains("hide")) hide(); });
   function show() { box.classList.remove("hide"); render(); refresh(); }
   function hide() { box.classList.add("hide"); }
@@ -64,9 +70,13 @@
         <td class="mx">${dlButtons(m, true)}</td>
         <td>${mb(m.size)}</td>
         <td>${new Date(m.uploadedAt).toLocaleString(FAI18N.lang === "zh" ? "zh-TW" : "en-GB", { dateStyle: "short", timeStyle: "short" })}</td>
-        <td><button data-play="${esc(m.id)}">▶ ${L("Play", "播放")}</button> <button data-link="${esc(m.id)}" title="${L("Copy a link that opens this mission", "複製可直接開啟這個任務的連結")}">🔗</button></td></tr>`).join("")
+        <td><button data-play="${esc(m.id)}">▶ ${L("Play", "播放")}</button> <button data-link="${esc(m.id)}" title="${L("Copy a link that opens this mission", "複製可直接開啟這個任務的連結")}">🔗</button>${canDelete(m) ? ` <button class="mdel${armed === m.id ? " armed" : ""}" data-del="${esc(m.id)}" title="${L("Delete this mission and its files", "刪除這個任務與它的檔案")}">${armed === m.id ? L("Delete?", "確定刪除？") : "🗑"}</button>` : ""}</td></tr>`).join("")
       : `<tr><td colspan="5" class="mmuted">${api === true ? L("No missions uploaded yet.", "還沒有人上傳任務。") : L("Loading…", "載入中…")}</td></tr>`;
-    b.innerHTML = `<div class="mup">${up}
+    const adm = !adminOpen ? "" : admin
+      ? `<div class="madmin">${L("Signed in as site admin: you can delete any mission.", "已用管理者身分登入：可以刪除任何任務。")} <button id="m_signout">${L("Sign out", "登出")}</button></div>`
+      : `<div class="madmin"><input id="m_key" type="password" placeholder="${L("Admin key", "管理者金鑰")}" autocomplete="current-password"> <button id="m_signin">${L("Sign in", "登入")}</button>
+          <span class="mmuted msmall">${L("Uploaders can always delete their own uploads from the same browser.", "上傳者用同一個瀏覽器時，隨時可以刪除自己上傳的任務。")}</span></div>`;
+    b.innerHTML = adm + `<div class="mup">${up}
         <label class="btn sm">${local ? L("Change .bin…", "換一個 .bin…") : L("Choose .bin…", "選擇 .bin…")}<input id="m_file" type="file" accept=".bin" hidden></label></div>
       <div class="mup mextra"><span class="mmuted">${L("Add (optional):", "一併上傳（選填）：")}</span>
         ${["m", "mt"].map(k => extras[k]
@@ -87,6 +97,10 @@
     b.querySelectorAll("[data-play]").forEach(x => x.onclick = () => { hide(); openMission(x.dataset.play); });
     b.querySelectorAll("[data-link]").forEach(x => x.onclick = () => copyLink(x.dataset.link));
     wireDl(b);
+    b.querySelectorAll("[data-del]").forEach(x => x.onclick = () => deleteMission(x.dataset.del));
+    if ($("m_signout")) $("m_signout").onclick = () => { admin = ""; store.set(ADMIN_KEY, ""); render(); };
+    if ($("m_signin")) { const go = () => signIn($("m_key").value); $("m_signin").onclick = go; $("m_key").onkeydown = e => { if (e.key === "Enter") go(); }; }
+    $("m_admin").classList.toggle("on", !!admin);
     b.querySelectorAll("[data-unx]").forEach(x => x.onclick = () => { extras[x.dataset.unx] = null; render(); });
     b.querySelectorAll("input[data-x]").forEach(x => x.onchange = e => takeFiles(e.target.files));
   }
@@ -103,6 +117,38 @@
     } catch (e) { api = "off"; }
   }
   async function refresh() { await probe(); if (!box.classList.contains("hide")) render(); }
+
+  // ---------- deleting ----------
+  const canDelete = m => !!admin || !!owned[m.id];
+  async function signIn(key) {
+    key = String(key || "").trim(); if (!key) return;
+    try {
+      const r = await fetch(API_DELETE, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ check: true, adminKey: key }) });
+      const j = await r.json().catch(() => ({}));
+      if (j.admin) { admin = key; store.set(ADMIN_KEY, key); adminOpen = false; render(); say(L("Signed in as site admin.", "已用管理者身分登入。"), "ok"); }
+      else say(j.adminConfigured === false ? L("No admin key is set on the server yet (MISSIONS_ADMIN_KEY in Vercel).", "伺服器還沒設定管理者金鑰（Vercel 的 MISSIONS_ADMIN_KEY）。")
+        : esc(j.error || L("Wrong admin key.", "管理者金鑰不對。")), "err");
+    } catch (e) { say(esc(L("Sign-in failed: ", "登入失敗：") + (e && e.message || e)), "err"); }
+  }
+  let armTimer = 0;
+  async function deleteMission(id) {
+    if (armed !== id) {   // first click arms the button, the second one deletes
+      armed = id; render(); clearTimeout(armTimer); armTimer = setTimeout(() => { armed = null; render(); }, 4000); return;
+    }
+    clearTimeout(armTimer); armed = null;
+    const m = missions.find(x => x.id === id); if (!m) return;
+    say(L(`Deleting ${m.name}…`, `正在刪除 ${m.name}…`));
+    try {
+      const r = await fetch(API_DELETE, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, adminKey: admin || undefined, ownerSecret: owned[id] }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok && r.status !== 404) throw new Error(j.error || r.status);
+      missions = missions.filter(x => x.id !== id); delete owned[id]; store.set(OWN_KEY, owned);
+      if (current === id) { current = null; setParam(null); }
+      if (shown && shown.id === id) showFooter(null);
+      render(); say(esc(L(`Deleted ${m.name}.`, `已刪除 ${m.name}。`)), "ok");
+    } catch (e) { render(); say(esc(L("Delete failed: ", "刪除失敗：") + (e && e.message || e)), "err"); }
+  }
+  const hex = u8 => Array.from(u8, b => b.toString(16).padStart(2, "0")).join("");
 
   // ---------- downloads (.bin / .M / .MT) ----------
   // buttons for one mission; withBin adds the recording itself
@@ -213,9 +259,12 @@
       }
       const by = form.by.trim(), desc = form.desc.trim();
       try { localStorage.setItem(NAME_KEY, by); } catch (e) {}
-      if (by || desc) {
+      const secret = hex(crypto.getRandomValues(new Uint8Array(32)));
+      owned[blob.pathname] = secret; store.set(OWN_KEY, owned);
+      {
         try {
-          const r = await fetch(API_UPLOAD, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "mission-info", id: blob.pathname, by, desc }) });
+          const ownerHash = hex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret))));
+          const r = await fetch(API_UPLOAD, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "mission-info", id: blob.pathname, by, desc, ownerHash }) });
           const j = await r.json().catch(() => ({}));
           if (!r.ok) throw new Error(j.error || r.status);
           entry.by = j.by || undefined; entry.desc = j.desc || undefined;
