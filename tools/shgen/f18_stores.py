@@ -184,6 +184,9 @@ def f18_pylon_units():
 PYLON_UNITS = f18_pylon_units      # an aircraft module (f14_stores.py) replaces SLOTS, PYLONS and this
 HIDE_EMPTY_PYLONS = True           # pylon drawn only if its station holds a weapon type (fired: type kept)
 KIND_POS = {}                      # (slot, kind) -> attach point when that kind is loaded there (else the slot's)
+FALL_SLOTS = {}                    # tank slot -> fall index k: when its tank is jettisoned, draw it falling away
+FALL_MS = 2000                     # for this long (wall clock, timeGetTime)
+FALL_NSTATE = 128                  # aircraft tracked (object index & 127; the object pointer guards collisions)
 PLACER = None                      # e.g. sh_order-based placement: PLACER(c, ROOT, unit geometry, unit boxes)
 
 
@@ -360,6 +363,7 @@ def sub_bytes(sub_at, thunk_at, debug=False):
     ''' % GENERIC)
     # layout: head | jmp thunk | call over table | table | lookup | jmp OUT
     nop_at = head.index(b'\x90' * 5); out_at = nop_at + 5
+    global SUB_OUT; SUB_OUT = out_at
     b = bytearray(head)
     # return to the bytecode the way FA's own F0 blocks do: push do_start_interp; ret.  The pushed value is the
     # thunk's VA and needs a relocation: FA's loader copies CODE only up to the signature and points relocations
@@ -371,6 +375,113 @@ def sub_bytes(sub_at, thunk_at, debug=False):
     b += b'\xe8' + struct.pack('<i', len(tbl)) + tbl + look
     b += b'\xe9' + struct.pack('<i', out_at - (len(b) + 5))
     return bytes(b), reloc_at
+
+
+def fall_bytes(fall_at, sub_at):
+    """Falling jettisoned tank.  Stub `F0 00 68 imm32(station | k << 8) E8 rel32` + i16 table [EMPTY, list, base up,
+    base fwd] (relative to the table).  Per aircraft and tank slot a 16-byte state (object ptr, start time, last count)
+    sits in a zeroed table after the routine (CODE is writable: FA's own F0s patch C4 angles).  When the station's count
+    drops from > 0 to 0 the start time is recorded; for FALL_MS after it the routine moves the list's C4 down by
+    t^2 / 65536 and back by t^2 / 131072 (t in ms: about g and g/2 at 1 unit = 1 ft) and returns the list."""
+    nk = max(FALL_SLOTS.values()) + 1
+    src = '''
+        pop ebx
+        pop eax
+        push ecx
+        push edx
+        push esi
+        push edi
+        mov edi, eax
+        mov ecx, dword ptr [0x51ce26]
+        test ecx, ecx
+        jle NONE
+        movzx edx, word ptr [0x580bec]
+        cmp cx, dx
+        jne NONE
+        mov ecx, dword ptr [edx*4 + 0x553848]
+        test ecx, ecx
+        je NONE
+        cmp byte ptr [ecx], 4
+        jne NONE
+        call HERE
+    HERE:
+        pop esi
+        add esi, STATEOFF
+        and edx, %d
+        imul edx, edx, %d
+        mov eax, edi
+        shr eax, 8
+        and eax, 0xff
+        add edx, eax
+        shl edx, 4
+        add esi, edx
+        mov eax, edi
+        and eax, 0xff
+        imul eax, eax, 0x11
+        add eax, dword ptr [ecx + 0x114]
+        add eax, ecx
+        movzx edx, word ptr [eax + 4]
+        and edx, 0x7fff
+        cmp dword ptr [esi], ecx
+        je SAME
+        mov dword ptr [esi], ecx
+        mov dword ptr [esi + 8], edx
+        mov dword ptr [esi + 4], 0
+        jmp NONE
+    SAME:
+        test edx, edx
+        jz ZERO
+        mov dword ptr [esi + 8], edx
+        mov dword ptr [esi + 4], 0
+        jmp NONE
+    ZERO:
+        cmp dword ptr [esi + 8], 0
+        je RUN
+        mov dword ptr [esi + 8], 0
+        call dword ptr [0x593758]
+        or eax, 1
+        mov dword ptr [esi + 4], eax
+    RUN:
+        mov ecx, dword ptr [esi + 4]
+        test ecx, ecx
+        jz NONE
+        push ecx
+        call dword ptr [0x593758]
+        pop ecx
+        sub eax, ecx
+        jns POS
+        xor eax, eax
+    POS:
+        cmp eax, %d
+        jae STOP
+        mov ecx, eax
+        imul ecx, eax
+        mov edx, ecx
+        shr edx, 16
+        shr ecx, 17
+        movsx eax, word ptr [ebx + 2]
+        add eax, ebx
+        movsx edi, word ptr [ebx + 4]
+        sub edi, edx
+        mov word ptr [eax + 4], di
+        movsx edi, word ptr [ebx + 6]
+        sub edi, ecx
+        mov word ptr [eax + 6], di
+        mov eax, 1
+        jmp OUTJ
+    STOP:
+        mov dword ptr [esi + 4], 0
+    NONE:
+        xor eax, eax
+    OUTJ:
+    ''' % (FALL_NSTATE - 1, nk, FALL_MS)
+    probe = asm(src.replace('STATEOFF', '0x7fffffff'))
+    here = probe.index(b'\x5e\x81\xc6\xff\xff\xff\x7f')              # HERE: pop esi; add esi, imm32
+    state_off = len(probe) + 5 - here                                   # state right after the routine and its jmp OUT
+    b = bytearray(asm(src.replace('STATEOFF', '0x7fffffff').replace('0x7fffffff', str(state_off)), fall_at))
+    assert len(b) == len(probe)
+    b += b'\xe9' + struct.pack('<i', (sub_at + SUB_OUT) - (fall_at + len(b) + 5))
+    return bytes(b), FALL_NSTATE * nk * 16
 
 
 # ---------------------------------------------------------------- SH build
@@ -474,6 +585,8 @@ def build(d, static=False, debug=False):
 
     # ---- draw order: every store unit is inserted into the model's own BSP tree (see place_units)
     leaves = {s: [('call', s)] for s in SLOTS}
+    if not static:
+        for s in FALL_SLOTS: leaves[s].append(('call', 'F' + s))     # falling tank, drawn where the tank is
     pyu = PYLON_UNITS()
     pstub = {}                                        # pylons of a station: hidden when it was empty at takeoff
     for name, part, ps, top in pyu:
@@ -518,11 +631,17 @@ def build(d, static=False, debug=False):
     for s in pstub:
         at['S' + s] = p; p += (2 + 5 + 5 + 4 if not static else 6)
         at[('L', s, 1)] = p; p += 18
+    fall = FALL_SLOTS if not static else {}
+    for s in fall:
+        at['SF' + s] = p; p += 2 + 5 + 5 + 8
+        at[('LF', s)] = p; p += 18
     at['EMPTY'] = p; p += 2
     at['SUB'] = p
     sub, _ = sub_bytes(0, 0, debug)
     sub_len = len(sub) if not static else 0
     p += sub_len
+    if fall:
+        at['FALL'] = p; fb, st_len = fall_bytes(0, 0); p += len(fb); at['STATE'] = p; p += st_len
     pad = p % 2; p += pad
     relocs = []
     for k in parts: at[k] = p + len(HDR); p += len(parts[k])   # target = the 82 after the header
@@ -584,6 +703,14 @@ def build(d, static=False, debug=False):
             blk += struct.pack('<hh', at['EMPTY'] - (o + 12), at[('L', s, 1)] - (o + 12))
         q = at[('L', s, 1)]
         blk += struct.pack('<BB6h', 0xC4, 0, *ps, 0, 0, 0) + struct.pack('<h', at[('P', part)] - (q+16)) + b'\x00\x00'
+    for s in fall:
+        o = at['SF' + s]; assert len(blk) == o - tail
+        st, rank, dflt, ps = SLOTS[s]
+        blk += b'\xf0\x00' + b'\x68' + struct.pack('<I', st | fall[s] << 8)
+        blk += b'\xe8' + struct.pack('<i', at['FALL'] - (o + 12))
+        blk += struct.pack('<hhhh', at['EMPTY'] - (o + 12), at[('LF', s)] - (o + 12), ps[1], ps[2])
+        q = at[('LF', s)]
+        blk += struct.pack('<BB6h', 0xC4, 0, *ps, 0, 0, 0) + struct.pack('<h', at[('K', TANK)] - (q+16)) + b'\x00\x00'
     blk += b'\x00\x00'
     if not static:
         assert len(blk) == at['SUB'] - tail
@@ -591,6 +718,10 @@ def build(d, static=False, debug=False):
         relocs = [at['SUB'] - tail + rel]
         assert len(sub) == sub_len
         blk += sub
+        if fall:
+            fb, st_len = fall_bytes(at['FALL'], at['SUB'])
+            assert len(blk) == at['FALL'] - tail
+            blk += fb + b'\x00' * st_len
     blk += b'\x00' * pad
     for k in parts: blk += parts[k]
     assert len(blk) == L, (len(blk), L)

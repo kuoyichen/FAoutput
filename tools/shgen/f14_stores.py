@@ -209,6 +209,7 @@ def placer(c, ROOT, ugeo, ubox):
 
 
 S.PLACER = placer
+S.FALL_SLOTS = {'TL': 0, 'TR': 1}   # Kuoyi: jettisoned tanks fall away (drawn for 2 s, down and back)
 
 if __name__ == '__main__':
     S.main()
