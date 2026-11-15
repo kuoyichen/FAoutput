@@ -1,0 +1,655 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 5
+    word 540
+    word 541
+	ptr ot_names
+    dword $2bf3
+    word $ffff8000
+	ptr shape
+	ptr shadowShape
+    dword 0
+    dword 0
+    word -20
+    word 0
+    word 0
+    dword 0
+    dword 0
+    word 0
+    word 10
+    word -20
+    dword 0
+    dword 1956
+    word 164
+    word 0
+    word 70
+    word 70
+    word 100
+    word 100
+    word 0
+    word 80
+    word 255
+    word 255
+    word 255
+    word 255
+    word 255
+    byte 30
+    byte 0
+    dword 10000
+    word 199
+
+;---------------- movement info ----------------
+
+    word 0
+    word 16380
+    word 14560
+    word -14560
+    word 16380
+    word 0
+    word 0
+    word 0
+    dword ^0
+    dword ^0
+    dword ^300
+    dword ^200000
+	symbol _PLANEProc	; utilProc
+
+;---------------- sound info ----------------
+
+	ptr loopSound
+	ptr secondSound
+	ptr engineOnSound
+	ptr engineOffSound
+    byte 1
+    word 15000
+    word 320
+    word 160
+    word 20
+    word 1600
+    word 0
+    word 10
+    word 60
+	ptr hudName
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+
+;---------------- START OF NPC_TYPE ----------------
+
+    dword $0
+	ptr ctName
+    byte 12
+    byte 32
+    byte 20
+    word 32767
+    word 0
+    byte 4
+	ptr hards
+
+;---------------- END OF NPC_TYPE ----------------
+
+
+;---------------- START OF PLANE_TYPE ----------------
+
+    dword $ffff8001
+	ptr env
+    word -2
+    word 4
+    word 8799
+    word 8799
+    word -73
+    word 0
+    word 73
+    word 73
+    word -146
+    word 146
+    word 7
+    word 7
+    word -146
+    word 146
+    word 73
+    word 73
+    word -240
+    word 240
+    word 311
+    word 621
+    word 0
+    word 0
+    word 9
+    word 9
+    word -45
+    word 45
+    word 90
+    word 90
+    word 20
+    word 70
+    word 15
+    word 150
+    word -1
+    word 1
+    word 1
+    word 3
+    word 10
+    word 128
+    word 5
+    word -90
+    word 90
+    word 311
+    word 621
+    word -90
+    word 90
+    word 311
+    word 621
+    word -90
+    word 90
+    word 311
+    word 621
+    word 512
+    word 512
+    word 256
+    word 30
+    word 0
+    word -2
+    word 120
+    word 180
+    word 30
+    word 70
+    word 15
+    word 5
+    word 0
+    word 330
+    word 51
+    word 95
+    word 25
+    word 10
+    byte 1
+    word 0
+    dword 80000
+    dword 0
+    word 40
+    word 60
+    word 0
+    word 0
+    word 0
+    word 1
+    word 0
+    dword 10000
+    word 256
+    word 25
+    word 0
+    word 102
+    word 0
+    word 23
+    word 0
+    word 51
+    word 30
+    word 13
+    word 40
+    word 40
+    word 40
+    word 2560
+    word 5120
+    byte 20
+    byte 22
+    byte 20
+    byte 148
+    byte 22
+    byte 20
+    byte 20
+    byte 20
+    byte 20
+    byte 148
+    byte 148
+    byte 148
+    byte 20
+    byte 20
+    byte 20
+    byte 148
+    byte 20
+    byte 22
+    byte 20
+    byte 20
+    byte 20
+    byte 22
+    byte 22
+    byte 20
+    byte 20
+    byte 20
+    byte 148
+    byte 22
+    byte 36
+    byte 148
+    byte 36
+    byte 0
+    byte 0
+    byte 0
+    byte 22
+    byte 150
+    byte 20
+    byte 22
+    byte 22
+    byte 22
+    byte 6
+    byte 6
+    byte 6
+    byte 6
+    byte 6
+    word 10
+    word 10
+    dword 30000
+:hards
+;-------- hardpoint 0
+    word $8
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+	ptr defaultTypeName0
+    byte 0
+    word 1
+    byte 1
+;-------- hardpoint 1
+    word $8
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+	ptr defaultTypeName1
+    byte 0
+    word 1
+    byte 1
+;-------- hardpoint 2
+    word $8
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    byte 0
+    word 0
+    byte 1
+;-------- hardpoint 3
+    word $128
+    word 0
+    word 0
+    word 60
+    word 0
+    word 0
+    word 0
+    word 0
+	ptr defaultTypeName3
+    byte 0
+    word 1
+    byte 1
+:env
+
+;--- envelope for G = -2
+    word -2
+    word 7
+    word 3
+    word 3
+    word 540
+    dword 0
+    word 725
+    dword 24562
+    word 1080
+    dword 43343
+    word 2035
+    dword 43562
+    word 1900
+    dword 33000
+    word 1600
+    dword 17500
+    word 1250
+    dword 0
+    word 2600
+    dword 31000
+    word 2100
+    dword 14500
+    word 1400
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+
+;--- envelope for G = -1
+    word -1
+    word 10
+    word 3
+    word 3
+    word 350
+    dword 0
+    word 432
+    dword 28281
+    word 875
+    dword 67000
+    word 8700
+    dword 99000
+    word 9365
+    dword 75281
+    word 6700
+    dword 58000
+    word 3100
+    dword 36000
+    word 2600
+    dword 31000
+    word 2100
+    dword 14500
+    word 1400
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+
+;--- envelope for G = 0
+    word 0
+    word 11
+    word 3
+    word 3
+    word 200
+    dword 0
+    word 350
+    dword 32562
+    word 840
+    dword 67843
+    word 9924
+    dword 106484
+    word 8300
+    dword 90125
+    word 6500
+    dword 70000
+    word 5700
+    dword 40000
+    word 4450
+    dword 36000
+    word 2870
+    dword 26000
+    word 2300
+    dword 12500
+    word 1550
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+
+;--- envelope for G = 1
+    word 1
+    word 11
+    word 3
+    word 3
+    word 260
+    dword 0
+    word 360
+    dword 33562
+    word 845
+    dword 66843
+    word 9924
+    dword 105125
+    word 8300
+    dword 92281
+    word 6500
+    dword 70000
+    word 5700
+    dword 40500
+    word 4450
+    dword 36000
+    word 2870
+    dword 27000
+    word 2300
+    dword 13000
+    word 1550
+    dword 0
+    word 1367
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+
+;--- envelope for G = 2
+    word 2
+    word 11
+    word 3
+    word 3
+    word 310
+    dword 0
+    word 432
+    dword 28281
+    word 905
+    dword 61562
+    word 8300
+    dword 83125
+    word 7700
+    dword 82562
+    word 5300
+    dword 75281
+    word 3700
+    dword 58000
+    word 3400
+    dword 36000
+    word 2700
+    dword 31000
+    word 2200
+    dword 14500
+    word 1400
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+
+;--- envelope for G = 3
+    word 3
+    word 11
+    word 5
+    word 5
+    word 410
+    dword 0
+    word 555
+    dword 24562
+    word 792
+    dword 52343
+    word 980
+    dword 60343
+    word 2025
+    dword 60562
+    word 3187
+    dword 62281
+    word 2930
+    dword 48000
+    word 2740
+    dword 36000
+    word 2690
+    dword 34000
+    word 2055
+    dword 17500
+    word 1160
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+
+;--- envelope for G = 4
+    word 4
+    word 7
+    word 2
+    word 4
+    word 540
+    dword 0
+    word 725
+    dword 24562
+    word 980
+    dword 43343
+    word 2025
+    dword 43562
+    word 2050
+    dword 36000
+    word 1625
+    dword 17500
+    word 1170
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+;-------------------------------- AURORA
+; 4G area = 0.100500
+; 0 = rating for AURORA
+
+;---------------- END OF PLANE_TYPE ----------------
+
+:ot_names
+	string "Missile"
+	string "Ballistic Missile"
+	string "BALM.PT"
+:shape
+	string "scdn.SH"
+:shadowShape
+	string "da1_s.SH"
+:loopSound
+	string "&JET1N.11K"
+:secondSound
+	string "&JET1A.11K"
+:engineOnSound
+	string "&powerup.5k"
+:engineOffSound
+	string "&powerdn.5k"
+:hudName
+	string "f31v.HUD"
+:ctName
+	string "f.BI"
+:defaultTypeName0
+	string "VIS340.SEE"
+:defaultTypeName1
+	string "A6R.SEE"
+:defaultTypeName3
+	string "MLRS.JT"
+	end
