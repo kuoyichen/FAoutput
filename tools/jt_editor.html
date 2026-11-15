@@ -82,6 +82,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     <main>
       <section class="panel" id="p-ordnance"></section>
       <section class="panel" id="p-class"></section>
+      <section class="panel" id="p-object"></section>
       <section class="panel" id="p-missile"></section>
       <section class="panel" id="p-target"></section>
       <section class="panel" id="p-firing"></section>
@@ -162,7 +163,7 @@ function bindPanel(el){
 }
 
 // ---------- tabs ----------
-const TABS = [["ordnance", "Ordnance", "武器"], ["class", "Class", "類別"], ["missile", "Missile Info", "飛彈資訊"], ["target", "Targeting", "瞄準"], ["firing", "Firing", "發射"],
+const TABS = [["ordnance", "Ordnance", "武器"], ["class", "Class", "類別"], ["object", "Object Info", "物件資訊"], ["missile", "Missile Info", "飛彈資訊"], ["target", "Targeting", "瞄準"], ["firing", "Firing", "發射"],
   ["damage", "Damage", "損傷"], ["movement", "Movement", "運動"], ["params", "Ordnance Parameters", "武器參數"], ["hit", "Hit Data", "命中資料"], ["sound", "Sound", "聲音"], ["raw", "All values", "全部數值"]];
 let curTab = "ordnance"; try { curTab = localStorage.getItem("jt_tab") || "ordnance"; } catch(e){}
 if (!TABS.some(t => t[0] === curTab)) curTab = "ordnance";
@@ -178,6 +179,8 @@ const CLASSES = [[0x8000, "Fighter", "戰鬥機"], [0x4000, "Bomber / other airc
 const FLAGS_ZH = ["導引彈藥", "可掛在掛點", "無動力時受重力下墜", "初始 32 fps 重力下墜", "自由落體彈道", "巡航飛彈飛行", "目標速度設為最大速度", "彈藥是機砲",
   "發射者必須導引", "發射者必須用雷達導引", "發射者必須用雷射導引", "連續射擊", "提早做最終碰撞判定", "延後做最終碰撞判定", "計算目標提前量", "啟用目標視窗畫面",
   "可傷害飛機", "可傷害地面目標", "發射時畫面震動"];
+const OBJ_FLAGS_ZH = ["其他物件可撞上此物件", "此物件可撞上其他物件", "非玩家可碰撞", "雷達上可見", "可被鎖定為目標", "被摧毀時移除物件", "彈藥可穿過物件",
+  "被摧毀後不可碰撞", "物件是機場", "物件有彈射器", "物件有攔截索", "物件有短跑道", "物件有長跑道", "飛機可降落在物件上", "夜間低能見度"];
 const GUIDANCE_ZH = { 0: "無", 1: "雷射／照射", 2: "紅外線", 3: "主動雷達", 4: "反輻射" };
 const TYPE_ZH = { 0: "炸彈", 4: "機砲／火箭", 8: "炸彈（蘇式）", 12: "空對空", 20: "空對地", 40: "反艦" };
 const EXPL_ZH = { 21: "中型地面爆炸", 30: "大型空中爆炸", 34: "大型水面爆炸" };
@@ -196,6 +199,13 @@ function renderForms(){
   </div>`;
   $("p-class").innerHTML = `<div class="grid">${box("Object Class Types", "物件類別", CLASSES.map(([v, en, zh]) => `<label class="chk"><input type="radio" name="cls" data-cls="${v}">${L(en, zh)}</label>`).join(""),
     L("Stored as one bit in the object type word (Missile = $80). Every repo JT uses Missile.", "儲存在物件類型字組的一個位元（飛彈 = $80）。儲存庫裡所有 JT 都是飛彈。"))}</div>`;
+  $("p-object").innerHTML = `<div class="grid" style="grid-template-columns:1fr">${box("Object Info", "物件資訊",
+      `<div class="flags">${J.OBJ_FLAGS.map(([n, b], k) => b == null
+        ? `<label class="chk" style="opacity:.5" title="${esc(L("Bit not identified yet", "尚未找出對應位元"))}"><input type="checkbox" disabled>${esc(L(n, OBJ_FLAGS_ZH[k]))} <span class="g">?</span></label>`
+        : `<label class="chk"><input type="checkbox" data-bitkey="objFlags" data-bit="${b}">${esc(L(n, OBJ_FLAGS_ZH[k]))}</label>`).join("")}</div>
+       <div class="row" style="max-width:300px"><label>${L("Raw flags", "原始旗標")}</label><input type="text" data-hex="objFlags"></div>`,
+      L("The first five boxes are bits 0, 1, 2, 4, 5 (AIM54C.JT = $37 ticks exactly these). The greyed boxes are not mapped to a bit yet; other bits seen in JT files: $1000 and $2000 (guided bombs), $1000000 (M109), $8000000 (M1). Edit them in Raw flags.",
+        "前五個勾選框是第 0、1、2、4、5 位（AIM54C.JT = $37 剛好勾這五個）。灰色的還沒對應到位元；JT 檔中出現過的其他位元：$1000、$2000（導引炸彈）、$1000000（M109）、$8000000（M1），可在原始旗標修改。"))}</div>`;
   $("p-missile").innerHTML = `<div class="grid">
     ${box("Flight Speeds", "飛行速度", fNum("initSpd", "Initial", "初速", "kts") + fNum("finalSpd", "Final", "末速", "kts") + fNum("launchPct", "Launch %", "發射 %", "%"))}
     ${box("Turn Rates", "轉彎率", fNum("turnPow", "Powered", "有動力", "°/s") + fNum("turnUnpow", "Unpowered", "無動力", "°/s"))}
