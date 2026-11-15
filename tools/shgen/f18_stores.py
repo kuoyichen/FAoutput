@@ -156,6 +156,7 @@ def f18_pylon_units():
     return out
 
 
+HIDE_EMPTY_PYLONS = True           # pylon drawn only if its station holds a weapon type (fired: type kept)
 PLACER = None                      # e.g. sh_order-based placement: PLACER(c, ROOT, unit geometry, unit boxes)
 PYLON_UNITS = f18_pylon_units      # an aircraft module (f14_stores.py) replaces SLOTS, PYLONS and this
 
@@ -222,7 +223,9 @@ def debug_src(src):
 
 def sub_bytes(sub_at, thunk_at, debug=False):
     """Shared routine (offsets are CODE offsets; VA = 0x1000 + offset).  Entry: [esp] = slot table
-    (i16 per kind, relative to the table), [esp+4] = station | rank << 8 | default kind << 16."""
+    (i16 per kind, relative to the table), [esp+4] = station | rank << 8 | default kind << 16 | pylon << 24.
+    Pylon mode (bit 24): returns 1 when the station record has a weapon type (also after firing, count 0), 0 when
+    the station was left empty in the loadout (type pointer 0); 1 when there is no object (default)."""
     src = '''
         pop ebx
         pop eax
@@ -248,6 +251,13 @@ def sub_bytes(sub_at, thunk_at, debug=False):
         imul esi, esi, 0x11
         add esi, dword ptr [ecx + 0x114]
         add esi, ecx
+        test edi, 0x1000000
+        jz COUNT
+        cmp dword ptr [esi], 0
+        je NONE
+        mov eax, 1
+        jmp OUT
+    COUNT:
         movzx edx, word ptr [esi + 4]
         and edx, 0x7fff
         mov eax, edi
@@ -439,7 +449,11 @@ def build(d, static=False, debug=False):
     # ---- draw order: every store unit is inserted into the model's own BSP tree (see place_units)
     leaves = {s: [('call', s)] for s in SLOTS}
     pyu = PYLON_UNITS()
-    for name, part, ps, top in pyu: leaves[name] = [('c4', ('P', part), ps)]
+    pstub = {}                                        # pylons of a station: hidden when it was empty at takeoff
+    for name, part, ps, top in pyu:
+        if HIDE_EMPTY_PYLONS and name[2:] in SLOTS:
+            pstub[name] = (SLOTS[name[2:]][0], part, ps); leaves[name] = [('call', name)]
+        else: leaves[name] = [('c4', ('P', part), ps)]
 
     def box(V, ps, clip_up=None):
         P = [(ps[0] + x, ps[1] + u, ps[2] + f) for x, f, u in V]
@@ -475,6 +489,9 @@ def build(d, static=False, debug=False):
         at['S' + s] = p; p += (STUB if not static else 6)
         for kd in range(1, NK):
             at[('L', s, kd)] = p; p += 18             # C4 + 00 00
+    for s in pstub:
+        at['S' + s] = p; p += (2 + 5 + 5 + 4 if not static else 6)
+        at[('L', s, 1)] = p; p += 18
     at['EMPTY'] = p; p += 2
     at['SUB'] = p
     sub, _ = sub_bytes(0, 0, debug)
@@ -532,6 +549,15 @@ def build(d, static=False, debug=False):
         for kd in range(1, NK):
             q = at[('L', s, kd)]
             blk += struct.pack('<BB6h', 0xC4, 0, *ps, 0, 0, 0) + struct.pack('<h', at[('K', kd)] - (q+16)) + b'\x00\x00'
+    for s, (st, part, ps) in pstub.items():
+        o = at['S' + s]; assert len(blk) == o - tail
+        if static: blk += b'\x12\x00' + struct.pack('<h', at[('L', s, 1)] - (o+4)) + b'\x00\x00'
+        else:
+            blk += b'\xf0\x00' + b'\x68' + struct.pack('<I', st | 1 << 8 | 1 << 16 | 1 << 24)
+            blk += b'\xe8' + struct.pack('<i', at['SUB'] - (o + 12))
+            blk += struct.pack('<hh', at['EMPTY'] - (o + 12), at[('L', s, 1)] - (o + 12))
+        q = at[('L', s, 1)]
+        blk += struct.pack('<BB6h', 0xC4, 0, *ps, 0, 0, 0) + struct.pack('<h', at[('P', part)] - (q+16)) + b'\x00\x00'
     blk += b'\x00\x00'
     if not static:
         assert len(blk) == at['SUB'] - tail
