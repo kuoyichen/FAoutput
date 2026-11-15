@@ -21,7 +21,7 @@ T, A9, A7, A54, NONE = S.TANK, S.AIM9, S.AIM7, S.AIM54, S.NONE
 # Stores are FA's own models at their own size, centred on those points (as F18-11); attach = store top.
 # Cross sections (fwd 25): tunnel roof up -6.7 for |x| < 7 (-6.3 at fwd 45, so the AIM-7s are half recessed),
 # nacelles x 9..20 with bottom -9.5 (-10 at fwd 19), glove underside up 2..4 at x 20..34, main gear x 21..28, fwd 0..8.
-PT = {4: (5, -6, 42), 5: (16, -14, 19), 6: (28, -7, 30), 7: (30, -1, 30)}
+PT = {4: (5, -6, 42), 5: (16, -14, 19), 6: (28, -7, 24), 7: (30, -1, 24)}   # AIM-54 / AIM-9 moved back 6 (Kuoyi)
 TANK_R = 3.5                 # Kuoyi: use the F/A-18 tank (tank480, radius 3.5)
 
 
@@ -110,7 +110,7 @@ def f14_pylon_units():
     out = []
     for s, part in (('GR', 'pyGR'), ('GL', 'pyGL')):
         x, u, f = S.SLOTS[s][3]
-        out.append(('py' + s, part, (x, u, 28), u + 9))     # pylon fwd 14..42: under the glove, clear of the gear
+        out.append(("py" + s, part, (x, u, 24), u + 9))     # pylon fwd 10..36: under the glove, clear of the gear
     return out
 
 
