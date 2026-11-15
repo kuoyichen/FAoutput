@@ -28,10 +28,12 @@ TANK_R = 3.5                 # Kuoyi: use the F/A-18 tank (tank480, radius 3.5)
 def aim7():
     """FA's SPAR model with X fins (two side by side fit in the tunnel) and its red bands painted blue."""
     V, F = S._W('SPAR.SH', 36, 45)()
-    return V, [(fl, 169 if col == 161 else col, q) for fl, col, q in F]
+    return V, [(fl, {161: 169, 162: 170}.get(col, col), q) for fl, col, q in F]   # band underside 162 (dark red) too
 
 
 S.SHAPES[A7] = aim7
+A54_LEN = round(.8 * 47)       # Kuoyi: AIM-54 at 80% (FA's PHENX is 47 long)
+S.SHAPES[A54] = lambda: fa_weapons.load('PHENX.SH', A54_LEN)
 
 
 def att(st, kind, side=1, dfwd=0):
@@ -53,10 +55,10 @@ S.SLOTS = {
     'GL': (6, 1, A54, att(6, A54, -1)), 'GR': (6, 2, A54, att(6, A54, 1)),   # PT x is +28 (Kuoyi): right fires first like the other pairs
     'SL': (7, 1, A9, att(7, A9, -1)),          'SR': (7, 2, A9, att(7, A9, 1)),
 }
-# The tunnel stations also take AIM-54s (Kuoyi): Phoenix (fins +-6, nose 31 / tail 16 from its centre) on x +-6,
-# rear pair 52 behind the front one so they do not overlap; top on the tunnel roof like the AIM-7s.
+# The tunnel stations also take AIM-54s (Kuoyi): Phoenix at 80% (fins +-5, 38 long) on x +-5, same fwd as the AIM-7s
+# (the pairs are 2 apart); top on the tunnel roof like the AIM-7s.
 for s_, (st_, rk_, kd_, (x_, u_, f_)) in list(S.SLOTS.items()):
-    if st_ == 4: S.KIND_POS[(s_, A54)] = ((6 if x_ > 0 else -6), u_, f_ - 12 if s_[1] == 'R' else f_)
+    if st_ == 4: S.KIND_POS[(s_, A54)] = ((5 if x_ > 0 else -5), u_, f_)
 GX = PT[6][0]
 GLOVE_UNDER = 2.5            # glove underside at x 22..27
 
