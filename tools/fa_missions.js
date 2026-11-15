@@ -61,8 +61,7 @@
       : `<span class="mmuted">${L("Drag .bin / .M / .MT files here, or", "把 .bin / .M / .MT 檔拖到這裡，或")}</span>`;
     const rows = missions.length ? missions.map(m => `<tr class="${current === m.id ? "cur" : ""}">
         <td class="mn" title="${esc(m.name + (m.desc ? "\n\n" + m.desc : ""))}">${esc(m.name)}${m.by ? ` <span class="mby">${esc(L("by ", "上傳者 ") + m.by)}</span>` : ""}${m.desc ? `<div class="mdesc">${esc(m.desc)}</div>` : ""}</td>
-        <td class="mx">${m.m ? `<a class="mlink" href="${esc(m.m.url)}?download=1" title="${esc(L("Download the mission file ", "下載任務檔 ") + m.m.name)}">.M</a>` : ""}
-          ${m.mt ? `<a class="mlink" href="${esc(m.mt.url)}?download=1" title="${esc(L("Download the briefing ", "下載任務說明 ") + m.mt.name)}">.MT</a> <button class="mt" data-brief="${esc(m.id)}" title="${L("Read the briefing", "閱讀任務說明")}">📄</button>` : ""}</td>
+        <td class="mx">${dlButtons(m, true)}</td>
         <td>${mb(m.size)}</td>
         <td>${new Date(m.uploadedAt).toLocaleString(FAI18N.lang === "zh" ? "zh-TW" : "en-GB", { dateStyle: "short", timeStyle: "short" })}</td>
         <td><button data-play="${esc(m.id)}">▶ ${L("Play", "播放")}</button> <button data-link="${esc(m.id)}" title="${L("Copy a link that opens this mission", "複製可直接開啟這個任務的連結")}">🔗</button></td></tr>`).join("")
@@ -80,14 +79,14 @@
         <textarea id="m_desc" maxlength="500" rows="2" placeholder="${L("Short description: aircraft, mission, what happens… (optional)", "簡短說明：機型、任務、精彩之處…（選填）")}">${esc(form.desc)}</textarea>
         <button id="m_up" ${local && !busy ? "" : "disabled"}>⬆ ${L("Upload", "上傳")}</button></div>
       <div id="m_msg" class="mmsg">${msg || ""}</div><pre id="m_brief" class="hide"></pre>
-      <div class="mlist"><table><thead><tr><th>${L("File", "檔案")}</th><th>${L("Mission", "任務檔")}</th><th>${L("Size", "大小")}</th><th>${L("Uploaded", "上傳時間")}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      <div class="mlist"><table><thead><tr><th>${L("File", "檔案")}</th><th>${L("Download", "下載")}</th><th>${L("Size", "大小")}</th><th>${L("Uploaded", "上傳時間")}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
     if ($("m_up")) $("m_up").onclick = () => uploadBuf(local.buf, local.name);
     $("m_file").onchange = e => takeFiles(e.target.files);
     $("m_by").oninput = e => { form.by = e.target.value; };
     $("m_desc").oninput = e => { form.desc = e.target.value; };
     b.querySelectorAll("[data-play]").forEach(x => x.onclick = () => { hide(); openMission(x.dataset.play); });
     b.querySelectorAll("[data-link]").forEach(x => x.onclick = () => copyLink(x.dataset.link));
-    b.querySelectorAll("[data-brief]").forEach(x => x.onclick = () => showBrief(x.dataset.brief));
+    wireDl(b);
     b.querySelectorAll("[data-unx]").forEach(x => x.onclick = () => { extras[x.dataset.unx] = null; render(); });
     b.querySelectorAll("input[data-x]").forEach(x => x.onchange = e => takeFiles(e.target.files));
   }
@@ -104,6 +103,38 @@
     } catch (e) { api = "off"; }
   }
   async function refresh() { await probe(); if (!box.classList.contains("hide")) render(); }
+
+  // ---------- downloads (.bin / .M / .MT) ----------
+  // buttons for one mission; withBin adds the recording itself
+  function dlButtons(m, withBin) {
+    const one = (k, f, tip) => `<button class="mdl" data-dl="${esc(m.id)}" data-k="${k}" title="${esc(tip + f.name)}">⬇ .${k === "bin" ? "bin" : k.toUpperCase()}</button>`;
+    return (withBin ? one("bin", m, L("Download the recording ", "下載錄製檔 ")) : "")
+      + (m.m ? one("m", m.m, L("Download the mission file ", "下載任務檔 ")) : "")
+      + (m.mt ? one("mt", m.mt, L("Download the briefing ", "下載任務說明 ")) + `<button class="mdl" data-brief="${esc(m.id)}" title="${L("Read the briefing", "閱讀任務說明")}">📄</button>` : "");
+  }
+  function wireDl(root) {
+    root.querySelectorAll("[data-dl]").forEach(x => x.onclick = () => {
+      const m = missions.find(y => y.id === x.dataset.dl) || shown; if (!m) return;
+      const f = x.dataset.k === "bin" ? m : m[x.dataset.k]; if (f) downloadFile(f.url, f.name, x);
+    });
+    root.querySelectorAll("[data-brief]").forEach(x => x.onclick = () => { if (box.classList.contains("hide")) show(); showBrief(x.dataset.brief); });
+  }
+  // save under the original name (the stored copy's name carries the upload key)
+  async function downloadFile(url, name, btn) {
+    const old = btn && btn.textContent; if (btn) { btn.disabled = true; btn.textContent = "…"; }
+    try {
+      const r = await fetch(url); if (!r.ok) throw new Error("HTTP " + r.status);
+      const u = URL.createObjectURL(await r.blob()), a = document.createElement("a");
+      a.href = u; a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 10000);
+    } catch (e) { location.href = url + "?download=1"; }
+    finally { if (btn) { btn.disabled = false; btn.textContent = old; } }
+  }
+  // the online mission that is open now: its .M / .MT buttons sit next to the file name in the bottom bar
+  let shown = null;
+  function showFooter(m) {
+    shown = m || null; const el = $("mfiles"); if (!el) return;
+    el.innerHTML = m ? dlButtons(m, false) : ""; wireDl(el);
+  }
 
   // ---------- picking files (buttons or drag and drop) ----------
   async function takeFiles(list) {
@@ -131,7 +162,7 @@
     try { return new TextDecoder(FAI18N.lang === "zh" ? "big5" : "windows-1252").decode(u8); } catch (e) { return new TextDecoder("latin1").decode(u8); }
   }
   async function showBrief(id) {
-    const m = missions.find(x => x.id === id), pre = $("m_brief"); if (!m || !m.mt || !pre) return;
+    const m = missions.find(x => x.id === id) || (shown && shown.id === id ? shown : null), pre = $("m_brief"); if (!m || !m.mt || !pre) return;
     if (!pre.classList.contains("hide") && pre.dataset.id === id) { pre.classList.add("hide"); return; }
     pre.dataset.id = id; pre.classList.remove("hide"); pre.textContent = L("Loading…", "載入中…");
     try { const r = await fetch(m.mt.url); if (!r.ok) throw new Error("HTTP " + r.status);
@@ -191,7 +222,7 @@
         } catch (e) { failed.push(L("name / description: ", "名字 / 說明：") + (e && e.message || e)); }
       }
       busy = false; current = blob.pathname; local = null; extras.m = extras.mt = null; form.desc = "";
-      missions.unshift(entry);
+      missions.unshift(entry); showFooter(entry);
       setParam(blob.pathname);
       render(); say(L("Uploaded. Share link: ", "上傳完成，分享連結：") + `<a class="mlink" href="${esc(shareUrl(blob.pathname))}">${esc(shareUrl(blob.pathname))}</a>`
         + (failed.length ? `<br><span class="err">${esc(L("Not uploaded: ", "未上傳：") + failed.join("; "))}</span>` : ""), "ok");
@@ -233,7 +264,7 @@
       } else buf = await r.arrayBuffer();
       loadingOnline = true;
       try { load(buf, m.name); } finally { loadingOnline = false; }
-      current = id; setParam(id);
+      current = id; setParam(id); showFooter(m);
     } catch (e) {
       status(L("Could not open the shared mission: ", "無法開啟分享的任務：") + (e && e.message || e));
     }
@@ -243,10 +274,10 @@
   let loadingOnline = false;
   window.onMissionLoaded = (buf, name) => {
     if (loadingOnline) { local = null; return; }
-    local = { buf, name }; current = null; setParam(null);
+    local = { buf, name }; current = null; setParam(null); showFooter(null);
   };
 
-  FAI18N.onChange(() => { if (!box.classList.contains("hide")) render(); });
+  FAI18N.onChange(() => { if (!box.classList.contains("hide")) render(); showFooter(shown); });
 
   // ---------- shared link on startup ----------
   const want = new URLSearchParams(location.search).get("mission");

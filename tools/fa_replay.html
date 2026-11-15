@@ -116,6 +116,9 @@ a.fhome.fx{position:absolute;left:12px;top:10px;z-index:5;text-shadow:0 1px 3px 
 #mbox .mmsg .err{color:#ff7a66}
 #m_brief{margin:0;max-height:34vh;overflow:auto;white-space:pre-wrap;background:var(--dark2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:12px/1.5 ui-monospace,Consolas,monospace}
 #m_brief.hide{display:none}
+#mbox td.mx{white-space:nowrap}
+button.mdl{padding:2px 7px;font-size:12px;margin:1px 2px 1px 0}
+#mfiles{display:inline-flex;gap:4px} #mfiles:empty{display:none}
 #mbox.drag .mpanel{outline:2px dashed var(--accent);outline-offset:-6px}
 #mbox .mbin{color:var(--accent);max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:3px 10px}
 #mbox .mform{display:grid;grid-template-columns:1fr auto;gap:6px}
@@ -206,7 +209,7 @@ a.fhome.fx{position:absolute;left:12px;top:10px;z-index:5;text-shadow:0 1px 3px 
   <div id="tl"><div id="marks"></div><input id="seek" type="range" min="0" max="1000" step="1" value="0"></div>
   <span id="time">0:00.0 / 0:00.0</span>
   <select id="mission" class="hide" title="這個檔案裡錄到好幾次任務，選擇要播放哪一次"></select>
-  <span id="fname">尚未載入</span>
+  <span id="fname">尚未載入</span><span id="mfiles"></span>
   <button id="reset" title="重設視角">重設</button>
   <button id="sidebtn" class="on" title="顯示 / 隱藏右側面板">面板</button>
   <span id="langSlot"></span>
