@@ -97,17 +97,12 @@ def tank330():
 
 
 def tank480():
-    """F/A-18E 480-gal tank: long pointed nose, straight body, tapered tail cone with four small X fins."""
+    """F/A-18E 480-gal tank: long pointed nose, straight body, tapered tail cone (no fins, Kuoyi 2026-11-15)."""
     r = 3.5; e = r * .7
     sec = [(0, r), (e, e), (r, 0), (e, -e), (0, -r), (-e, -e), (-r, 0), (-e, e)]
     st = [(25, 0, -r), (21, .35, -r), (16, .65, -r), (11, .88, -r), (6, 1, -r), (-11, 1, -r), (-17, .75, -r),
           (-22, .45, -r), (-25, .3, -r)]
     V, F, rings = lathe(sec, st, WHITE)
-    for k in (1, 3, 5, 7):
-        x, z = sec[k]; L = (x * x + z * z) ** .5
-        tip = (round(x / L * (r * .45 + 2.5)), -25, round(-r + z / L * (r * .45 + 2.5))); V.append(tip)
-        tri = [rings[6][k], rings[8][k], len(V) - 1]
-        F += [(FLAT, DARK, tri), (FLAT, DARK, tri[::-1])]
     return V, F
 
 
@@ -374,7 +369,8 @@ def build(d, static=False, debug=False):
     pyp = lambda s: pos[s][:2] + (PYFWD[SLOTS[s][0]],)
     leaves = {
         'Ltip': [('call', 'L8')], 'Lalq': [('call', 'L7')], 'Ltank': [('call', 'L6')],
-        'C': [('c4', ('P', 'pyC'), pos['C4']), ('call', 'C4'), ('call', 'R5'), ('call', 'L5')],
+        'C': [('c4', ('P', 'pyC'), pos['C4'][:2] + (pos['C4'][2] + 15,)),   # centre pylon at the middle of the tank
+              ('call', 'C4'), ('call', 'R5'), ('call', 'L5')],
         'Rtank': [('call', 'R6')], 'Ralq': [('call', 'R7')], 'Rtip': [('call', 'R8')],
         'LPY': [('c4', ('P', 'pyW'), pyp('L6')), ('c4', ('P', 'pyW'), pyp('L7'))],
         'RPY': [('c4', ('P', 'pyW'), pyp('R6')), ('c4', ('P', 'pyW'), pyp('R7'))],
