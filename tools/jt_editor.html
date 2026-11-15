@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JT Editor</title>
+<style>
+:root{ --bg:#14181d; --card:#1d232b; --card2:#232a33; --line:#2e3742; --text:#dde3ea; --muted:#8b96a5; --accent:#ffd54a; --bad:#ff6a50; --ok:#7bd88f; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0 8px 0 0;font-weight:600}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+button,select,input,label.btn{background:#262e38;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font:inherit}
+button,label.btn{cursor:pointer}
+button:hover,label.btn:hover{border-color:var(--muted)}
+button.on{border-color:var(--accent);color:var(--accent)}
+button.prim{background:var(--accent);color:#14181d;font-weight:600;border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:default}
+input[type=number]{width:96px;text-align:right}
+input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
+#msg{color:var(--accent)} #msg.err{color:var(--bad)}
+#title{padding:8px 16px 0;font-size:15px;font-weight:700;color:#8fc3ff}
+#title span{color:var(--muted);font-weight:400;font-size:12px;margin-left:8px}
+#wrap{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:0 14px;padding:0 16px 40px}
+nav#tabs{display:flex;flex-wrap:wrap;gap:4px;padding:8px 0 0;border-bottom:1px solid var(--line)}
+nav#tabs button{border-radius:6px 6px 0 0;border-bottom:none;background:var(--card)}
+nav#tabs button.on{background:var(--card2);color:var(--accent);border-color:var(--accent)}
+main{padding:12px 0 0;min-width:0}
+.panel{display:none}.panel.on{display:block}
+fieldset{border:1px solid var(--line);border-radius:8px;padding:8px 10px 10px;margin:0;background:var(--card);min-width:0}
+legend{color:#ff8f70;font-weight:700;padding:0 6px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));align-items:start}
+.row{display:flex;align-items:center;gap:8px;margin:4px 0}
+.row>label:first-child{flex:1;min-width:0}
+.row input[type=text]{flex:1.4;min-width:0}
+.row select{max-width:190px}
+.unit{color:var(--muted);font-size:12px;min-width:34px}
+.note{color:var(--muted);font-size:12px;margin:6px 0 0}
+.chk{display:flex;align-items:center;gap:6px;margin:3px 0;cursor:pointer}
+.g{color:#c9a65a;font-size:11px;cursor:help}
+.hint{color:var(--muted);font-size:11px;white-space:nowrap}
+.flags{columns:2 240px;column-gap:20px}
+/* preview */
+#side{padding-top:12px;min-width:0}
+#pv{position:sticky;top:8px}
+#cv{width:100%;height:340px;display:block;touch-action:none;background:radial-gradient(#2f3843,#181d23);border-radius:8px;cursor:grab}
+#pvBar{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:8px;font-size:12px}
+#pvInfo{color:var(--muted);font-size:12px;margin-top:6px}
+/* raw */
+.raw{border-collapse:collapse;font:12px ui-monospace,Consolas,monospace;width:100%}
+.raw td{padding:1px 4px;border-top:1px solid var(--line)}
+.raw input{width:110px;font:inherit;padding:1px 4px}
+.raw .lab{color:var(--muted);font-family:system-ui,sans-serif}
+.rawcols{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px;align-items:start}
+dialog{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;max-width:440px}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+@media (max-width:1000px){ #wrap{grid-template-columns:1fr} #side{order:-1} #pv{position:static} #cv{height:240px} }
+@media (max-width:600px){ header,#wrap,#title{padding-left:10px;padding-right:10px} }
+</style>
+<script src="fashion_i18n.js"></script>
+<script src="pt_core.js"></script>
+<script src="jt_core.js"></script>
+<script src="fa_sh_lib.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <h1>JT Editor</h1>
+  <select id="jtList" title="JT ordnance files in the FAoutput repository"><option value="">JT file…</option></select>
+  <label class="btn" title="Open a .JT file from your disk">📂 Open .JT<input type="file" id="jtFile" accept=".jt,.JT" hidden></label>
+  <button id="saveBtn" disabled title="Download the edited .JT file">⬇ Save .JT</button>
+  <button id="ghBtn" disabled title="Write this JT file to JT/ on GitHub (admin key required)">☁ Commit to GitHub</button>
+  <a href="pt_editor.html" style="color:var(--muted)" title="Aircraft editor">PT Editor</a>
+  <span id="langSlot"></span>
+  <span id="msg"></span>
+</header>
+<div id="title"></div>
+<div id="wrap">
+  <div style="min-width:0">
+    <nav id="tabs"></nav>
+    <main>
+      <section class="panel" id="p-ordnance"></section>
+      <section class="panel" id="p-class"></section>
+      <section class="panel" id="p-missile"></section>
+      <section class="panel" id="p-target"></section>
+      <section class="panel" id="p-firing"></section>
+      <section class="panel" id="p-damage"></section>
+      <section class="panel" id="p-movement"></section>
+      <section class="panel" id="p-params"></section>
+      <section class="panel" id="p-hit"></section>
+      <section class="panel" id="p-sound"></section>
+      <section class="panel" id="p-raw"></section>
+    </main>
+  </div>
+  <div id="side"><div id="pv">
+    <canvas id="cv"></canvas>
+    <div id="pvBar">
+      <label class="chk"><input type="checkbox" id="spin" checked> Spin</label>
+      <label class="chk"><input type="checkbox" id="wire"> Wireframe</label>
+      <button id="vSide">Side</button><button id="vTop">Top</button><button id="vIso">3/4</button>
+    </div>
+    <div id="pvInfo"></div>
+  </div></div>
+</div>
+<dialog id="ghDlg">
+  <h3 style="margin:0 0 8px">Commit to GitHub</h3>
+  <p class="small" id="ghWhat"></p>
+  <div class="row"><label>Admin key</label><input type="password" id="ghKey" autocomplete="current-password"></div>
+  <div class="row"><label>Commit message</label><input type="text" id="ghMsgIn"></div>
+  <p class="small" id="ghRes"></p>
+  <div class="row" style="justify-content:flex-end"><button id="ghCancel">Cancel</button><button id="ghGo" class="prim">Commit</button></div>
+</dialog>
+<script>
+"use strict";
+// ======================================================================================================
+// JT Editor: Fighters Anthology ordnance (.JT) files.  Parsing / saving: pt_core.js (shared with the PT Editor);
+// field map: jt_core.js.  Every byte the user does not change is written back as it was.
+// ======================================================================================================
+const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
+const P = PTCore, J = JTCore;
+const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
+const GH_API = "https://api.github.com/repos/kuoyichen/FAoutput/contents/JT";
+const VERCEL = "https://fashion-hawke.vercel.app";
+async function fetchAny(paths){
+  const urls = [];
+  for (const p of paths){ if (/^https?:$/.test(location.protocol)) urls.push(new URL("../" + p, location.href).href); }
+  for (const p of paths) urls.push(REMOTE + p);
+  for (const u of urls){ try { const r = await fetch(u); if (r.ok) return new Uint8Array(await r.arrayBuffer()); } catch(e){} }
+  return null;
+}
+let jt = null, jtName = "", dirty = false;
+const msg = (t, err) => { $("msg").textContent = t || ""; $("msg").className = err ? "err" : ""; };
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const bytesToStr = u8 => { let s = ""; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return s; };
+const strToBytes = s => { const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 255; return u; };
+function touch(){ dirty = true; $("saveBtn").disabled = !jt; renderTitle(); }
+
+// ---------- form builders ----------
+const UNIT = { deg: "°", kts: "kts", nm: "nm", ft: "ft", qs: "¼ s" };
+const gTag = key => J.F[key][3] === "g" ? ` <span class="g" title="${esc(L("Placed by comparing the 181 JT files; not yet confirmed against the original editor.", "由比對 181 個 JT 檔推定，尚未和原編輯器確認。"))}">?</span>` : "";
+function fNum(key, en, zh, unit){ const u = unit ?? UNIT[J.F[key][2]] ?? "";
+  return `<div class="row"><label>${L(en, zh)}${gTag(key)}</label><input type="number" data-key="${key}" step="any"><span class="unit">${u}</span></div>`; }
+// a number with a name list (known values shown as names, any other value kept as a number)
+function fList(key, en, zh, names, namesZh){ return `<div class="row"><label>${L(en, zh)}${gTag(key)}</label><select data-list="${key}" data-names='${esc(JSON.stringify(names))}' data-zh='${esc(JSON.stringify(namesZh || {}))}'></select></div>`; }
+function fStr(ref, en, zh){ return `<div class="row"><label>${L(en, zh)}</label><input type="text" data-str="${ref}" spellcheck="false"></div>`; }
+const box = (en, zh, inner, note) => `<fieldset><legend>${L(en, zh)}</legend>${inner}${note ? `<p class="note">${note}</p>` : ""}</fieldset>`;
+// strings: "name#n" (ot_names + si_names) or a pointer field "OBJ:6"
+function getStr(ref){ if (ref.startsWith("name#")) return P.str(jt, "ot_names", +ref.slice(5)); const [s, k] = ref.split(":"); return P.ptrStr(jt, s, +k); }
+function setStr(ref, v){ if (ref.startsWith("name#")) J.setName(jt, +ref.slice(5), v); else { const [s, k] = ref.split(":"); P.setPtrStr(jt, s, +k, v, { "OBJ:6": "shape", "OBJ:50": "loopSound", "PROJ:85": "fireSound" }[ref] || "str" + s + k); } }
+function bindPanel(el){
+  el.querySelectorAll("[data-key]").forEach(i => { i.value = J.getF(jt, i.dataset.key); i.onchange = () => { J.setF(jt, i.dataset.key, i.value); i.value = J.getF(jt, i.dataset.key); touch(); }; });
+  el.querySelectorAll("[data-str]").forEach(i => { i.value = getStr(i.dataset.str); i.onchange = () => { setStr(i.dataset.str, i.value.trim()); touch(); renderTitle(); if (i.dataset.str === "OBJ:6") loadPreview(); }; });
+  el.querySelectorAll("[data-list]").forEach(s => { const key = s.dataset.list, names = JSON.parse(s.dataset.names), zh = JSON.parse(s.dataset.zh), v = J.getF(jt, key);
+    const opts = Object.keys(names).map(Number); if (!opts.includes(v)) opts.push(v); opts.sort((a, b) => a - b);
+    s.innerHTML = opts.map(n => `<option value="${n}"${n === v ? " selected" : ""}>${n} · ${esc(names[n] != null ? L(names[n], zh[n] || names[n]) : L("other", "其他"))}</option>`).join("");
+    s.onchange = () => { J.setF(jt, key, +s.value); touch(); }; });
+  el.querySelectorAll("[data-bit]").forEach(i => { const key = i.dataset.bitkey, b = +i.dataset.bit, get = () => J.getF(jt, key) >>> 0;
+    i.checked = !!(get() & (2 ** b)); i.onchange = () => { let v = get(); v = i.checked ? (v | (2 ** b)) >>> 0 : (v & ~(2 ** b)) >>> 0; J.setF(jt, key, v); touch(); bindPanel(el); }; });
+  el.querySelectorAll("[data-hex]").forEach(i => { const key = i.dataset.hex; i.value = "$" + (J.getF(jt, key) >>> 0).toString(16); i.onchange = () => { const v = parseInt(i.value.replace(/^\$|^0x/i, ""), 16); if (!isNaN(v)){ J.setF(jt, key, v); touch(); } bindPanel(el); }; });
+  el.querySelectorAll("[data-cls]").forEach(i => { i.checked = (J.getF(jt, "cls") & 0xffff) === +i.dataset.cls; i.onchange = () => { if (i.checked){ J.setF(jt, "cls", +i.dataset.cls); touch(); } }; });
+}
+
+// ---------- tabs ----------
+const TABS = [["ordnance", "Ordnance", "武器"], ["class", "Class", "類別"], ["missile", "Missile Info", "飛彈資訊"], ["target", "Targeting", "瞄準"], ["firing", "Firing", "發射"],
+  ["damage", "Damage", "損傷"], ["movement", "Movement", "運動"], ["params", "Ordnance Parameters", "武器參數"], ["hit", "Hit Data", "命中資料"], ["sound", "Sound", "聲音"], ["raw", "All values", "全部數值"]];
+let curTab = "ordnance"; try { curTab = localStorage.getItem("jt_tab") || "ordnance"; } catch(e){}
+if (!TABS.some(t => t[0] === curTab)) curTab = "ordnance";
+function renderTabs(){
+  const nav = $("tabs"); nav.innerHTML = "";
+  for (const [id, en, zh] of TABS){ const b = document.createElement("button"); b.textContent = L(en, zh); b.className = id === curTab ? "on" : "";
+    b.onclick = () => { curTab = id; try { localStorage.setItem("jt_tab", id); } catch(e){} renderTabs(); showTab(); }; nav.appendChild(b); }
+}
+function showTab(){ document.querySelectorAll("main .panel").forEach(p => p.classList.toggle("on", p.id === "p-" + curTab)); if (curTab === "raw") renderRaw(); else if (jt) bindPanel($("p-" + curTab)); }
+
+const CLASSES = [[0x8000, "Fighter", "戰鬥機"], [0x4000, "Bomber / other aircraft", "轟炸機／其他飛機"], [0x2000, "Ship", "船艦"], [0x1000, "Surface-to-Air Missile (SAM)", "地對空飛彈"],
+  [0x800, "Anti-Aircraft Artillery (AAA)", "防空砲"], [0x400, "Unarmored Vehicle", "無裝甲車輛"], [0x200, "Armored Vehicle", "裝甲車輛"], [0x100, "Structure", "建築"], [0x80, "Missile", "飛彈"], [0x40, "Other", "其他"]];
+const FLAGS_ZH = ["導引彈藥", "可掛在掛點", "無動力時受重力下墜", "初始 32 fps 重力下墜", "自由落體彈道", "巡航飛彈飛行", "目標速度設為最大速度", "彈藥是機砲",
+  "發射者必須導引", "發射者必須用雷達導引", "發射者必須用雷射導引", "連續射擊", "提早做最終碰撞判定", "延後做最終碰撞判定", "計算目標提前量", "啟用目標視窗畫面",
+  "可傷害飛機", "可傷害地面目標", "發射時畫面震動"];
+const GUIDANCE_ZH = { 0: "無", 1: "雷射／照射", 2: "紅外線", 3: "主動雷達", 4: "反輻射" };
+const TYPE_ZH = { 0: "炸彈", 4: "機砲／火箭", 8: "炸彈（蘇式）", 12: "空對空", 20: "空對地", 40: "反艦" };
+const EXPL_ZH = { 21: "中型地面爆炸", 30: "大型空中爆炸", 34: "大型水面爆炸" };
+const SMOKE_ZH = { 0: "無", 8: "灰煙" };
+const QS = L("Times are in quarter seconds (the original editor's “1/4 secs”).", "時間單位是 1/4 秒（原編輯器的「1/4 secs」）。");
+const G = L("Fields marked ? were placed by comparing all 181 JT files and are not yet confirmed against the original editor; the All values tab shows every raw value.",
+  "標示 ? 的欄位是比對 181 個 JT 檔推定的，尚未和原編輯器確認；「全部數值」分頁可看到每個原始值。");
+
+function renderForms(){
+  if (!jt) return;
+  $("p-ordnance").innerHTML = `<div class="grid">
+    ${box("Ordnance", "武器", fStr("name#0", "Internal Name", "內部名稱") + fStr("name#2", "Object Name", "物件名稱") + fStr("name#1", "Description", "說明") + fNum("year", "Year", "年份"),
+      L("Names are kept in two copies (ot_names and si_names); both are updated.", "名稱在檔案中有兩份（ot_names 與 si_names），會一起更新。"))}
+    ${box("3D Shape", "3D 模型", fStr("OBJ:6", "3D Shape", "3D 模型"), L("The SH drawn in flight; shown on the right.", "飛行中顯示的 SH，右側可預覽。"))}
+    ${box("Type", "類型", fList("ordType", "Type", "類型", J.ORD_TYPE, TYPE_ZH) + fList("guidance", "Guidance", "導引", J.GUIDANCE, GUIDANCE_ZH) + fNum("weight", "Weight", "重量", "lbs"))}
+  </div>`;
+  $("p-class").innerHTML = `<div class="grid">${box("Object Class Types", "物件類別", CLASSES.map(([v, en, zh]) => `<label class="chk"><input type="radio" name="cls" data-cls="${v}">${L(en, zh)}</label>`).join(""),
+    L("Stored as one bit in the object type word (Missile = $80). Every repo JT uses Missile.", "儲存在物件類型字組的一個位元（飛彈 = $80）。儲存庫裡所有 JT 都是飛彈。"))}</div>`;
+  $("p-missile").innerHTML = `<div class="grid">
+    ${box("Flight Speeds", "飛行速度", fNum("initSpd", "Initial", "初速", "kts") + fNum("finalSpd", "Final", "末速", "kts") + fNum("launchPct", "Launch %", "發射 %", "%"))}
+    ${box("Turn Rates", "轉彎率", fNum("turnPow", "Powered", "有動力", "°/s") + fNum("turnUnpow", "Unpowered", "無動力", "°/s"))}
+    ${box("Performance Reductions", "性能折減", fNum("perfSL", "Sea Level", "海平面", "%") + fNum("perf20k", "Altitude 20K", "20000 呎", "%"))}
+    ${box("Cruise Activity", "巡航", fNum("cr1Dist", "Primary Dist", "第一段距離") + fNum("cr1Alt", "Primary Alt", "第一段高度") + fNum("cr2Dist", "Secondary Dist", "第二段距離") + fNum("cr2Alt", "Secondary Alt", "第二段高度"))}
+    ${box("Event Timing", "事件時間", fNum("ignition", "Ignition", "點火") + fNum("fuelTime", "Fuel Expend", "燃料耗盡") + fNum("removal", "Removal", "移除") + fNum("fuseArm", "Fuse Arming", "引信解保"))}
+    ${box("Jink Activity", "閃避動作", fNum("jinkSize", "Size", "幅度") + fNum("jinkTime", "Time", "時間") + fNum("jinkDur", "Duration", "持續"))}
+    ${box("Smoke Effects", "煙跡效果", fList("smokeType", "Type", "類型", J.SMOKE, SMOKE_ZH) + fNum("smokeFreq", "Frequency", "頻率") + fNum("smokeLife", "Exist Time", "存在時間") + fNum("smokeStart", "Start Size", "起始大小") + fNum("smokeEnd", "End Size", "結束大小"))}
+  </div>`;
+  $("p-target").innerHTML = `<div class="grid">
+    ${box("Range Parameters", "射程參數", fNum("rMin", "Min Range", "最小射程") + fNum("rMax", "Max Range", "最大射程") + fNum("rMinAlt", "Min Altitude", "最低高度") + fNum("rMaxAlt", "Max Altitude", "最高高度") + fNum("rFovH", "FOV Heading", "視野 航向") + fNum("rFovP", "FOV Pitch", "視野 俯仰"))}
+    ${box("Track Parameters", "追蹤參數", fNum("tMin", "Min Range", "最小距離") + fNum("tMax", "Max Range", "最大距離") + fNum("tMinAlt", "Min Altitude", "最低高度") + fNum("tMaxAlt", "Max Altitude", "最高高度") + fNum("tFovH", "FOV Heading", "視野 航向") + fNum("tFovP", "FOV Pitch", "視野 俯仰"))}
+    ${box("Doppler Parameters", "都卜勒參數", fNum("dopAbove", "Speed Above", "速度高於") + fNum("dopBelow", "Speed Below", "速度低於") + fNum("dopMin", "Min Range", "最小距離"))}
+    ${box("Seeker", "尋標器", fNum("lookDown", "LookDown", "下視") + fNum("allAspect", "All Aspect", "全向"))}
+  </div><p class="note">${L("Ranges and altitudes are 24.8 fixed-point distances shown in the original editor's miles (6097.5 units each); ±1375 means no altitude limit.", "射程與高度是 24.8 定點距離，以原編輯器的英里顯示（每單位 6097.5）；±1375 代表沒有高度限制。")} ${G}</p>`;
+  $("p-firing").innerHTML = `<div class="grid">${box("Firing Info", "發射資訊",
+      fNum("podQty", "Quantity of projectiles in pod", "莢艙內彈數") + fNum("perRound", "Actual rounds per game round", "每遊戲回合實際發數") + fNum("delay", "Delay between game rounds", "遊戲回合間延遲") +
+      fNum("burst", "Game rounds in a single burst", "單次連發回合數") + fNum("carpet", "Game rounds in carpet burst", "地毯式連發回合數") + fNum("reload", "Reload time between bursts", "連發間裝填時間"), QS + " " + G)}</div>`;
+  $("p-damage").innerHTML = `<div class="grid">
+    ${box("Explosion If Destroyed", "被摧毀時的爆炸", fList("explType", "Type", "類型", J.EXPLOSIONS, EXPL_ZH) + fNum("crater", "Crater Size", "彈坑大小"))}
+    ${box("Explosion Types", "爆炸類型", fList("explLand", "Land", "陸地", J.EXPLOSIONS, EXPL_ZH) + fList("explWater", "Water", "水面", J.EXPLOSIONS, EXPL_ZH))}
+    ${box("Collateral Damage", "附帶損傷", fNum("collRadius", "Radius", "半徑") + fNum("collPct", "Percent", "百分比", "%"))}
+    ${box("Object Hit Points", "耐打值", fNum("hp", "Hit Points", "耐打值"))}
+    ${box("Damage Inflicted", "造成的損傷", fNum("dmgPlane", "Plane", "飛機") + fNum("dmgShip", "Ship", "船艦") + fNum("dmgStruct", "Structure", "建築") + fNum("dmgArmor", "Armor", "裝甲") + fNum("dmgOther", "Other", "其他"))}
+  </div><p class="note">${L("Explosion names are known for types 21, 30 and 34 (from the AIM54C dialogs); other types show their number.", "爆炸名稱目前只知道 21、30、34（來自 AIM54C 對話框）；其他類型顯示編號。")}</p>`;
+  $("p-movement").innerHTML = `<div class="grid">
+    ${box("Maneuvering", "機動", fNum("turnRate", "Turn Rate", "轉彎率") + fNum("bankRate", "Bank Rate", "滾轉率") + fNum("maxClimb", "Max Climb", "最大爬升") + fNum("maxDive", "Max Dive", "最大俯衝") + fNum("maxBank", "Max Bank", "最大傾斜") + fNum("accel", "Acceleration", "加速") + fNum("decel", "Deceleration", "減速"))}
+    ${box("Altitude Limits", "高度限制", fNum("minAlt", "Min Altitude", "最低高度") + fNum("maxAlt", "Max Altitude", "最高高度"))}
+    ${box("Speed Values", "速度", fNum("minSpd", "Min Speed", "最低速度") + fNum("cornerSpd", "Corner Speed", "角速度") + fNum("maxSpd", "Max Speed", "最高速度"), L("Stored in ft/s, shown in knots.", "以 ft/s 儲存，顯示為節。"))}
+  </div>`;
+  $("p-params").innerHTML = `<div class="grid" style="grid-template-columns:1fr">${box("Ordnance Parameters", "武器參數",
+      `<div class="flags">${J.FLAGS.map((n, b) => `<label class="chk"><input type="checkbox" data-bitkey="flags" data-bit="${b}">${esc(L(n, FLAGS_ZH[b]))}</label>`).join("")}</div>
+       <div class="row" style="max-width:300px"><label>${L("Raw flags", "原始旗標")}</label><input type="text" data-hex="flags"></div>`,
+      L("Bits 0–18 in dialog order (left column, then right). Checked against M61 (gun + continuous fire), AIM-7 (launcher must guide with radar), GBU-10 (laser) and Mk 82 (free-fall arc).",
+        "第 0–18 位，依對話框順序（先左欄再右欄）。已用 M61（機砲＋連續射擊）、AIM-7（發射者以雷達導引）、GBU-10（雷射）與 Mk 82（自由落體）驗證。"))}</div>`;
+  $("p-hit").innerHTML = `<div class="grid">
+    ${box("Deception Modifiers", "欺騙修正", fNum("chaff", "Chaff / Flare", "干擾絲／熱焰彈", "%") + fNum("ecm", "ECM Jamming", "電子干擾", "%") + fNum("irSun", "IR Target Sun", "紅外線 太陽", "%"))}
+    ${box("Hit Percentages", "命中率", fNum("hit0", "0% of Max Track", "最大追蹤 0%", "%") + fNum("hit25", "25% Max Track", "最大追蹤 25%", "%") + fNum("hit50", "50% Max Track", "最大追蹤 50%", "%") + fNum("hit100", "100% Max Track", "最大追蹤 100%", "%"))}
+    ${box("Hit Modifiers", "命中修正", fNum("hmTaa", "TAA 30-60 Deg Reduct", "TAA 30-60 度折減", "%") + fNum("hmPitch", "Pitch Up Reduction", "拉起折減", "%") + fNum("hmGhi", "G factor > 3 Reduction", "G > 3 折減", "%") +
+      fNum("hmGlo", "G factor < 3 Increase", "G < 3 增加", "%") + fNum("hmAc", "Aircraft Hit Reduction", "飛機命中折減", "%") + fNum("hmRel", "Rel Speed Dif Reduction", "相對速度差折減", "%") + fNum("hmRel2", "Rel Speed Dif (2nd value)", "相對速度差（第二值）") +
+      fNum("hmLarge", "Large Aircraft Increase", "大型飛機增加", "%") + fNum("hmMissG", "< 2000' Miss G Threshold", "< 2000 呎 未中 G 門檻") + fNum("hmTaa60", "TAA > 60 Deg Fuse Fail", "TAA > 60 度引信失效", "%"))}
+  </div><p class="note">${G}</p>`;
+  $("p-sound").innerHTML = `<div class="grid">${box("Ordnance Sound", "武器聲音", fStr("OBJ:50", "Loop Sound", "循環聲") + fStr("PROJ:85", "Firing Sound", "發射聲"),
+    L("An empty loop sound is stored as dword 0; typing a name adds the string.", "沒有循環聲時存成 dword 0；輸入名稱會自動加上字串。"))}</div>`;
+  showTab();
+}
+
+// ---------- all values ----------
+const LABELS = {}; for (const [k, [s, i]] of Object.entries(J.F)) LABELS[s + i] = k;
+function renderRaw(){
+  const el = $("p-raw"); if (!jt){ el.innerHTML = ""; return; }
+  const col = sec => `<fieldset><legend>${sec}_TYPE</legend><table class="raw">${jt.fields[sec].map((e, k) => `<tr><td>${k}</td><td>${e.kind}</td><td>${
+    e.kind === "ptr" || e.kind === "symbol" ? `<b>${esc(e.raw)}</b>${e.kind === "ptr" ? ` <span class="lab">“${esc(P.str(jt, e.raw))}”</span>` : ""}` : `<input data-sec="${sec}" data-k="${k}" value="${esc(e.raw)}" spellcheck="false">`
+  }</td><td class="lab">${LABELS[sec + k] ? esc(LABELS[sec + k]) + (J.F[LABELS[sec + k]][3] === "g" ? " ?" : "") : ""}</td></tr>`).join("")}</table></fieldset>`;
+  el.innerHTML = `<p class="note">${L("Every value in the file, as written (decimal, $hex or ^fixed-point). The right column names the field it feeds in the other tabs.", "檔案中的每個值，照原樣顯示（十進位、$十六進位或 ^定點）。右欄是對應到其他分頁的欄位。")}</p>
+    <div class="rawcols">${col("OBJ")}${col("PROJ")}</div>`;
+  el.querySelectorAll("input[data-sec]").forEach(i => i.onchange = () => {
+    if (J.setRaw(jt, i.dataset.sec, +i.dataset.k, i.value)) touch(); else { msg(L("Not a number: ", "不是數字：") + i.value, true); i.value = jt.fields[i.dataset.sec][+i.dataset.k].raw; } });
+}
+
+// ======================================================================================================
+// 3D preview of the ordnance's flight shape (canvas 2D, palette colours)
+// ======================================================================================================
+const cv = $("cv"), cx = cv.getContext("2d");
+const view = { yaw: 2.2, pitch: 0.35, zoom: 1 };
+let model = null, PAL = PAL_GRAY;
+async function loadPreview(){
+  const name = (jt ? P.ptrStr(jt, "OBJ", 6) : "").toUpperCase().replace(/\.SH$/, "");
+  model = null; $("pvInfo").textContent = name ? L("Loading ", "載入 ") + name + ".SH…" : L("No 3D shape.", "沒有 3D 模型。"); draw();
+  if (!name) return;
+  const u8 = await fetchAny(["SH/" + name + ".SH"]);
+  if (!u8){ $("pvInfo").textContent = L("Cannot find ", "找不到 ") + name + ".SH"; return; }
+  let m = null; PARSE_NO_STORES = true; try { m = parseSH(u8); } catch(e){} finally { PARSE_NO_STORES = false; }
+  if (!m){ $("pvInfo").textContent = L("Cannot read ", "無法解析 ") + name + ".SH"; return; }
+  const faces = [], add = (idx, tf) => { if (idx.uv && !(idx.col & 255)) return; faces.push({ pts: idx.map(i => tf(m.v[i])), col: idx.col & 255 }); };
+  for (const idx of m.f) add(idx, v => [v[0], v[2], v[1]]);
+  try { const vars = {}; for (const x of m.ctl.vars) vars[x.v] = x.vals.length ? x.vals[0] : 0; const done = new Set();
+    for (const e of evalCtl(m, vars)){ if (done.has(e.part)) continue; done.add(e.part); const tf = partTf(e); for (const idx of m.subs[e.part].f) add(idx, tf); } } catch(e){}
+  let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+  for (const f of faces) for (const p of f.pts) for (let k = 0; k < 3; k++){ lo[k] = Math.min(lo[k], p[k]); hi[k] = Math.max(hi[k], p[k]); }
+  const c = lo.map((a, k) => (a + hi[k]) / 2), r = Math.max(1, ...hi.map((a, k) => a - lo[k])) / 2;
+  model = { name, faces, c, r, size: hi.map((a, k) => (a - lo[k]) * m.scale) };
+  $("pvInfo").textContent = `${name}.SH · ${faces.length} ${L("faces", "面")} · ${L("length", "長")} ${Math.round(model.size[2])} · ${L("span", "翼展")} ${Math.round(model.size[0])} ${L("(SH units)", "（SH 單位）")}`;
+  draw();
+}
+function draw(){
+  const d = Math.min(2, devicePixelRatio || 1), w = Math.round(cv.clientWidth * d), h = Math.round(cv.clientHeight * d);
+  if (cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; }
+  cx.clearRect(0, 0, w, h); if (!model) return;
+  const cy = Math.cos(view.yaw), sy = Math.sin(view.yaw), cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
+  const s = Math.min(w, h) * 0.46 / model.r * view.zoom;
+  const tf = p => { const x = p[0] - model.c[0], y = p[1] - model.c[1], z = p[2] - model.c[2];
+    const x1 = x*cy - z*sy, z1 = x*sy + z*cy, y2 = y*cp - z1*sp, z2 = y*sp + z1*cp; return [w/2 + x1*s, h/2 - y2*s, z2]; };
+  const wire = $("wire").checked, light = [0.35, 0.85, 0.4], ll = Math.hypot(...light);
+  const list = model.faces.map(f => { const q = f.pts.map(tf); let z = 0; for (const p of q) z += p[2];
+    const a = f.pts[0], b = f.pts[1], c = f.pts[2], u = [b[0]-a[0], b[1]-a[1], b[2]-a[2]], v = [c[0]-a[0], c[1]-a[1], c[2]-a[2]];
+    const n = [u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]], nl = Math.hypot(...n) || 1;
+    return { q, z: z / q.length, k: Math.abs((n[0]*light[0] + n[1]*light[1] + n[2]*light[2]) / nl / ll), col: f.col }; });
+  list.sort((a, b) => a.z - b.z);
+  cx.lineJoin = "round"; cx.lineWidth = wire ? 1 : 0.6;
+  for (const f of list){
+    let r = 190, g = 194, b = 200; const i = f.col; if (i > 0 && i < 255){ r = PAL[3*i]; g = PAL[3*i+1]; b = PAL[3*i+2]; }
+    const sh = 0.55 + 0.5 * f.k, col = `rgb(${Math.min(255, r*sh)|0},${Math.min(255, g*sh)|0},${Math.min(255, b*sh)|0})`;
+    cx.beginPath(); f.q.forEach((p, k) => k ? cx.lineTo(p[0], p[1]) : cx.moveTo(p[0], p[1])); cx.closePath();
+    if (wire){ cx.strokeStyle = "#ffd54a"; cx.stroke(); } else { cx.fillStyle = col; cx.strokeStyle = col; cx.fill(); cx.stroke(); }
+  }
+}
+{ let drag = null;
+  cv.onpointerdown = e => { drag = [e.clientX, e.clientY]; cv.setPointerCapture(e.pointerId); $("spin").checked = false; };
+  cv.onpointermove = e => { if (!drag) return; view.yaw += (e.clientX - drag[0]) * 0.01; view.pitch = Math.max(-1.55, Math.min(1.55, view.pitch + (e.clientY - drag[1]) * 0.01)); drag = [e.clientX, e.clientY]; draw(); };
+  cv.onpointerup = cv.onpointercancel = () => { drag = null; };
+  cv.onwheel = e => { e.preventDefault(); view.zoom = Math.max(0.3, Math.min(6, view.zoom * Math.exp(-e.deltaY * 0.001))); draw(); };
+  const setV = (y, p) => { view.yaw = y; view.pitch = p; $("spin").checked = false; draw(); };
+  $("vSide").onclick = () => setV(Math.PI / 2, 0); $("vTop").onclick = () => setV(Math.PI / 2, 1.55); $("vIso").onclick = () => setV(2.2, 0.35);
+  $("wire").onchange = draw; addEventListener("resize", draw);
+  let last = 0; const tick = t => { if ($("spin").checked && model && !document.hidden){ view.yaw += Math.min(50, t - last) * 0.0006; draw(); } last = t; requestAnimationFrame(tick); }; requestAnimationFrame(tick);
+}
+
+// ======================================================================================================
+// open / save / commit
+// ======================================================================================================
+function renderTitle(){
+  if (!jt){ $("title").innerHTML = ""; return; }
+  $("title").innerHTML = `${esc(jtName)} &nbsp;${esc(P.str(jt, "ot_names", 1))}<span>${dirty ? L("● edited, not saved", "● 已修改，尚未儲存") : ""}</span>`;
+  $("ghBtn").disabled = !jt;
+}
+async function openJT(name, text){
+  let j; try { j = P.parse(text); } catch(e){ msg(L("Cannot read this JT: ", "無法讀取這個 JT：") + e.message, true); return; }
+  if (!j.fields.OBJ?.length || !j.fields.PROJ?.length){ msg(L("This is not an ordnance JT file.", "這不是武器 JT 檔。"), true); return; }
+  jt = j; jtName = name.toUpperCase(); dirty = false;
+  try { localStorage.setItem("jt_last", jtName); } catch(e){}
+  $("saveBtn").disabled = false; $("ghBtn").disabled = false; $("jtList").value = jtName;
+  renderTitle(); renderForms(); msg("");
+  history.replaceState(null, "", "?jt=" + encodeURIComponent(jtName));
+  await loadPreview();
+}
+async function openRepoJT(name){
+  if (dirty && !confirm(L("Discard the changes to " + jtName + "?", "放棄對 " + jtName + " 的修改？"))) { $("jtList").value = jtName; return; }
+  msg(L("Loading ", "載入 ") + name + "…");
+  const u8 = await fetchAny(["JT/" + name]); if (!u8){ msg(L("Cannot download ", "無法下載 ") + name, true); return; }
+  await openJT(name, bytesToStr(u8));
+}
+$("jtList").onchange = () => $("jtList").value && openRepoJT($("jtList").value);
+$("jtFile").onchange = async e => { const f = e.target.files[0]; if (!f) return; e.target.value = "";
+  if (dirty && !confirm(L("Discard the changes to " + jtName + "?", "放棄對 " + jtName + " 的修改？"))) return;
+  if (![...$("jtList").options].some(o => o.value === f.name.toUpperCase())) $("jtList").add(new Option(f.name.toUpperCase() + " " + L("(local)", "（本機）"), f.name.toUpperCase()));
+  await openJT(f.name, bytesToStr(new Uint8Array(await f.arrayBuffer()))); };
+$("saveBtn").onclick = () => {
+  if (!jt) return; const blob = new Blob([strToBytes(P.serialize(jt))], { type: "application/octet-stream" }), a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = jtName; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  dirty = false; renderTitle(); msg(L("Saved ", "已儲存 ") + jtName);
+};
+async function listRepoJT(){
+  const sel = $("jtList"); let names = [];
+  try { const r = await fetch(GH_API + "?ref=main"); if (r.ok) names = (await r.json()).map(x => x.name).filter(n => /\.JT$/i.test(n)); } catch(e){}
+  if (!names.length) names = ["AIM54C.JT", "AIM9M.JT", "AIM120.JT", "AIM7.JT", "AGM65D.JT", "AGM88.JT", "GBU10.JT", "MK82.JT", "MK84.JT", "M61.JT"];
+  for (const n of names.sort()) sel.add(new Option(n, n.toUpperCase()));
+}
+const API = /vercel\.app$|^localhost$|^127\./.test(location.hostname) ? "" : VERCEL;
+$("ghBtn").onclick = () => {
+  if (!jt) return; let key = ""; try { key = localStorage.getItem("fashion_admin_key") || ""; } catch(e){}
+  $("ghKey").value = key; $("ghMsgIn").value = `JT editor: update ${jtName}`; $("ghRes").textContent = "";
+  $("ghWhat").textContent = L(`Writes JT/${jtName} on the main branch of kuoyichen/FAoutput. Only the site admin key can do this.`, `會把 JT/${jtName} 寫到 kuoyichen/FAoutput 的 main 分支。只有網站管理金鑰可以使用。`);
+  $("ghDlg").showModal();
+  fetch(API + "/api/pt-commit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ check: true, adminKey: key }) })
+    .then(r => r.json()).then(j => { if ($("ghRes").textContent) return;
+      $("ghRes").textContent = !j.githubConfigured ? L("Server: GITHUB_TOKEN is not set in Vercel yet.", "伺服器：Vercel 尚未設定 GITHUB_TOKEN。")
+        : key && j.admin ? L("Server ready (GitHub token set, admin key OK).", "伺服器已就緒（GitHub token 已設定，管理金鑰正確）。") : L("Server ready (GitHub token set).", "伺服器已就緒（GitHub token 已設定）。"); })
+    .catch(() => {});
+};
+$("ghCancel").onclick = () => $("ghDlg").close();
+$("ghGo").onclick = async () => {
+  const key = $("ghKey").value.trim(); if (!key){ $("ghRes").textContent = L("Enter the admin key.", "請輸入管理金鑰。"); return; }
+  $("ghGo").disabled = true; $("ghRes").textContent = L("Committing…", "提交中…");
+  try {
+    const bytes = strToBytes(P.serialize(jt)); let b64 = ""; for (let i = 0; i < bytes.length; i += 8192) b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+    const r = await fetch(API + "/api/pt-commit", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ adminKey: key, name: jtName, content: btoa(b64), message: $("ghMsgIn").value.trim() }) });
+    const j = await r.json().catch(() => ({ error: "HTTP " + r.status }));
+    if (!r.ok || !j.ok) throw new Error(j.error || "HTTP " + r.status);
+    try { localStorage.setItem("fashion_admin_key", key); } catch(e){}
+    $("ghRes").innerHTML = j.unchanged ? esc(L("No change: GitHub already has this exact file.", "沒有變更：GitHub 上已經是同樣的檔案。")) : `${esc(L("Committed", "已提交"))} <a href="${esc(j.commitUrl)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc((j.sha || "").slice(0, 7))}</a>`;
+    dirty = false; renderTitle();
+  } catch(e){ $("ghRes").textContent = L("Failed: ", "失敗：") + e.message; }
+  $("ghGo").disabled = false;
+};
+
+// ======================================================================================================
+FAI18N.register({
+  "FAshion home": "FAshion 首頁", "JT Editor": "JT 編輯器", "PT Editor": "PT 編輯器", "Aircraft editor": "飛機編輯器", "JT file…": "JT 檔…", "📂 Open .JT": "📂 開啟 .JT", "⬇ Save .JT": "⬇ 儲存 .JT",
+  "☁ Commit to GitHub": "☁ 提交到 GitHub", "Open a .JT file from your disk": "從電腦開啟 .JT 檔", "Download the edited .JT file": "下載修改後的 .JT 檔",
+  "Write this JT file to JT/ on GitHub (admin key required)": "把這個 JT 檔寫到 GitHub 的 JT/（需要管理金鑰）", "JT ordnance files in the FAoutput repository": "FAoutput 儲存庫中的 JT 武器檔",
+  "Spin": "自動旋轉", "Wireframe": "線框", "Side": "側視", "Top": "上視",
+  "Commit to GitHub": "提交到 GitHub", "Admin key": "管理金鑰", "Commit message": "提交說明", "Cancel": "取消", "Commit": "提交"
+});
+$("langSlot").append(FAI18N.picker()); FAI18N.apply();
+FAI18N.onChange(() => { renderTabs(); if (jt){ renderTitle(); renderForms(); loadPreview(); } });
+renderTabs(); showTab();
+(async () => {
+  try { const p = await loadGamePal(); if (p) PAL = p; } catch(e){}
+  await listRepoJT();
+  let start = new URLSearchParams(location.search).get("jt"); if (!start){ try { start = localStorage.getItem("jt_last"); } catch(e){} }
+  start = (start || "AIM54C.JT").toUpperCase(); if (!/\.JT$/.test(start)) start += ".JT";
+  await openRepoJT(start);
+})();
+addEventListener("beforeunload", e => { if (dirty){ e.preventDefault(); e.returnValue = ""; } });
+window.jtEditor = { get jt(){ return jt; }, P, J, view, draw, get model(){ return model; } };
+</script>
+</body>
+</html>

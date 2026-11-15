@@ -42,11 +42,11 @@
     let sec = null, mode = null, label = null, hp = null, env = null;
     for (let i = 0; i < lines.length; i++) {
       const s = lines[i];
-      if (/START OF OBJ_TYPE/.test(s)) { sec = "OBJ"; mode = null; continue; }
-      if (/START OF NPC_TYPE/.test(s)) { sec = "NPC"; mode = null; continue; }
-      if (/START OF PLANE_TYPE/.test(s)) { sec = "PLANE"; mode = null; continue; }
-      if (/END OF (OBJ|NPC|PLANE)_TYPE/.test(s)) { sec = null; mode = null; continue; }
-      let m = /^:(\w+)/.exec(s);
+      // any "START OF xxx_TYPE" section (OBJ / NPC / PLANE in a .PT, OBJ / PROJ in a .JT)
+      let m = /START OF (\w+)_TYPE/.exec(s);
+      if (m) { sec = m[1]; pt.fields[sec] = pt.fields[sec] || []; mode = null; continue; }
+      if (/END OF \w+_TYPE/.test(s)) { sec = null; mode = null; continue; }
+      m = /^:(\w+)/.exec(s);
       if (m) {
         label = m[1];
         if (label === "hards") { mode = "hards"; pt.hardsLine = i; }
