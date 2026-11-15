@@ -31,9 +31,9 @@ import keystone
 
 WHITE, OLIVE = 150, 156
 # store kinds; 0 = nothing
-NONE, TANK, AIM9, AAM, ARM, LGB, BOMB = range(7)
+NONE, TANK, AIM9, AAM, ARM, LGB, BOMB, AIM7, AIM54, JDAM = range(10)
 GENERIC = AAM                       # unknown .JT weapon on a store station
-NAMES = [(b'AIM-', b'9', AIM9), (b'AIM-', None, AAM), (b'AGM-', None, ARM), (b'GBU-', None, LGB),
+NAMES = [(b'AIM-', b'9', AIM9), (b'AIM-', b'7', AIM7), (b'AIM-', b'5', AIM54), (b'GBU-', b'3', JDAM), (b'AIM-', None, AAM), (b'AGM-', None, ARM), (b'GBU-', None, LGB),
          (b'MK-8', None, BOMB), (b'CBU-', None, BOMB)]
 
 
@@ -127,7 +127,9 @@ import fa_weapons
 # FA's own weapon models (with their colour bands), scaled to real length in F18 units (~9.5 units per metre)
 SHAPES = {TANK: tank480, AIM9: lambda: fa_weapons.load('SIDEM.SH', 29), AAM: lambda: fa_weapons.load('AMRAM.SH', 37),
           ARM: lambda: fa_weapons.load('HARM.SH', 42), LGB: lambda: fa_weapons.load('PAVE.SH', 42, roll=45),
-          BOMB: lambda: fa_weapons.load('MK82.SH', 21)}
+          BOMB: lambda: fa_weapons.load('MK82.SH', 21),
+          AIM7: lambda: fa_weapons.load('SPAR.SH', 36), AIM54: lambda: fa_weapons.load('PHENX.SH', 40),
+          JDAM: lambda: fa_weapons.load('GB27.SH', 37)}       # GBU-3x JDAM: FA's GBU-29/30 shape (X fins), GBU-31 length
 
 # ---------------------------------------------------------------- slots: (station, rank, default kind, attach x, up, fwd)
 # x / fwd from F18.PT; up = pylon bottom (wing pylons) or a point just under the belly / on the wingtip rail
@@ -441,7 +443,7 @@ def build(d, static=False, debug=False):
             k = ('N', T, i); nodes.append((k, nn, dd, prev, u)); prev = ('K', k)
         chain_top[T] = prev
     isz = lambda it: 16 if it[0] == 'c4' else 4
-    NK = 7
+    NK = len(SHAPES) + 1
     STUB = 2 + 5 + 5 + 2 * NK                       # F0 00, push imm32, call rel32, kind table
     order = ['BODY'] + [k for k, *_ in nodes] + list(leaves)
     size = {k: 20 for k in order}

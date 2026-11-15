@@ -64,7 +64,7 @@ def load(name, length, white=150, roll=0):
     V = [(round((x * ca - u * sa) * s), round(f * s), round((x * sa + u * ca) * s)) for x, f, u in V0]
     # attach at the top of the body, not of the fins: fin faces lie in the x = 0 or up = 0 plane, body faces do not
     body = [f[3] for f in FF if any(V0[i][0] for i in f[3]) and any(V0[i][2] for i in f[3])]
-    top = max(V[i][2] for q in body for i in q)
+    top = max(V[i][2] for q in body for i in q if abs(V[i][0]) <= 1)   # body top on the centreline (X fins are off it)
     V = [(x, f, u - top) for x, f, u in V]                       # top of the store at local up 0 (pylon attach)
     F = []
     for p, fl, col, idx in FF:
