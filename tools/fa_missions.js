@@ -125,8 +125,9 @@
     try {
       const r = await fetch(API_DELETE, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ check: true, adminKey: key }) });
       const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
       if (j.admin) { admin = key; store.set(ADMIN_KEY, key); adminOpen = false; render(); say(L("Signed in as site admin.", "已用管理者身分登入。"), "ok"); }
-      else say(j.adminConfigured === false ? L("No admin key is set on the server yet (MISSIONS_ADMIN_KEY in Vercel).", "伺服器還沒設定管理者金鑰（Vercel 的 MISSIONS_ADMIN_KEY）。")
+      else say(j.adminConfigured === false ? L("This deployment has no admin key (MISSIONS_ADMIN_KEY). Add it for Production in Vercel, then redeploy the production deployment.", "這個部署沒有管理者金鑰（MISSIONS_ADMIN_KEY）。請在 Vercel 為 Production 加上它，然後重新部署正式版。")
         : esc(j.error || L("Wrong admin key.", "管理者金鑰不對。")), "err");
     } catch (e) { say(esc(L("Sign-in failed: ", "登入失敗：") + (e && e.message || e)), "err"); }
   }

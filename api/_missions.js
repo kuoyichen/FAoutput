@@ -10,7 +10,8 @@ export const ANY_RE = /^missions\/([0-9a-z]{6,12}-[0-9a-z]{6})_[A-Za-z0-9._-]{1,
 // uploader name + short description, written by the server: missions/<key>_info.json
 export const INFO_RE = /^missions\/([0-9a-z]{6,12}-[0-9a-z]{6})_info\.json$/;
 export const MAX_NAME = 40, MAX_DESC = 500;
-export const adminKey = () => process.env.MISSIONS_ADMIN_KEY || "";
+// trimmed: a value pasted into Vercel often carries a trailing space or newline
+export const adminKey = () => String(process.env.MISSIONS_ADMIN_KEY || "").trim();
 export const cleanText = (v, max) => String(v ?? "").replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "").replace(/\r\n?/g, "\n").trim().slice(0, max);
 export const keyIsRecent = key => Math.abs(Date.now() - parseInt(String(key).split("-")[0], 36)) < 30 * 60 * 1000;
 export const kindOf = pathname => { const m = ANY_RE.exec(pathname); return m ? m[2].toLowerCase() : null; };
@@ -43,7 +44,7 @@ export function blobOpts() {
   const id = storeId(); return id ? { storeId: id } : {};
 }
 // names (never values) of the env vars that look storage-related, for /api/missions?status
-export const envNames = () => Object.keys(env).filter(k => /BLOB|STORE_ID|READ_WRITE|OIDC/.test(k)).sort();
+export const envNames = () => Object.keys(env).filter(k => /BLOB|STORE_ID|READ_WRITE|OIDC|MISSIONS/.test(k)).sort();
 
 // Best-effort per-IP limit. It lives in one function instance's memory, so it only slows down
 // a burst from one address; it is not a hard quota.
