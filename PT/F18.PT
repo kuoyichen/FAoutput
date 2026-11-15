@@ -300,8 +300,8 @@
 ;-------- hardpoint 4
     word $1705
     word 0
-    word -15
-    word 0
+    word -9
+    word 9
     word 0
     word 0
     word 0
@@ -312,9 +312,9 @@
     byte 0
 ;-------- hardpoint 5
     word $461
-    word 10
-    word -15
-    word 0
+    word 11
+    word -5
+    word -4
     word 0
     word 0
     word 0
@@ -326,8 +326,8 @@
 ;-------- hardpoint 6
     word $7e5
     word 25
-    word -12
-    word -3
+    word -6
+    word 17
     word 0
     word 0
     word 0
@@ -338,9 +338,9 @@
     byte 4
 ;-------- hardpoint 7
     word $5e5
-    word 41
-    word -12
+    word 42
     word -6
+    word 9
     word 0
     word 0
     word 0
@@ -351,9 +351,9 @@
     byte 4
 ;-------- hardpoint 8
     word $85
-    word 58
-    word 1
-    word -9
+    word 55
+    word 0
+    word -8
     word 0
     word 0
     word 0
