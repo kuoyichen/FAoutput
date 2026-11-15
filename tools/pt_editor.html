@@ -893,7 +893,7 @@ function renderHpForm(valuesOnly){
   box.dataset.k = selHp;
   const num = (f, lab, labZh, unit) => `<div class="row"><label>${L(lab, labZh)}</label><span class="stepper"><button data-step="${f}" data-d="-1">−</button><input type="number" data-f="${f}" step="${unit === "°" ? "0.5" : "1"}"><button data-step="${f}" data-d="1">+</button></span><span class="unit">${unit || ""}</span></div>`;
   box.innerHTML = `<div class="row"><label>${L("Location", "位置")}</label>${locSelect(h.loc)}<label style="flex:0">${L("Qty", "數量")}</label><input type="number" data-f="qty" style="width:60px"></div>
-    <div class="row"><label>${L("Store Type", "外掛類型")}</label><input list="storeList" type="text" data-f="type" spellcheck="false"></div>
+    <div class="row"><label>${L("Store Type", "外掛類型")}</label><input list="storeList" type="text" data-f="type" spellcheck="false"><a id="jtLink" class="small" target="_blank" rel="noopener" style="color:var(--accent);white-space:nowrap" title="${esc(L("Open this store's .JT in the JT Editor", "在 JT 編輯器開啟這個外掛的 .JT"))}">JT ↗</a></div>
     <div class="row"><label>${L("3D shape shown", "顯示的 3D 形狀")}</label><input type="text" id="shapeOvr" placeholder="${esc(L("auto", "自動"))}" title="${esc(L("SH file used to draw this store type here (only for this page; not saved in the PT)", "這個外掛類型在本頁用哪個 SH 畫（只影響本頁，不寫進 PT）"))}" spellcheck="false"></div>
     <p class="note" id="shapeSrc"></p>
     <div class="cols"><div>
@@ -912,13 +912,16 @@ function renderHpForm(valuesOnly){
     else if (/^slew|^lim/.test(f)) h[f] = Math.round(+el.value * 182);
     else if (f === "wt") h.wt = Math.max(0, Math.min(255, Math.round(+el.value / 100)));
     else h[f] = Math.round(+el.value);
-    renderHpTable(); hpChanged(true); updateShapeSrc(); };
+    renderHpTable(); hpChanged(true); updateShapeSrc(); updateJtLink(); };
   box.querySelectorAll("[data-f]").forEach(el => el.onchange = () => apply(el));
   box.querySelectorAll("[data-step]").forEach(b => b.onclick = () => { const f = b.dataset.step; h[f] += (/^slew|^lim/.test(f) ? 182 : 1) * +b.dataset.d; hpChanged(true); });
   const so = $("shapeOvr"); so.value = SHAPE_OVR[h.type] || "";
   so.onchange = () => { const v = so.value.trim().toUpperCase(); if (v) SHAPE_OVR[h.type] = v; else delete SHAPE_OVR[h.type]; saveOvr(); buildScene(false).then(updateShapeSrc); };
-  renderHpForm(true); updateShapeSrc();
+  renderHpForm(true); updateShapeSrc(); updateJtLink();
 }
+// "JT ↗" next to Store Type: open the store's ordnance file in tools/jt_editor.html
+function updateJtLink(){ const a = $("jtLink"), h = pt?.hp[selHp]; if (!a) return; const t = String(h?.type || "").toUpperCase();
+  a.style.display = /\.JT$/.test(t) ? "" : "none"; a.href = "jt_editor.html?jt=" + encodeURIComponent(t); }
 async function updateShapeSrc(){ const h = pt?.hp[selHp], el = $("shapeSrc"); if (!h || !el) return;
   const k = storeKind(h.type, h.loc); if (k === "none" && h.loc !== 2){ el.textContent = L("Empty hardpoint (nothing drawn).", "空掛點（不顯示）。"); return; }
   if (k === "sensor" && !$("showSens").checked){ el.textContent = L("Sensor / ECM: turn on “Sensors / ECM” to show its marker.", "感測器／電戰：勾選「Sensors / ECM」才會顯示標記。"); return; }
