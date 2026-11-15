@@ -63,6 +63,11 @@ main .sub{color:var(--muted);margin:0 0 20px}
 .chips span{font-size:12px;border:1px solid var(--line);border-radius:20px;padding:2px 10px;color:var(--muted)}
 .rel .go{display:inline-block;margin-top:12px;color:var(--accent);font-weight:600}
 .next{margin-top:14px;padding:16px 20px;border:1px dashed var(--line);border-radius:14px;color:var(--muted)}
+.board{display:flex;align-items:center;gap:14px;margin-top:14px;padding:16px 20px;background:var(--card);border:1px solid var(--line);border-radius:14px;text-decoration:none;transition:border-color .15s}
+.board:hover{border-color:var(--accent)}
+.board .ico{font-size:24px;color:var(--accent)}
+.board .bsub{color:var(--muted);font-size:14px}
+.board .go{margin-left:auto;color:var(--accent);font-weight:600;white-space:nowrap}
 footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
 @media (max-width:600px){ .rel{grid-template-columns:1fr;gap:6px} .rel .no{display:inline;font-size:20px;margin-left:8px} #status{display:none} }
 </style>
@@ -79,6 +84,7 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
   <h3>Site</h3>
   <a href="#top"><span class="ico">⌂</span>Home</a>
   <a href="#releases"><span class="ico">★</span>Releases</a>
+  <a href="tools/board.html"><span class="ico">✉</span>Message Board</a>
   <h3>Releases</h3>
   <a href="tools/fa_flight.html"><span class="ico">◮</span>Flight Sim (mobile)</a>
   <a href="tools/f18_showcase.html"><span class="ico">✈</span>F/A-18 Showcase</a>
@@ -130,6 +136,7 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
     </div>
   </a>
   <div class="next">Next up: a rebuilt F-14 Tomcat. Watch this space.</div>
+  <a class="board" href="tools/board.html"><span class="ico">✉</span><span><b>Message Board</b><br><span class="bsub">Say hello, ask questions, or reply to other pilots.</span></span><span class="go">Open →</span></a>
 </main>
 <footer data-lang="en">FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>). Models, tools and source are on <a href="https://github.com/kuoyichen/FAoutput">GitHub</a>.</footer>
 <footer data-lang="zh">FAshion 是 hawke 為 Jane's Fighters Anthology 做的同好專案（<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>）。模型、工具和原始碼都在 <a href="https://github.com/kuoyichen/FAoutput">GitHub</a>。</footer>
@@ -147,7 +154,7 @@ FAI18N.register({
   "Reshaped Hornets and new Super Hornets, two Blue Angels schemes and a brand-new EA-18G Growler with jamming pods. View each one in 3D with gear, flaps, hook and speed brake, then download the SH and PIC files.": "重新修整的 Hornet 和全新的 Super Hornet、兩種藍天使塗裝，以及掛著干擾莢艙的全新 EA-18G Growler。可以 3D 檢視每一架，切換起落架、襟翼、尾鉤和減速板，再下載 SH 和 PIC 檔。",
   "Blue Angels E": "藍天使 E", "Blue Angels F": "藍天使 F", "Open the F/A-18 Showcase →": "開啟 F/A-18 展示 →",
   "Next up: a rebuilt F-14 Tomcat. Watch this space.": "下一個：重建的 F-14 Tomcat，敬請期待。", "Nov 14, 2026": "2026 年 11 月 14 日", "Nov 15, 2026": "2026 年 11 月 15 日",
-  "Flight Sim (mobile)": "飛行模擬（手機）", "FA Flight: play on your phone": "FA Flight：在手機上飛",
+  "Flight Sim (mobile)": "飛行模擬（手機）", "Message Board": "留言板", "Say hello, ask questions, or reply to other pilots.": "打個招呼、問問題，或回覆其他飛行員。", "Open →": "開啟 →", "FA Flight: play on your phone": "FA Flight：在手機上飛",
   "Fly the F/A-18 over an island with hills, mountains and open sea. Take off from the FA airfield or launch from the Nimitz, with two on-screen sticks and a chase camera you can swing around. Any FA shape can be driven: pick a ship to sail or a tank to drive.": "駕駛 F/A-18 飛越有丘陵、高山和大海的島嶼。從 FA 的機場起飛，或從尼米茲號航艦彈射，用螢幕上的兩支搖桿操作，追蹤鏡頭可以自由轉動。任何 FA 外形都能駕駛：選船來航行，或選戰車來開。",
   "Mobile": "手機", "Takeoff & landing": "起飛與降落", "Carrier": "航艦", "Any SH": "任何 SH", "Start flying →": "開始飛行 →"
 });

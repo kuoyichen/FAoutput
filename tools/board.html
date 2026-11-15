@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAshion Message Board</title>
+<meta name="description" content="Leave a message for hawke and other Fighters Anthology fans, and reply to others.">
+<style>
+:root{ --bg:#0e1216; --card:#161c22; --card2:#1b232b; --line:#26303a; --text:#e2e8ee; --muted:#8a96a4; --accent:#ffd54a; --cyan:#6fd3ff; --red:#ff7a7a; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:var(--cyan)}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;padding:12px 16px;background:#0e1216ee;border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+header h1{font-size:16px;margin:0;font-weight:600;color:var(--muted)}
+header .sp{flex:1}
+select,button,input,textarea{font:inherit;color:var(--text)}
+.fa-lang,button{background:#262e38;border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--accent);color:#14181c;border-color:var(--accent);font-weight:700}
+button.primary:disabled{opacity:.5;cursor:default}
+button.link{background:none;border:none;padding:2px 4px;color:var(--muted);font-size:13px}
+button.link:hover{color:var(--text)}
+button.link.del:hover{color:var(--red)}
+main{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+h2{font-size:26px;margin:4px 0 2px}
+.sub{color:var(--muted);margin:0 0 18px}
+form.compose{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:10px}
+input[type=text],textarea{width:100%;background:#0e1216;border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:90px}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.row .count{color:var(--muted);font-size:12px;margin-left:auto}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.err{color:var(--red);font-size:13px}
+#status{color:var(--muted);margin:22px 0 10px;font-size:14px}
+.post{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-top:14px}
+.meta{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.meta b{color:var(--accent)}
+.meta time{color:var(--muted);font-size:12px}
+.msg{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0 4px}
+.acts{display:flex;gap:6px;margin-left:-4px}
+.replies{margin-top:10px;border-left:2px solid var(--line);padding-left:14px;display:grid;gap:10px}
+.reply{background:var(--card2);border-radius:10px;padding:10px 12px}
+.reply .meta b{color:var(--cyan)}
+.reply form.compose{background:none;border:none;padding:0}
+.replyform{margin-top:10px}
+.replyform form.compose{background:var(--card2)}
+.admin{margin-top:40px;color:var(--muted);font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.admin input{width:auto;flex:0 1 220px;padding:5px 9px}
+.mine{font-size:11px;border:1px solid var(--line);border-radius:20px;padding:0 7px;color:var(--muted)}
+</style>
+<script src="fashion_i18n.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <h1>Message Board</h1>
+  <span class="sp"></span>
+  <span id="langSlot"></span>
+</header>
+<main>
+  <h2>Message Board</h2>
+  <p class="sub">Say hello, share how your flights went, ask about the shapes and tools, or answer someone else.</p>
+
+  <form class="compose" id="newForm" autocomplete="off">
+    <input type="text" name="name" maxlength="40" placeholder="Your name" required>
+    <textarea name="msg" maxlength="2000" placeholder="Write a message…" required></textarea>
+    <div class="hp" aria-hidden="true"><input type="text" name="website" tabindex="-1"></div>
+    <div class="row"><button class="primary" type="submit">Post message</button><span class="err"></span><span class="count"></span></div>
+  </form>
+
+  <div id="status">Loading messages…</div>
+  <div id="list"></div>
+
+  <div class="admin" id="admin"></div>
+</main>
+
+<script>
+"use strict";
+const API = "/api/board";
+const LIVE = "https://fashion-hawke.vercel.app/tools/board.html";
+FAI18N.register({
+  "Message Board": "留言板", "FAshion Message Board": "FAshion 留言板", "FAshion home": "FAshion 首頁",
+  "Say hello, share how your flights went, ask about the shapes and tools, or answer someone else.": "打個招呼、分享你的飛行，問問外形和工具的事，或回覆別人的留言。",
+  "Your name": "你的名字", "Write a message…": "寫下留言…", "Write a reply…": "寫下回覆…", "Post message": "送出留言", "Post reply": "送出回覆",
+  "Loading messages…": "載入留言中…", "Reply": "回覆", "Delete": "刪除", "Cancel": "取消", "you": "你",
+  "Admin": "管理員", "Admin key": "管理金鑰", "Sign in": "登入", "Sign out": "登出", "Signed in as admin: you can delete any post.": "已用管理員登入：可以刪除任何留言。",
+});
+const L = FAI18N.L, $ = id => document.getElementById(id);
+$("langSlot").append(FAI18N.picker());
+
+// local state: name, this browser's secret (proves it wrote a post), its post ids, admin key
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} },
+};
+let secret = store.get("fashion_board_secret", "");
+if (!/^[0-9a-f]{32,128}$/.test(secret)) {
+  const a = new Uint8Array(24); crypto.getRandomValues(a); secret = [...a].map(x => x.toString(16).padStart(2, "0")).join("");
+  store.set("fashion_board_secret", secret);
+}
+let mine = new Set(); try { mine = new Set(JSON.parse(store.get("fashion_board_mine", "[]"))); } catch (e) {}
+const saveMine = () => store.set("fashion_board_mine", JSON.stringify([...mine].slice(-500)));
+let adminKey = store.get("fashion_admin_key", ""), isAdmin = false, posts = [], openReply = null, notReady = false;
+const myName = () => store.get("fashion_board_name", "") || store.get("fashion_uploader", "");
+
+function fmtTime(iso) {
+  const d = new Date(iso); if (isNaN(d)) return "";
+  const s = (Date.now() - d) / 1000;
+  if (s < 60) return L("just now", "剛剛");
+  if (s < 3600) return L(`${Math.floor(s / 60)} min ago`, `${Math.floor(s / 60)} 分鐘前`);
+  if (s < 86400) return L(`${Math.floor(s / 3600)} h ago`, `${Math.floor(s / 3600)} 小時前`);
+  return d.toLocaleDateString(FAI18N.lang === "zh" ? "zh-TW" : "en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+async function api(body) {
+  const r = await fetch(API, { method: body ? "POST" : "GET", headers: body ? { "content-type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined, cache: "no-store" });
+  let j = {}; try { j = await r.json(); } catch (e) {}
+  if (!r.ok) { const err = new Error(j.error || `HTTP ${r.status}`); err.status = r.status; err.code = j.error; throw err; }
+  return j;
+}
+function errText(e) {
+  if (e.code === "not-configured") return L("The message board is not set up on this server yet.", "這個伺服器還沒設定好留言板。");
+  const zh = { "Please enter your name": "請輸入名字", "Please write a message": "請寫下留言", "Too many posts, please wait a few minutes": "留言太頻繁，請等幾分鐘",
+    "That message was deleted": "那則留言已被刪除", "not-found": "找不到這則留言" , "Not allowed: only the poster's browser or the site admin can delete this": "只有留言的瀏覽器或管理員可以刪除" };
+  return FAI18N.lang === "zh" && zh[e.code] ? zh[e.code] : (e.code || e.message);
+}
+
+// one compose form (new message or reply)
+function bindForm(form, parent, onDone) {
+  const name = form.elements.name, msg = form.elements.msg, btn = form.querySelector("button[type=submit]"),
+    err = form.querySelector(".err"), count = form.querySelector(".count");
+  if (!name.value) name.value = myName();
+  const upd = () => { count.textContent = msg.value.length > 1500 ? `${msg.value.length} / 2000` : ""; };
+  msg.addEventListener("input", upd); upd();
+  form.onsubmit = async ev => {
+    ev.preventDefault(); err.textContent = "";
+    if (notReady) { err.textContent = L("The message board is not set up on this server yet.", "這個伺服器還沒設定好留言板。"); return; }
+    btn.disabled = true;
+    try {
+      const j = await api({ name: name.value, msg: msg.value, parent: parent || "", website: form.elements.website ? form.elements.website.value : "", ownerSecret: secret });
+      store.set("fashion_board_name", name.value.trim());
+      mine.add(j.post.id); saveMine();
+      if (!posts.some(p => p.id === j.post.id)) posts.push(j.post);
+      msg.value = ""; upd(); onDone && onDone(j.post); render();
+    } catch (e) { err.textContent = errText(e); }
+    btn.disabled = false;
+  };
+}
+function replyForm(threadId, prefill) {
+  const f = el("form", "compose"); f.autocomplete = "off";
+  f.innerHTML = `<input type="text" name="name" maxlength="40" required><textarea name="msg" maxlength="2000" required></textarea>
+    <div class="hp" aria-hidden="true"><input type="text" name="website" tabindex="-1"></div>
+    <div class="row"><button class="primary" type="submit"></button><button type="button" class="cancel"></button><span class="err"></span><span class="count"></span></div>`;
+  f.elements.name.placeholder = L("Your name", "你的名字"); f.elements.msg.placeholder = L("Write a reply…", "寫下回覆…");
+  f.querySelector("button[type=submit]").textContent = L("Post reply", "送出回覆"); f.querySelector(".cancel").textContent = L("Cancel", "取消");
+  f.querySelector(".cancel").onclick = () => { openReply = null; render(); };
+  if (prefill) f.elements.msg.value = prefill;
+  bindForm(f, threadId, () => { openReply = null; });
+  return f;
+}
+
+async function remove(p) {
+  const n = p.parent ? 0 : posts.filter(q => q.parent === p.id).length;
+  const q = n ? L(`Delete this message and its ${n} repl${n > 1 ? "ies" : "y"}?`, `刪除這則留言和它的 ${n} 則回覆？`) : L("Delete this post?", "刪除這則留言？");
+  if (!confirm(q)) return;
+  try {
+    await api({ delete: p.id, adminKey: isAdmin ? adminKey : undefined, ownerSecret: secret });
+    posts = posts.filter(x => x.id !== p.id && x.parent !== p.id); mine.delete(p.id); saveMine(); render();
+  } catch (e) { alert(errText(e)); }
+}
+
+function postEl(p, threadId, cls) {
+  const box = el("div", cls);
+  const meta = el("div", "meta"); meta.append(el("b", null, p.name));
+  const t = el("time", null, fmtTime(p.at)); t.dateTime = p.at; t.title = new Date(p.at).toLocaleString(); meta.append(t);
+  if (mine.has(p.id)) meta.append(el("span", "mine", L("you", "你")));
+  box.append(meta, el("div", "msg", p.msg));
+  const acts = el("div", "acts");
+  const rb = el("button", "link", "↩ " + L("Reply", "回覆")); rb.type = "button";
+  rb.onclick = () => { openReply = { thread: threadId, to: p.id, prefill: p.parent ? `@${p.name} ` : "" }; render(); };
+  acts.append(rb);
+  if (isAdmin || mine.has(p.id)) { const db = el("button", "link del", "✕ " + L("Delete", "刪除")); db.type = "button"; db.onclick = () => remove(p); acts.append(db); }
+  box.append(acts);
+  return box;
+}
+
+function render() {
+  const list = $("list"); list.textContent = "";
+  const tops = posts.filter(p => !p.parent), kids = new Map();
+  for (const p of posts) if (p.parent) { if (!kids.has(p.parent)) kids.set(p.parent, []); kids.get(p.parent).push(p); }
+  const last = t => { const k = kids.get(t.id); return k && k.length ? k[k.length - 1].at : t.at; };
+  tops.sort((a, b) => new Date(last(b)) - new Date(last(a)));   // threads with the newest activity first
+  for (const t of tops) {
+    const box = postEl(t, t.id, "post");
+    const k = kids.get(t.id) || [];
+    if (k.length) { const r = el("div", "replies"); for (const c of k) r.append(postEl(c, t.id, "reply")); box.append(r); }
+    if (openReply && openReply.thread === t.id) {
+      const w = el("div", "replyform"), f = replyForm(t.id, openReply.prefill); w.append(f); box.append(w);
+      setTimeout(() => { const m = f.elements.msg; if (!f.elements.name.value) f.elements.name.focus(); else { m.focus(); m.setSelectionRange(m.value.length, m.value.length); } }, 0);
+    }
+    list.append(box);
+  }
+  if (!notReady) $("status").textContent = tops.length
+    ? L(`${tops.length} message${tops.length > 1 ? "s" : ""}, ${posts.length - tops.length} repl${posts.length - tops.length === 1 ? "y" : "ies"}`, `${tops.length} 則留言，${posts.length - tops.length} 則回覆`)
+    : L("No messages yet. Be the first!", "還沒有留言，來當第一個吧！");
+  renderAdmin();
+}
+
+function renderAdmin() {
+  const a = $("admin"); a.textContent = "";
+  if (isAdmin) {
+    a.append(el("span", null, L("Signed in as admin: you can delete any post.", "已用管理員登入：可以刪除任何留言。")));
+    const b = el("button", null, L("Sign out", "登出")); b.type = "button";
+    b.onclick = () => { isAdmin = false; adminKey = ""; store.set("fashion_admin_key", null); render(); }; a.append(b);
+    return;
+  }
+  const b = el("button", "link", "🔑 " + L("Admin", "管理員")); b.type = "button";
+  b.onclick = () => {
+    a.textContent = "";
+    const i = el("input"); i.type = "password"; i.placeholder = L("Admin key", "管理金鑰");
+    const go = el("button", null, L("Sign in", "登入")); go.type = "button";
+    const msg = el("span", "err");
+    go.onclick = async () => {
+      try { const j = await api({ check: true, adminKey: i.value.trim() });
+        if (j.admin) { isAdmin = true; adminKey = i.value.trim(); store.set("fashion_admin_key", adminKey); render(); }
+        else msg.textContent = L("Wrong key", "金鑰不對");
+      } catch (e) { msg.textContent = errText(e); }
+    };
+    i.onkeydown = e => { if (e.key === "Enter") go.click(); };
+    a.append(i, go, msg); i.focus();
+  };
+  a.append(b);
+}
+
+async function load() {
+  try {
+    const j = await api(); posts = j.posts || []; notReady = false;
+  } catch (e) {
+    if (e.code === "not-configured" || e.status === 404 || e.status === 405) {
+      notReady = true;
+      $("status").innerHTML = "";
+      $("status").append(L("The message board lives on the FAshion site: ", "留言板在 FAshion 網站上："));
+      const a = el("a", null, LIVE); a.href = LIVE; $("status").append(a);
+    } else $("status").textContent = L("Could not load messages: ", "無法載入留言：") + errText(e);
+  }
+  render();
+}
+
+bindForm($("newForm"), "", null);
+FAI18N.onChange(() => { document.title = L("FAshion Message Board", "FAshion 留言板"); render(); });
+document.title = L("FAshion Message Board", "FAshion 留言板");
+FAI18N.apply();
+(async () => {
+  if (/github\.io$/.test(location.hostname)) { location.replace(LIVE); return; }
+  if (adminKey) { try { const j = await api({ check: true, adminKey }); isAdmin = !!j.admin; if (!j.admin) { adminKey = ""; store.set("fashion_admin_key", null); } } catch (e) {} }
+  await load();
+})();
+setInterval(() => { if (!document.hidden && !notReady && !openReply) load(); }, 60000);
+</script>
+</body>
+</html>
