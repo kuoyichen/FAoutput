@@ -6,7 +6,8 @@
 // followed by :ot_names / :shape / :loopSound / :si_names / :fireSound string blocks.
 // Field positions come from the original editor's AIM54C.JT dialogs plus a comparison of all 181 JT files in the repo.
 // Confirmed against Kuoyi's dialogs of the repo AIM54C.JT: Ordnance, Object Info (5 bits), Missile Info, Targeting
-// (ranges, FOV, LookDown = PROJ8), Firing, Damage, Movement, Ordnance Parameters, Sound.
+// (ranges, FOV, LookDown = PROJ8), Firing, Damage, Movement, Ordnance Parameters, Sound,
+// Hit Data (chaff 25, ECM 26, hit % 67-70, G>3 73, G<3 77, large aircraft 78, miss-G 79; the fields that are 0 on AIM54C stay guesses).
 // Fields marked `g` (guess) are placed by value patterns only and are shown as "unconfirmed" in the editor.
 (function (root) {
   "use strict";
@@ -30,7 +31,7 @@
     accel: ["OBJ", 45, "fx"], decel: ["OBJ", 46, "fx"], minAlt: ["OBJ", 47, "ft"], maxAlt: ["OBJ", 48, "ft"],
     // ----- PROJ_TYPE -----
     flags: ["PROJ", 0], podQty: ["PROJ", 1], guidance: ["PROJ", 6],
-    lookDown: ["PROJ", 8], chaff: ["PROJ", 25, "", "g"], ecm: ["PROJ", 26, "", "g"], irSun: ["PROJ", 12, "", "g"],
+    lookDown: ["PROJ", 8], chaff: ["PROJ", 25], ecm: ["PROJ", 26], irSun: ["PROJ", 12, "", "g"],
     rFovH: ["PROJ", 13, "deg"], rFovP: ["PROJ", 14, "deg"], rMin: ["PROJ", 15, "nm"], rMax: ["PROJ", 16, "nm"], rMinAlt: ["PROJ", 17, "nm"], rMaxAlt: ["PROJ", 18, "nm"],
     tFovH: ["PROJ", 19, "deg"], tFovP: ["PROJ", 20, "deg"], tMin: ["PROJ", 21, "nm"], tMax: ["PROJ", 22, "nm"], tMinAlt: ["PROJ", 23, "nm"], tMaxAlt: ["PROJ", 24, "nm"],
     allAspect: ["PROJ", 29, "", "g"], ordType: ["PROJ", 27],
@@ -42,8 +43,8 @@
     jinkSize: ["PROJ", 58, "deg"], jinkTime: ["PROJ", 59], jinkDur: ["PROJ", 60], launchPct: ["PROJ", 61],
     smokeType: ["PROJ", 62], smokeFreq: ["PROJ", 63], smokeLife: ["PROJ", 64], smokeStart: ["PROJ", 65], smokeEnd: ["PROJ", 66],
     hit0: ["PROJ", 67], hit25: ["PROJ", 68], hit50: ["PROJ", 69], hit100: ["PROJ", 70],
-    hmTaa: ["PROJ", 71, "", "g"], hmPitch: ["PROJ", 72, "", "g"], hmGhi: ["PROJ", 73, "", "g"], hmAc: ["PROJ", 74, "", "g"], hmRel: ["PROJ", 75, "", "g"], hmRel2: ["PROJ", 76, "", "g"],
-    hmGlo: ["PROJ", 77, "", "g"], hmLarge: ["PROJ", 78, "", "g"], hmMissG: ["PROJ", 79, "", "g"], fuseArm: ["PROJ", 80], hmTaa60: ["PROJ", 82, "", "g"],
+    hmTaa: ["PROJ", 71, "", "g"], hmPitch: ["PROJ", 72, "", "g"], hmGhi: ["PROJ", 73], hmAc: ["PROJ", 74, "", "g"], hmRel: ["PROJ", 75, "", "g"], hmRel2: ["PROJ", 76, "", "g"],
+    hmGlo: ["PROJ", 77], hmLarge: ["PROJ", 78], hmMissG: ["PROJ", 79], fuseArm: ["PROJ", 80], hmTaa60: ["PROJ", 82, "", "g"],
     explLand: ["PROJ", 83], explWater: ["PROJ", 84], collRadius: ["PROJ", 88], collPct: ["PROJ", 89]
   };
 
