@@ -96,6 +96,29 @@ def tank330():
     return V, F
 
 
+def tank480():
+    """F/A-18E 480-gal tank: long pointed nose, straight body, tapered tail cone with four small X fins."""
+    r = 3.5; e = r * .7
+    sec = [(0, r), (e, e), (r, 0), (e, -e), (0, -r), (-e, -e), (-r, 0), (-e, e)]
+    st = [(25, 0, -r), (21, .35, -r), (16, .65, -r), (11, .88, -r), (6, 1, -r), (-11, 1, -r), (-17, .75, -r),
+          (-22, .45, -r), (-25, .3, -r)]
+    V, F, rings = lathe(sec, st, WHITE)
+    for k in (1, 3, 5, 7):
+        x, z = sec[k]; L = (x * x + z * z) ** .5
+        tip = (round(x / L * (r * .45 + 2.5)), -25, round(-r + z / L * (r * .45 + 2.5))); V.append(tip)
+        tri = [rings[6][k], rings[8][k], len(V) - 1]
+        F += [(FLAT, DARK, tri), (FLAT, DARK, tri[::-1])]
+    return V, F
+
+
+AFT = -10      # every store ends this far behind its attach point, so it clears the lowered flaps
+
+
+def aft(VF):
+    V, F = VF; d = AFT - min(v[1] for v in V)
+    return [(x, f + d, u) for x, f, u in V], F
+
+
 def pylon(h, bot, top):
     """Slab 1 unit thick from local up 0 (store attach, fwd bot) to up h (inside the wing, fwd top)."""
     V = []
@@ -105,18 +128,20 @@ def pylon(h, bot, top):
     return V, orient(V, [(FLAT, GREY, f) for f in q])
 
 
-SHAPES = {TANK: tank330, AIM9: aim9, AAM: aim120, ARM: harm, LGB: gbu10, BOMB: mk82}
+SHAPES = {TANK: tank480, AIM9: aim9, AAM: aim120, ARM: harm, LGB: gbu10, BOMB: mk82}
 
 # ---------------------------------------------------------------- slots: (station, rank, default kind, attach x, up, fwd)
 # x / fwd from F18.PT; up = pylon bottom (wing pylons) or a point just under the belly / on the wingtip rail
 SLOTS = {   # right side rank 2, left side rank 1: FA fires the right store of a pair first (seen in game)
     'R6': (6, 2, LGB, (25, -4, -3)),  'L6': (6, 1, LGB, (-25, -4, -3)),
-    'R7': (7, 2, ARM, (41, -4, -6)),  'L7': (7, 1, ARM, (-41, -4, -6)),
+    'R7': (7, 2, ARM, (41, -4, -4)),  'L7': (7, 1, ARM, (-41, -4, -4)),
     'R8': (8, 2, AIM9, (57, 1, -9)),  'L8': (8, 1, AIM9, (-57, 1, -9)),
-    'C4': (4, 1, TANK, (0, -9, 0)),
-    'R5': (5, 2, NONE, (10, -7, 0)),  'L5': (5, 1, AAM, (-10, -7, 0)),
+    'C4': (4, 1, TANK, (0, -9, -8)),
+    'R5': (5, 2, AAM, (10, -7, 0)),   'L5': (5, 1, AAM, (-10, -7, 0)),
 }
-PYLONS = {'pyW': pylon(6, (6, -7), (9, -10)), 'pyC': pylon(3, (5, -6), (6, -7))}
+PYLONS = {'pyW': pylon(6, (5, -5), (6, -6)), 'pyC': pylon(3, (5, -6), (6, -7))}
+# wing pylon centre fwd per station: between the leading edge and the flap / aileron hinge
+PYFWD = {6: -1, 7: -4}
 
 
 # ---------------------------------------------------------------- x86
@@ -334,7 +359,7 @@ def build(d, static=False, debug=False):
                           if c[i] == 0xC4 and c[i+1] == 0) if 6 <= t < len(c) - 2 and c[t] == 0x82 and c[t+1] == 0)
     HDR = bytes(c[hc-6:hc])
     assert all(v > 0 for v in struct.unpack('<3h', HDR)), HDR
-    shapes = {k: f() for k, f in SHAPES.items()}
+    shapes = {k: aft(f()) for k, f in SHAPES.items()}
     parts = {('K', k): part_bytes(*v) for k, v in shapes.items()}
     parts.update({('P', k): part_bytes(*v) for k, v in PYLONS.items()})
     nv = max(len(v[0]) for v in list(shapes.values()) + list(PYLONS.values()))
@@ -342,17 +367,19 @@ def build(d, static=False, debug=False):
 
     # tree leaves (same groups as the Growler): items are ('c4', part key, pos) or ('call', slot name)
     pos = {k: v[3] for k, v in SLOTS.items()}
+    pyp = lambda s: pos[s][:2] + (PYFWD[SLOTS[s][0]],)
     leaves = {
         'Ltip': [('call', 'L8')], 'Lalq': [('call', 'L7')], 'Ltank': [('call', 'L6')],
         'C': [('c4', ('P', 'pyC'), pos['C4']), ('call', 'C4'), ('call', 'R5'), ('call', 'L5')],
         'Rtank': [('call', 'R6')], 'Ralq': [('call', 'R7')], 'Rtip': [('call', 'R8')],
-        'LPY': [('c4', ('P', 'pyW'), pos['L6']), ('c4', ('P', 'pyW'), pos['L7'])],
-        'RPY': [('c4', ('P', 'pyW'), pos['R6']), ('c4', ('P', 'pyW'), pos['R7'])],
+        'LPY': [('c4', ('P', 'pyW'), pyp('L6')), ('c4', ('P', 'pyW'), pyp('L7'))],
+        'RPY': [('c4', ('P', 'pyW'), pyp('R6')), ('c4', ('P', 'pyW'), pyp('R7'))],
+        'F5R': [('call', 'R5')], 'F5L': [('call', 'L5')],
     }
     isz = lambda it: 16 if it[0] == 'c4' else 4
     NK = 7
     STUB = 2 + 5 + 5 + 2 * NK                       # F0 00, push imm32, call rel32, kind table
-    order = ['PR', 'PRT', 'PL', 'PLT', 'PYR', 'PYL', 'BODY', 'MID', 'GH', 'LG', 'RG'] + list(leaves)
+    order = ['PR', 'PRT', 'PL', 'PLT', 'PYR', 'PYL', 'P5R', 'P5L', 'BODY', 'MID', 'GH', 'LG', 'RG'] + list(leaves)
     size = {k: 20 for k in order}
     size['GH'] = GE - GF + 4 + 2
     size.update({k: sum(isz(it) for it in v) + 2 for k, v in leaves.items()})
@@ -384,7 +411,11 @@ def build(d, static=False, debug=False):
     blk += node('PL', (-3604, -16384, 819), (18, -2, 0), 'PLT', 'LG')
     blk += node('PLT', (-10923, 13107, 0), (20, 0, 0), 'PYR', 'Ltip')
     blk += node('PYR', (0, -16384, 0), (0, -2, 0), 'PYL', 'RPY')
-    blk += node('PYL', (0, -16384, 0), (0, -2, 0), 'BODY', 'LPY')
+    blk += node('PYL', (0, -16384, 0), (0, -2, 0), 'P5R', 'LPY')
+    # fuselage AIM-120s (station 5) sit under the intakes: drawn again after the body when the eye is outboard /
+    # below them (plane through the missile, normal 30 deg below horizontal), otherwise the belly covers them
+    blk += node('P5R', (8192, -14189, 0), (-10, 6, 0), 'P5L', 'F5R')
+    blk += node('P5L', (-8192, -14189, 0), (10, 6, 0), 'BODY', 'F5L')
     TAB = TA + 18 + struct.unpack_from('<h', c, TA+16)[0]; at['TAB'] = TAB
     o = at['BODY']; blk += bytes(c[ROOT:ROOT+14]) + struct.pack('<hh', TA - (o+16), TB - (o+18)) + b'\x00\x00'
     o = at['MID']; blk += bytes(c[TA:TA+14]) + struct.pack('<hh', at['C'] - (o+16), TAB - (o+18)) + b'\x00\x00'
