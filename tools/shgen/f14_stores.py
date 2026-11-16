@@ -10,6 +10,7 @@ Usage: python3 f14_stores.py F14.SH out.SH [--static]
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import math
+import struct
 import f18_stores as S
 import fa_weapons
 from f18g_growler import orient, lathe, FLAT, GREY
@@ -216,6 +217,27 @@ def placer(c, ROOT, ugeo, ubox):
 
 S.PLACER = placer
 S.FALL_SLOTS = {'TL': 0, 'TR': 1}   # Kuoyi: jettisoned tanks fall away (drawn for 2 s, down and back)
+
+# Wingtip vapour lines (header CE block, CODE+0x14): FA rotates the tip points about the pivot by
+# 182*swing*factor/32767 (FA.EXE 0x4a0196), but the wing C4 heading is swing/4 + swing/64 (= 0.2656*swing).
+# The stock factor 40 gives 0.2222*swing, so at full sweep the lines trailed ~8 deg behind the tips (Kuoyi
+# 2026-11-16).  48 gives 0.2666*swing: the lines follow the tips through the whole sweep.
+VAPOR_FACTOR = 48
+_make = S.make
+
+
+def make(d, static=False, debug=False):
+    out, at = _make(d, static, debug)
+    from sh_subdivide import pe_sections
+    out = bytearray(out)
+    code = next(x for x in pe_sections(out)[2] if x['name'] == 'CODE')
+    p = code['ro'] + 0x14
+    assert out[p-2:p] == b'\xce\x00', 'CE block not at CODE+0x12'
+    struct.pack_into('<h', out, p + 0xC, VAPOR_FACTOR)
+    return bytes(out), at
+
+
+S.make = make
 
 if __name__ == '__main__':
     S.main()
