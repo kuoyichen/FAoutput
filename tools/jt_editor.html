@@ -117,7 +117,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 "use strict";
 // shapes our generators extended (new F-14 nose, loadout stores on F14 / F18) are read with SHCore (sh_editor_core.js), which
 // follows the jumps into the appended blocks; parseSH alone would miss them. Baked with the default loadout, gear down.
-{ const parseOld = parseSH; parseSH = u8 => { try { const M = SHCore.parseModel(u8); if (SHCore.needsCore(M)) return SHCore.legacyModel(M, { on: { _PLgearDown: 1 } }); } catch(e){ console.warn(e); } return parseOld(u8); }; }
+{ const parseOld = parseSH; parseSH = u8 => { try { const M = SHCore.parseModel(u8); if (SHCore.needsCore(M)) return SHCore.legacyModel(M, { on: { _PLgearDown: 1 }, storeShown: PARSE_NO_STORES ? () => false : undefined });   /* PARSE_NO_STORES: hide the SH's own stores and pylons */ } catch(e){ console.warn(e); } return parseOld(u8); }; }
 // ======================================================================================================
 // JT Editor: Fighters Anthology ordnance (.JT) files.  Parsing / saving: pt_core.js (shared with the PT Editor);
 // field map: jt_core.js.  Every byte the user does not change is written back as it was.
