@@ -606,8 +606,10 @@ async function loadShape(name){
   s.isShip = SHIPS.has(name);
   shapes[name] = s; return s;
 }
+// swing wing: sweep in degrees (20 = fully forward, 68 = fully back) -> the _PLswingWing value FA feeds the SH (as on the release page)
+const swingVal = deg => clamp(Math.round(((deg || 20) - 20) * 65536 / 360 / 0.2656), 0, 32767);
 function ctlVars(m, st){ const vars = {}, nm = Object.fromEntries(Object.entries(m.imp || {}).map(([n, a]) => [a, n]));
-  const on = { _PLgearDown: st.gear ? 1 : 0, _PLgearPos: st.gear ? 0 : 32767, _PLleftFlap: st.flaps ? -1 : 0, _PLrightFlap: st.flaps ? -1 : 0, _PLhook: 0, _PLbrake: st.brake ? 1 : 0, _PLafterBurner: st.ab ? 1 : 0 };
+  const on = { _PLgearDown: st.gear ? 1 : 0, _PLgearPos: st.gear ? 0 : 32767, _PLleftFlap: st.flaps ? -1 : 0, _PLrightFlap: st.flaps ? -1 : 0, _PLhook: 0, _PLbrake: st.brake ? 1 : 0, _PLafterBurner: st.ab ? 1 : 0, _PLswingWing: swingVal(st.sweep) };
   for (const x of m.ctl.vars) vars[x.v] = nm[x.v] ? (on[nm[x.v]] ?? 0) : x.vals.length ? x.vals[0] : 0;
   return vars; }
 // afterburner flames: textured faces with no base colour whose texture is mostly fire-coloured (SHCore cannot see FA's burner test)
@@ -622,12 +624,12 @@ function isFlame(f, pic){
   return n > 0 && hot / n > 0.45;
 }
 function getMesh(s, st = {}){
-  const key = `${+!!st.gear}${+!!st.ab}${+!!st.brake}${+!!st.flaps}`;
+  const key = `${+!!st.gear}${+!!st.ab}${+!!st.brake}${+!!st.flaps}${st.sweep || 20}`;
   if (s.meshes[key]) return s.meshes[key];
   const m = s.m, k = m.scale; let polys = [];
   const add = (idx, tf) => polys.push({ pts: idx.map(i => vmul(tf(m.v[i]), k)), uv: idx.uv, col: idx.col });
   if (s.M){ const fl = st.flaps ? -1 : 0;
-    polys = SHCore.polys(s.M, { scale: true, on: { _PLgearDown: st.gear ? 1 : 0, _PLleftFlap: fl, _PLrightFlap: fl, _PLbrake: st.brake ? 1 : 0, _PLafterBurner: st.ab ? 1 : 0 } })
+    polys = SHCore.polys(s.M, { scale: true, on: { _PLgearDown: st.gear ? 1 : 0, _PLleftFlap: fl, _PLrightFlap: fl, _PLbrake: st.brake ? 1 : 0, _PLafterBurner: st.ab ? 1 : 0, _PLswingWing: swingVal(st.sweep) } })
       .filter(f => st.ab || !isFlame(f, s.pic)); }
   else for (const idx of m.f) add(idx, v => v);
   if (!s.M) try { const drawn = new Set();
@@ -717,7 +719,7 @@ function spawn(){
     "峽谷轟炸任務：在峽谷裡低飛，不要高過峽谷邊緣（太高會被防空雷達發現）。峽谷盡頭拉起越過山脊，俯衝進凹谷炸掉核子反應爐，再拉出來，用熱焰彈躲避飛彈。"));
 }
 let subT = null; function sub(t){ $("sub").textContent = t; clearTimeout(subT); subT = setTimeout(() => $("sub").textContent = "", 9000); }
-function curMesh(){ return getMesh(P.s, { gear: P.mode === "fly" ? P.gear : true, ab: P.mode === "fly" && P.thr > 0.9, brake: P.mode === "fly" && P.brake && !P.onGround, flaps: P.mode === "fly" && P.gear }); }
+function curMesh(){ return getMesh(P.s, { sweep: P.mode === "fly" ? P.sweep : 20, gear: P.mode === "fly" ? P.gear : true, ab: P.mode === "fly" && P.thr > 0.9, brake: P.mode === "fly" && P.brake && !P.onGround, flaps: P.mode === "fly" && P.gear }); }
 function gearH(){ return Math.max(0, -getMesh(P.s, { gear: P.gear, flaps: P.gear }).lo[2]); }
 function crash(why){ P.crashed = true; P.speed = 0; P.boom = performance.now(); $("msg").textContent = why + "\n" + L("Tap Restart", "按「重來」"); }
 
@@ -816,6 +818,10 @@ function stepDrive(dt){
 }
 function step(dt){
   P.thr = clamp(P.thr + input.thrRate * dt * 0.7, P.mode === "drive" ? -0.3 : 0, 1);
+  // swing wings (F-14 and others with _PLswingWing) follow airspeed like the F-14's wing-sweep computer: 20° up to 250 kt, fully
+  // back (68°) by 550 kt, moving about 7°/s; the mesh is rebuilt in 2° steps
+  if (P.s && P.s.m.imp && P.s.m.imp._PLswingWing){ const kt = P.onGround ? 0 : P.speed * FT_KT, want = 20 + 48 * clamp((kt - 250) / 300, 0, 1);
+    P.sweepF = (P.sweepF ?? 20) + clamp(want - (P.sweepF ?? 20), -7 * dt, 7 * dt); P.sweep = Math.round(P.sweepF / 2) * 2; } else P.sweep = 20;
   if (!P.crashed){ if (P.mode === "fly") stepFly(dt); else stepDrive(dt); }
   stepCombat(dt);
   stepMission(dt);
