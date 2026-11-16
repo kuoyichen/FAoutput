@@ -10,6 +10,7 @@ Usage: python3 f14_stores.py F14.SH out.SH [--static]
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import math
+import struct
 import f18_stores as S
 import fa_weapons
 from f18g_growler import orient, lathe, FLAT, GREY
@@ -50,23 +51,28 @@ S.SHAPES[A7] = aim7
 A54_LEN = round(.8 * 47) + 3   # Kuoyi: AIM-54 at 80% of FA's PHENX (47 long), then 3 longer
 
 
+A54_FIN_ROLL = 45            # fins in X: clear of the pylon and the tunnel roof
+
+
 def aim54():
-    """AIM-54 built here (FA's PHENX body is a 4-sided diamond with a one-step nose): octagonal body (radius 3),
-    straight pointed nose, PHENX's fins and blue band scaled
-    to A54_LEN.  Frame as fa_weapons.load: body top at up 0, LAST_TOP = height of the top above FA's origin."""
-    s = A54_LEN / 47
-    R0 = lambda r, a: [(0, r), (a, a), (r, 0), (a, -a), (0, -r), (-a, -a), (-r, 0), (-a, a)]
-    AX = -3                                         # axis height (top of the radius-3 body at up 0)
-    tail, band0, band1, nose = round(-16 * s), round(7 * s), round(9 * s), round(21 * s) - 1   # nose start 1 back (Kuoyi)
-    tip = round(31 * s)
-    L = tip - nose
-    rings = [(tail, 3, 2), (band0, 3, 2), (band1, 3, 2), (nose, 3, 2)]   # nose: one straight cone to the tip
-    # (Kuoyi: the four-ring nose looked lumpy on the integer grid, a clean point is better)
+    """AIM-54 built to the real round (Kuoyi 2026-11-16: separate long delta wings and small square tail fins).
+    Real: length 4.0 m, diameter 0.38 m, span 0.9 m; nose 22 %, wings from 46 % to 80 % of the length (pure
+    triangles), a gap, then small square tail fins on the last 14 %.  Here A54_LEN units long, octagonal body
+    (flat to flat 4), pointed nose cone, blue band ahead of the wings, fins reaching 5 from the axis.
+    Frame as fa_weapons.load: body top at up 0, LAST_TOP = height of the top above FA's origin."""
+    import math
+    tip, tail = 27, 27 - A54_LEN                                  # fwd of nose tip and tail end (centre ~ fwd 6)
+    at = lambda frac: round(tip - frac * A54_LEN)                 # fwd at a fraction of the length from the nose
+    SEC = [(1, 2), (2, 1), (2, -1), (1, -2), (-1, -2), (-2, -1), (-2, 1), (-1, 2)]   # octagon, top edge at up 2
+    AX = -2                                                       # axis height: body top at up 0
+    nose = at(.24) - 2                                            # nose cone starts 2 further back (Kuoyi)
+    mid = (nose + tail) // 2 + 6                                  # Kuoyi: blue band mid-body, then 2 and 4 forward (F14-34: band fwd 5..7)
+    rings = [tail, mid - 1, mid + 1, nose]                        # (rings must run tail -> nose; the old 11/9 band ran backwards and was hidden)
     V, rid = [], []
-    for f, r, a in rings:
+    for f in rings:
         rid.append([])
-        for x, u in R0(r, a): V.append((x, round(f), u + AX)); rid[-1].append(len(V) - 1)
-    V.append((0, tip, AX)); T = len(V) - 1
+        for x, u in SEC: V.append((x, f, u + AX)); rid[-1].append(len(V) - 1)
+    V.append((0, tip - 3, AX)); T = len(V) - 1                  # nose point 3 back (Kuoyi)
     light = (.45, .25, .85)
     def shade(q, band=False):
         P = [V[i] for i in q]; n = [0, 0, 0]
@@ -84,24 +90,25 @@ def aim54():
         A, B = rid[k], rid[k + 1]
         for j in range(8):
             q = [A[j], A[(j + 1) % 8], B[(j + 1) % 8], B[j]]
-            q = [v for i, v in enumerate(q) if V[v] != V[q[i - 1]]]
-            if len({V[v] for v in q}) >= 3: F.append((FLAT, shade(q, k == 1), q))
+            F.append((FLAT, shade(q, k == 1), q))
     for j in range(8):
         q = [rid[-1][j], rid[-1][(j + 1) % 8], T]
-        if len({V[v] for v in q}) == 3: F.append((FLAT, shade(q), q))
+        F.append((FLAT, shade(q), q))
     F.append((FLAT, 143, list(rid[0])))                                       # tail cap
-    # fins: PHENX faces reaching beyond its body (radius 3 about up -3), scaled about the axis
-    NV, NF = fa_weapons.load('PHENX.SH', None)
-    base = len(V); m = {}
-    for fl, col, q in NF:
-        if max(((NV[i][0]) ** 2 + (NV[i][2] + 3) ** 2) ** .5 for i in q) < 3.5: continue
-        for i in q:
-            if i not in m:
-                x, f, u = NV[i]; V.append((round(x * s), round(f * s), round((u + 3) * s) + AX)); m[i] = len(V) - 1
-        F.append((fl, col, [m[i] for i in q]))
-    body = [f for f in F if f[0] == FLAT and all(i < base for i in f[2])]
-    G = orient(V, body, [0, (tail + tip) / 2, AX]) + [f for f in F if any(i >= base for i in f[2])]
-    fa_weapons.LAST_TOP = 2                         # as the 80% PHENX: its top 2 above FA's origin (launch point)
+    G = orient(V, F, [0, (tail + tip) / 2, AX])
+    # fins, outline (radial distance from the axis, fwd); root inside the body
+    tf0 = tail + (at(.86) - tail) // 2                                          # Kuoyi: half the length, still ending at the tail
+    FIN_R = 4.25                                                                 # Kuoyi (F14-32): fins ~half to 2/3 the old height (45 deg roll -> grid 3,3)
+    tailfin = [(1.4, tf0), (FIN_R, tf0), (FIN_R, tail), (1.4, tail)]            # small rectangular tail fin
+    wing = [(1.4, mid - 1), (FIN_R, tf0 + 1), (1.4, tf0 + 1)]                # delta: front point fwd 5 (Kuoyi F14-34, = band's rear edge), same height as the tail fins, square trailing edge 1 ahead of the fins
+    for k in range(4):
+        a = math.radians(A54_FIN_ROLL + 90 * k); ca, sa = math.cos(a), math.sin(a)
+        for outline, col in ((wing, 147), (tailfin, 146)):
+            q = []
+            for rr, f in outline:
+                V.append((round(rr * ca), f, round(rr * sa) + AX)); q.append(len(V) - 1)
+            G += [(FLAT, col, q), (FLAT, col, q[::-1])]                         # thin fin: one face per side
+    fa_weapons.LAST_TOP = 1                         # body top 1 above FA's origin (the axis stays where it was)
     return V, G
 
 
@@ -210,6 +217,27 @@ def placer(c, ROOT, ugeo, ubox):
 
 S.PLACER = placer
 S.FALL_SLOTS = {'TL': 0, 'TR': 1}   # Kuoyi: jettisoned tanks fall away (drawn for 2 s, down and back)
+
+# Wingtip vapour lines (header CE block, CODE+0x14): FA rotates the tip points about the pivot by
+# 182*swing*factor/32767 (FA.EXE 0x4a0196), but the wing C4 heading is swing/4 + swing/64 (= 0.2656*swing).
+# The stock factor 40 gives 0.2222*swing, so at full sweep the lines trailed ~8 deg behind the tips (Kuoyi
+# 2026-11-16).  48 gives 0.2666*swing: the lines follow the tips through the whole sweep.
+VAPOR_FACTOR = 48
+_make = S.make
+
+
+def make(d, static=False, debug=False):
+    out, at = _make(d, static, debug)
+    from sh_subdivide import pe_sections
+    out = bytearray(out)
+    code = next(x for x in pe_sections(out)[2] if x['name'] == 'CODE')
+    p = code['ro'] + 0x14
+    assert out[p-2:p] == b'\xce\x00', 'CE block not at CODE+0x12'
+    struct.pack_into('<h', out, p + 0xC, VAPOR_FACTOR)
+    return bytes(out), at
+
+
+S.make = make
 
 if __name__ == '__main__':
     S.main()
