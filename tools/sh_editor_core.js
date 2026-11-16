@@ -250,7 +250,7 @@ function parseModel(u8in) {
   };
   const load = (map, rec, inst) => { for (let i = 0; i < rec.n; i++) map[rec.slot + i] = [rec.v0 + i, inst]; };
   const faceKey = new Map();
-  const addFace = (F, map, lod, hooked, strict) => {
+  const addFace = (F, map, lod, hooked, strict, ab) => {
     if (!flagsOk(F.fl) || new Set(F.idx).size < F.n) return false;
     const refs = F.idx.map(s => map[s]); if (refs.some(r => !r)) return false;
     if (strict && F.nrm) {   // reject stray bytes: the stored normal must agree with the vertices
@@ -262,7 +262,7 @@ function parseModel(u8in) {
     if (faceKey.has(k)) return true;
     faceKey.set(k, M.faces.length);
     const store = refs.map(r => M.instMeta[r[1]]).find(x => x) || null;
-    M.faces.push({ ...F, id: M.faces.length, refs, lod, hooked, rec: F.o, del: false, store });
+    M.faces.push({ ...F, id: M.faces.length, refs, lod, hooked, rec: F.o, del: false, store, ...(ab ? { ab } : {}) });
     return true;
   };
   const addF6 = (o, map, lod) => { const s = dv.getUint16(o + 1, true), r = map[s]; if (r) M.f6.push({ o, slot: s, vid: r[0], lod }); };
@@ -314,7 +314,15 @@ function parseModel(u8in) {
       const op = c[t];
       if (op === 0x82 && c[t + 1] === 0) { const b = goodBuf(t, stop); if (!b) return; const rec = addBuf(t, b, lod, true); rec.tf = inst; load(map, rec, inst); t = b.e; }
       else if (op === 0xF6) { addF6(t, map, lod); t += 7; }
-      else if (op === 0xFC) { const F = readFace(c, dv, t, stop); if (!F) return; addFace(F, map, lod, true, false); t = F.end; }
+      else if (op === 0xFC) { const F = readFace(c, dv, t, stop); if (!F) return; addFace(F, map, lod, true, false, meta && meta.type === "ab" ? { frame: meta.frame ?? 0, frames: meta.frames ?? 1 } : null); t = F.end; }
+      // animation switch (tools/shgen/sh_ab_flame.py, the AUR technique): `40 00 N rel16×N`, FA picks branch (frame counter mod N);
+      // each rel16 counts from its own field. Branches end in `48 00 rel16` (jump, from the end of the op) to the next node
+      else if (op === 0x40 && c[t + 1] === 0) {
+        const N = dv.getUint16(t + 2, true); if (!(N >= 1 && N <= 16)) return;
+        for (let k = 0; k < N; k++) { const g2 = t + 4 + 2 * k + dv.getInt16(t + 4 + 2 * k, true); if (g2 >= appendStart && depth < 40) walk(g2, map.slice(), inst, lod, depth + 1, seen, { ...(meta || {}), frame: k, frames: N }); }
+        return;
+      }
+      else if (op === 0x48 && c[t + 1] === 0) { const g2 = t + 4 + dv.getInt16(t + 2, true); if (g2 < appendStart) return; t = g2; }
       else if ((op === 0x06 || op === 0x0C || op === 0x0E || op === 0x10) && c[t + 1] === 0) {
         const k = op === 0x06 ? 14 : 10;
         for (const [r, e] of [[t + k, t + k + 2], [t + k + 2, t + k + 4]]) { const g2 = e + dv.getInt16(r, true); if (g2 >= appendStart && depth < 40) walk(g2, map.slice(), inst, lod, depth + 1, seen, meta); }
@@ -388,6 +396,17 @@ function parseModel(u8in) {
     if (op === 0xF6 && lod >= 0) { const s = dv.getUint16(o + 1, true); if (map[s]) { addF6(o, map, lod); o += 7; continue; } }
     if (op === 0xFC && lod >= 0) { const F = readFace(c, dv, o, appendStart); if (F && addFace(F, map, lod, false, true)) { o = F.end; continue; } }
     o++;
+  }
+  // F0 trampolines (sh_ab_flame.py): a `12 00 rel16` call in the main LOD lands on `F0 00 68 <block VA> 68 <ret> C3`, which jumps
+  // to an appended block (too far for rel16). The block is the afterburner flame: its faces are tagged ab and drawn only with AB on
+  M.abBlocks = [];
+  for (let o = start; o < appendStart - 4; o++) {
+    if (c[o] !== 0x12 || c[o + 1] !== 0) continue;
+    const T = o + 4 + dv.getInt16(o + 2, true);
+    if (T < start || T > stop - 13 || c[T] !== 0xF0 || c[T + 1] !== 0 || c[T + 2] !== 0x68 || c[T + 7] !== 0x68 || c[T + 12] !== 0xC3) continue;
+    const N = dv.getUint32(T + 3, true) - SH_VA;
+    if (N < appendStart || N >= stop - 6 || c[N] !== 0x82 || c[N + 1] !== 0 || M.abBlocks.includes(N)) continue;
+    M.abBlocks.push(N); walk(N, [], 0, 0, 0, new Set(), { type: "ab" });
   }
   // original sub-parts of the main LOD: place them like FA does for the default state (gear down)
   const subs = M.bufs.filter(b => b.lod === 0 && !b.hooked).slice(1);
@@ -507,6 +526,7 @@ function polys(M, opts = {}) {
   const shown = opts.storeShown || (t => { const S0 = st.get(t.st); if (!S0) return true; return t.type === "pylon" ? S0.def !== 0 : S0.def === t.kind && S0.maxRank >= t.rank; });
   for (const f of M.faces) {
     if (f.lod !== 0 || f.del || (f.store && (f.store.type === "fall" || !shown(f.store)))) continue;
+    if (f.ab && (!(opts.on && opts.on._PLafterBurner) || f.ab.frame !== (opts.abFrame || 0) % f.ab.frames)) continue;   // flame: AB on, one animation frame
     if (!f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed)) continue;
     out.push({ pts: f.refs.map(r => { const w = worldOf(M, r[0], r[1]); return [w[0] * k, w[1] * k, w[2] * k]; }), uv: f.uv, col: f.col, face: f });
   }
