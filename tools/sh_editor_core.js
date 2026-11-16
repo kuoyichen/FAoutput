@@ -492,6 +492,41 @@ function palFromBytes(u8){
   return p;
 }
 
-const API = { parseModel, buildFile, placeParts, worldOf, linOf, apply, applyLin, invLin, faNormal, parsePIC, palFromBytes, readFace, peInfo, findSig };
+// For viewers (flight sim, gallery, replay, PT/JT editors, showcase): the placed model as plain polygons in SH axes
+// (x right, y forward, z up). opts.on: control values by import name (_PLgearDown, _PLleftFlap, _PLafterBurner, _PLswingWing…);
+// opts.scale: multiply by the file's scale (feet). Stores show the default loadout; drop tanks that fall away are left out.
+function varsFor(M, on = {}) {
+  const vars = {}, nm = Object.fromEntries(Object.entries(M.imp || {}).map(([n, a]) => [a, n]));
+  const g = on._PLgearDown ? 1 : 0, all = Object.assign({ _PLgearPos: g ? 0 : 32767 }, on);
+  for (const x of M.ctl ? M.ctl.vars : []) vars[x.v] = nm[x.v] ? (all[nm[x.v]] ?? 0) : x.vals.length ? x.vals[0] : 0;
+  return vars;
+}
+function polys(M, opts = {}) {
+  placeParts(M, { vars: M.ctl ? varsFor(M, opts.on || {}) : undefined, gear: !!(opts.on && opts.on._PLgearDown) });
+  const st = M.stations || new Map(), k = opts.scale ? M.scale : 1, out = [];
+  const shown = opts.storeShown || (t => { const S0 = st.get(t.st); if (!S0) return true; return t.type === "pylon" ? S0.def !== 0 : S0.def === t.kind && S0.maxRank >= t.rank; });
+  for (const f of M.faces) {
+    if (f.lod !== 0 || f.del || (f.store && (f.store.type === "fall" || !shown(f.store)))) continue;
+    if (!f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed)) continue;
+    out.push({ pts: f.refs.map(r => { const w = worldOf(M, r[0], r[1]); return [w[0] * k, w[1] * k, w[2] * k]; }), uv: f.uv, col: f.col, face: f });
+  }
+  return out;
+}
+// The same baked into the plain { v, f, subs, parts, ctl, scale } layout the older viewers' parseSH returns (one fixed state:
+// opts.on as in polys, default gear down), so a page can swap parsers without touching its renderer. Moving parts are baked in.
+function legacyModel(M, opts = {}) {
+  const on = opts.on || { _PLgearDown: 1 }, v = [], key = new Map(), f = [];
+  for (const p of polys(M, { on, storeShown: opts.storeShown })) {
+    const idx = p.pts.map(q => { const k = q.map(x => Math.round(x * 64)).join(); let i = key.get(k); if (i === undefined) { i = v.length; key.set(k, i); v.push(q); } return i; });
+    if (new Set(idx).size < 3) continue;
+    if (p.uv) idx.uv = p.uv; idx.col = p.col; f.push(idx);
+  }
+  return { v, f, subs: [], parts: [], scale: M.scale, code: M.c, imp: M.imp || {}, stations: M.stations,
+    ctl: { blocks: [], statics: [], vars: [], idxOf: new Map() }, core: M };
+}
+// true for shapes built by our generators (stores / appended blocks such as the F-14N nose): viewers should draw these with SHCore
+const needsCore = M => !!(M && M.faces.length && M.stations && M.stations.size);
+
+const API = { parseModel, polys, varsFor, needsCore, legacyModel, buildFile, placeParts, worldOf, linOf, apply, applyLin, invLin, faNormal, parsePIC, palFromBytes, readFace, peInfo, findSig };
 if (typeof module !== "undefined" && module.exports) module.exports = API; else root.SHCore = API;
 })(typeof self !== "undefined" ? self : this);
