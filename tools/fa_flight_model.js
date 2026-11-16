@@ -209,7 +209,8 @@
     if (inp.brake && !ground) ind += p.brakeDrag;
     if (inp.bay) ind += p.bayDrag;
     let Dr = cdk * thrBig / 256 + ind * W * tp / 100 / 256;
-    if (ground) Dr += inp.gear ? (inp.brake ? 0.5 : 0.2) * p.wheelDrag * W / 256 : 1.5 * W;
+    // on the ground the brake field (PLANE[85]) is the wheel brake; rolling resistance comes from the wheel drag field
+    if (ground) Dr += inp.gear ? (inp.brake ? p.brakeDrag : 0.2 * p.wheelDrag) * W / 256 : 1.5 * W;
     const acc = p.vel[2] * (ground && inp.gear ? 0.25 : 1), dec = p.vel[3];
     // drag pass (never reverses the speed), then thrust and gravity along the path
     const aD = Math.min(acc, 32 * Dr / W) * dt;
