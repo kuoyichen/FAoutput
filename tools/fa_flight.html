@@ -52,9 +52,15 @@ button.on{border-color:var(--accent);color:var(--accent)}
 #load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0e1216;color:var(--text);z-index:10;font-size:15px;flex-direction:column;gap:10px}
 #load small{color:var(--muted)}
 #rot{display:none}
+#loBox .lorow{display:grid;grid-template-columns:86px 1fr 44px 10px;gap:4px;align-items:center;margin:4px 0;font-size:12px;color:var(--muted)}
+#loBox .lorow select{width:100%;padding:4px}
+#loBox em{color:#ffd54a;font-style:normal}
+#loBox .lonote{font-size:11px}
 </style>
 <script src="fashion_i18n.js"></script>
 <script src="sh_editor_core.js"></script>
+<script src="pt_core.js"></script>
+<script src="fa_flight_model.js"></script>
 </head>
 <body>
 <canvas id="cv"></canvas>
@@ -68,6 +74,7 @@ button.on{border-color:var(--accent);color:var(--accent)}
   <div>SPD<b id="hSpd">0</b>kt</div>
   <div>ALT<b id="hAlt">0</b>ft</div>
   <div>HDG<b id="hHdg">000</b>°</div>
+  <div id="hGD">G<b id="hG">1.0</b><span id="hM"></span></div>
   <div id="hKillD">KILL<b id="hKill">0</b>&nbsp;</div>
   <div id="hTimeD">TIME<b id="hTime">0:00</b>&nbsp;</div>
 </div>
@@ -98,6 +105,9 @@ button.on{border-color:var(--accent);color:var(--accent)}
   <select id="selMode"><option value="auto">Auto (by model)</option><option value="fly">Fly (aircraft)</option><option value="drive">Drive (ground vehicle)</option><option value="sail">Sail (ship)</option></select>
   <label for="selSpawn">Start position</label>
   <select id="selSpawn"><option value="runway">Airfield runway</option><option value="carrier">Carrier deck</option><option value="air">In the air</option><option value="sea">At sea (ships)</option></select>
+  <label for="selFM">Flight model</label>
+  <select id="selFM"><option value="fa">FA (from the aircraft's PT file)</option><option value="arcade">Arcade (old)</option></select>
+  <div id="loBox"></div>
   <label for="selMission">Mission</label>
   <select id="selMission"><option value="free">Free flight</option><option value="canyon">Canyon strike</option></select>
   <div class="row"><button id="bGo">▶ Start</button></div>
@@ -624,12 +634,12 @@ function isFlame(f, pic){
   return n > 0 && hot / n > 0.45;
 }
 function getMesh(s, st = {}){
-  const key = `${+!!st.gear}${+!!st.ab}${+!!st.brake}${+!!st.flaps}${st.sweep || 20}`;
+  const key = `${+!!st.gear}${+!!st.ab}${+!!st.brake}${+!!st.flaps}${st.sweep || 20}|${st.lo || ""}`;
   if (s.meshes[key]) return s.meshes[key];
   const m = s.m, k = m.scale; let polys = [];
   const add = (idx, tf) => polys.push({ pts: idx.map(i => vmul(tf(m.v[i]), k)), uv: idx.uv, col: idx.col });
   if (s.M){ const fl = st.flaps ? -1 : 0;
-    polys = SHCore.polys(s.M, { scale: true, on: { _PLgearDown: st.gear ? 1 : 0, _PLleftFlap: fl, _PLrightFlap: fl, _PLbrake: st.brake ? 1 : 0, _PLafterBurner: st.ab ? 1 : 0, _PLswingWing: swingVal(st.sweep) } })
+    polys = SHCore.polys(s.M, { scale: true, storeShown: st.lo && s === P.s && P.lo ? loShown : undefined, on: { _PLgearDown: st.gear ? 1 : 0, _PLleftFlap: fl, _PLrightFlap: fl, _PLbrake: st.brake ? 1 : 0, _PLafterBurner: st.ab ? 1 : 0, _PLswingWing: swingVal(st.sweep) } })
       .filter(f => st.ab || !isFlame(f, s.pic)); }
   else for (const idx of m.f) add(idx, v => v);
   if (!s.M) try { const drawn = new Set();
@@ -637,6 +647,10 @@ function getMesh(s, st = {}){
       const tf = partTf(e); for (const idx of m.subs[e.part].f) add(idx, v => { const g = tf(v); return [g[0], g[2], g[1]]; }); }
   } catch(e){ console.warn(s.name, e); }
   const data = [], faces = []; let lo = [1e9,1e9,1e9], hi = [-1e9,-1e9,-1e9];
+  const storeAt = {};   // "station:round" -> centre of that store's faces (model coords): where a fired round leaves from
+  for (const f of polys){ const t = f.face && f.face.store; if (!t || t.type !== "store") continue; const k = t.st + ":" + t.rank, a = storeAt[k] || (storeAt[k] = [0, 0, 0, 0]);
+    for (const q of f.pts){ a[0] += q[0]; a[1] += q[1]; a[2] += q[2]; a[3]++; } }
+  for (const k in storeAt){ const a = storeAt[k]; storeAt[k] = [a[0] / a[3], a[1] / a[3], a[2] / a[3]]; }
   const flat = [];   // near-horizontal faces facing up: surfaces you can stand on (runway, deck, roofs)
   for (const f of polys){
     const p = f.pts; let n = [0, 0, 0];
@@ -649,7 +663,7 @@ function getMesh(s, st = {}){
     faces.push(first, data.length / 10 - first);
   }
   const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
-  const mesh = { buf, faces, n: data.length / 10, lo, hi, flat, radius: Math.max(20, Math.hypot(hi[0]-lo[0], hi[1]-lo[1], hi[2]-lo[2]) / 2) };
+  const mesh = { buf, faces, storeAt, n: data.length / 10, lo, hi, flat, radius: Math.max(20, Math.hypot(hi[0]-lo[0], hi[1]-lo[1], hi[2]-lo[2]) / 2) };
   s.meshes[key] = mesh; return mesh;
 }
 
@@ -706,7 +720,8 @@ function spawn(){
   { const sp = where === "air" ? RUNWAY_SPAWN : { x: P.pos[0], y: P.pos[1], hdg: P.hdg }, r = getMesh(P.s, {}).radius;
     const f = [-Math.sin(sp.hdg), Math.cos(sp.hdg)], lf = [-Math.cos(sp.hdg), -Math.sin(sp.hdg)], x = sp.x + lf[0] * r * 3 + f[0] * r, y = sp.y + lf[1] * r * 3 + f[1] * r;
     cam.rcEye = [x, y, groundAt(x, y).h + 6]; }
-  W.ammo = WEAPONS.map(w => w.ammo); W.lock = null; W.shots = []; W.bullets = []; EM.length = 0; FL.length = 0; flares = 24;
+  resetLoadoutCounts(); setWeapons(); if (P.s.fm) initFA();
+  W.lock = null; W.shots = []; W.bullets = []; EM.length = 0; FL.length = 0; flares = 24;
   if (mis){ W.ammo = [600, 2, 0, 2, 4]; W.sel = 4;
     for (const t of targets){ t.dead = 0; t.hp = t.maxHp; t.cd = 0; }
     Object.assign(MS, { phase: "canyon", c0: MS.clock, exp: 0, killT: 0, doneT: 0, time: 0, reactor: targets.find(t => t.objective) }); }
@@ -719,11 +734,12 @@ function spawn(){
     "峽谷轟炸任務：在峽谷裡低飛，不要高過峽谷邊緣（太高會被防空雷達發現）。峽谷盡頭拉起越過山脊，俯衝進凹谷炸掉核子反應爐，再拉出來，用熱焰彈躲避飛彈。"));
 }
 let subT = null; function sub(t){ $("sub").textContent = t; clearTimeout(subT); subT = setTimeout(() => $("sub").textContent = "", 9000); }
-function curMesh(){ return getMesh(P.s, { sweep: P.mode === "fly" ? P.sweep : 20, gear: P.mode === "fly" ? P.gear : true, ab: P.mode === "fly" && P.thr > 0.9, brake: P.mode === "fly" && P.brake && !P.onGround, flaps: P.mode === "fly" && P.gear }); }
+function curMesh(){ return getMesh(P.s, { lo: P.mode === "fly" ? loKey() : "", sweep: P.mode === "fly" ? P.sweep : 20, gear: P.mode === "fly" ? P.gear : true, ab: P.mode === "fly" && P.thr > 0.9, brake: P.mode === "fly" && P.brake && !P.onGround, flaps: P.mode === "fly" && P.gear }); }
 function gearH(){ return Math.max(0, -getMesh(P.s, { gear: P.gear, flaps: P.gear }).lo[2]); }
 function crash(why){ P.crashed = true; P.speed = 0; P.boom = performance.now(); $("msg").textContent = why + "\n" + L("Tap Restart", "按「重來」"); }
 
 function stepFly(dt){
+  if (useFA()) return stepFlyFA(dt);
   const fwd = qRot(P.q, [0,1,0]), right = qRot(P.q, [1,0,0]);
   const ab = P.thr > 0.9, thrust = (P.thr / 0.9 > 1 ? AC.mil + (AC.ab - AC.mil) * (P.thr - 0.9) / 0.1 : AC.mil * P.thr / 0.9) * (ab ? 1 : 1);
   const drag = AC.drag + (P.gear ? 3.5e-5 : 0) + (P.brake ? 2.2e-5 : 0);
@@ -839,14 +855,162 @@ function stepWake(dt){
   WAKE.push({ pos: [P.pos[0] + f[0] * m.hi[1] * 0.85, P.pos[1] + f[1] * m.hi[1] * 0.85, -1], r: beam * 0.5, age: 0, bow: true });
 }
 
+// ===== FA flight model and real loadout =====
+// The aircraft's own .PT drives the flight model (tools/fa_flight_model.js, rebuilt from FA.EXE; see skill/FA_flight_model.MD).
+// Its hardpoints give the stations, and repo JT files the weapons each one may carry. A fired round disappears from the SH,
+// because SHCore tags every store face with its station, kind and round (same rule as the SH editor's loadout panel).
+const D2R = Math.PI / 180;
+let JTI = {};
+async function loadJTIndex(){ try { const u8 = await fetchAny(["tools/jt_index.json"]); if (u8) JTI = JSON.parse(new TextDecoder().decode(u8)); } catch(e){ console.warn(e); } }
+async function loadPT(s){
+  if (s.ptTried) return s.pt; s.ptTried = true;
+  const u8 = await fetchAny(["PT/" + s.name + ".PT"]); if (!u8) return null;
+  try { const pt = PTCore.parse(new TextDecoder("latin1").decode(u8)); if (!pt.fields.PLANE || pt.fields.PLANE.length < 140) return null;
+    s.pt = pt; s.fm = FAFM.params(PTCore, pt); } catch(e){ console.warn(e); }
+  return s.pt;
+}
+const useFA = () => !!(P.s && P.s.fm && $("selFM").value === "fa" && P.mode === "fly");
+// SH store kinds (tools/shgen *_stores.py): 1 tank, 2 AIM-9, 3 AIM-120, 4 HARM, 5 GBU, 6 Mk-82, 7 AIM-7, 8 AIM-54, 9 JDAM
+function kindOf(key){
+  if (key === "TANK") return 1; const j = JTI[key]; if (!j) return 0;
+  if (j.type === 12){ if (/PHENX/.test(j.sh) || /54/.test(j.name)) return 8; if (j.guid === 2) return 2; if (j.guid === 3) return j.flags & 0x200 ? 7 : 3; return 3; }
+  if (j.type === 0 || j.type === 8) return 6;
+  if (j.guid === 1) return 5; if (j.guid === 4) return 4; if (j.guid === 2 && j.flags & 0x10) return 9; return 4;
+}
+// can this hardpoint carry this JT (Edit Hardpoint "Allow load" boxes, bit 4..12)?
+function allowed(h, key){
+  const f = h.flags; if (key === "TANK") return !!(f & 0x200);
+  const j = JTI[key]; if (!j || !(j.flags & 2) || j.type === 4) return false;   // loadable to a hardpoint, not a gun
+  if (j.wt > h.wt * 100 && h.wt) return false;
+  if (j.type === 12){ if (f & 0x1000) return false; const k = kindOf(key);
+    return k === 8 ? !!(f & 0x10) : j.guid === 2 ? !!(f & 0x80) : j.guid === 3 ? !!(f & (j.flags & 0x200 ? 0x40 : 0x20)) || !!(f & 0x10) && k === 8 : !!(f & 0x100); }
+  if (j.type === 0 || j.type === 8 || j.guid === 1 && j.spd <= 600) return !!(f & 0x400);
+  return !!(f & 0x100) || !!(f & 0x400);
+}
+const TANK_WT = 2000;   // a 250-300 gal drop tank, full (the .GAS files are not in the repo: assumed)
+function maxCount(h, key){ if (key === "TANK") return h.qty; const w = (JTI[key] || {}).wt || 1; return Math.max(0, Math.min(h.qty, h.wt ? Math.floor(h.wt * 100 / w) : h.qty)); }
+// stations of the current aircraft, with the loadout picked in the panel (kept per aircraft in localStorage)
+function buildLoadout(s){
+  if (!s.pt) return null; const H = s.pt.hp, sts = [];
+  let gun = null;
+  H.forEach((h, i) => {
+    const def = (h.type || "").toUpperCase();
+    if (h.loc === 2 && /\.JT$/.test(def)){ gun = { hp: i, key: def, count: h.qty, name: (JTI[def] || {}).name || def.replace(/\.JT$/, "") }; return; }
+    if (!(h.flags & 0x7f0)) return;   // sensors / ECM: no "allow load" box
+    const opts = Object.keys(JTI).filter(k => allowed(h, k)); if (h.flags & 0x200) opts.unshift("TANK");
+    if (/\.GAS$/.test(def) && !opts.includes("TANK")) opts.unshift("TANK");
+    if (/\.JT$/.test(def) && !opts.includes(def) && JTI[def]) opts.unshift(def);
+    const dk = /\.GAS$/.test(def) ? "TANK" : def;
+    sts.push({ hp: i, h, opts, def: dk, sel: dk, count: maxCount(h, dk), kinds: (s.M && s.M.stations && s.M.stations.get(i) || {}).kinds || new Set() });
+  });
+  const lo = { gun, sts };
+  try { const sv = JSON.parse(localStorage.getItem("fa_flight_lo_" + s.name) || "null"); if (sv) for (const S of sts){ const v = sv[S.hp]; if (v && (v.sel === "" || S.opts.includes(v.sel))){ S.sel = v.sel; S.count = Math.min(v.count, S.sel ? maxCount(S.h, S.sel) : 0); } } } catch(e){}
+  return lo;
+}
+function saveLoadout(){ if (!P.lo) return; const o = {}; for (const S of P.lo.sts) o[S.hp] = { sel: S.sel, count: S.full ?? S.count }; try { localStorage.setItem("fa_flight_lo_" + P.s.name, JSON.stringify(o)); } catch(e){} }
+const loKey = () => P.lo && !MS.on ? P.lo.sts.map(S => kindOf(S.sel) + "x" + S.count).join(",") : "";
+function loShown(t){
+  const S = P.lo.sts.find(x => x.hp === t.st); if (!S) return false;
+  if (t.type === "pylon") return !!S.sel; return S.sel && kindOf(S.sel) === t.kind && S.count >= t.rank;
+}
+function storesWeight(){ if (!P.lo) return 0; let w = 0; for (const S of P.lo.sts) if (S.sel) w += S.count * (S.sel === "TANK" ? TANK_WT : (JTI[S.sel] || {}).wt || 0);
+  if (P.lo.gun) w += P.lo.gun.count * ((JTI[P.lo.gun.key] || {}).wt || 0); return w; }
+// weapon list for the fire button: the gun, then every loaded station (as FA steps through them)
+function weaponFromJT(S){
+  const j = JTI[S.sel] || {}, nm = j.name || S.sel.replace(/\.JT$/, "");
+  const w = { id: "st" + S.hp, st: S.hp, name: nm, sh: j.sh, ammo: S.count, dmg: 10 };
+  const spd = Math.max(800, j.spd || 1500), turn = Math.max(12, Math.min(90, j.turn || 30));
+  if (j.type === 12) Object.assign(w, { air: true, range: Math.max(3, j.rMax || 10) * 6076, cone: 0.5, spd, g: turn * spd / 57.3 / G, dmg: 10 });
+  else if (j.type === 0 || j.type === 8 || (j.spd || 0) <= 900 && j.guid !== 3 && j.guid !== 4) Object.assign(w, { bomb: true, guided: j.guid > 0, dmg: 14, blast: j.wt > 1500 ? 800 : 500 });
+  else Object.assign(w, { gnd: true, range: Math.max(3, j.rMax || 8) * 6076, cone: 0.45, spd, g: Math.max(8, turn * spd / 57.3 / G * 0.5), dmg: 14 });
+  return w;
+}
+function setWeapons(){
+  if (P.lo && !MS.on){
+    const g = P.lo.gun;
+    WEAPONS = [{ id: "gun", name: g ? g.name : "GUN", ammo: g ? g.count : 0 }, ...P.lo.sts.filter(S => S.sel && S.sel !== "TANK" && S.count > 0).map(weaponFromJT)];
+    for (const w of WEAPONS) if (w.sh) loadShape(w.sh).catch(() => null);
+  } else WEAPONS = BASE_WEAPONS;
+  W.ammo = WEAPONS.map(w => w.ammo); W.sel = Math.min(W.sel, WEAPONS.length - 1);
+}
+// the store a station fires next: its highest round still drawn
+function firedFrom(w){
+  const S = P.lo && P.lo.sts.find(x => x.hp === w.st); if (!S || S.count <= 0) return null;
+  const m = curMesh(), c = m.storeAt[S.hp + ":" + S.count];
+  const pos = c ? vadd(P.pos, qRot(P.q, c)) : launchFrom();
+  S.full = S.full ?? S.count; S.count--; return pos;
+}
+// loadout panel (menu): one row per station
+function renderLoadout(){
+  const box = $("loBox"); if (!box) return;
+  if (!P.lo || !P.s.fm){ box.innerHTML = ""; return; }
+  const LOC = [L("Centerline", "中線"), L("Fuselage", "機身"), L("Gun", "機砲"), L("Bay", "彈艙"), L("Wing", "機翼"), L("Wingtip", "翼尖")];
+  const name = k => k === "TANK" ? L("Fuel tank", "副油箱") : (JTI[k] || {}).name || k.replace(/\.JT$/, "");
+  box.innerHTML = `<label>${L("Loadout (from ", "掛載（來自 ")}${P.s.name}.PT)</label>` + P.lo.sts.map(S => {
+    const mx = S.sel ? maxCount(S.h, S.sel) : 0, drawn = !S.sel || S.kinds.has(kindOf(S.sel));
+    return `<div class="lorow" data-hp="${S.hp}"><span>#${S.hp} ${LOC[S.h.loc] || ""}</span><select>${['<option value="">' + L("— empty —", "— 不掛 —") + "</option>", ...S.opts.map(k => `<option value="${k}"${k === S.sel ? " selected" : ""}>${name(k)}${k === S.def ? " ★" : ""}</option>`)].join("")}</select>`
+      + `<select class="cnt">${Array.from({ length: mx + 1 }, (_, i) => `<option${i === (S.full ?? S.count) ? " selected" : ""}>${i}</option>`).join("")}</select>${drawn ? "" : `<em title="${L("This SH has no model for this store kind", "這個 SH 沒有這種外掛的模型")}">*</em>`}</div>`; }).join("")
+    + `<p class="lonote">${L("★ = PT default. Fired rounds disappear from the model; the pylon stays. * = drawn as pylon only. Applies on Start / Restart.", "★ = PT 預設。射出的武器會從模型上消失，派龍架保留。* = 只畫派龍架。按「開始」或「重來」生效。")}</p>`;
+  box.querySelectorAll(".lorow").forEach(row => { const S = P.lo.sts.find(x => x.hp === +row.dataset.hp), [a, b] = row.querySelectorAll("select");
+    a.onchange = () => { S.sel = a.value; S.full = undefined; S.count = S.sel ? maxCount(S.h, S.sel) : 0; saveLoadout(); renderLoadout(); };
+    b.onchange = () => { S.full = undefined; S.count = +b.value; saveLoadout(); }; });
+}
+function resetLoadoutCounts(){ if (!P.lo) return; for (const S of P.lo.sts){ if (S.full != null) S.count = S.full; S.full = undefined; } if (P.lo.gun) P.lo.gun.count = P.s.pt.hp[P.lo.gun.hp].qty; }
+function initFA(){
+  const fm = P.s.fm; if (!fm) return;
+  const st = P.fs = FAFM.create(fm, { V: Math.abs(P.speed), psi: ((-P.hdg / D2R) % 360 + 360) % 360, thr: P.thr <= 0.9 ? P.thr / 0.9 : 1, onGround: P.onGround });
+  st.stores = storesWeight(); st.fuel = fm.fuel;
+  if (!P.onGround){ st.gT = 0; }
+}
+// one step of the FA model; the page keeps ground contact, landing and crashes
+function stepFlyFA(dt){
+  const fm = P.s.fm, s = P.fs; s.onGround = P.onGround; s.stores = storesWeight();
+  const g0 = P.onGround ? groundAt(P.pos[0], P.pos[1]) : null;
+  const inp = { pitch: input.pitch, roll: input.roll, yaw: input.yaw, thr: P.thr <= 0.9 ? P.thr / 0.9 : 1, ab: P.thr > 0.93, gear: P.gear, flaps: P.gear, brake: P.brake };
+  FAFM.step(fm, s, inp, dt, P.pos[2]);
+  if (P.onGround){
+    if (g0.kind === "deck" && P.thr > 0.95 && s.V < 260 && P.cat < 3){ s.V += 70 * dt; P.cat += dt; }   // catapult
+    s.V = Math.max(0, s.V);
+  }
+  let v = FAFM.velocity(s);
+  const q = qMul(qFromHP(-s.psi * D2R, s.theta * D2R), qAxis([0,1,0], s.phi * D2R));
+  P.q = qNorm(qMul(q, qMul(qAxis([1,0,0], (s.aoaVis + (P.onGround ? 0 : 0)) * D2R), qAxis([0,0,1], -s.slip * D2R))));
+  P.hdg = -s.psi * D2R; P.pitch = s.theta * D2R; P.speed = s.V; P.gN = s.n;
+  if (P.onGround){
+    const up = v[2] > 0.5 && s.V > 0.85 * s.vS;
+    if (!up) v[2] = 0;
+    P.pos = vadd(P.pos, vmul(v, dt));
+    const g2 = groundAt(P.pos[0], P.pos[1]);
+    if (g2.kind === "water" || g2.h < g0.h - 25){ if (s.V > s.vS * 0.8){ P.onGround = false; s.onGround = false; } else if (g2.kind === "water"){ crash(L("Into the water!", "掉進海裡了！")); return; } }
+    else if (g2.h > g0.h + 25){ crash(L("Hit an obstacle!", "撞到障礙物！")); return; }
+    else if (up){ P.onGround = false; s.onGround = false; P.pos[2] = Math.max(P.pos[2], g2.h + gearH() + 1); }
+    else P.pos[2] = g2.h + gearH();
+    P.vel = v; P.vz = v[2]; return;
+  }
+  P.vel = v; P.vz = v[2]; P.alpha = 0;
+  P.pos = vadd(P.pos, vmul(v, dt));
+  const g = groundAt(P.pos[0], P.pos[1]), hh = P.gear ? gearH() : Math.max(0, -getMesh(P.s, {}).lo[2]);
+  if (P.pos[2] - hh <= g.h){
+    const flatOk = g.kind === "runway" || g.kind === "deck" || g.kind === "terrain" && Math.abs(terrainH(P.pos[0] + 60, P.pos[1]) - terrainH(P.pos[0] - 60, P.pos[1])) < 15 && Math.abs(terrainH(P.pos[0], P.pos[1] + 60) - terrainH(P.pos[0], P.pos[1] - 60)) < 15;
+    const deep = g.h - (P.pos[2] - hh), roll = s.phi * D2R, pitch = s.theta * D2R;
+    if (g.kind === "water") crash(L("Splash! You hit the sea.", "撲通！掉進海裡了。"));
+    else if (!P.gear) crash(MS.on ? L("Crashed into the rocks!", "撞上岩壁了！") : L("Crashed: the gear was up.", "墜毀：起落架沒放下。"));
+    else if (deep > 40) crash(L("Crashed into the side!", "撞上側面了！"));
+    else if (v[2] < -32 || Math.abs(roll) > 0.4 || pitch < -0.12 || pitch > 0.55 || !flatOk) crash(v[2] < -32 ? L("Crashed: touched down too hard.", "墜毀：落地太重。") : L("Crashed!", "墜毀！"));
+    else { P.onGround = true; s.onGround = true; s.theta = Math.max(0, s.theta); s.phi = 0; s.p = 0; s.vz = 0; s.vy = 0; s.n = 1; P.pos[2] = g.h + hh; s.V = Math.hypot(v[0], v[1]);
+      sub(L(`Touchdown at ${Math.round(-v[2] * 60)} ft/min. Brake to stop.`, `落地，下降率 ${Math.round(-v[2] * 60)} 呎/分。按煞車停下。`)); }
+  }
+}
+
 // ===== weapons and targets =====
-const WEAPONS = [
+const BASE_WEAPONS = [
   { id: "gun", name: "GUN", ammo: 600 },
   { id: "aim9", name: "AIM-9", sh: "SIDEM", ammo: 4, air: true, range: 16000, cone: 0.55, spd: 2600, g: 30, dmg: 10 },
   { id: "aim120", name: "AIM-120", sh: "AMRAM", ammo: 4, air: true, range: 50000, cone: 0.45, spd: 3200, g: 22, dmg: 10 },
   { id: "agm65", name: "AGM-65", sh: "MAVRK", ammo: 4, gnd: true, range: 32000, cone: 0.45, spd: 1500, g: 12, dmg: 14 },
   { id: "mk82", name: "MK-82", sh: "MK82", ammo: 6, bomb: true, dmg: 14, blast: 500 },
 ];
+let WEAPONS = BASE_WEAPONS;
 const W = { sel: 0, ammo: WEAPONS.map(w => w.ammo), bullets: [], shots: [], booms: [], lock: null, fireHeld: false, gunT: 0, kills: 0, side: 1 };
 let targets = [];
 let lastPV = null, lastEye = [0,0,0], sphere = null, COL = {};
@@ -862,7 +1026,7 @@ const lineBuf = gl.createBuffer();
 async function initCombat(rgb){
   COL = { tracer: nearestPal(rgb, 255, 225, 90), smoke: nearestPal(rgb, 210, 210, 205), fire: nearestPal(rgb, 255, 140, 30) };
   sphere = buildSphere(COL.fire);
-  await Promise.all(WEAPONS.filter(w => w.sh).map(w => loadShape(w.sh).catch(() => null)));
+  await Promise.all(BASE_WEAPONS.filter(w => w.sh).map(w => loadShape(w.sh).catch(() => null)));
   const air = (name, cx, cy, alt, R, ph, dir) => ({ name, kind: "air", hp: 8, orbit: { cx, cy, alt, R, ph, dir, w: 620 / R } });
   const list = [
     air("MIG29", -884, 22000, 5500, 9000, 0, 1), air("MIG29", 18000, -8000, 7000, 12000, 2, -1), air("SU27", -26000, 12000, 9000, 9000, 4, 1), air("MIG29", 42000, 26000, 3500, 10000, 1, -1),
@@ -908,8 +1072,8 @@ function launchFrom(){ const r = getMesh(P.s, {}).radius, f = fwdOf(P.q), rt = q
 function fireOnce(){
   if (P.mode !== "fly" || P.crashed) return;
   const w = WEAPONS[W.sel]; if (w.id === "gun" || W.ammo[W.sel] <= 0) return;
-  W.ammo[W.sel]--; updButtons();
-  const v0 = P.vel ? P.vel.slice() : vmul(fwdOf(P.q), P.speed), pos = launchFrom();
+  W.ammo[W.sel]--;
+  const v0 = P.vel ? P.vel.slice() : vmul(fwdOf(P.q), P.speed), pos = (w.st != null && firedFrom(w)) || launchFrom(); updButtons();
   W.shots.push({ w, pos, vel: w.bomb ? vadd(v0, [0, 0, -15]) : vadd(v0, vmul(fwdOf(P.q), 80)), target: w.bomb ? null : W.lock, life: w.bomb ? 90 : 25, trail: [pos.slice()], t: 0 });
 }
 function damage(t, n, at){
@@ -1240,11 +1404,14 @@ function hud(){
   $("hHdg").textContent = String(Math.round(((-P.hdg * 180 / Math.PI) % 360 + 360) % 360)).padStart(3, "0");
   if (P.mode === "fly" && !P.onGround){ const f = qRot(P.q, [0,1,0]); $("hHdg").textContent = String(Math.round(((Math.atan2(f[0], f[1]) * 180 / Math.PI) + 360) % 360)).padStart(3, "0"); }
   $("hTimeD").style.display = MS.on ? "" : "none";
+  $("hGD").style.display = P.mode === "fly" ? "" : "none";
+  if (P.mode === "fly"){ const fa = useFA() && P.fs; $("hG").textContent = (fa ? P.fs.n : 1).toFixed(1); $("hM").textContent = fa ? " M" + (Math.abs(P.speed) / FAFM.sound(P.pos[2])).toFixed(2) : ""; }
   if (MS.on){ const ts = MS.phase === "done" ? MS.time : MS.clock - MS.c0; $("hTime").textContent = Math.floor(ts / 60) + ":" + String(Math.floor(ts % 60)).padStart(2, "0"); }
   const tb = $("thrBar"), t = Math.max(0, P.thr); tb.style.height = (t * 100) + "%"; tb.classList.toggle("ab", P.mode === "fly" && P.thr > 0.9);
   if (P.mode === "fly" && !P.onGround && !P.crashed){
     const agl = P.pos[2] - g.h, now = performance.now();
-    let warn = (P.alpha || 0) > AC.aStall && (P.vz || 0) < -30 ? L("STALL", "失速") : agl < (MS.on ? 150 : 400) && !P.gear && (P.vz || 0) < -20 ? L("PULL UP", "拉起") : "";
+    const fw = useFA() && P.fs ? P.fs.warn : "";
+    let warn = fw === "STALL" ? L("STALL", "失速") : fw === "stall" ? (now % 700 < 420 ? L("stall warning", "失速警告") : "") : fw === "OVERSPEED" ? L("OVERSPEED", "超速") : !useFA() && (P.alpha || 0) > AC.aStall && (P.vz || 0) < -30 ? L("STALL", "失速") : agl < (MS.on ? 150 : 400) && !P.gear && (P.vz || 0) < -20 ? L("PULL UP", "拉起") : "";
     if (MS.on && MS.exp > 0) warn = L("TOO HIGH: SAM RADAR!", "太高了：被防空雷達發現！");
     if (EM.some(m => m.tgt === "player" && vlen(vsub(m.pos, P.pos)) < 16000)) warn = now % 600 < 380 ? L("MISSILE! FLARES!", "飛彈來襲！放熱焰彈！") : "";
     if (MS.on && MS.phase === "done" && now - MS.doneT < 10000) warn = L("MISSION COMPLETE", "任務完成") + "\n" + Math.floor(MS.time / 60) + ":" + String(Math.floor(MS.time % 60)).padStart(2, "0");
@@ -1323,14 +1490,16 @@ $("bRC").onclick = () => { cam.rc = !cam.rc; cam.zoom = 1; cam.rcFov = 0; updBut
 $("bFlare").addEventListener("pointerdown", e => { e.preventDefault(); dropFlares(); });
 $("bGear").onclick = toggleGear; $("bBrake").onclick = toggleBrake; $("bReset").onclick = () => spawn();
 $("bView").onclick = () => { cam.mode = (cam.mode + 1) % 3; cam.yaw = cam.pitch = 0; cam.rc = false; updButtons(); sub([L("Chase view", "追蹤視角"), L("Far chase view", "遠距追蹤"), L("Close view", "近距視角")][cam.mode]); };
-$("menuBtn").onclick = () => $("panel").classList.toggle("open");
+$("menuBtn").onclick = () => { $("panel").classList.toggle("open"); renderLoadout(); };
+$("selFM").onchange = () => { try { localStorage.setItem("fa_flight_fm", $("selFM").value); } catch(e){} spawn(); };
+try { const v = localStorage.getItem("fa_flight_fm"); if (v) $("selFM").value = v; } catch(e){}
 { const sel = $("selShape"), grp = (label, names) => { const g = document.createElement("optgroup"); g.label = label; for (const n of names){ const o = document.createElement("option"); o.value = n; o.textContent = n; g.appendChild(o); } sel.appendChild(g); };
   grp("F-14 / F/A-18", ["F14", ...F18S]); grp("Ships", [...SHIPS].filter(n => SH_NAMES.includes(n))); grp("All SH", SH_NAMES); sel.value = "F14"; }
 $("bMission").onclick = async () => { $("panel").classList.remove("open"); $("selMission").value = "canyon"; await buildCanyon(); await choose($("selShape").value); };
 $("bGo").onclick = async () => { $("panel").classList.remove("open"); if ($("selMission").value === "canyon") await buildCanyon(); await choose($("selShape").value); };
 async function choose(name){
   $("load").style.display = "flex"; $("loadT").textContent = L("Loading ", "載入 ") + name + ".SH…";
-  try { P.s = await loadShape(name); getMesh(P.s, {}); spawn(); try { localStorage.setItem("fa_flight_shape2", name); } catch(e){} }
+  try { P.s = await loadShape(name); getMesh(P.s, {}); await loadPT(P.s); P.lo = buildLoadout(P.s); renderLoadout(); spawn(); try { localStorage.setItem("fa_flight_shape2", name); } catch(e){} }
   catch(e){ sub(e.message); if (!P.s){ P.s = await loadShape("F18"); spawn(); } }
   $("load").style.display = "none";
 }
@@ -1369,7 +1538,7 @@ $("langSlot").append(FAI18N.picker()); FAI18N.apply(); FAI18N.onChange(updButton
     const rgb = new Uint8Array(768); if (pal){ rgb.set(pal); for (let i = 0; i < 256; i++) if (rgb[3*i] > 240 && rgb[3*i+1] < 10 && rgb[3*i+2] > 240) rgb.set([196, 196, 188], 3*i); }   // magenta = slots FA fills per theatre at run time
     else for (let i = 0; i < 768; i++) rgb[i] = Math.floor(i / 3);
     palTex = mkTex(256, 1, gl.RGB, rgb); PALRGB = rgb;
-    await initCombat(rgb);
+    await initCombat(rgb); await loadJTIndex();
     // airfield: runway shape at the origin (strip along north), tower and hangars; carrier group at sea to the east
     await Promise.all([
       addObj("RNWY1", 0, 0, AIR_Z, 0, null, "runway"),
