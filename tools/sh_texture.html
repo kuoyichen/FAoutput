@@ -30,6 +30,7 @@ label.ck{display:inline-flex;gap:4px;align-items:center;cursor:pointer}
 a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
 </style>
 <script src="fashion_i18n.js"></script>
+<script src="sh_editor_core.js"></script>
 </head>
 <body>
 <header>
@@ -77,6 +78,9 @@ a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spa
 </div>
 <script>
 "use strict";
+// shapes our generators extended (new F-14 nose, loadout stores on F14 / F18) are read with SHCore (sh_editor_core.js), which
+// follows the jumps into the appended blocks; parseSH alone would miss them. Baked with the default loadout, gear down.
+{ const parseOld = parseSH; parseSH = u8 => { try { const M = SHCore.parseModel(u8); if (SHCore.needsCore(M)) return SHCore.legacyModel(M, { on: { _PLgearDown: 1 } }); } catch(e){ console.warn(e); } return parseOld(u8); }; }
 // ===== SH 解析（取自 sh_gallery.html，另外讀出每個面的色號與貼圖座標） =====
 const FACE_OPS = new Set([0x41,0x44,0x49,0x4C,0x51,0x54,0x59,0x5C,0x61,0x63,0x64,0x69,0x6B,0x6C,0x71,0x73,0x7C,0xCD,0xDD,0xED,0xEE,0xFE]);
 function parseSH(u8){

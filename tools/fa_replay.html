@@ -136,6 +136,7 @@ button.mdl{padding:2px 7px;font-size:12px;margin:1px 2px 1px 0}
 @media (max-width:560px){ #mbox th:nth-child(4),#mbox td:nth-child(4){display:none} #mbox td.mn{max-width:140px} }
 </style>
 <script src="fashion_i18n.js"></script>
+<script src="sh_editor_core.js"></script>
 </head>
 <body>
 <div id="app">
@@ -226,6 +227,9 @@ button.mdl{padding:2px 7px;font-size:12px;margin:1px 2px 1px 0}
 
 <script>
 "use strict";
+// shapes our generators extended (new F-14 nose, loadout stores on F14 / F18) are read with SHCore (sh_editor_core.js), which
+// follows the jumps into the appended blocks; parseSH alone would miss them. Baked with the default loadout, gear up.
+{ const parseOld = parseSH; parseSH = u8 => { try { const M = SHCore.parseModel(u8); if (SHCore.needsCore(M)) return SHCore.legacyModel(M, { on: { _PLgearDown: 0 } }); } catch(e){ console.warn(e); } return parseOld(u8); }; }
 // ================= 解析錄製檔 =================
 const STATIONS = 8, STN_STRIDE = 0x11;
 const str = (u8,a,b) => { let s=""; for (let i=a;i<b;i++) s += String.fromCharCode(u8[i]); return s; };
@@ -979,7 +983,7 @@ const shKey = s => String(s).toUpperCase().replace(/^.*[\\/]/, "").replace(/\.SH
 let idbP = null;
 function idb(){ return idbP ??= new Promise((res, rej) => { try { const r = indexedDB.open("fa_replay", 1);
   r.onupgradeneeded = () => r.result.createObjectStore("sh"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); } catch(e){ rej(e); } }); }
-const IDB_VER = "2026-11-14/";   // bump when the SH set on the site changes, so stale cached copies are not used
+const IDB_VER = "2026-11-16/";   // bump when the SH set on the site changes, so stale cached copies are not used
 async function idbGet(k){ try { const db = await idb(); return await new Promise(res => { const q = db.transaction("sh").objectStore("sh").get(IDB_VER + k); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); } catch(e){ return null; } }
 async function idbPut(k, u8){ try { const db = await idb(); db.transaction("sh", "readwrite").objectStore("sh").put(u8, IDB_VER + k); } catch(e){} }
 // 舊版把使用者載入的 SH 存在 localStorage（base64），搬到 IndexedDB
