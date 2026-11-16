@@ -1091,7 +1091,7 @@ function damage(t, n, at){
     sub(L(`${t.name} destroyed!`, `擊毀 ${t.name}！`)); if (W.lock === t) W.lock = null; }
   else boom(at || t.pos, 30);
 }
-function boom(pos, size){ W.booms.push({ pos: pos.slice(), size, t0: performance.now() }); }
+function boom(pos, size){ W.booms.push({ pos: pos.slice(), size, t0: performance.now(), seed: (Math.random() * 1e9) | 0, vis: true, visT: 0 }); }
 const tCenter = t => t.kind === "bld" ? vadd(t.pos, [0, 0, (t.mesh.lo[2] + t.mesh.hi[2]) / 2]) : t.pos;
 function hitTarget(p, extra){ for (const t of targets) if (!t.dead && vlen(vsub(p, tCenter(t))) < t.mesh.radius * (t.kind === "bld" ? 0.75 : 0.6) + extra) return t; return null; }
 function stepCombat(dt){
@@ -1142,7 +1142,7 @@ function stepCombat(dt){
     }
   }
   W.shots = W.shots.filter(m => m.life > 0);
-  W.booms = W.booms.filter(b => performance.now() - b.t0 < 2500);
+  W.booms = W.booms.filter(b => performance.now() - b.t0 < 6000);
 }
 // ===== canyon strike mission: SAM sites, enemy missiles, flares =====
 const MS = { map: "island", on: false, phase: "", clock: 0, c0: 0, exp: 0, killT: 0, doneT: 0, time: 0, reactor: null };
@@ -1232,7 +1232,7 @@ function renderCombat(eye){
   // fireballs
   if (W.booms.length || FL.length || WAKE.length){
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
-    for (const b of W.booms){ const t = (performance.now() - b.t0) / 2500;
+    for (const b of W.booms){ const t = (performance.now() - b.t0) / 1000; if (t > 1) continue;
       gl.uniform4f(mProg.U("uTint"), 1, 0.55 - 0.35 * t, 0.12, 0.85); gl.uniform1f(mProg.U("uAlpha"), (1 - t) * 0.9);
       drawModel({ picTex: blankTex, pic: null }, sphere, modelMat([0,0,0,1], vsub(b.pos, eye), b.size * (0.4 + 1.2 * Math.sqrt(t))), false); }
     gl.uniform4f(mProg.U("uTint"), 0.95, 0.97, 1, 1);
@@ -1248,10 +1248,49 @@ function renderCombat(eye){
 const ov = $("ov"), ox = ov.getContext("2d");
 function project(p){ if (!lastPV) return null; const v = vsub(p, lastEye), M = lastPV;
   const x = M[0]*v[0] + M[4]*v[1] + M[8]*v[2] + M[12], y = M[1]*v[0] + M[5]*v[1] + M[9]*v[2] + M[13], w = M[3]*v[0] + M[7]*v[1] + M[11]*v[2] + M[15];
-  if (w <= 1) return null; return [(x / w * 0.5 + 0.5) * innerWidth, (0.5 - y / w * 0.5) * innerHeight]; }
+  if (w <= 1) return null; return [(x / w * 0.5 + 0.5) * innerWidth, (0.5 - y / w * 0.5) * innerHeight, w]; }
+// screen pixels per foot at depth w
+let lastFov = 1; const pxPerFt = w => innerHeight / 2 / Math.tan(lastFov / 2) / w;
+// explosions on the overlay, as on the replay page: flash and fireball, a smoke cloud, and debris streaks falling under gravity
+function rndSeq(seed){ let s = seed % 2147483647; if (s <= 0) s += 2147483646; return () => (s = s * 16807 % 2147483647) / 2147483647; }
+function drawBooms(){
+  const now = performance.now();
+  for (const b of W.booms){
+    const age = (now - b.t0) / 1000; if (age > 6) continue;
+    if (now > b.visT){ b.visT = now + 250; b.vis = clearLine(lastEye, vadd(b.pos, [0, 0, 20])); }   // hidden behind a hill: skip
+    if (!b.vis) continue;
+    const c = project(b.pos); if (!c) continue;
+    const R = Math.max(6, b.size * 4 * pxPerFt(c[2])), p = c;
+    if (age < 1.6){ const r = R * (0.3 + age * 1.4), a = 1 - age / 1.6;
+      const g = ox.createRadialGradient(p[0], p[1], 0, p[0], p[1], r);
+      g.addColorStop(0, `rgba(255,255,220,${a})`); g.addColorStop(.35, `rgba(255,190,60,${a * .9})`); g.addColorStop(.7, `rgba(230,70,20,${a * .6})`); g.addColorStop(1, "rgba(80,20,0,0)");
+      ox.fillStyle = g; ox.beginPath(); ox.arc(p[0], p[1], r, 0, 7); ox.fill(); }
+    if (age > 0.4){ const a = Math.max(0, 0.45 - (age - 0.4) / 12), r = R * (0.8 + age * 0.6), y = p[1] - age * R * 0.15;
+      const g = ox.createRadialGradient(p[0], y, 0, p[0], y, r);
+      g.addColorStop(0, `rgba(50,40,35,${a})`); g.addColorStop(1, "rgba(50,40,35,0)"); ox.fillStyle = g; ox.beginPath(); ox.arc(p[0], y, r, 0, 7); ox.fill(); }
+    const r = rndSeq(b.seed), k = b.size / 100;   // debris speed scales with the blast
+    ox.lineCap = "round";
+    for (let i = 0; i < 36; i++){
+      const th = r() * Math.PI * 2, ph = (r() - 0.3) * Math.PI * 0.9, v = (150 + r() * 450) * k, life = 1.5 + r() * 3, hot = r() < 0.5;
+      if (age > life) continue;
+      const dv = [Math.cos(th) * Math.cos(ph) * v, Math.sin(th) * Math.cos(ph) * v, Math.sin(ph) * v];
+      const pos = t => { const q = vadd(b.pos, vmul(dv, t)); q[2] -= 16 * t * t; return q; };
+      const A = project(pos(Math.max(0, age - 0.25))), B = project(pos(age)); if (!A || !B) continue;
+      const a = 1 - age / life;
+      ox.strokeStyle = hot ? `rgba(255,${150 + ((a * 100) | 0)},60,${a})` : `rgba(40,30,25,${a})`; ox.lineWidth = hot ? 2 : 2.5;
+      ox.beginPath(); ox.moveTo(A[0], A[1]); ox.lineTo(B[0], B[1]); ox.stroke();
+    }
+    ox.lineCap = "butt";
+  }
+}
+// target names from the PT files (tools/pt_names.json, made by tools/make_pt_names.cjs); types with no PT (ships, ground units) get a tidy name
+let PTN = {}; fetch("pt_names.json").then(r => r.ok ? r.json() : {}).then(j => PTN = j).catch(() => {});
+const OTHER_NAMES = { T72: "T-72", SA6: "SA-6", ZSU23: "ZSU-23-4", KIROV: "Kirov", KRIVAK: "Krivak", REACTR: "Reactor" };
+const tName = t => PTN[t.name] || OTHER_NAMES[t.name] || t.name;
 function drawOverlay(){
   const d = Math.min(2, devicePixelRatio || 1); if (ov.width !== Math.round(innerWidth * d)){ ov.width = Math.round(innerWidth * d); ov.height = Math.round(innerHeight * d); }
   ox.setTransform(d, 0, 0, d, 0, 0); ox.clearRect(0, 0, innerWidth, innerHeight);
+  drawBooms();
   if (P.mode !== "fly" || !P.s) return;
   ox.lineWidth = 1.5; ox.font = "600 11px ui-monospace,Consolas,monospace"; ox.textAlign = "center";
   const w = WEAPONS[W.sel];
@@ -1263,6 +1302,7 @@ function drawOverlay(){
     if (lock){ ox.strokeRect(s[0] - r - 4, s[1] - r - 4, 2*r + 8, 2*r + 8); ox.fillText("LOCK", s[0], s[1] - r - 9); }
     if (t.objective){ ox.strokeStyle = ox.fillStyle = lock ? "#ff4040" : "#ffd54a"; ox.strokeRect(s[0] - 20, s[1] - 20, 40, 40); ox.fillText(L("TARGET", "目標"), s[0], s[1] - 26); }
     else if (t.sam && !lock && dist < 16000) ox.fillText("SAM", s[0], s[1] - r - 5);
+    if (!t.objective && (t.kind !== "bld" || dist < 12000)){ const y = s[1] - r - (lock ? 22 : t.sam && dist < 16000 ? 18 : 5); ox.fillText(tName(t), s[0], y); }
     if (lock || t.objective || t.kind === "air" || t.kind === "sea") ox.fillText(dist > 9000 ? (dist / 6076).toFixed(1) + "nm" : Math.round(dist) + "ft", s[0], s[1] + r + 13);
   }
   ox.strokeStyle = ox.fillStyle = "#ff4040";
@@ -1415,7 +1455,7 @@ function render(){
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, palTex); gl.uniform1i(mProg.U("uPal"), 1); gl.uniform1i(mProg.U("uPic"), 0);
   for (const o of world.objs){ const dd = vlen(vsub(o.pos, eye)); if (dd > FOG[1] + o.mesh.radius) continue; drawModel(o.s, o.mesh, modelMat(o.q, vsub(o.pos, eye)), false, dd > o.mesh.radius * 25); }
   renderCombat(eye);
-  lastPV = PV; lastEye = eye;
+  lastPV = PV; lastEye = eye; lastFov = c.fov;
   const mesh = curMesh();
   if (!P.crashed || performance.now() - P.boom < 120){
     // shadow on the ground under the player
