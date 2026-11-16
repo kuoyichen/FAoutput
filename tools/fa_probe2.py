@@ -34,7 +34,10 @@ PROCESS_VM_READ, PROCESS_QUERY_INFORMATION, TH32CS_SNAPPROCESS = 0x10, 0x400, 0x
 PLAYER = 0x50CE80
 OBJ_COUNT = 0x553838
 OBJ_TABLE = 0x553848
-OBJ_READ = 0x40          # 每個物件讀取的位元組數
+OBJ_READ = 0xF0          # 每個物件讀取的位元組數（含 +0xEE 目標）
+PLAYER_IDX = 0x520A1C    # u16：玩家飛機在物件表中的索引（FA.EXE 0x49139e 設定）
+TARGET_OFF = 0xEE        # 物件 +0xEE u16：目前注視／鎖定的物件索引（0 = 沒有）
+HUMAN_FLAG = 0x80        # 物件 +0x10 bit 0x80 = 真人控制（低 7 位元 = 玩家編號）
 MAX_OBJS = 2048          # 安全上限
 
 class PROCESSENTRY32(ctypes.Structure):
@@ -278,8 +281,15 @@ AIRCRAFT_CLS = 4
 AI_FLAG = 0x80            # 物件 +1 位元組的 0x80：AI 控制（2026-11-12 實測：玩家 F-14 = 0x17，B-52 = 0x97）
 RAW_AIRCRAFT = 0x380      # 每架飛機每筆保存的原始長度（物件間距約 0x374），用來找生命值等欄位
 
-def find_player(objs):
-    """在物件表中找玩家飛機：類別 4 且沒有 AI 旗標。0x50CE80 只是「目前正在計算的物件」的工作副本，不一定是玩家。"""
+def find_player(objs, pidx=None):
+    """找玩家飛機。0x50CE80 只是「目前正在計算的物件」的工作副本，不一定是玩家。
+    1. FA.EXE 自己的玩家索引 [0x520A1C]
+    2. +0x10 有真人旗標 0x80 的飛機
+    3. 舊方法：第一架沒有 AI 旗標的飛機（可能認錯）"""
+    for i, p, b in objs:
+        if i == pidx and b[0] == AIRCRAFT_CLS: return i, p, b
+    for i, p, b in objs:
+        if b[0] == AIRCRAFT_CLS and b[0x10] & HUMAN_FLAG: return i, p, b
     for i, p, b in objs:
         if b[0] == AIRCRAFT_CLS and not (b[1] & AI_FLAG): return i, p, b
     return None
@@ -295,9 +305,10 @@ def cmd_flight(h, hz, out):
                物件數 × (u16 索引, u8 類別, u16 名稱編號, i32 x, i32 y, i32 z,
                          u16 航向, i16 俯仰, i16 滾轉, i32 速度)          — 索引 0 = 玩家
           b"R" u16 索引, u16 長度, 原始位元組                  — 緊接在 F 之後，每架飛機一筆（找生命值用）
+          b"G" u16 數量, 數量 × (u16 索引, u16 目標索引)        — 緊接在 R 之後：誰正在注視／鎖定誰（索引 0 = 玩家）
     """
     # 每一次任務存成一個檔：任務結束回到設定畫面（場景沒有飛機）就關檔，下一次任務開始再開新檔
-    names = {}; seen = set(); tdump = set(); t0 = None; n = 0; warned = False; waiting = False
+    names = {}; seen = set(); tdump = set(); t0 = None; n = 0; warned = False; waiting = False; last_pi = None
     f = None; files = []; base = out
     def new_name():
         if base: return base if not files else base.replace(".bin", "") + f"_{len(files) + 1}.bin"
@@ -324,11 +335,14 @@ def cmd_flight(h, hz, out):
                 time.sleep(0.5); continue
             if f is None:
                 name = new_name(); files.append(name); f = open(name, "wb"); f.write(b"FAFLT3")
-                names = {}; seen = set(); tdump = set(); _name_cache.clear(); t0 = time.time(); n = 0; warned = False
+                names = {}; seen = set(); tdump = set(); _name_cache.clear(); t0 = time.time(); n = 0; warned = False; last_pi = None
                 print(f"  任務開始，錄製到 {name}"); waiting = False
-            pl = find_player(objs)
+            pr = read(h, PLAYER_IDX, 2)
+            pl = find_player(objs, struct.unpack("<H", pr)[0] if pr else None)
+            pi = None
             if pl:
                 pi, paddr, pb = pl
+                if pi != last_pi: print(f"  玩家飛機 = 物件索引 {pi}（{type_name(h, struct.unpack_from('<I', pb, 5)[0])}）"); last_pi = pi
                 objs = [(0, paddr, pb)] + [o for o in objs if o[0] != pi]
             else:
                 if not warned and objs: print("  （找不到玩家飛機，暫用 0x50CE80）"); warned = True
@@ -338,6 +352,7 @@ def cmd_flight(h, hz, out):
             ctl = ext[0x16F:0x171]; sel = ext[0x11C]; thr = ext[THROTTLE_ADDR - PLAYER]; rpm = ext[RPM_ADDR - PLAYER]
             stn = [struct.unpack_from("<H", ext, 0x2EE + k * STATION_STRIDE)[0] for k in range(STATIONS)]
             body = bytearray(); extra = bytearray(); nac = 0
+            live = {i for i, _, _ in objs}; tg = bytearray(); ntg = 0
             for i, addr, b in objs:
                 tptr, = struct.unpack_from("<I", b, 5)
                 nm = type_name(h, tptr)
@@ -351,10 +366,17 @@ def cmd_flight(h, hz, out):
                 if (i, addr, nm) not in seen:
                     seen.add((i, addr, nm)); raw = read(h, addr, 0x100) or b""
                     f.write(b"O" + struct.pack("<HIH", i, addr, len(raw)) + raw)
+                # +0xEE 在飛機、地面防空等單位上是目標索引；類別 0 / 6 的同一位置是別的資料
+                if b[0] not in (0, 6) and len(b) > TARGET_OFF + 1:
+                    t, = struct.unpack_from("<H", b, TARGET_OFF)
+                    if t and t == pi: t = 0
+                    elif not t: t = i          # 0 = 沒有目標
+                    if t != i and t in live and ntg < 1024:
+                        tg += struct.pack("<HH", i, t); ntg += 1
                 if b[0] == AIRCRAFT_CLS and nac < 32:
                     raw = read(h, addr, RAW_AIRCRAFT)
                     if raw: extra += b"R" + struct.pack("<HH", i, len(raw)) + raw; nac += 1
-            f.write(b"F" + struct.pack("<dBBBBB8HH", time.time() - t0, ctl[0], ctl[1], sel, thr, rpm, *stn, len(objs)) + body + extra)
+            f.write(b"F" + struct.pack("<dBBBBB8HH", time.time() - t0, ctl[0], ctl[1], sel, thr, rpm, *stn, len(objs)) + body + extra + b"G" + struct.pack("<H", ntg) + tg)
             n += 1
             if n % int(hz * 5) == 0:
                 f.flush(); print(f"  {time.time() - t0:7.1f}s  {len(objs)} 個物件，{nac} 架飛機")
