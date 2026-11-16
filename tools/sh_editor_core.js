@@ -403,10 +403,17 @@ function parseModel(u8in) {
   for (let o = start; o < appendStart - 4; o++) {
     if (c[o] !== 0x12 || c[o + 1] !== 0) continue;
     const T = o + 4 + dv.getInt16(o + 2, true);
-    if (T < start || T > stop - 13 || c[T] !== 0xF0 || c[T + 1] !== 0 || c[T + 2] !== 0x68 || c[T + 7] !== 0x68 || c[T + 12] !== 0xC3) continue;
-    const N = dv.getUint32(T + 3, true) - SH_VA;
+    if (T < start || T > stop - 13 || c[T] !== 0xF0 || c[T + 1] !== 0) continue;
+    // with --grow the trampoline first runs x86 that stretches the flame, then `68 <block> 68 <ret> C3`
+    let q = -1; for (let k = T + 2; k < Math.min(T + 400, stop - 11); k++) if (c[k] === 0x68 && c[k + 5] === 0x68 && c[k + 10] === 0xC3) { q = k; break; }
+    if (q < 0) continue;
+    const grow = q > T + 2, N = dv.getUint32(q + 1, true) - SH_VA;
     if (N < appendStart || N >= stop - 6 || c[N] !== 0x82 || c[N + 1] !== 0 || M.abBlocks.includes(N)) continue;
-    M.abBlocks.push(N); walk(N, [], 0, 0, 0, new Set(), { type: "ab" });
+    M.abBlocks.push(N); const v0 = M.verts.length; walk(N, [], 0, 0, 0, new Set(), { type: "ab" });
+    // growing flame (sh_ab_flame.py --grow): the x86 rewrites the y of the tail vertices (the lowest y of the block's 82 table)
+    // to nozzle - length × (0.15 + 0.85 × t/GROW); polys(opts.abGrow 0..1) does the same here
+    if (grow) { const vs = M.verts.slice(v0); if (vs.length) { const ys = vs.map(v => v.p[1]), noz = Math.max(...ys), tail = Math.min(...ys);
+      if (tail < noz) (M.abGrow = M.abGrow || []).push({ vids: vs.filter(v => v.p[1] === tail).map(v => v.id), noz, tail }); } }
   }
   // original sub-parts of the main LOD: place them like FA does for the default state (gear down)
   const subs = M.bufs.filter(b => b.lod === 0 && !b.hooked).slice(1);
@@ -521,6 +528,11 @@ function varsFor(M, on = {}) {
   return vars;
 }
 function polys(M, opts = {}) {
+  const gr = opts.abGrow != null && M.abGrow ? M.abGrow : null;   // growing AB flame: stretch the tail vertices, put them back after
+  if (gr) for (const G of gr) for (const id of G.vids) M.verts[id].p[1] = Math.round(G.noz - (G.noz - G.tail) * (0.15 + 0.85 * Math.max(0, Math.min(1, opts.abGrow))));
+  try { return polysAt(M, opts); } finally { if (gr) for (const G of gr) for (const id of G.vids) M.verts[id].p[1] = G.tail; }
+}
+function polysAt(M, opts) {
   placeParts(M, { vars: M.ctl ? varsFor(M, opts.on || {}) : undefined, gear: !!(opts.on && opts.on._PLgearDown) });
   const st = M.stations || new Map(), k = opts.scale ? M.scale : 1, out = [];
   const shown = opts.storeShown || (t => { const S0 = st.get(t.st); if (!S0) return true; return t.type === "pylon" ? S0.def !== 0 : S0.def === t.kind && S0.maxRank >= t.rank; });

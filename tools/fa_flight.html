@@ -643,12 +643,12 @@ function isFlame(f, pic){
   return n > 0 && hot / n > 0.45;
 }
 function getMesh(s, st = {}){
-  const key = `${+!!st.gear}${+!!st.ab}${+!!st.brake}${+!!st.flaps}${st.sweep || 20}|${st.lo || ""}|${st.ab ? st.abf || 0 : 0}`;
+  const key = `${+!!st.gear}${+!!st.ab}${+!!st.brake}${+!!st.flaps}${st.sweep || 20}|${st.lo || ""}|${st.ab ? (st.abf || 0) + "g" + (st.abg ?? 1) : 0}`;
   if (s.meshes[key]) return s.meshes[key];
   const m = s.m, k = m.scale; let polys = [];
   const add = (idx, tf) => polys.push({ pts: idx.map(i => vmul(tf(m.v[i]), k)), uv: idx.uv, col: idx.col });
   if (s.M){ const fl = st.flaps ? -1 : 0;
-    polys = SHCore.polys(s.M, { scale: true, storeShown: st.lo && s === P.s && P.lo ? loShown : undefined, on: { _PLgearDown: st.gear ? 1 : 0, _PLleftFlap: fl, _PLrightFlap: fl, _PLbrake: st.brake ? 1 : 0, _PLafterBurner: st.ab ? 1 : 0, _PLswingWing: swingVal(st.sweep) }, abFrame: st.abf || 0 })
+    polys = SHCore.polys(s.M, { scale: true, storeShown: st.lo && s === P.s && P.lo ? loShown : undefined, on: { _PLgearDown: st.gear ? 1 : 0, _PLleftFlap: fl, _PLrightFlap: fl, _PLbrake: st.brake ? 1 : 0, _PLafterBurner: st.ab ? 1 : 0, _PLswingWing: swingVal(st.sweep) }, abFrame: st.abf || 0, abGrow: st.ab ? st.abg ?? 1 : undefined })
       .filter(f => st.ab || !isFlame(f, s.pic)); }
   else for (const idx of m.f) add(idx, v => v);
   if (!s.M) try { const drawn = new Set();
@@ -743,7 +743,12 @@ function spawn(){
     "峽谷轟炸任務：在峽谷裡低飛，不要高過峽谷邊緣（太高會被防空雷達發現）。峽谷盡頭拉起越過山脊，俯衝進凹谷炸掉核子反應爐，再拉出來，用熱焰彈躲避飛彈。"));
 }
 let subT = null; function sub(t){ $("sub").textContent = t; clearTimeout(subT); subT = setTimeout(() => $("sub").textContent = "", 9000); }
-function curMesh(noAB){ return getMesh(P.s, { lo: P.mode === "fly" ? loKey() : "", sweep: P.mode === "fly" ? P.sweep : 20, gear: P.mode === "fly" ? P.gear : true, ab: !noAB && P.mode === "fly" && P.thr > 0.9, abf: Math.floor(performance.now() / 70) % 3 /* animated flame (SH op 40) */, brake: P.mode === "fly" && P.brake && !P.onGround, flaps: P.mode === "fly" && P.gear }); }
+// afterburner flame growth (SH built with sh_ab_flame.py --grow 3000): 15% to full length over 3 s after lighting;
+// like the SH's own x86, a burner not seen for over 1 s counts as freshly lit. In 8 steps so the meshes cache well
+const AB = { t0: 0, last: 0 };
+function abGrowNow(on){ const now = performance.now(); if (!on) return 1;
+  if (now - AB.last > 1000) AB.t0 = now; AB.last = now; return Math.round(Math.min(1, (now - AB.t0) / 3000) * 8) / 8; }
+function curMesh(noAB){ return getMesh(P.s, { lo: P.mode === "fly" ? loKey() : "", sweep: P.mode === "fly" ? P.sweep : 20, gear: P.mode === "fly" ? P.gear : true, ab: !noAB && P.mode === "fly" && P.thr > 0.9, abf: Math.floor(performance.now() / 70) % 3 /* animated flame (SH op 40) */, abg: noAB ? 1 : abGrowNow(P.mode === "fly" && P.thr > 0.9), brake: P.mode === "fly" && P.brake && !P.onGround, flaps: P.mode === "fly" && P.gear }); }
 function gearH(){ return Math.max(0, -getMesh(P.s, { gear: P.gear, flaps: P.gear }).lo[2]); }
 function crash(why){ P.crashed = true; P.speed = 0; P.boom = performance.now(); $("msg").textContent = why + "\n" + L("Tap Restart", "按「重來」"); }
 
