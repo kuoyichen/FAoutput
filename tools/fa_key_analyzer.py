@@ -2,7 +2,7 @@
 按鍵 ↔ 記憶體變化 對照分析器
 
 用法:
-    python fa_probe2.py record          # 先錄（遊戲中照下方建議操作）
+    python falogger.py record          # 先錄（遊戲中照下方建議操作）
     python fa_key_analyzer.py player_rec.bin
     → 產生 key_report.txt，傳給 Claude
 
@@ -26,7 +26,7 @@ KEYS_V1 = (["G", "SPACE", "ENTER", "BACKSPACE", "TAB", "B", "F", "W", "H", "L", 
            + [chr(c) for c in range(0x30, 0x3A)] + [f"F{i}" for i in range(1, 13)])
 
 def load(path):
-    """讀取錄製檔（不依賴 fa_probe2.py 的版本）→ (addr, size, 按鍵名稱, 時間[], 按鍵遮罩[], 影格[])"""
+    """讀取錄製檔（不依賴 falogger.py 的版本）→ (addr, size, 按鍵名稱, 時間[], 按鍵遮罩[], 影格[])"""
     raw = open(path, "rb").read()
     if raw[:6] == b"FAREC1":
         addr, size = struct.unpack_from("<II", raw, 6); pos = 14; names = KEYS_V1

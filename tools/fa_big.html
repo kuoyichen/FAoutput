@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FA_BIG: more LIBs for FA</title>
+<meta name="description" content="FA_BIG is a patched FA.EXE 1.02f that starts with many more .LIB and shape files. What the original limits are, what FA_BIG changes, and how to install it.">
+<style>
+:root{ --bg:#0e1216; --card:#161c22; --card2:#1b232b; --line:#26303a; --text:#e2e8ee; --muted:#8a96a4; --accent:#ffd54a; --cyan:#6fd3ff; --ok:#5fd38a; --bad:#ff6b6b; --warn:#ffb347; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:var(--cyan)}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+header{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:12px 16px;background:#0e1216ee;border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+header .crumb{color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#langSlot{margin-left:auto}
+.fa-lang{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font:inherit;font-size:13px}
+main{max-width:980px;margin:0 auto;padding:24px 16px 60px}
+h1{font-size:clamp(30px,6vw,46px);line-height:1.1;margin:10px 0 8px}
+h1 b{color:var(--accent)}
+h2{font-size:22px;margin:42px 0 6px}
+h3{font-size:17px;margin:18px 0 6px}
+.lead{font-size:17px;color:#c4ccd5;max-width:720px}
+.muted{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+.dl{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:18px}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#1a1a1a;font-weight:700;text-decoration:none;border-radius:10px;padding:11px 18px}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:none;color:var(--text);border:1px solid var(--line);font-weight:600}
+code,kbd{font:13px/1.4 ui-monospace,Consolas,monospace;background:#0b0f13;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+/* simulator */
+.sim{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.ctl{display:grid;grid-template-columns:150px minmax(0,1fr) 92px;align-items:center;gap:10px;margin:8px 0}
+.ctl label{color:var(--muted);font-size:14px}
+.ctl output{font-variant-numeric:tabular-nums;text-align:right;font-weight:700}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.presets{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.presets button{background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:20px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
+.presets button:hover{border-color:var(--accent)}
+.exes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.exe{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:14px;position:relative;overflow:hidden}
+.exe h4{margin:0 0 10px;font-size:16px}
+.exe h4 span{color:var(--muted);font-weight:500;font-size:13px}
+.meter{margin:10px 0}
+.meter .lbl{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+.meter .lbl b{color:var(--text);font-variant-numeric:tabular-nums}
+.bar{height:14px;border-radius:7px;background:#0b0f13;border:1px solid var(--line);overflow:hidden;position:relative}
+.bar i{display:block;height:100%;width:0;background:var(--ok);transition:width .45s ease,background .3s}
+.bar i.warn{background:var(--warn)} .bar i.bad{background:var(--bad)}
+.verdict{margin-top:12px;padding:10px 12px;border-radius:10px;font-weight:700;display:flex;gap:10px;align-items:flex-start}
+.verdict.ok{background:#5fd38a1a;color:var(--ok)} .verdict.bad{background:#ff6b6b1a;color:var(--bad)}
+.verdict small{display:block;font-weight:500;color:#c4ccd5;margin-top:2px}
+.boot{font:12px/1.5 ui-monospace,Consolas,monospace;color:var(--muted);background:#0b0f13;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:10px;min-height:76px;white-space:pre-wrap}
+.boot .e{color:var(--bad)} .boot .g{color:var(--ok)}
+.shake{animation:shake .4s}
+@keyframes shake{20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+/* duplicate demo */
+.dup{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.file{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px;transition:transform .4s,opacity .4s,border-color .3s}
+.file .where{font-size:12px;color:var(--muted)}
+.file .name{font:700 16px ui-monospace,Consolas,monospace;margin:4px 0}
+.file input{width:100%;background:#0b0f13;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px;font:inherit;font-size:13px}
+.file .tag{display:inline-block;margin-top:8px;font-size:12px;border-radius:20px;padding:2px 10px}
+.file.win{border-color:var(--ok)} .file.win .tag{background:#5fd38a22;color:var(--ok)}
+.file.lose{opacity:.55} .file.lose .tag{background:#ffffff0d;color:var(--muted)}
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+td .up{color:var(--ok);font-weight:700}
+td .same{color:var(--muted)}
+.scroll{overflow-x:auto}
+ol.steps{padding-left:0;list-style:none;counter-reset:s}
+ol.steps li{counter-increment:s;position:relative;padding:4px 0 12px 42px}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:2px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#1a1a1a;font-weight:800;display:grid;place-items:center}
+.note{border-left:3px solid var(--warn);padding:8px 12px;background:#ffb3470f;border-radius:0 8px 8px 0;margin:12px 0}
+footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+@media (max-width:640px){ .exes,.dup{grid-template-columns:1fr} .ctl{grid-template-columns:1fr 80px} .ctl label{grid-column:1/-1} }
+</style>
+<script src="fashion_i18n.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <span class="crumb">FA_BIG</span>
+  <span id="langSlot"></span>
+</header>
+<main>
+  <h1>FA<b>_BIG</b></h1>
+  <p class="lead" data-lang="en">A patched <code>FA.EXE</code> (version 1.02f) that starts with far more <code>.LIB</code> archives and shape files in the game folder. The original game silently overflows its tables and dies at startup with <em>“Not enough memory.”</em> FA_BIG gives those tables much more room.</p>
+  <p class="lead" data-lang="zh">修改過的 <code>FA.EXE</code>（1.02f 版），讓遊戲目錄可以放更多 <code>.LIB</code> 和外形檔。原版的表格滿了不會檢查，直接寫壞記憶體，啟動時就跳出 <em>「Not enough memory.」</em> 結束。FA_BIG 把這些表格放大很多倍。</p>
+  <div class="dl">
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/FA_BIG/FA_BIG.ZIP" download>⬇ <span data-lang="en">Download FA_BIG.ZIP</span><span data-lang="zh">下載 FA_BIG.ZIP</span></a>
+    <a class="btn ghost" href="#install"><span data-lang="en">How to install</span><span data-lang="zh">安裝方式</span></a>
+    <span class="muted" style="font-size:13px">ZIP 620 KB · FA.EXE 1,319,424 B · CRC32 7EE82875</span>
+  </div>
+
+  <h2 data-lang="en">Try it: will the game start?</h2>
+  <h2 data-lang="zh">試試看：遊戲能不能啟動？</h2>
+  <p class="muted" data-lang="en">At startup FA scans its folder and every <code>.LIB</code> inside it, and writes one 35-byte entry per file into a file index. Move the sliders to see what each EXE does with your folder.</p>
+  <p class="muted" data-lang="zh">FA 啟動時會掃描遊戲目錄，以及裡面每一個 <code>.LIB</code>，每個檔案在「檔案索引」裡佔一格（35 bytes）。拉動滑桿，看兩個 EXE 遇到你的目錄會怎樣。</p>
+  <div class="card sim">
+    <div>
+      <div class="ctl"><label for="libs" data-lang="en">.LIB files</label><label for="libs" data-lang="zh">.LIB 檔數量</label><input id="libs" type="range" min="1" max="300" value="12"><output id="libsO"></output></div>
+      <div class="ctl"><label for="per" data-lang="en">Files per LIB (avg)</label><label for="per" data-lang="zh">每個 LIB 的檔案數（平均）</label><input id="per" type="range" min="50" max="3000" step="10" value="600"><output id="perO"></output></div>
+      <div class="ctl"><label for="loose" data-lang="en">Loose files in folder</label><label for="loose" data-lang="zh">目錄裡的散檔</label><input id="loose" type="range" min="0" max="20000" step="50" value="1500"><output id="looseO"></output></div>
+      <div class="presets">
+        <button data-p="12,600,1500"><span data-lang="en">Stock install</span><span data-lang="zh">原版安裝</span></button>
+        <button data-p="20,600,3000"><span data-lang="en">Some mods</span><span data-lang="zh">加了一些模組</span></button>
+        <button data-p="40,500,4000"><span data-lang="en">Many mod LIBs</span><span data-lang="zh">很多模組 LIB</span></button>
+        <button data-p="12,600,9000"><span data-lang="en">Unpacked LIBs + originals kept</span><span data-lang="zh">LIB 解開又保留原檔</span></button>
+        <button data-p="280,400,5000"><span data-lang="en">Too many even for FA_BIG</span><span data-lang="zh">連 FA_BIG 都太多</span></button>
+      </div>
+    </div>
+    <div class="exes">
+      <div class="exe" id="exeA"><h4>FA.EXE <span>1.02f</span></h4>
+        <div class="meter" data-k="idx"><div class="lbl"><span data-lang="en">File index</span><span data-lang="zh">檔案索引</span><b></b></div><div class="bar"><i></i></div></div>
+        <div class="meter" data-k="lib"><div class="lbl"><span data-lang="en">LIB slots</span><span data-lang="zh">LIB 格子</span><b></b></div><div class="bar"><i></i></div></div>
+        <div class="verdict"></div><div class="boot"></div></div>
+      <div class="exe" id="exeB"><h4>FA_BIG <span data-lang="en">(renamed FA.EXE)</span><span data-lang="zh">（改名為 FA.EXE）</span></h4>
+        <div class="meter" data-k="idx"><div class="lbl"><span data-lang="en">File index</span><span data-lang="zh">檔案索引</span><b></b></div><div class="bar"><i></i></div></div>
+        <div class="meter" data-k="lib"><div class="lbl"><span data-lang="en">LIB slots</span><span data-lang="zh">LIB 格子</span><b></b></div><div class="bar"><i></i></div></div>
+        <div class="verdict"></div><div class="boot"></div></div>
+    </div>
+    <p class="muted" style="margin:0;font-size:13px" data-lang="en">Duplicates count too: every copy of a file, in any LIB or loose, takes an index slot during the scan before duplicates are removed.</p>
+    <p class="muted" style="margin:0;font-size:13px" data-lang="zh">重複的檔案也算：同名檔案不管在哪個 LIB 或是散檔，掃描時每一份都先佔一格，之後才去掉重複的。</p>
+  </div>
+
+  <h2 data-lang="en">Same file name in several places</h2>
+  <h2 data-lang="zh">同名檔案放在好幾個地方</h2>
+  <p class="muted" data-lang="en">After the scan FA sorts the index by name, then by date and time (newest first, compared to the minute), and keeps only the first of each name. A file inside a LIB gets the LIB file's own date. Change the dates below to see which <code>F14.SH</code> the game would load.</p>
+  <p class="muted" data-lang="zh">掃描完後，FA 會依檔名排序，再依日期時間排序（新的在前，比到分鐘），每個檔名只留第一個。LIB 裡的檔案用的是那個 LIB 檔本身的日期。改改下面的日期，看看遊戲會載入哪一個 <code>F14.SH</code>。</p>
+  <div class="dup" id="dup"></div>
+  <p class="muted" style="font-size:13px" data-lang="en">The copies that lose cost nothing after startup: they are dropped from the index, never loaded, and use no object or cache slot. Only disk space, and a LIB stays memory-mapped as a whole.</p>
+  <p class="muted" style="font-size:13px" data-lang="zh">沒被選中的那幾份，啟動後就不再佔東西：它們從索引移除、不會被載入，也不佔物件或快取的格子。只佔硬碟空間，另外 LIB 整個檔案會一直映射在記憶體位址空間裡。</p>
+
+  <h2 data-lang="en">What FA_BIG changes, and what it does not</h2>
+  <h2 data-lang="zh">FA_BIG 改了什麼、沒改什麼</h2>
+  <div class="card scroll">
+  <table>
+    <thead><tr><th data-lang="en">Limit</th><th data-lang="zh">上限</th><th>FA.EXE</th><th>FA_BIG</th><th data-lang="en">What happens when it is exceeded</th><th data-lang="zh">超過時會怎樣</th></tr></thead>
+    <tbody>
+      <tr><td><span data-lang="en">File index (loose files + all LIB members, duplicates included)</span><span data-lang="zh">檔案索引（散檔＋所有 LIB 成員，含重複）</span></td><td class="n">9,950</td><td class="n"><span class="up">100,000</span></td><td><span data-lang="en">No bounds check: memory is overwritten and the game dies at startup.</span><span data-lang="zh">沒有邊界檢查：寫壞記憶體，啟動時就掛掉。</span></td></tr>
+      <tr><td><span data-lang="en">.LIB files</span><span data-lang="zh">.LIB 檔數量</span></td><td class="n">20</td><td class="n"><span class="up">256</span></td><td><span data-lang="en">No check: the 21st LIB overwrites the LIB counter.</span><span data-lang="zh">沒有檢查：第 21 個 LIB 會蓋掉計數器。</span></td></tr>
+      <tr><td><span data-lang="en">Resource cache (SH, PIC, type files loaded at once)</span><span data-lang="zh">資源快取（同時載入的 SH、PIC、型別檔）</span></td><td class="n">1,400</td><td class="n"><span class="up">4,096</span></td><td><span data-lang="en">Loader keeps reloading the same file (hang).</span><span data-lang="zh">一直重載同一個檔（卡住）。</span></td></tr>
+      <tr><td><span data-lang="en">Object memory pool</span><span data-lang="zh">物件記憶體池</span></td><td class="n">300 KB</td><td class="n"><span class="up">1.5 MB</span></td><td><span data-lang="en">“Not enough memory.” in a mission.</span><span data-lang="zh">任務中跳「Not enough memory.」。</span></td></tr>
+      <tr><td><span data-lang="en">Objects in a mission</span><span data-lang="zh">任務中的物件數</span></td><td class="n">900</td><td class="n"><span class="same">900</span></td><td><span data-lang="en">“Not enough memory.” Not changed: over 580 places in the code use these tables.</span><span data-lang="zh">「Not enough memory.」。沒改：程式裡有 580 多處用到這些表。</span></td></tr>
+      <tr><td><span data-lang="en">Vertices per SH shape</span><span data-lang="zh">每個 SH 的頂點數</span></td><td class="n">900</td><td class="n"><span class="same">900</span></td><td><span data-lang="en">Fixed vertex table in the shape renderer.</span><span data-lang="zh">外形繪製用的頂點表是固定的。</span></td></tr>
+      <tr><td><span data-lang="en">Files in one LIB</span><span data-lang="zh">單一 LIB 的檔案數</span></td><td class="n">32,767</td><td class="n"><span class="same">32,767</span></td><td><span data-lang="en">That LIB is skipped.</span><span data-lang="zh">那個 LIB 會被略過。</span></td></tr>
+      <tr><td><span data-lang="en">File names</span><span data-lang="zh">檔名長度</span></td><td class="n">8.3</td><td class="n"><span class="same">8.3</span></td><td><span data-lang="en">Longer loose names are never loaded; LIB names over 13 characters overflow.</span><span data-lang="zh">散檔名太長永遠不會被載入；LIB 檔名超過 13 個字元會溢位。</span></td></tr>
+      <tr><td><span data-lang="en">Total LIB size</span><span data-lang="zh">LIB 總大小</span></td><td class="n">~2 GB</td><td class="n"><span class="same">~2 GB</span></td><td><span data-lang="en">All LIBs stay mapped in the 32-bit address space.</span><span data-lang="zh">所有 LIB 都映射在 32 位元的位址空間裡。</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="muted" style="font-size:13px" data-lang="en">Only 63 bytes of code and one new empty section (<code>.rmcache</code>) differ from 1.02f. Four bytes in unused padding make the CRC32 equal to the original, so launchers that check the 1.02f CRC still accept it.</p>
+  <p class="muted" style="font-size:13px" data-lang="zh">跟 1.02f 相比只改了 63 個位元組的程式碼，加上一個新的空區段（<code>.rmcache</code>）。另外在沒用到的空白處改了 4 個位元組，讓 CRC32 跟原版一樣，所以會檢查 1.02f CRC 的啟動器也能用。</p>
+
+  <div id="install"><h2 data-lang="en">Download and install</h2>
+  <h2 data-lang="zh">下載與安裝</h2></div>
+  <ol class="steps" data-lang="en">
+    <li><b>Make sure you have FA 1.02f.</b> FA_BIG is built from the 1.02f <code>FA.EXE</code>.</li>
+    <li><b>Back up your <code>FA.EXE</code></b>, for example rename it to <code>FA_ORIG.EXE</code>.</li>
+    <li><a href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/FA_BIG/FA_BIG.ZIP">Download FA_BIG.ZIP</a> and unzip it into the game folder. It contains one file, <code>FA.EXE</code>.</li>
+    <li><b>Keep the name <code>FA.EXE</code>.</b> The game looks for <code>&lt;exe name&gt;.SMS</code>, which shapes need. If you rename the EXE (for example <code>FA_BIG.EXE</code>) it stops with “Not enough memory.” right away.</li>
+    <li>Start the game as usual, directly or with your launcher.</li>
+  </ol>
+  <ol class="steps" data-lang="zh">
+    <li><b>確認你的 FA 是 1.02f 版。</b>FA_BIG 是用 1.02f 的 <code>FA.EXE</code> 改的。</li>
+    <li><b>先備份原本的 <code>FA.EXE</code></b>，例如改名成 <code>FA_ORIG.EXE</code>。</li>
+    <li><a href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/FA_BIG/FA_BIG.ZIP">下載 FA_BIG.ZIP</a>，解壓到遊戲目錄。裡面只有一個檔案：<code>FA.EXE</code>。</li>
+    <li><b>檔名一定要是 <code>FA.EXE</code>。</b>遊戲會用自己的檔名去找 <code>&lt;檔名&gt;.SMS</code>，外形檔需要它。改成別的名字（例如 <code>FA_BIG.EXE</code>）會馬上跳「Not enough memory.」。</li>
+    <li>照平常方式啟動遊戲，直接執行或用你的啟動器都可以。</li>
+  </ol>
+  <div class="note" data-lang="en">To go back, delete the new <code>FA.EXE</code> and rename <code>FA_ORIG.EXE</code> back to <code>FA.EXE</code>. Mission files and settings are not touched.</div>
+  <div class="note" data-lang="zh">要還原的話，刪掉新的 <code>FA.EXE</code>，再把 <code>FA_ORIG.EXE</code> 改回 <code>FA.EXE</code>。任務檔和設定都不受影響。</div>
+  <p class="muted" style="font-size:13px" data-lang="en">Build it yourself: <a href="https://github.com/kuoyichen/FAoutput/tree/main/FA_BIG">FA_BIG on GitHub</a> has <code>fa_patch_limits.py</code> (the patch, with every address) and <code>crc_match.py</code> (the CRC fix).</p>
+  <p class="muted" style="font-size:13px" data-lang="zh">想自己做：<a href="https://github.com/kuoyichen/FAoutput/tree/main/FA_BIG">GitHub 上的 FA_BIG 目錄</a>有 <code>fa_patch_limits.py</code>（修改程式，列出每個位址）和 <code>crc_match.py</code>（CRC 修正）。</p>
+</main>
+<footer data-lang="en">FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>). Use FA_BIG at your own risk and keep a backup of your original FA.EXE.</footer>
+<footer data-lang="zh">FAshion 是 hawke 為 Jane's Fighters Anthology 做的同好專案（<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>）。使用 FA_BIG 請自行承擔風險，並保留原本 FA.EXE 的備份。</footer>
+<script>
+"use strict";
+const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
+FAI18N.register({ "FAshion home": "FAshion 首頁" });
+$("langSlot").append(FAI18N.picker()); FAI18N.apply();
+
+// ---- startup simulator ----
+const EXES = { exeA: { idx: 9950, lib: 20 }, exeB: { idx: 100000, lib: 256 } };
+const fmt = n => n.toLocaleString("en-US");
+let lastBad = {};
+function sim(){
+  const libs = +$("libs").value, per = +$("per").value, loose = +$("loose").value, files = libs * per + loose;
+  $("libsO").value = fmt(libs); $("perO").value = fmt(per); $("looseO").value = fmt(loose);
+  for (const [id, cap] of Object.entries(EXES)){
+    const el = $(id), m = { idx: [files, cap.idx], lib: [libs, cap.lib] };
+    for (const mt of el.querySelectorAll(".meter")){
+      const [v, c] = m[mt.dataset.k], r = v / c, i = mt.querySelector("i");
+      mt.querySelector("b").textContent = `${fmt(v)} / ${fmt(c)}`;
+      i.style.width = Math.min(100, r * 100) + "%"; i.className = r > 1 ? "bad" : r > 0.8 ? "warn" : "";
+    }
+    const libBad = libs > cap.lib, idxBad = files > cap.idx, bad = libBad || idxBad, v = el.querySelector(".verdict");
+    v.className = "verdict " + (bad ? "bad" : "ok");
+    v.innerHTML = bad
+      ? `✖ <span>${L("Crashes at startup", "啟動時當掉")}<small>${libBad ? L(`LIB #${cap.lib + 1} overwrites the LIB counter.`, `第 ${cap.lib + 1} 個 LIB 蓋掉計數器。`) : L(`Index entry #${fmt(cap.idx + 1)} is written past the end of the buffer.`, `第 ${fmt(cap.idx + 1)} 筆索引寫到緩衝區外面。`)}</small></span>`
+      : `✔ <span>${L("Starts", "可以啟動")}<small>${L(`${fmt(cap.idx - files)} index slots to spare.`, `索引還剩 ${fmt(cap.idx - files)} 格。`)}</small></span>`;
+    const log = [L(`scan *.*  → ${fmt(loose)} loose files`, `掃描 *.*  → ${fmt(loose)} 個散檔`)];
+    if (libBad) log.push(L(`open ${cap.lib + 1}th .LIB …`, `開啟第 ${cap.lib + 1} 個 .LIB …`), `<span class="e">${L("LIB table overflow", "LIB 表溢位")}</span>`);
+    else log.push(L(`open ${libs} .LIB  → ${fmt(libs * per)} members`, `開啟 ${libs} 個 .LIB  → ${fmt(libs * per)} 個成員`));
+    if (!libBad && idxBad) log.push(`<span class="e">${L(`index entry ${fmt(cap.idx + 1)} > buffer`, `第 ${fmt(cap.idx + 1)} 筆 > 緩衝區`)}</span>`);
+    log.push(bad ? `<span class="e">FA Fatal Error: Not enough memory.</span>` : `<span class="g">${L("sort, dedupe → game starts", "排序、去重複 → 遊戲啟動")}</span>`);
+    el.querySelector(".boot").innerHTML = log.join("\n");
+    if (bad && !lastBad[id]){ el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); }
+    lastBad[id] = bad;
+  }
+}
+for (const id of ["libs", "per", "loose"]) $(id).addEventListener("input", sim);
+for (const b of document.querySelectorAll(".presets button")) b.addEventListener("click", () => {
+  const [a, p, l] = b.dataset.p.split(",").map(Number), from = [+$("libs").value, +$("per").value, +$("loose").value], to = [a, p, l], t0 = performance.now();
+  const step = t => { const k = Math.min(1, (t - t0) / 600), e = k * (2 - k);
+    ["libs", "per", "loose"].forEach((id, i) => $(id).value = Math.round(from[i] + (to[i] - from[i]) * e)); sim(); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+});
+
+// ---- duplicate demo ----
+const DUP = [
+  { en: "Loose file in game folder", zh: "遊戲目錄的散檔", d: "2026-11-14T21:30" },
+  { en: "Inside MYMODS.LIB", zh: "在 MYMODS.LIB 裡", d: "2026-11-10T09:00" },
+  { en: "Inside FA_4C.LIB", zh: "在 FA_4C.LIB 裡", d: "1998-03-02T12:00" },
+];
+function dup(){
+  const box = $("dup");
+  if (!box.children.length) DUP.forEach((f, i) => {
+    const c = document.createElement("div"); c.className = "file";
+    c.innerHTML = `<div class="where"></div><div class="name">F14.SH</div><input type="datetime-local" value="${f.d}"><span class="tag"></span>`;
+    c.querySelector("input").addEventListener("input", e => { f.d = e.target.value; dup(); });
+    box.append(c);
+  });
+  const key = s => (s || "").slice(0, 16), best = DUP.reduce((b, f, i) => key(f.d) > key(DUP[b].d) ? i : b, 0);
+  [...box.children].forEach((c, i) => {
+    c.querySelector(".where").textContent = L(DUP[i].en, DUP[i].zh);
+    c.className = "file " + (i === best ? "win" : "lose");
+    c.querySelector(".tag").textContent = i === best ? L("Loaded (newest)", "載入（最新）") : L("Ignored", "忽略");
+  });
+}
+FAI18N.onChange(() => { sim(); dup(); });
+sim(); dup();
+</script>
+</body>
+</html>

@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New F-14 and F/A-18 with loadouts</title>
+<meta name="description" content="FAshion release #4: a new-look F14.SH and F18.SH for Fighters Anthology that draw the weapons and tanks each aircraft really carries. View them in 3D, change the loadout, download, and see what changed from the factory shapes.">
+<style>
+:root{ --bg:#0e1216; --card:#161c22; --card2:#1b232b; --line:#26303a; --text:#e2e8ee; --muted:#8a96a4; --accent:#ffd54a; --cyan:#6fd3ff; --ok:#5fd38a; --warn:#ffb347; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}
+a{color:var(--cyan)}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+header{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:12px 16px;background:#0e1216ee;border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+header .crumb{color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#langSlot{margin-left:auto}
+.fa-lang{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font:inherit;font-size:13px}
+main{max-width:1180px;margin:0 auto;padding:24px 16px 60px}
+.kicker{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.6px;text-transform:uppercase}
+h1{font-size:clamp(30px,6vw,46px);line-height:1.1;margin:8px 0 8px}
+h1 b{color:var(--accent)}
+h2{font-size:22px;margin:44px 0 6px}
+h3{font-size:17px;margin:0 0 6px}
+.lead{font-size:17px;color:#c4ccd5;max-width:780px}
+.muted{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+code{font:13px/1.4 ui-monospace,Consolas,monospace;background:#0b0f13;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+button,select{background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 11px;font:inherit;font-size:13px;cursor:pointer}
+button:hover,select:hover{border-color:var(--muted)}
+button.on{border-color:var(--accent);color:var(--accent)}
+label.ck{display:inline-flex;gap:5px;align-items:center;cursor:pointer;font-size:14px}
+/* viewer */
+#viewer{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;margin-top:22px}
+#stage{position:relative;min-width:0}
+#ac{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+#ac button{padding:8px 16px;text-align:left;border-radius:10px}
+#ac button b{display:block;font-size:16px}
+#ac button span{font-size:12px;color:var(--muted)}
+#cv{width:100%;aspect-ratio:16/10;display:block;cursor:grab;touch-action:none;background:radial-gradient(ellipse at 55% 45%,#2a3541,#141a20 70%);border-radius:12px;border:1px solid var(--line)}
+#cv:active{cursor:grabbing}
+.cvwrap{position:relative}
+#overlay{position:absolute;left:12px;bottom:12px;right:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;pointer-events:none}
+#overlay > *{pointer-events:auto}
+#overlay .stat{margin-left:auto;font-size:12px;color:var(--muted);background:#0e1216b0;border-radius:8px;padding:3px 8px}
+#cfg{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-top:10px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+#cfg .t{font-weight:700;color:var(--accent);font-size:14px}
+#sweepBox{display:inline-flex;align-items:center;gap:8px;font-size:14px}
+#sweepBox input{accent-color:var(--accent);width:120px}
+#cfg .presets{display:inline-flex;flex-wrap:wrap;gap:4px;margin-left:auto}
+#side{display:flex;flex-direction:column;gap:12px;min-width:0}
+#side h3{display:flex;align-items:center;gap:8px}
+#side h3 small{margin-left:auto;font-weight:400;color:var(--muted);font-size:12px}
+.lrow{display:grid;grid-template-columns:minmax(0,1fr) 150px 66px;gap:6px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}
+.lrow:first-of-type{border-top:0}
+.lrow .nm{font-size:13px;line-height:1.3}
+.lrow .nm small{display:block;color:var(--muted);font-size:11px}
+.lrow select{width:100%;padding:5px 6px}
+.cnt{display:flex;align-items:center;gap:2px}
+.cnt button{width:22px;height:26px;padding:0;border-radius:6px}
+.cnt output{min-width:22px;text-align:center;font-variant-numeric:tabular-nums;font-size:13px}
+.lpre{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 4px}
+.note{font-size:12px;color:var(--muted);margin:8px 0 0}
+.dlrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.dlrow:first-of-type{border-top:0}
+.dlrow .f{font-family:ui-monospace,Consolas,monospace;font-weight:700}
+.dlrow .d{font-size:12px;color:var(--muted)}
+.dlrow a.b{margin-left:auto;background:var(--accent);color:#1a1a1a;font-weight:700;text-decoration:none;border-radius:8px;padding:6px 12px;font-size:13px;white-space:nowrap}
+.dlrow a.b.ghost{background:none;color:var(--text);border:1px solid var(--line)}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#1a1a1a;font-weight:700;text-decoration:none;border-radius:10px;padding:10px 16px;border:0;font-size:14px;cursor:pointer}
+.btn:hover{filter:brightness(1.08)}
+/* changes */
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.chg h3{font-size:19px}
+.chg h3 span{color:var(--muted);font-weight:500;font-size:13px}
+.chg ul{margin:8px 0 0;padding-left:20px}
+.chg li{margin:6px 0}
+.chg li b{color:var(--accent);font-weight:600}
+table.num{width:100%;border-collapse:collapse;font-size:14px;margin-top:10px}
+table.num th,table.num td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left}
+table.num th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+table.num td.n{font-variant-numeric:tabular-nums}
+.warnbox{border:1px solid #ffb34766;background:#ffb3470f;border-radius:12px;padding:12px 14px;margin-top:14px}
+.warnbox b{color:var(--warn)}
+ol.steps{padding-left:22px}
+ol.steps li{margin:6px 0}
+footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+@media (max-width:900px){ #viewer{grid-template-columns:1fr} .two{grid-template-columns:1fr} }
+@media (max-width:520px){ header .crumb{display:none} #overlay{position:static;margin-top:8px} #overlay .stat{margin-left:0} .lrow{grid-template-columns:minmax(0,1fr) 130px 62px} #cv{aspect-ratio:4/3} }
+</style>
+<script src="fashion_i18n.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <span class="crumb">Release #4 · New F-14 and F/A-18</span>
+  <span id="langSlot"></span>
+</header>
+<main>
+  <div class="kicker">Release #4 · Nov 16, 2026</div>
+  <h1 data-lang="en">New <b>F-14</b> and <b>F/A-18</b>, now with their weapons</h1>
+  <h1 data-lang="zh">全新外型的 <b>F-14</b> 與 <b>F/A-18</b>，會畫出自己掛的武器</h1>
+  <p class="lead" data-lang="en">Two replacement shapes for Fighters Anthology: <code>F14.SH</code> with a rebuilt nose, and <code>F18.SH</code> reshaped like the FAshion Hornets. Both now draw the missiles, bombs and fuel tanks the aircraft really carries in the game. Stores disappear as you fire them, pylons stay, and dropped tanks fall away. Try any loadout below, then download the files.</p>
+  <p class="lead" data-lang="zh">兩個給 Fighters Anthology 用的替換外形：機鼻重做的 <code>F14.SH</code>，以及照 FAshion Hornet 修整過的 <code>F18.SH</code>。兩架現在都會畫出飛機在遊戲裡實際掛的飛彈、炸彈和副油箱。武器射出就消失，派龍架留著，拋掉的油箱會往下掉。下面可以自己換掛載看看，再下載檔案。</p>
+
+  <section id="viewer">
+    <div id="stage">
+      <div id="ac"></div>
+      <div class="cvwrap">
+      <canvas id="cv"></canvas>
+      <div id="overlay">
+        <span class="views"><button data-v="iso">3/4</button> <button data-v="under">Below</button> <button data-v="side">Side</button> <button data-v="top">Top</button> <button data-v="front">Front</button></span>
+        <label class="ck" style="background:#0e1216b0;border-radius:8px;padding:3px 8px"><input type="checkbox" id="spin" checked> Auto-rotate</label>
+        <label class="ck" style="background:#0e1216b0;border-radius:8px;padding:3px 8px"><input type="checkbox" id="edges"> Wireframe</label>
+        <span class="stat" id="stat">Loading…</span>
+      </div>
+      </div>
+      <div id="cfg">
+        <span class="t">Configuration</span>
+        <label class="ck"><input type="checkbox" id="gear"> Landing gear down</label>
+        <label class="ck" id="flapsBox"><input type="checkbox" id="flaps"> Flaps down</label>
+        <label class="ck"><input type="checkbox" id="hook"> Tailhook down</label>
+        <label class="ck"><input type="checkbox" id="brake"> Speed brake open</label>
+        <label class="ck"><input type="checkbox" id="ab"> Afterburner</label>
+        <span id="sweepBox"><span>Wing sweep</span> <input type="range" id="sweep" min="20" max="68" step="1" value="20"> <output id="sweepOut">20°</output></span>
+        <span class="presets"><button data-p="clean">Clean</button><button data-p="trap">Carrier landing</button><button data-p="fight">Combat</button></span>
+      </div>
+    </div>
+    <div id="side">
+      <div class="card">
+        <h3>Loadout <small id="acName"></small></h3>
+        <div class="lpre"><button id="ldDef">Default</button><button id="ldFired">All fired</button><button id="ldEmpty">Empty</button></div>
+        <div id="lrows"></div>
+        <p class="note" data-lang="en">In the game the shape reads each station from the aircraft, so it shows whatever you load in the arming screen. Here you pick it yourself: the store, and how many are left (a pair fires one side first). A pylon stays while its station has a weapon type, also after the last round is fired.</p>
+        <p class="note" data-lang="zh">遊戲裡外形會直接讀飛機每個掛點的內容，所以掛載畫面選什麼就畫什麼。這裡讓你自己選：掛什麼、還剩幾發（成對的會先射一邊）。只要掛點有武器種類，派龍架就會留著，最後一發射完也一樣。</p>
+      </div>
+      <div class="card" id="dl">
+        <h3>Download</h3>
+        <div class="dlrow"><div><div class="f">F14.SH</div><div class="d" data-lang="en">F-14 shape · 58,880 bytes</div><div class="d" data-lang="zh">F-14 外形 · 58,880 bytes</div></div><a class="b" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/F14.SH" download>⬇ SH</a></div>
+        <div class="dlrow"><div><div class="f">F14.PT</div><div class="d" data-lang="en">matching F-14 stations (required)</div><div class="d" data-lang="zh">對應的 F-14 掛點（必要）</div></div><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PT/F14.PT" download>⬇ PT</a></div>
+        <div class="dlrow"><div><div class="f">F18.SH</div><div class="d" data-lang="en">F/A-18 shape · 61,440 bytes</div><div class="d" data-lang="zh">F/A-18 外形 · 61,440 bytes</div></div><a class="b" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/F18.SH" download>⬇ SH</a></div>
+        <div class="dlrow"><div><div class="f">F18.PT</div><div class="d" data-lang="en">matching F/A-18 stations (required)</div><div class="d" data-lang="zh">對應的 F/A-18 掛點（必要）</div></div><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PT/F18.PT" download>⬇ PT</a></div>
+        <div style="margin-top:10px"><button class="btn" id="zip">⬇ All four files (.zip)</button></div>
+        <p class="note" data-lang="en">Files come straight from <a href="https://github.com/kuoyichen/FAoutput">GitHub</a>. The textures (<code>_F14.PIC</code>, <code>_F18.PIC</code>) are the game's own and are not changed. <a href="#install">How to install</a></p>
+        <p class="note" data-lang="zh">檔案直接從 <a href="https://github.com/kuoyichen/FAoutput">GitHub</a> 下載。貼圖（<code>_F14.PIC</code>、<code>_F18.PIC</code>）用遊戲原本的，沒有改。<a href="#install">安裝方式</a></p>
+        <div id="zipMsg" class="note"></div>
+      </div>
+    </div>
+  </section>
+
+  <h2 id="changes">What changed from the factory SH</h2>
+  <p class="muted" data-lang="en">Both files are edits of the original FA shapes, not new models. The textures, the low-detail models and the moving parts (gear, flaps, hook, swing wings) are the factory ones.</p>
+  <p class="muted" data-lang="zh">兩個檔案都是改自 FA 原廠外形，不是全新的模型。貼圖、遠距離低細節模型和會動的零件（起落架、襟翼、尾鉤、可變翼）都是原廠的。</p>
+  <div class="two">
+    <div class="card chg">
+      <h3>F-14 Tomcat <span>F14.SH</span></h3>
+      <ul data-lang="en">
+        <li><b>New nose.</b> The radome was rebuilt from smooth rings so the tip sits on the fuselage centreline, as on the real jet, instead of drooping. The black radome paint and the pitot are gone, and the top and bottom lines blend smoothly into the fuselage. It is 57 points and 94 faces with computed shading normals, so it looks round in the game.</li>
+        <li><b>Chin pod moved back</b> about 5 ft, with its own drawing-order split so the pod and nose never show through each other.</li>
+        <li><b>Weapons drawn from the real loadout:</b> four AIM-7s in the belly tunnel, two fuel tanks under the intakes, two AIM-54s on the glove pylons and two AIM-9s on the pylon shoulders. Any station can also carry the other store types (AIM-120, HARM, GBU, Mk-82, JDAM).</li>
+        <li><b>Its own AIM-54</b> (octagonal body, straight cone nose, Phoenix fins). The other weapons are FA's own weapon models at their real size. AIM-7s have a blue band, and the tanks sit slightly nose-up to fit under the nacelles.</li>
+        <li><b>Glove pylons</b> with a raked leading edge. Pylons stay after firing and disappear when the station is empty.</li>
+        <li><b>Jettisoned or empty tanks fall away</b> for 2 seconds, nose dropping about the tail.</li>
+      </ul>
+      <ul data-lang="zh">
+        <li><b>新機鼻。</b>雷達罩用平滑的環重做，鼻尖從側面看落在機身中線上，跟真機一樣，不再往下垂。拿掉了黑色雷達罩塗裝和空速管，上下輪廓線平順地接回機身。共 57 點、94 面，並計算了光影法向量，在遊戲裡看起來是圓的。</li>
+        <li><b>下巴的莢艙往後移</b>大約 5 呎，並加上自己的繪製順序切分，莢艙和機鼻不會互相透出來。</li>
+        <li><b>依實際掛載畫出武器：</b>機腹凹槽四枚 AIM-7、進氣道下方兩個副油箱、翼套派龍上兩枚 AIM-54、派龍側軌上兩枚 AIM-9。每個掛點也都能掛其他種類（AIM-120、HARM、GBU、Mk-82、JDAM）。</li>
+        <li><b>自己做的 AIM-54</b>（八角形彈身、直錐形彈頭、鳳凰飛彈的尾翼）。其他武器用 FA 原本的武器模型，維持實際大小。AIM-7 有藍色色帶，副油箱略為抬頭，好貼合發動機艙下方。</li>
+        <li><b>翼套派龍</b>前緣做成斜的。武器射完派龍架還在，掛點清空才會消失。</li>
+        <li><b>拋棄或用完的副油箱會往下掉</b> 2 秒，以尾端為軸低頭落下。</li>
+      </ul>
+    </div>
+    <div class="card chg">
+      <h3>F/A-18 Hornet <span>F18.SH</span></h3>
+      <ul data-lang="en">
+        <li><b>Reshaped like the FAshion F/A-18C:</b> narrower and lower fuselage, lower canopy, longer nose and tail, smaller vertical and horizontal tails. The two-seat cockpit is kept. See the <a href="f18_showcase.html">F/A-18 Showcase</a> for the whole family.</li>
+        <li><b>Gaps closed</b> at the wing root and the LEX, and the main gear doors are half their old height.</li>
+        <li><b>Weapons drawn from the real loadout:</b> a centreline tank, AIM-120s on the fuselage, GBUs inboard, HARMs outboard and AIM-9s on the wingtips by default. Every station can take any store type (tank, AIM-9, AIM-7, AIM-120, AIM-54, HARM, GBU, Mk-82, JDAM).</li>
+        <li><b>FA's own weapon models</b> at their own size, hung on the hardpoints of the new F18.PT. The 480-gallon tank has a pointed nose and tail cone.</li>
+        <li><b>Wing stores moved 4 units back</b> so their tails clear the lowered flaps. Wing pylons hide when a station is empty.</li>
+        <li><b>Jettisoned or empty tanks fall away</b> from the centreline and both wing stations. Only fuel tanks fall; fired missiles just disappear.</li>
+      </ul>
+      <ul data-lang="zh">
+        <li><b>照 FAshion F/A-18C 修整外形：</b>機身變窄變低、座艙罩降低、機鼻和機尾加長、垂直和水平尾翼縮小。保留雙座座艙。整個家族請看 <a href="f18_showcase.html">F/A-18 展示</a>。</li>
+        <li><b>補上縫隙</b>：翼根和邊條的縫補起來了，主起落架艙門高度減半。</li>
+        <li><b>依實際掛載畫出武器：</b>預設是機腹中線副油箱、機身兩側 AIM-120、內側翼下 GBU、外側翼下 HARM、翼尖 AIM-9。每個掛點都能掛任何種類（副油箱、AIM-9、AIM-7、AIM-120、AIM-54、HARM、GBU、Mk-82、JDAM）。</li>
+        <li><b>用 FA 原本的武器模型</b>，維持原本大小，掛在新 F18.PT 的掛點上。480 加侖副油箱有尖頭和尾錐。</li>
+        <li><b>翼下外掛往後移 4 單位</b>，尾端不會碰到放下的襟翼。掛點清空時翼下派龍會隱藏。</li>
+        <li><b>拋棄或用完的副油箱會往下掉</b>，機腹中線和兩組翼下掛點都有。只有副油箱會掉，飛彈射出就直接消失。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 style="margin-top:26px" data-lang="en">Under the hood</h3>
+  <h3 style="margin-top:26px" data-lang="zh">技術細節</h3>
+  <p class="muted" data-lang="en">FA itself never draws stores on an aircraft. These shapes do it on their own: small x86 routines inside the SH read the aircraft's stations (weapon type and rounds left) every frame and pick which store to draw. New drawing-order (BSP) plane nodes are chained into the original tree, so stores show correctly behind or in front of the wings and fuselage from every angle. The CODE section had to grow to hold all of it.</p>
+  <p class="muted" data-lang="zh">FA 本身從來不會在飛機上畫外掛，這兩個外形是自己畫的：SH 裡的小段 x86 程式每一格都去讀飛機的掛點（武器種類和剩餘數量），決定要畫哪一種外掛。原本的繪製順序樹（BSP）裡串進了新的分割平面節點，所以從任何角度看，外掛在機翼和機身前面或後面都會正確。為了放下這些東西，CODE 區段加大了。</p>
+  <div class="card" style="overflow-x:auto">
+    <table class="num">
+      <tr><th></th><th data-lang="en">Factory</th><th data-lang="zh">原廠</th><th data-lang="en">New</th><th data-lang="zh">新版</th><th data-lang="en">What was added</th><th data-lang="zh">新增內容</th></tr>
+      <tr><td><b>F14.SH</b></td><td class="n">33,280 B · CODE 0x8000</td><td class="n">58,880 B · CODE 0xE000</td><td><span data-lang="en">new nose, own AIM-54, 9 store kinds × 10 slots, pylons, falling-tank timers, BSP nodes</span><span data-lang="zh">新機鼻、自製 AIM-54、9 種外掛 × 10 個位置、派龍架、油箱掉落計時、BSP 節點</span></td></tr>
+      <tr><td><b>F18.SH</b></td><td class="n">33,280 B · CODE 0x7000</td><td class="n">61,440 B · CODE 0xE000</td><td><span data-lang="en">reshaped body, 9 store kinds × 9 slots, pylons, falling-tank tables for 5 tank slots, BSP nodes</span><span data-lang="zh">修整機身、9 種外掛 × 9 個位置、派龍架、5 個油箱位置的掉落表、BSP 節點</span></td></tr>
+    </table>
+  </div>
+
+  <h2 id="install">How to install</h2>
+  <ol class="steps" data-lang="en">
+    <li>Download <code>F14.SH</code> + <code>F14.PT</code> and/or <code>F18.SH</code> + <code>F18.PT</code> (or the zip with all four).</li>
+    <li>Back up any files with the same names, then copy the new ones to where your FA install loads add-on SH and PT files.</li>
+    <li>Start a mission in the F-14 or F/A-18, pick a loadout in the arming screen, and look at your jet in an outside view.</li>
+  </ol>
+  <ol class="steps" data-lang="zh">
+    <li>下載 <code>F14.SH</code> + <code>F14.PT</code>，以及／或 <code>F18.SH</code> + <code>F18.PT</code>（或一次下載四個檔案的 zip）。</li>
+    <li>先備份同名的舊檔，再把新檔放到你的 FA 讀取外加 SH、PT 檔的地方。</li>
+    <li>開一場 F-14 或 F/A-18 的任務，在掛載畫面選武器，再切到外部視角看你的飛機。</li>
+  </ol>
+  <div class="warnbox" data-lang="en"><b>Use the matching PT.</b> The SH draws a store by station number, so it needs the station layout of the new PT. With the stock F14.PT the F-14 shows two AIM-54s on one side and none on the other, and no AIM-9s. Other aircraft that borrow these shapes (for example F14D.PT uses F14.SH, and F18F.PT / F18G.PT use F18.SH) draw stores according to their own stations, which may not line up. The PT hardpoints are also where FA launches the weapons, and some are set a little away from where the SH draws them on purpose, so missiles leave clear of the airframe.</div>
+  <div class="warnbox" data-lang="zh"><b>要用對應的 PT。</b>SH 是依掛點編號畫外掛，所以需要新 PT 的掛點配置。如果用原廠 F14.PT，F-14 會一邊畫兩枚 AIM-54、另一邊沒有，也沒有 AIM-9。其他借用這兩個外形的飛機（例如 F14D.PT 用 F14.SH，F18F.PT、F18G.PT 用 F18.SH）會照它們自己的掛點畫，可能對不上。PT 的掛點也是 FA 發射武器的位置，有幾個是故意設得離 SH 畫的位置遠一點，讓飛彈離開機身後才射出。</div>
+</main>
+<footer data-lang="en">FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>). Tools that built these shapes are in <a href="https://github.com/kuoyichen/FAoutput/tree/main/tools/shgen">tools/shgen</a> on GitHub. Keep a backup of your original files.</footer>
+<footer data-lang="zh">FAshion 是 hawke 為 Jane's Fighters Anthology 做的同好專案（<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>）。產生這些外形的工具在 GitHub 的 <a href="https://github.com/kuoyichen/FAoutput/tree/main/tools/shgen">tools/shgen</a>。請保留原本檔案的備份。</footer>
+
+<script src="sh_editor_core.js"></script>
+<script>
+"use strict";
+// SH parser: tools/sh_editor_core.js (SHCore), the same one the SH editor uses. It follows the hooks into blocks our generators
+// appended (F-14N nose, loadout stores), tags every store face with its station / kind / round, and places the moving parts.
+const { parsePIC, palFromBytes } = SHCore; let gamePal = null;
+FAI18N.register({
+  "FAshion home": "FAshion 首頁", "Release #4 · New F-14 and F/A-18": "發布 #4 · 新的 F-14 與 F/A-18", "Release #4 · Nov 16, 2026": "發布 #4 · 2026 年 11 月 16 日",
+  "Below": "下方", "Side": "側視", "Top": "上視", "Front": "前視", "Auto-rotate": "自動旋轉", "Wireframe": "線框", "Loading…": "載入中…",
+  "Configuration": "狀態", "Landing gear down": "起落架放下", "Flaps down": "襟翼放下", "Tailhook down": "尾鉤放下", "Speed brake open": "減速板打開", "Afterburner": "後燃器",
+  "Wing sweep": "後掠角", "Clean": "乾淨外形", "Carrier landing": "航艦降落", "Combat": "空戰",
+  "Loadout": "掛載", "Default": "預設", "All fired": "全部射完", "Empty": "全空", "Download": "下載", "⬇ All four files (.zip)": "⬇ 四個檔案一起下載（.zip）",
+  "What changed from the factory SH": "跟原廠 SH 相比改了什麼", "How to install": "安裝方式"
+});
+document.getElementById("langSlot").append(FAI18N.picker());
+const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
+const REMOTE = "https://raw.githubusercontent.com/kuoyichen/FAoutput/main/";
+async function fetchAny(path){
+  const urls = []; if (/^https?:$/.test(location.protocol)) urls.push(new URL("../" + path, location.href).href); urls.push(REMOTE + path);
+  for (const u of urls){ try { const r = await fetch(u); if (r.ok) return new Uint8Array(await r.arrayBuffer()); } catch(e){} }
+  return null;
+}
+
+// ===== The two aircraft =====
+const KIND = [["Nothing", "不掛"], ["Fuel tank", "副油箱"], ["AIM-9 Sidewinder", "AIM-9 響尾蛇"], ["AIM-120 AMRAAM", "AIM-120 AMRAAM"], ["AGM-88 HARM", "AGM-88 HARM"],
+  ["GBU laser bomb", "GBU 雷射導引炸彈"], ["Mk-82 / CBU bomb", "Mk-82／CBU 炸彈"], ["AIM-7 Sparrow", "AIM-7 麻雀"], ["AIM-54 Phoenix", "AIM-54 鳳凰"], ["JDAM", "JDAM"]];
+const kindName = k => KIND[k] ? L(...KIND[k]) : L("kind " + k, "種類 " + k);
+const AC = {
+  F14: { name: "F-14 Tomcat", sub: ["Rebuilt nose, Phoenix loadout", "重做機鼻、鳳凰飛彈掛載"], sweep: true, flaps: false,
+    st: { 4: ["Belly tunnel", "機腹凹槽"], 5: ["Under the intakes", "進氣道下方"], 6: ["Glove pylons", "翼套派龍"], 7: ["Pylon shoulders", "派龍側軌"] } },
+  F18: { name: "F/A-18 Hornet", sub: ["Reshaped, full strike loadout", "外形修整、對地攻擊掛載"], sweep: false, flaps: true,
+    st: { 4: ["Centreline", "機腹中線"], 5: ["Fuselage", "機身兩側"], 6: ["Inboard wing", "內側翼下"], 7: ["Outboard wing", "外側翼下"], 8: ["Wingtips", "翼尖"] } }
+};
+const cache = {};   // name -> { M (SHCore model), pic, stations, loadout }
+
+// ===== WebGL (same shading as the F/A-18 Showcase) =====
+const cv = $("cv"), gl = cv.getContext("webgl", { antialias: true });
+const VS = `attribute vec3 aP; attribute vec2 aUV; attribute vec3 aN; attribute vec2 aC;
+uniform mat4 uM; uniform float uZB; varying vec2 vUV; varying vec3 vN; varying vec2 vC;
+void main(){ vUV = aUV; vN = aN; vC = aC; gl_Position = uM * vec4(aP, 1.0); gl_Position.z -= uZB * gl_Position.w; }`;
+const FS = `precision mediump float; varying vec2 vUV; varying vec3 vN; varying vec2 vC;
+uniform sampler2D uPic; uniform sampler2D uPal; uniform vec2 uSize; uniform float uHasPic; uniform float uEdge;
+void main(){
+  if (uEdge > 0.5){ gl_FragColor = vec4(0.44, 0.83, 1.0, 0.6); return; }
+  float d = abs(dot(normalize(vN), normalize(vec3(0.35, 0.85, 0.4))));
+  float idx = vC.x; bool own = true;
+  if (vC.y > 0.5 && uHasPic > 0.5){
+    float t = floor(texture2D(uPic, (floor(vUV) + 0.5) / uSize).r * 255.0 + 0.5);
+    if (t > 254.5){ if (vC.x < 0.5) discard; } else { idx = t; own = false; }
+  }
+  if (own && idx >= 144.0 && idx <= 155.0) idx = clamp(idx + floor((0.75 - d) * 8.0 + 0.5), 144.0, 155.0);
+  vec3 c = texture2D(uPal, vec2((idx + 0.5) / 256.0, 0.5)).rgb;
+  if (!(own && idx >= 144.0 && idx <= 155.0)) c *= 0.7 + 0.4 * d;
+  gl_FragColor = vec4(c, 1.0);
+}`;
+function mkProg(){
+  const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+  const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(p); return p;
+}
+const prog = mkProg(), U = n => gl.getUniformLocation(prog, n), A = n => gl.getAttribLocation(prog, n);
+const vbo = gl.createBuffer(), edgeVbo = gl.createBuffer(), picTex = gl.createTexture(), palTex = gl.createTexture();
+function setTex(t, w, h, fmt, data){ gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, fmt, w, h, 0, fmt, gl.UNSIGNED_BYTE, data);
+  for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); }
+setTex(picTex, 1, 1, gl.LUMINANCE, new Uint8Array([0]));
+{ const g = new Uint8Array(768); for (let i = 0; i < 256; i++) g[3*i] = g[3*i+1] = g[3*i+2] = i; setTex(palTex, 256, 1, gl.RGB, g); }
+
+let cur = null, curName = null;   // cur = { faces, n, en, center, radius }
+const view = { yaw: 2.4, pitch: -0.45, zoom: 1 };
+
+// aircraft configuration -> FA control variables (_PLgearDown, _PLleftFlap, _PLswingWing…)
+function ctlState(m){ const vars = {}, nm = Object.fromEntries(Object.entries(m.imp || {}).map(([n, a]) => [a, n]));
+  const g = $("gear").checked, sw = Math.min(32767, Math.round((+$("sweep").value - 20) * 65536 / 360 / 0.2656));
+  const on = { _PLgearDown: g ? 1 : 0, _PLgearPos: g ? 0 : 32767, _PLleftFlap: $("flaps").checked ? -1 : 0, _PLrightFlap: $("flaps").checked ? -1 : 0,
+    _PLhook: $("hook").checked ? 1 : 0, _PLbrake: $("brake").checked ? 1 : 0, _PLafterBurner: $("ab").checked ? 1 : 0, _PLswingWing: sw, _PLbayOpen: 0 };
+  for (const x of m.ctl ? m.ctl.vars : []) vars[x.v] = nm[x.v] ? (on[nm[x.v]] ?? 0) : x.vals.length ? x.vals[0] : 0;
+  return vars; }
+// the loadout picked in the panel -> is this store / pylon face drawn (same rule as the SH editor)
+function storeShown(lo, t){ const s = lo.get(t.st); if (!s) return true; if (t.type === "pylon") return s.kind !== 0; return s.kind === t.kind && s.count >= t.rank; }
+
+// Afterburner flames: textured faces with no base colour whose texture area is mostly fire-coloured (as on the homepage).
+// FA draws them only with the burner lit; the parser cannot see that condition, so they are hidden unless Afterburner is on.
+function isFlame(idx, C){
+  const pic = C.pic, pal = gamePal; if (!idx.uv || idx.col || !pic || !pal) return false;
+  const us = idx.uv.map(q => q[0]), vs = idx.uv.map(q => q[1]);
+  const u0 = Math.max(0, Math.min(...us) | 0), u1 = Math.min(pic.w - 1, Math.max(...us) | 0), v0 = Math.max(0, Math.min(...vs) | 0), v1 = Math.min(pic.h - 1, Math.max(...vs) | 0);
+  let n = 0, hot = 0;
+  for (let y = v0; y <= v1; y++) for (let x = u0; x <= u1; x++){ const k = pic.px[y * pic.w + x]; if (k === 255) continue; n++;
+    const r = pal[3*k], g = pal[3*k+1], b = pal[3*k+2]; if (r > 150 && r > g + 40 && b < 120 || r + g + b < 40) hot++; }
+  return n > 0 && hot / n > 0.45;
+}
+function build(){
+  const C = cache[curName], M = C.M, ab = $("ab").checked;
+  M.place({ vars: ctlState(M) });
+  const faces = [];
+  for (const f of M.faces){
+    if (f.lod !== 0 || f.del || (f.store && (f.store.type === "fall" || !storeShown(C.loadout, f.store))) || (!ab && isFlame(f, C))) continue;
+    if (!f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed)) continue;
+    faces.push({ pts: f.refs.map(r => { const w = SHCore.worldOf(M, r[0], r[1]); return [w[0], w[2], w[1]]; }), uv: f.uv, col: f.col });
+  }
+  const data = [], ed = [];
+  faces.forEach(f => { const p = f.pts; let nx = 0, ny = 0, nz = 0;
+    for (let k = 0; k < p.length; k++){ const q = p[k], r = p[(k+1) % p.length]; nx += (q[1]-r[1])*(q[2]+r[2]); ny += (q[2]-r[2])*(q[0]+r[0]); nz += (q[0]-r[0])*(q[1]+r[1]); }
+    f.first = data.length / 10;
+    for (let k = 1; k < p.length - 1; k++) for (const j of [0, k, k+1]){ const q = p[j], uv = f.uv ? f.uv[j] : [0, 0]; data.push(q[0], q[1], q[2], uv[0], uv[1], nx, ny, nz, f.col, f.uv ? 1 : 0); }
+    f.cnt = data.length / 10 - f.first;
+    for (let k = 0; k < p.length; k++){ const q = p[k], r = p[(k+1) % p.length]; ed.push(...q, 0,0, 0,0,0, 0,0, ...r, 0,0, 0,0,0, 0,0); } });
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, edgeVbo); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ed), gl.STATIC_DRAW);
+  // keep the camera target fixed per aircraft (the body without stores), so changing the loadout does not move the view
+  if (!C.box){ let lo = [1e9,1e9,1e9], hi = [-1e9,-1e9,-1e9]; for (const f of faces) for (const q of f.pts) for (let k = 0; k < 3; k++){ lo[k] = Math.min(lo[k], q[k]); hi[k] = Math.max(hi[k], q[k]); }
+    C.box = { center: lo.map((x, k) => (x + hi[k]) / 2), radius: Math.max(1, Math.hypot(hi[0]-lo[0], hi[1]-lo[1], hi[2]-lo[2]) / 2) }; }
+  cur = { faces, en: ed.length / 10, ...C.box, pic: C.pic };
+  $("stat").textContent = `${curName}.SH · ${new Set(faces.flatMap(f => f.pts.map(q => q.join()))).size} ${L("points", "點")} · ${faces.length} ${L("faces", "面")}`;
+  draw();
+}
+function mul(a, b){ const o = new Array(16); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++){ let s = 0; for (let k = 0; k < 4; k++) s += a[k*4+j] * b[i*4+k]; o[i*4+j] = s; } return o; }
+function matrix(){
+  const w = cv.width, h = cv.height, r = cur.radius, asp = w / h, dist = r * (asp < 1 ? 1.9 / asp : 1.65) / view.zoom, f = 1 / Math.tan(0.5 * 0.7), near = Math.max(dist - r * 2, dist * 0.02), far = dist + r * 2;
+  const P = [f / asp,0,0,0, 0,f,0,0, 0,0,(far+near)/(near-far),-1, 0,0,2*far*near/(near-far),0];
+  const cy = Math.cos(view.yaw), sy = Math.sin(view.yaw), cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
+  const R = [cy, sy*sp, -sy*cp, 0,  0, cp, sp, 0,  sy, -cy*sp, cy*cp, 0,  0, 0, 0, 1];
+  const T = [1,0,0,0, 0,1,0,0, 0,0,1,0, -cur.center[0], -cur.center[1], -cur.center[2], 1];
+  const V = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,-dist,1];
+  return mul(P, mul(V, mul(R, T)));
+}
+function resize(){ const d = Math.min(2, devicePixelRatio || 1), w = Math.round(cv.clientWidth * d), h = Math.round(cv.clientHeight * d); if (cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; } }
+function bindAttrs(buf){ gl.bindBuffer(gl.ARRAY_BUFFER, buf); for (const [n, sz, off] of [["aP",3,0],["aUV",2,12],["aN",3,20],["aC",2,32]]){ const l = A(n); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, 40, off); } }
+function draw(){
+  resize(); gl.viewport(0, 0, cv.width, cv.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  if (!cur) return;
+  gl.useProgram(prog); gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
+  gl.uniformMatrix4fv(U("uM"), false, matrix());
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, picTex); gl.uniform1i(U("uPic"), 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, palTex); gl.uniform1i(U("uPal"), 1);
+  gl.uniform2f(U("uSize"), cur.pic ? cur.pic.w : 1, cur.pic ? cur.pic.h : 1); gl.uniform1f(U("uHasPic"), cur.pic ? 1 : 0);
+  gl.uniform1f(U("uEdge"), 0); gl.uniform1f(U("uZB"), 0);
+  // FA draws faces in order (later covers earlier), and decals share a plane with the body: pull later faces slightly forward
+  gl.enable(gl.POLYGON_OFFSET_FILL); bindAttrs(vbo);
+  cur.faces.forEach((f, i) => { if (!f.cnt) return; gl.polygonOffset(-i * 0.004, -i * 0.5); gl.drawArrays(gl.TRIANGLES, f.first, f.cnt); });
+  gl.disable(gl.POLYGON_OFFSET_FILL);
+  if ($("edges").checked){ gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); bindAttrs(edgeVbo); gl.uniform1f(U("uEdge"), 1); gl.uniform1f(U("uZB"), 0.0008); gl.drawArrays(gl.LINES, 0, cur.en); gl.disable(gl.BLEND); }
+}
+{ let drag = null, pinch = null; const pts = new Map();
+  cv.addEventListener("pointerdown", e => { pts.set(e.pointerId, [e.clientX, e.clientY]); cv.setPointerCapture(e.pointerId); $("spin").checked = false;
+    if (pts.size === 2){ const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a[0]-b[0], a[1]-b[1]), z: view.zoom }; drag = null; } else drag = { x: e.clientX, y: e.clientY }; });
+  cv.addEventListener("pointermove", e => { if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pinch && pts.size === 2){ const [a, b] = [...pts.values()]; view.zoom = Math.max(0.4, Math.min(8, pinch.z * Math.hypot(a[0]-b[0], a[1]-b[1]) / pinch.d)); draw(); return; }
+    if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY;
+    view.yaw += dx * 0.01; view.pitch = Math.max(-1.55, Math.min(1.55, view.pitch + dy * 0.01)); draw(); });
+  const up = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; if (!pts.size) drag = null; };
+  cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+  cv.addEventListener("wheel", e => { e.preventDefault(); view.zoom = Math.max(0.4, Math.min(8, view.zoom * Math.exp(-e.deltaY * 0.0015))); draw(); }, { passive: false });
+  addEventListener("resize", () => cur && draw());
+}
+const VIEWS = { iso: [2.4, 0.4], under: [2.3, -0.8], side: [Math.PI/2, 0], top: [Math.PI, 1.55], front: [Math.PI, 0] };
+document.querySelectorAll(".views button").forEach(b => b.onclick = () => { const [y, p] = VIEWS[b.dataset.v]; view.yaw = y; view.pitch = p; view.zoom = 1; $("spin").checked = false; draw(); });
+{ let last = 0; const tick = t => { if ($("spin").checked && cur && last){ view.yaw += (t - last) * 0.0003; draw(); } last = t; requestAnimationFrame(tick); }; requestAnimationFrame(tick); }
+
+// ===== Loadout panel =====
+function preset(which){
+  const C = cache[curName]; C.loadout = new Map();
+  for (const S of C.stations.values()) C.loadout.set(S.st, { kind: which === "empty" ? 0 : S.def, count: which === "default" ? S.maxRank : 0 });
+}
+function loadUI(){
+  const C = cache[curName], ac = AC[curName], sts = [...C.stations.values()].sort((a, b) => a.st - b.st);
+  $("acName").textContent = ac.name;
+  $("lrows").innerHTML = sts.map(S => { const lo = C.loadout.get(S.st), kinds = [0, ...[...S.kinds].sort((a, b) => a - b)], nm = ac.st[S.st];
+    return `<div class="lrow" data-st="${S.st}"><div class="nm">${nm ? L(...nm) : L("Station", "掛點") + " " + S.st}<small>${L("Station", "掛點")} ${S.st}${S.pylons ? L(" · pylon", " · 有派龍") : ""}</small></div>`
+      + `<select aria-label="${L("Store on station", "掛點外掛")} ${S.st}">${kinds.map(k => `<option value="${k}"${k === lo.kind ? " selected" : ""}>${kindName(k)}${k === S.def && k ? " ★" : ""}</option>`).join("")}</select>`
+      + `<span class="cnt"><button data-d="-1" aria-label="${L("One less", "少一發")}">−</button><output>${lo.count}/${S.maxRank}</output><button data-d="1" aria-label="${L("One more", "多一發")}">+</button></span></div>`; }).join("");
+  for (const row of $("lrows").querySelectorAll(".lrow")){
+    const st = +row.dataset.st, S = C.stations.get(st), lo = C.loadout.get(st), out = row.querySelector("output");
+    row.querySelector("select").onchange = e => { lo.kind = +e.target.value; if (lo.kind && !lo.count) lo.count = S.maxRank; out.textContent = lo.count + "/" + S.maxRank; build(); };
+    row.querySelectorAll(".cnt button").forEach(b => b.onclick = () => { lo.count = Math.max(0, Math.min(S.maxRank, lo.count + +b.dataset.d)); out.textContent = lo.count + "/" + S.maxRank; build(); });
+  }
+}
+$("ldDef").onclick = () => { preset("default"); loadUI(); build(); };
+$("ldFired").onclick = () => { preset("fired"); loadUI(); build(); };
+$("ldEmpty").onclick = () => { preset("empty"); loadUI(); build(); };
+
+// ===== Configuration =====
+for (const id of ["gear", "flaps", "hook", "brake", "ab"]) $(id).onchange = () => cur && build();
+$("sweep").oninput = () => { $("sweepOut").textContent = $("sweep").value + "°"; cur && build(); };
+$("edges").onchange = () => draw();
+const PRESETS = { clean: [0,0,0,0,0,20], trap: [1,1,1,0,0,20], fight: [0,0,0,1,1,68] };
+document.querySelectorAll("#cfg .presets button").forEach(b => b.onclick = () => { const p = PRESETS[b.dataset.p];
+  ["gear","flaps","hook","brake","ab"].forEach((id, k) => $(id).checked = !!p[k]); $("sweep").value = p[5]; $("sweepOut").textContent = p[5] + "°"; cur && build(); });
+
+// ===== Loading =====
+let palReady = null;
+async function loadPal(){ const u8 = await fetchAny("PIC/PALETTE.PAL"); const p = u8 ? palFromBytes(u8) : null; if (p){ gamePal = p; const rgb = new Uint8Array(768); rgb.set(p); setTex(palTex, 256, 1, gl.RGB, rgb); } }
+async function show(name){
+  curName = name; document.querySelectorAll("#ac button").forEach(b => b.classList.toggle("on", b.dataset.n === name));
+  $("flapsBox").style.display = AC[name].flaps ? "" : "none"; $("sweepBox").style.display = AC[name].sweep ? "" : "none";
+  if (!cache[name]){
+    $("stat").textContent = L("Loading ", "載入 ") + name + ".SH…";
+    const [u8, p8] = await Promise.all([fetchAny("SH/" + name + ".SH"), fetchAny("PIC/_" + name + ".PIC")]);
+    if (!u8){ $("stat").textContent = L("Could not load ", "無法載入 ") + name + ".SH"; return; }
+    let pic = null; try { if (p8) pic = parsePIC(p8); } catch(e){}
+    const M = SHCore.parseModel(u8); if (!M || !M.faces.length){ $("stat").textContent = L("Could not parse ", "無法解析 ") + name + ".SH"; return; }
+    cache[name] = { M, pic, stations: M.stations || new Map() };
+    preset("default");
+  }
+  if (curName !== name) return;
+  const C = cache[name]; if (C.pic) setTex(picTex, C.pic.w, C.pic.h, gl.LUMINANCE, C.pic.px);
+  await palReady; loadUI(); build();
+  try { history.replaceState(null, "", "?ac=" + name + location.hash); } catch(e){}
+}
+for (const [n, ac] of Object.entries(AC)){ const b = document.createElement("button"); b.dataset.n = n; b.innerHTML = `<b>${ac.name}</b><span></span>`; b.onclick = () => show(n); $("ac").appendChild(b); }
+function labelAc(){ document.querySelectorAll("#ac button").forEach(b => b.querySelector("span").textContent = L(...AC[b.dataset.n].sub) + " · " + b.dataset.n + ".SH"); }
+
+// ===== Zip of the four files (stored, no compression: no library needed) =====
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++){ let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = u8 => { let c = 0xFFFFFFFF; for (const b of u8) c = CRC[(c ^ b) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+function makeZip(files){
+  const parts = [], central = []; let off = 0;
+  for (const f of files){
+    const name = new TextEncoder().encode(f.name), crc = crc32(f.data), n = f.data.length, h = new DataView(new ArrayBuffer(30)), c = new DataView(new ArrayBuffer(46));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint32(14, crc, true); h.setUint32(18, n, true); h.setUint32(22, n, true); h.setUint16(26, name.length, true);
+    parts.push(new Uint8Array(h.buffer), name, f.data);
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint32(16, crc, true); c.setUint32(20, n, true); c.setUint32(24, n, true); c.setUint16(28, name.length, true); c.setUint32(42, off, true);
+    central.push(new Uint8Array(c.buffer), name); off += 30 + name.length + n;
+  }
+  const size = central.reduce((a, b) => a + b.length, 0), e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, size, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...central, new Uint8Array(e.buffer)], { type: "application/zip" });
+}
+$("zip").onclick = async () => {
+  const b = $("zip"), label = b.textContent; b.disabled = true; b.textContent = L("Preparing zip…", "正在打包…"); $("zipMsg").textContent = "";
+  try {
+    const files = [];
+    for (const p of ["SH/F14.SH", "PT/F14.PT", "SH/F18.SH", "PT/F18.PT"]){ const d = await fetchAny(p); if (!d) throw new Error(L("Could not download ", "無法下載 ") + p); files.push({ name: p.split("/")[1], data: d }); }
+    const url = URL.createObjectURL(makeZip(files)), a = document.createElement("a"); a.href = url; a.download = "FAshion_F14_F18.zip"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch(e){ $("zipMsg").textContent = e.message; }
+  b.disabled = false; b.textContent = label;
+};
+
+FAI18N.apply(); labelAc();
+FAI18N.onChange(() => { labelAc(); if (curName && cache[curName]){ loadUI(); build(); } });
+palReady = loadPal();
+show((new URLSearchParams(location.search).get("ac") || "").toUpperCase() === "F18" ? "F18" : "F14");
+</script>
+</body>
+</html>

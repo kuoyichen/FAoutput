@@ -2,6 +2,9 @@
 // Copied from tools/pt_editor.html (which keeps its own inline copy) for tools/jt_editor.html.
 "use strict";
 let PARSE_NO_STORES = false;   // true: skip the loadout stores built into an SH (tools/shgen/f18_stores.py)
+// STORE_PICK({ st, rank, def, pylon }) -> store kind to draw for that slot (0 = nothing; for a pylon slot, 1 = draw the pylon).
+// null = draw each slot's default kind. parseSH(...).stations lists the stations found (kinds, rounds, default, pylons).
+let STORE_PICK = null;
 // ===== SH parser (from sh_gallery.html; also reads each face's colour index and texture coordinates) =====
 const FACE_OPS = new Set([0x41,0x44,0x49,0x4C,0x51,0x54,0x59,0x5C,0x61,0x63,0x64,0x69,0x6B,0x6C,0x71,0x73,0x7C,0xCD,0xDD,0xED,0xEE,0xFE]);
 function parseSH(u8){
@@ -101,6 +104,7 @@ function parseSH(u8){
   // the aircraft's actual loadout, here the default kind (imm32 >> 16) is drawn.  Walk the whole main BSP from the root
   // and place the C4 parts that were added (beyond the original shape data), once each.
   const added = lod[lod.length - 1].e, placed = new Set();
+  const stations = new Map(), stubSeen = new Set();   // station -> { st, kinds:Set, maxRank, def, pylons }
   const storeWalk = (t, depth) => {
     for (let guard = 0; guard < 4000 && depth < 60 && t > 0 && t < L - 2; guard++){
       const op = c[t];
@@ -121,8 +125,16 @@ function parseSH(u8){
         t += 16;
       }
       else if (op === 0xF0 && c[t+1] === 0){
-        if (c[t+2] === 0x68 && c[t+7] === 0xE8){   // store slot stub: draw its default kind
-          const kind = c[t+5], tb = t + 12; if (kind) storeWalk(tb + cv.getInt16(tb + 2*kind, true), depth+1); return;
+        if (c[t+2] === 0x68 && c[t+7] === 0xE8){   // store slot stub: draw its default kind (or the kind STORE_PICK chooses)
+          const imm = cv.getUint32(t+3, true), st = imm & 255, rank = imm >> 8 & 255, def = imm >> 16 & 255, pylon = imm >>> 24 & 1, tb = t + 12, NK = cv.getInt16(tb + 2, true) / 2;
+          if ((def || pylon) && !stubSeen.has(t)){   // def 0 and no pylon bit = falling-tank slot (jettison animation)
+            stubSeen.add(t); const S = stations.get(st) || { st, kinds: new Set(), maxRank: 0, def: 0, pylons: 0 }; stations.set(st, S);
+            if (pylon) S.pylons++;
+            else { S.maxRank = Math.max(S.maxRank, rank); if (!S.def || rank === 1) S.def = def;
+              for (let k = 1; k < NK && k < 32; k++){ const lt = tb + cv.getInt16(tb + 2*k, true); if (lt > 0 && lt < L - 1 && !(c[lt] === 0 && c[lt+1] === 0)) S.kinds.add(k); } }
+          }
+          const kind = STORE_PICK ? (def || pylon ? STORE_PICK({ st, rank, def, pylon: !!pylon }) | 0 : 0) : c[t+5];
+          if (kind && (!STORE_PICK || kind < NK)) storeWalk(tb + cv.getInt16(tb + 2*kind, true), depth+1); return;
         }
         let r = null; for (let q = t+2; q < t+200 && q < L-5; q++) if (c[q] === 0x68){ const x = cv.getUint32(q+1, true) - SH_VA; if (x > 0 && x < L){ r = x; break; } }
         if (r == null) return; t = r;
@@ -130,7 +142,24 @@ function parseSH(u8){
       else return;
     }
   };
-  if (!PARSE_NO_STORES){ let r = main.e; while (c[r] === 0xF6) r += 7; storeWalk(r, 0); }
+  if (!PARSE_NO_STORES){
+    let r = main.e; while (c[r] === 0xF6) r += 7; storeWalk(r, 0);
+    // Store units chained in front of an original BSP subtree that the walk above did not reach (F-14 belly AIM-7s):
+    // an original plane node whose branch field now points into the appended code (checked like sh_editor_core entryOk)
+    const rel = f => f + 2 + cv.getInt16(f, true), inCode = t => t > 0 && t < L - 2;
+    const entryOk = t => {
+      if (t <= added || t >= L - 20 || c[t+1] !== 0) return false;
+      if (c[t] === 0x06){ const A = rel(t+14), B = rel(t+16); return inCode(A) && B > added && B < L - 4 && c[B+1] === 0 && [0x06, 0x12, 0xC4].includes(c[B]); }
+      if (c[t] === 0x12){ const T = rel(t+2); return T > added && T < L - 4 && c[T+1] === 0 && [0xF0, 0xC4, 0x06, 0x82].includes(c[T]); }
+      if (c[t] === 0xC4){ const T = rel(t+14); return T > added && T < L - 6 && c[T] === 0x82 && c[T+1] === 0; }
+      return false;
+    };
+    for (let o = main.e; o < added - 18; o++){
+      const op = c[o]; if (c[o+1] !== 0) continue;
+      const fl = op === 0x06 ? [14, 16] : op === 0x0C || op === 0x0E || op === 0x10 ? [10, 12] : op === 0x6C ? [6, 8] : null; if (!fl) continue;
+      for (const k of fl){ const t = rel(o + k); if (entryOk(t)) storeWalk(t, 1); }
+    }
+  }
   if (!f.length) return null;
   let span = 0; for (let i=0;i<main.n;i++) span = Math.max(span, Math.abs(v[i][0]));
   const parts = [];
@@ -153,7 +182,7 @@ function parseSH(u8){
   // all sub-part vertex sets of the first LOD (gear, flaps, speed brake…) and the code that controls them
   const subs = lod.slice(1).map((b, k) => ({ o: b.o, t: b.t, n: b.n, f: facetsIn(b.e, lod[k+2]?.o ?? stop, b.t, b.t + b.n),
     local: b.o >= 14 && c[b.o-14] === 0xFF && c[b.o-13] === 0xFF }));
-  return { v: v.map(p => p || [0,0,0]), f, parts, scale, subs, code: c, ctl: parseCtl(c, cv, subs), imp: shImports(u8, c) };
+  return { v: v.map(p => p || [0,0,0]), f, parts, scale, subs, code: c, ctl: parseCtl(c, cv, subs), imp: shImports(u8, c), stations };
 }
 
 // SH import table: each control variable is a global provided by FA.EXE, named in the import table (e.g. _PLgearDown, _PLleftFlap)
