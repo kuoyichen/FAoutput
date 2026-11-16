@@ -220,9 +220,12 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
 <footer data-lang="en">FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>). Tools that built these shapes are in <a href="https://github.com/kuoyichen/FAoutput/tree/main/tools/shgen">tools/shgen</a> on GitHub. Keep a backup of your original files.</footer>
 <footer data-lang="zh">FAshion 是 hawke 為 Jane's Fighters Anthology 做的同好專案（<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>）。產生這些外形的工具在 GitHub 的 <a href="https://github.com/kuoyichen/FAoutput/tree/main/tools/shgen">tools/shgen</a>。請保留原本檔案的備份。</footer>
 
-<script src="fa_sh_lib.js"></script>
+<script src="sh_editor_core.js"></script>
 <script>
 "use strict";
+// SH parser: tools/sh_editor_core.js (SHCore), the same one the SH editor uses. It follows the hooks into blocks our generators
+// appended (F-14N nose, loadout stores), tags every store face with its station / kind / round, and places the moving parts.
+const { parsePIC, palFromBytes } = SHCore; let gamePal = null;
 FAI18N.register({
   "FAshion home": "FAshion 首頁", "Release #4 · New F-14 and F/A-18": "發布 #4 · 新的 F-14 與 F/A-18", "Release #4 · Nov 16, 2026": "發布 #4 · 2026 年 11 月 16 日",
   "Below": "下方", "Side": "側視", "Top": "上視", "Front": "前視", "Auto-rotate": "自動旋轉", "Wireframe": "線框", "Loading…": "載入中…",
@@ -250,7 +253,7 @@ const AC = {
   F18: { name: "F/A-18 Hornet", sub: ["Reshaped, full strike loadout", "外形修整、對地攻擊掛載"], sweep: false, flaps: true,
     st: { 4: ["Centreline", "機腹中線"], 5: ["Fuselage", "機身兩側"], 6: ["Inboard wing", "內側翼下"], 7: ["Outboard wing", "外側翼下"], 8: ["Wingtips", "翼尖"] } }
 };
-const cache = {};   // name -> { u8, pic, stations, loadout }
+const cache = {};   // name -> { M (SHCore model), pic, stations, loadout }
 
 // ===== WebGL (same shading as the F/A-18 Showcase) =====
 const cv = $("cv"), gl = cv.getContext("webgl", { antialias: true });
@@ -292,10 +295,10 @@ function ctlState(m){ const vars = {}, nm = Object.fromEntries(Object.entries(m.
   const g = $("gear").checked, sw = Math.min(32767, Math.round((+$("sweep").value - 20) * 65536 / 360 / 0.2656));
   const on = { _PLgearDown: g ? 1 : 0, _PLgearPos: g ? 0 : 32767, _PLleftFlap: $("flaps").checked ? -1 : 0, _PLrightFlap: $("flaps").checked ? -1 : 0,
     _PLhook: $("hook").checked ? 1 : 0, _PLbrake: $("brake").checked ? 1 : 0, _PLafterBurner: $("ab").checked ? 1 : 0, _PLswingWing: sw, _PLbayOpen: 0 };
-  for (const x of m.ctl.vars) vars[x.v] = nm[x.v] ? (on[nm[x.v]] ?? 0) : x.vals.length ? x.vals[0] : 0;
+  for (const x of m.ctl ? m.ctl.vars : []) vars[x.v] = nm[x.v] ? (on[nm[x.v]] ?? 0) : x.vals.length ? x.vals[0] : 0;
   return vars; }
-// the loadout picked in the panel -> which list each store slot of the SH draws (tools/fa_sh_lib.js STORE_PICK)
-function pickFor(lo){ return o => { const s = lo.get(o.st); if (!s) return o.pylon ? 1 : o.def; if (o.pylon) return s.kind ? 1 : 0; return s.count >= o.rank ? s.kind : 0; }; }
+// the loadout picked in the panel -> is this store / pylon face drawn (same rule as the SH editor)
+function storeShown(lo, t){ const s = lo.get(t.st); if (!s) return true; if (t.type === "pylon") return s.kind !== 0; return s.kind === t.kind && s.count >= t.rank; }
 
 // Afterburner flames: textured faces with no base colour whose texture area is mostly fire-coloured (as on the homepage).
 // FA draws them only with the burner lit; the parser cannot see that condition, so they are hidden unless Afterburner is on.
@@ -309,11 +312,14 @@ function isFlame(idx, C){
   return n > 0 && hot / n > 0.45;
 }
 function build(){
-  const C = cache[curName]; STORE_PICK = pickFor(C.loadout); let m; try { m = parseSH(C.u8); } finally { STORE_PICK = null; }
-  const faces = [], add = (idx, tf) => faces.push({ pts: idx.map(i => tf(m.v[i])), uv: idx.uv, col: idx.col });
-  const ab = $("ab").checked; for (const idx of m.f) if (ab || !isFlame(idx, C)) add(idx, v => [v[0], v[2], v[1]]);
-  const drawn = new Set();
-  for (const e of evalCtl(m, ctlState(m))){ if (drawn.has(e.part)) continue; drawn.add(e.part); const tf = partTf(e); for (const idx of m.subs[e.part].f) add(idx, tf); }
+  const C = cache[curName], M = C.M, ab = $("ab").checked;
+  M.place({ vars: ctlState(M) });
+  const faces = [];
+  for (const f of M.faces){
+    if (f.lod !== 0 || f.del || (f.store && (f.store.type === "fall" || !storeShown(C.loadout, f.store))) || (!ab && isFlame(f, C))) continue;
+    if (!f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed)) continue;
+    faces.push({ pts: f.refs.map(r => { const w = SHCore.worldOf(M, r[0], r[1]); return [w[0], w[2], w[1]]; }), uv: f.uv, col: f.col });
+  }
   const data = [], ed = [];
   faces.forEach(f => { const p = f.pts; let nx = 0, ny = 0, nz = 0;
     for (let k = 0; k < p.length; k++){ const q = p[k], r = p[(k+1) % p.length]; nx += (q[1]-r[1])*(q[2]+r[2]); ny += (q[2]-r[2])*(q[0]+r[0]); nz += (q[0]-r[0])*(q[1]+r[1]); }
@@ -327,7 +333,7 @@ function build(){
   if (!C.box){ let lo = [1e9,1e9,1e9], hi = [-1e9,-1e9,-1e9]; for (const f of faces) for (const q of f.pts) for (let k = 0; k < 3; k++){ lo[k] = Math.min(lo[k], q[k]); hi[k] = Math.max(hi[k], q[k]); }
     C.box = { center: lo.map((x, k) => (x + hi[k]) / 2), radius: Math.max(1, Math.hypot(hi[0]-lo[0], hi[1]-lo[1], hi[2]-lo[2]) / 2) }; }
   cur = { faces, en: ed.length / 10, ...C.box, pic: C.pic };
-  $("stat").textContent = `${curName}.SH · ${m.v.length} ${L("points", "點")} · ${faces.length} ${L("faces", "面")}`;
+  $("stat").textContent = `${curName}.SH · ${new Set(faces.flatMap(f => f.pts.map(q => q.join()))).size} ${L("points", "點")} · ${faces.length} ${L("faces", "面")}`;
   draw();
 }
 function mul(a, b){ const o = new Array(16); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++){ let s = 0; for (let k = 0; k < 4; k++) s += a[k*4+j] * b[i*4+k]; o[i*4+j] = s; } return o; }
@@ -414,7 +420,8 @@ async function show(name){
     const [u8, p8] = await Promise.all([fetchAny("SH/" + name + ".SH"), fetchAny("PIC/_" + name + ".PIC")]);
     if (!u8){ $("stat").textContent = L("Could not load ", "無法載入 ") + name + ".SH"; return; }
     let pic = null; try { if (p8) pic = parsePIC(p8); } catch(e){}
-    const m = parseSH(u8); cache[name] = { u8, pic, stations: m.stations };
+    const M = SHCore.parseModel(u8); if (!M || !M.faces.length){ $("stat").textContent = L("Could not parse ", "無法解析 ") + name + ".SH"; return; }
+    cache[name] = { M, pic, stations: M.stations || new Map() };
     preset("default");
   }
   if (curName !== name) return;
