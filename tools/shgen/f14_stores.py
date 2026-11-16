@@ -64,13 +64,13 @@ def aim54():
     at = lambda frac: round(tip - frac * A54_LEN)                 # fwd at a fraction of the length from the nose
     SEC = [(1, 2), (2, 1), (2, -1), (1, -2), (-1, -2), (-2, -1), (-2, 1), (-1, 2)]   # octagon, top edge at up 2
     AX = -2                                                       # axis height: body top at up 0
-    nose, band0, band1 = at(.24) - 1, at(.40), at(.44)          # nose cone starts 1 further back (Kuoyi)
+    nose, band0, band1 = at(.24) - 2, at(.40), at(.44)          # nose cone starts 2 further back (Kuoyi)
     rings = [tail, band0, band1, nose]
     V, rid = [], []
     for f in rings:
         rid.append([])
         for x, u in SEC: V.append((x, f, u + AX)); rid[-1].append(len(V) - 1)
-    V.append((0, tip - 2, AX)); T = len(V) - 1                  # nose point 2 back (Kuoyi)
+    V.append((0, tip - 3, AX)); T = len(V) - 1                  # nose point 3 back (Kuoyi)
     light = (.45, .25, .85)
     def shade(q, band=False):
         P = [V[i] for i in q]; n = [0, 0, 0]
@@ -95,9 +95,9 @@ def aim54():
     F.append((FLAT, 143, list(rid[0])))                                       # tail cap
     G = orient(V, F, [0, (tail + tip) / 2, AX])
     # fins, outline (radial distance from the axis, fwd); root inside the body
-    wing = [(1.4, at(.38)), (5.7, at(.80)), (1.4, at(.80))]                   # pure delta wing (Kuoyi): root LE moved forward 46->38 %, tip at the trailing edge
     tf0 = tail + (at(.86) - tail) // 2                                          # Kuoyi: half the length, still ending at the tail
     tailfin = [(1.4, tf0), (5.7, tf0), (5.7, tail), (1.4, tail)]                # small rectangular tail fin
+    wing = [(1.4, at(.38)), (5.7, tf0 + 1), (1.4, tf0 + 1)]                  # pure delta; trailing edge 1 ahead of the tail fins (Kuoyi)
     for k in range(4):
         a = math.radians(A54_FIN_ROLL + 90 * k); ca, sa = math.cos(a), math.sin(a)
         for outline, col in ((wing, 147), (tailfin, 146)):
