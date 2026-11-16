@@ -55,8 +55,8 @@ A54_FIN_ROLL = 45            # fins in X: clear of the pylon and the tunnel roof
 
 def aim54():
     """AIM-54 built to the real round (Kuoyi 2026-11-16: separate long delta wings and small square tail fins).
-    Real: length 4.0 m, diameter 0.38 m, span 0.9 m; nose 22 %, wings from 46 % to 80 % of the length with a swept
-    leading edge, a gap, then small square tail fins on the last 14 %.  Here A54_LEN units long, octagonal body
+    Real: length 4.0 m, diameter 0.38 m, span 0.9 m; nose 22 %, wings from 46 % to 80 % of the length (pure
+    triangles), a gap, then small square tail fins on the last 14 %.  Here A54_LEN units long, octagonal body
     (flat to flat 4), pointed nose cone, blue band ahead of the wings, fins reaching 5 from the axis.
     Frame as fa_weapons.load: body top at up 0, LAST_TOP = height of the top above FA's origin."""
     import math
@@ -95,7 +95,7 @@ def aim54():
     F.append((FLAT, 143, list(rid[0])))                                       # tail cap
     G = orient(V, F, [0, (tail + tip) / 2, AX])
     # fins, outline (radial distance from the axis, fwd); root inside the body
-    wing = [(1.4, at(.46)), (5.7, at(.62)), (5.7, at(.80)), (1.4, at(.80))]    # long delta wing, swept leading edge
+    wing = [(1.4, at(.46)), (5.7, at(.80)), (1.4, at(.80))]                   # pure delta wing (Kuoyi): tip at the trailing edge
     tailfin = [(1.4, at(.86)), (5.7, at(.89)), (5.7, tail), (1.4, tail)]       # small square tail fin
     for k in range(4):
         a = math.radians(A54_FIN_ROLL + 90 * k); ca, sa = math.cos(a), math.sin(a)
