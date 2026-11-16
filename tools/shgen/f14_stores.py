@@ -65,7 +65,7 @@ def aim54():
     SEC = [(1, 2), (2, 1), (2, -1), (1, -2), (-1, -2), (-2, -1), (-2, 1), (-1, 2)]   # octagon, top edge at up 2
     AX = -2                                                       # axis height: body top at up 0
     nose = at(.24) - 2                                            # nose cone starts 2 further back (Kuoyi)
-    mid = (nose + tail) // 2                                      # Kuoyi: blue band in the middle of the body
+    mid = (nose + tail) // 2 + 2                                  # Kuoyi: blue band in the middle of the body, then 2 forward
     rings = [tail, mid - 1, mid + 1, nose]                        # (rings must run tail -> nose; the old 11/9 band ran backwards and was hidden)
     V, rid = [], []
     for f in rings:
