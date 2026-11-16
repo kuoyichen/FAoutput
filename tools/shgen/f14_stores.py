@@ -70,7 +70,7 @@ def aim54():
     for f in rings:
         rid.append([])
         for x, u in SEC: V.append((x, f, u + AX)); rid[-1].append(len(V) - 1)
-    V.append((0, tip, AX)); T = len(V) - 1
+    V.append((0, tip - 1, AX)); T = len(V) - 1                  # nose point 1 back (Kuoyi)
     light = (.45, .25, .85)
     def shade(q, band=False):
         P = [V[i] for i in q]; n = [0, 0, 0]
