@@ -57,7 +57,7 @@ button.on{border-color:var(--accent);color:var(--accent)}
 #loBox em{color:#ffd54a;font-style:normal}
 #loBox .lonote{font-size:11px}
 #joyBox{margin-top:10px;font-size:12px;color:var(--muted)}
-#joyBox h3{font-size:13px;margin:6px 0;color:#fff}
+#joyBox summary{font-size:13px;font-weight:700;margin:6px 0;color:#fff;cursor:pointer}
 #joyBox .jrow{display:grid;grid-template-columns:minmax(110px,1.4fr) 1fr 58px 36px;gap:4px;align-items:center;margin:3px 0}
 #joyBox .jbar{height:8px;background:#0006;border-radius:4px;position:relative;overflow:hidden}
 #joyBox .jbar i{position:absolute;top:0;bottom:0;left:50%;width:0;background:#ffd54a}
@@ -116,7 +116,6 @@ button.on{border-color:var(--accent);color:var(--accent)}
   <label for="selFM">Flight model</label>
   <select id="selFM"><option value="fa">FA (from the aircraft's PT file)</option><option value="arcade">Arcade (old)</option></select>
   <div id="loBox"></div>
-  <div id="joyBox"></div>
   <label for="selMission">Mission</label>
   <select id="selMission"><option value="free">Free flight</option><option value="canyon">Canyon strike</option></select>
   <div class="row"><button id="bGo">▶ Start</button></div>
@@ -124,7 +123,8 @@ button.on{border-color:var(--accent);color:var(--accent)}
   <label class="ck"><input type="checkbox" id="tex" checked> Textures</label>
   <p id="help1">Right stick: up/down is pitch, left/right is rudder. Left stick: up/down changes the throttle (it stays where you leave it), left/right is roll. The sticks only answer touches inside their circles: drag anywhere else to look around (the view stays where you leave it; Front brings it back, RC view watches from the runway end like an RC model pilot), pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult. The weapon button on the right picks gun, AIM-9, AIM-120 (air targets), AGM-65 (ground and ships) or MK-82 bombs; missiles lock the target nearest your nose. To land, slow down, lower the gear and raise the nose: the jet settles gently nose-high, and the throttle sets how fast it sinks.</p>
   <p id="help3">Canyon strike: fly the winding canyon at low level. Above the rim the SAM radar sees you and the sites launch. At the end of the canyon pull up over the ridge, dive into the crater and bomb the reactor (MK-82 is selected; the yellow circle shows where the bomb falls), then climb out: the SAMs on the crater rim fire at you, so turn hard and drop flares (FLARE button or C). Get 3 nm clear to finish.</p>
-  <p id="help2">Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, R restart, mouse drag to look, wheel to zoom.</p>
+  <p id="help2">Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, C or Delete flares, Insert chaff, F9 fly-by view, R restart, mouse drag to look, wheel to zoom.</p>
+  <div id="joyBox"></div>
 </div>
 <div id="load"><div id="loadT">Loading…</div><small id="loadS"></small></div>
 <script>
@@ -730,7 +730,7 @@ function spawn(){
     const f = [-Math.sin(sp.hdg), Math.cos(sp.hdg)], lf = [-Math.cos(sp.hdg), -Math.sin(sp.hdg)], x = sp.x + lf[0] * r * 3 + f[0] * r, y = sp.y + lf[1] * r * 3 + f[1] * r;
     cam.rcEye = [x, y, groundAt(x, y).h + 6]; }
   resetLoadoutCounts(); setWeapons(); if (P.s.fm) initFA();
-  W.lock = null; W.shots = []; W.bullets = []; EM.length = 0; FL.length = 0; flares = 24;
+  W.lock = null; W.shots = []; W.bullets = []; EM.length = 0; FL.length = 0; flares = 24; chaff = 24;
   if (mis){ W.ammo = [600, 2, 0, 2, 4]; W.sel = 4;
     for (const t of targets){ t.dead = 0; t.hp = t.maxHp; t.cd = 0; }
     Object.assign(MS, { phase: "canyon", c0: MS.clock, exp: 0, killT: 0, doneT: 0, time: 0, reactor: targets.find(t => t.objective) }); }
@@ -1091,7 +1091,7 @@ function damage(t, n, at){
     sub(L(`${t.name} destroyed!`, `擊毀 ${t.name}！`)); if (W.lock === t) W.lock = null; }
   else boom(at || t.pos, 30);
 }
-function boom(pos, size){ W.booms.push({ pos: pos.slice(), size, t0: performance.now() }); }
+function boom(pos, size){ W.booms.push({ pos: pos.slice(), size, t0: performance.now(), seed: (Math.random() * 1e9) | 0, vis: true, visT: 0 }); }
 const tCenter = t => t.kind === "bld" ? vadd(t.pos, [0, 0, (t.mesh.lo[2] + t.mesh.hi[2]) / 2]) : t.pos;
 function hitTarget(p, extra){ for (const t of targets) if (!t.dead && vlen(vsub(p, tCenter(t))) < t.mesh.radius * (t.kind === "bld" ? 0.75 : 0.6) + extra) return t; return null; }
 function stepCombat(dt){
@@ -1142,12 +1142,12 @@ function stepCombat(dt){
     }
   }
   W.shots = W.shots.filter(m => m.life > 0);
-  W.booms = W.booms.filter(b => performance.now() - b.t0 < 2500);
+  W.booms = W.booms.filter(b => performance.now() - b.t0 < 6000);
 }
 // ===== canyon strike mission: SAM sites, enemy missiles, flares =====
 const MS = { map: "island", on: false, phase: "", clock: 0, c0: 0, exp: 0, killT: 0, doneT: 0, time: 0, reactor: null };
 const EM = [], FL = [];   // enemy missiles in flight, flares
-let flares = 24, flareT = 0, samScan = 0;
+let flares = 24, flareT = 0, samScan = 0, chaff = 24, chaffT = 0;
 const exposedNow = () => P.pos[1] > -2000 && P.pos[1] < CY.end - 6500 && P.pos[2] > plateauH(P.pos[0], P.pos[1]) - 80;   // above the canyon rim
 function dropFlares(){
   if (P.mode !== "fly" || P.crashed || flares <= 0 || flareT > 0) return;
@@ -1158,9 +1158,17 @@ function dropFlares(){
   for (const m of EM) if (m.tgt === "player" && vlen(vsub(m.pos, P.pos)) < 12000 && Math.random() < 0.8) m.tgt = pair[Math.random() < 0.5 ? 0 : 1];
   updButtons();
 }
+// chaff: a cloud of foil that hangs in the air; a missile chasing you may lock onto it instead
+function dropChaff(){
+  if (P.mode !== "fly" || P.crashed || chaff <= 0 || chaffT > 0) return;
+  chaffT = 0.35; chaff -= 1;
+  const v0 = P.vel || vmul(fwdOf(P.q), P.speed), c = { pos: P.pos.slice(), vel: vmul(v0, 0.25), life: 5, chaff: true }; FL.push(c);
+  for (const m of EM) if (m.tgt === "player" && vlen(vsub(m.pos, P.pos)) < 15000 && Math.random() < 0.7) m.tgt = c;
+  sub(L("CHAFF", "干擾絲") + " ×" + chaff);
+}
 function stepMission(dt){
-  flareT -= dt;
-  for (const f of FL){ f.vel = vmul(f.vel, 1 - Math.min(1, 0.8 * dt)); f.vel[2] -= G * 0.5 * dt; f.pos = vadd(f.pos, vmul(f.vel, dt)); f.life -= dt; }
+  flareT -= dt; chaffT -= dt;
+  for (const f of FL){ f.vel = vmul(f.vel, 1 - Math.min(1, 0.8 * dt)); f.vel[2] -= (f.chaff ? 4 : G * 0.5) * dt; f.pos = vadd(f.pos, vmul(f.vel, dt)); f.life -= dt; }
   for (let i = FL.length - 1; i >= 0; i--) if (FL[i].life <= 0) FL.splice(i, 1);
   if (!MS.on) return;
   const alive = P.mode === "fly" && !P.crashed, now = performance.now(); MS.clock += dt;
@@ -1224,24 +1232,65 @@ function renderCombat(eye){
   // fireballs
   if (W.booms.length || FL.length || WAKE.length){
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
-    for (const b of W.booms){ const t = (performance.now() - b.t0) / 2500;
+    for (const b of W.booms){ const t = (performance.now() - b.t0) / 1000; if (t > 1) continue;
       gl.uniform4f(mProg.U("uTint"), 1, 0.55 - 0.35 * t, 0.12, 0.85); gl.uniform1f(mProg.U("uAlpha"), (1 - t) * 0.9);
       drawModel({ picTex: blankTex, pic: null }, sphere, modelMat([0,0,0,1], vsub(b.pos, eye), b.size * (0.4 + 1.2 * Math.sqrt(t))), false); }
     gl.uniform4f(mProg.U("uTint"), 0.95, 0.97, 1, 1);
     for (const w of WAKE){ if (w.bow && w.age > 3) continue; const k = w.age / (w.bow ? 3 : 25), M = modelMat([0,0,0,1], vsub(w.pos, eye), w.r * (1 + w.age * (w.bow ? 0.4 : 0.12))); M[10] *= 0.01;
       gl.uniform1f(mProg.U("uAlpha"), 0.3 * (1 - k) * (1 - k)); drawModel({ picTex: blankTex, pic: null }, sphere, M, false); }
     gl.uniform4f(mProg.U("uTint"), 1, 0.95, 0.75, 1);
-    for (const f of FL){ gl.uniform1f(mProg.U("uAlpha"), Math.min(1, f.life)); drawModel({ picTex: blankTex, pic: null }, sphere, modelMat([0,0,0,1], vsub(f.pos, eye), 14 + 6 * Math.sin(f.life * 30)), false); }
+    for (const f of FL){ if (f.chaff) continue; gl.uniform1f(mProg.U("uAlpha"), Math.min(1, f.life)); drawModel({ picTex: blankTex, pic: null }, sphere, modelMat([0,0,0,1], vsub(f.pos, eye), 14 + 6 * Math.sin(f.life * 30)), false); }
+    gl.uniform4f(mProg.U("uTint"), 0.75, 0.78, 0.82, 1);
+    for (const f of FL){ if (!f.chaff) continue; gl.uniform1f(mProg.U("uAlpha"), 0.25 * Math.min(1, f.life / 2)); drawModel({ picTex: blankTex, pic: null }, sphere, modelMat([0,0,0,1], vsub(f.pos, eye), 20 + (5 - f.life) * 12), false); }
     gl.uniform4f(mProg.U("uTint"), 0, 0, 0, 0); gl.uniform1f(mProg.U("uAlpha"), 1); gl.depthMask(true); gl.disable(gl.BLEND);
   }
 }
 const ov = $("ov"), ox = ov.getContext("2d");
 function project(p){ if (!lastPV) return null; const v = vsub(p, lastEye), M = lastPV;
   const x = M[0]*v[0] + M[4]*v[1] + M[8]*v[2] + M[12], y = M[1]*v[0] + M[5]*v[1] + M[9]*v[2] + M[13], w = M[3]*v[0] + M[7]*v[1] + M[11]*v[2] + M[15];
-  if (w <= 1) return null; return [(x / w * 0.5 + 0.5) * innerWidth, (0.5 - y / w * 0.5) * innerHeight]; }
+  if (w <= 1) return null; return [(x / w * 0.5 + 0.5) * innerWidth, (0.5 - y / w * 0.5) * innerHeight, w]; }
+// screen pixels per foot at depth w
+let lastFov = 1; const pxPerFt = w => innerHeight / 2 / Math.tan(lastFov / 2) / w;
+// explosions on the overlay, as on the replay page: flash and fireball, a smoke cloud, and debris streaks falling under gravity
+function rndSeq(seed){ let s = seed % 2147483647; if (s <= 0) s += 2147483646; return () => (s = s * 16807 % 2147483647) / 2147483647; }
+function drawBooms(){
+  const now = performance.now();
+  for (const b of W.booms){
+    const age = (now - b.t0) / 1000; if (age > 6) continue;
+    if (now > b.visT){ b.visT = now + 250; b.vis = clearLine(lastEye, vadd(b.pos, [0, 0, 20])); }   // hidden behind a hill: skip
+    if (!b.vis) continue;
+    const c = project(b.pos); if (!c) continue;
+    const R = Math.max(6, b.size * 4 * pxPerFt(c[2])), p = c;
+    if (age < 1.6){ const r = R * (0.3 + age * 1.4), a = 1 - age / 1.6;
+      const g = ox.createRadialGradient(p[0], p[1], 0, p[0], p[1], r);
+      g.addColorStop(0, `rgba(255,255,220,${a})`); g.addColorStop(.35, `rgba(255,190,60,${a * .9})`); g.addColorStop(.7, `rgba(230,70,20,${a * .6})`); g.addColorStop(1, "rgba(80,20,0,0)");
+      ox.fillStyle = g; ox.beginPath(); ox.arc(p[0], p[1], r, 0, 7); ox.fill(); }
+    if (age > 0.4){ const a = Math.max(0, 0.45 - (age - 0.4) / 12), r = R * (0.8 + age * 0.6), y = p[1] - age * R * 0.15;
+      const g = ox.createRadialGradient(p[0], y, 0, p[0], y, r);
+      g.addColorStop(0, `rgba(50,40,35,${a})`); g.addColorStop(1, "rgba(50,40,35,0)"); ox.fillStyle = g; ox.beginPath(); ox.arc(p[0], y, r, 0, 7); ox.fill(); }
+    const r = rndSeq(b.seed), k = b.size / 100;   // debris speed scales with the blast
+    ox.lineCap = "round";
+    for (let i = 0; i < 36; i++){
+      const th = r() * Math.PI * 2, ph = (r() - 0.3) * Math.PI * 0.9, v = (150 + r() * 450) * k, life = 1.5 + r() * 3, hot = r() < 0.5;
+      if (age > life) continue;
+      const dv = [Math.cos(th) * Math.cos(ph) * v, Math.sin(th) * Math.cos(ph) * v, Math.sin(ph) * v];
+      const pos = t => { const q = vadd(b.pos, vmul(dv, t)); q[2] -= 16 * t * t; return q; };
+      const A = project(pos(Math.max(0, age - 0.25))), B = project(pos(age)); if (!A || !B) continue;
+      const a = 1 - age / life;
+      ox.strokeStyle = hot ? `rgba(255,${150 + ((a * 100) | 0)},60,${a})` : `rgba(40,30,25,${a})`; ox.lineWidth = hot ? 2 : 2.5;
+      ox.beginPath(); ox.moveTo(A[0], A[1]); ox.lineTo(B[0], B[1]); ox.stroke();
+    }
+    ox.lineCap = "butt";
+  }
+}
+// target names from the PT files (tools/pt_names.json, made by tools/make_pt_names.cjs); types with no PT (ships, ground units) get a tidy name
+let PTN = {}; fetch("pt_names.json").then(r => r.ok ? r.json() : {}).then(j => PTN = j).catch(() => {});
+const OTHER_NAMES = { T72: "T-72", SA6: "SA-6", ZSU23: "ZSU-23-4", KIROV: "Kirov", KRIVAK: "Krivak", REACTR: "Reactor" };
+const tName = t => PTN[t.name] || OTHER_NAMES[t.name] || t.name;
 function drawOverlay(){
   const d = Math.min(2, devicePixelRatio || 1); if (ov.width !== Math.round(innerWidth * d)){ ov.width = Math.round(innerWidth * d); ov.height = Math.round(innerHeight * d); }
   ox.setTransform(d, 0, 0, d, 0, 0); ox.clearRect(0, 0, innerWidth, innerHeight);
+  drawBooms();
   if (P.mode !== "fly" || !P.s) return;
   ox.lineWidth = 1.5; ox.font = "600 11px ui-monospace,Consolas,monospace"; ox.textAlign = "center";
   const w = WEAPONS[W.sel];
@@ -1253,6 +1302,7 @@ function drawOverlay(){
     if (lock){ ox.strokeRect(s[0] - r - 4, s[1] - r - 4, 2*r + 8, 2*r + 8); ox.fillText("LOCK", s[0], s[1] - r - 9); }
     if (t.objective){ ox.strokeStyle = ox.fillStyle = lock ? "#ff4040" : "#ffd54a"; ox.strokeRect(s[0] - 20, s[1] - 20, 40, 40); ox.fillText(L("TARGET", "目標"), s[0], s[1] - 26); }
     else if (t.sam && !lock && dist < 16000) ox.fillText("SAM", s[0], s[1] - r - 5);
+    if (!t.objective && (t.kind !== "bld" || dist < 12000)){ const y = s[1] - r - (lock ? 22 : t.sam && dist < 16000 ? 18 : 5); ox.fillText(tName(t), s[0], y); }
     if (lock || t.objective || t.kind === "air" || t.kind === "sea") ox.fillText(dist > 9000 ? (dist / 6076).toFixed(1) + "nm" : Math.round(dist) + "ft", s[0], s[1] + r + 13);
   }
   ox.strokeStyle = ox.fillStyle = "#ff4040";
@@ -1273,9 +1323,28 @@ function drawOverlay(){
   $("bWpn").onclick = nextWeapon; }
 
 // ===== camera =====
+function placeFlyby(){
+  const v = P.vel && vlen(P.vel) > 30 ? P.vel : vmul(fwdOf(P.q), Math.max(P.speed, 60)), sp = vlen(v), f = vnorm(v), r = getMesh(P.s, {}).radius;
+  const D = clamp(sp * 3.5, 400, 4000);                               // about 3.5 s ahead along the flight path
+  let side = vnorm([f[1], -f[0], 0]); if (!isFinite(side[0]) || vlen(side) < 0.5) side = [1, 0, 0];
+  const eye = vadd(vadd(P.pos, vmul(f, D)), vadd(vmul(side, r * 2.5 + 40), [0, 0, r * 0.6 + 12]));
+  const gh = groundAt(eye[0], eye[1]).h; if (eye[2] < gh + 6) eye[2] = gh + 6;
+  cam.fly = { eye, D, min: 1e9 }; cam.flyFov = 0;
+}
+function toggleFlyby(){ if (cam.fly){ cam.fly = null; sub(L("Chase view", "追蹤視角")); } else { cam.rc = false; placeFlyby(); sub(L("Fly-by view (F9 again to leave)", "飛掠視角（再按 F9 離開）")); } updButtons(); }
 function camera(dt){
   const mesh = getMesh(P.s, {}), r = mesh.radius;   // framed on the clean model, so the afterburner flame, gear or speed brake never change the size; a turned view stays until the Front button (or a double-tap) brings it back
   const center0 = vadd(P.pos, [0, 0, (mesh.hi[2] + mesh.lo[2]) / 2]);
+  if (cam.fly){
+    // fly-by view (F9): a camera parked beside the flight path ahead; the jet comes at it, passes close and flies off. Once it
+    // is well past and going away, a new spot is picked ahead again
+    const F = cam.fly, eye = F.eye, d = vsub(center0, eye), dist = vlen(d), v = P.vel || vmul(fwdOf(P.q), P.speed);
+    if (dist < F.min) F.min = dist;
+    if ((F.min < F.D * 0.6 && dist > F.D * 2.5 && vdot(d, v) > 0) || dist > F.D * 6) placeFlyby();
+    const want = clamp(5 * Math.atan(r / Math.max(dist, 1)), 0.25, 1.0);
+    cam.flyFov = cam.flyFov ? cam.flyFov + (want - cam.flyFov) * (1 - Math.exp(-dt * 3)) : want;
+    return { eye: cam.fly.eye, target: center0, up: [0,0,1], fov: cam.flyFov };
+  }
   if (cam.rc && cam.rcEye){
     // RC view: you stand at the runway end, beside where the jet started, and follow it with your eyes. The zoom follows the
     // distance smoothly so the jet always fills about half the screen (pinch changes that share)
@@ -1367,7 +1436,7 @@ function render(){
   const above = eye[2] - groundAt(eye[0], eye[1]).h;
   // RC view: the eye stands on the ground (near plane would be ~3 ft) while the jet is miles away with a narrow lens, so depth
   // precision ran out and the far side of the jet showed through the near side. Push the near plane out to half the distance.
-  const near = cam.rc && cam.rcEye ? Math.max(3, dist * 0.5) : clamp(Math.min(dist * 0.15, above * 0.5), 2, 60), proj = perspective(c.fov, cv.width / cv.height, near, 260000);
+  const near = cam.fly ? Math.max(3, dist * 0.3) : cam.rc && cam.rcEye ? Math.max(3, dist * 0.5) : clamp(Math.min(dist * 0.15, above * 0.5), 2, 60), proj = perspective(c.fov, cv.width / cv.height, near, 260000);
   const PV = mul4(proj, lookAt0(vsub(c.target, eye), c.up));
   gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
   // terrain + sea
@@ -1386,7 +1455,7 @@ function render(){
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, palTex); gl.uniform1i(mProg.U("uPal"), 1); gl.uniform1i(mProg.U("uPic"), 0);
   for (const o of world.objs){ const dd = vlen(vsub(o.pos, eye)); if (dd > FOG[1] + o.mesh.radius) continue; drawModel(o.s, o.mesh, modelMat(o.q, vsub(o.pos, eye)), false, dd > o.mesh.radius * 25); }
   renderCombat(eye);
-  lastPV = PV; lastEye = eye;
+  lastPV = PV; lastEye = eye; lastFov = c.fov;
   const mesh = curMesh();
   if (!P.crashed || performance.now() - P.boom < 120){
     // shadow on the ground under the player
@@ -1467,7 +1536,7 @@ addEventListener("resize", placeSticks);
 const keys = new Set();
 addEventListener("keydown", e => { if (e.target.tagName === "SELECT") return; keys.add(e.code);
   if (e.code === "KeyG") toggleGear(); if (e.code === "KeyB") toggleBrake(); if (e.code === "KeyR") spawn(); if (e.code === "KeyV") $("bView").click();
-  if (e.code === "KeyF" || e.code === "KeyX") nextWeapon(); if (e.code === "KeyC") dropFlares(); if (e.code === "Space" && !e.repeat){ e.preventDefault(); W.fireHeld = true; fireOnce(); } });
+  if (e.code === "KeyF" || e.code === "KeyX") nextWeapon(); if (e.code === "KeyC" || e.code === "Delete") dropFlares(); if (e.code === "Insert") dropChaff(); if (e.code === "F9"){ e.preventDefault(); toggleFlyby(); } if (e.code === "Space" && !e.repeat){ e.preventDefault(); W.fireHeld = true; fireOnce(); } });
 addEventListener("keyup", e => { keys.delete(e.code); if (e.code === "Space") W.fireHeld = false; });
 addEventListener("blur", () => keys.clear());
 
@@ -1475,13 +1544,17 @@ addEventListener("blur", () => keys.clear());
 // Browsers only report a stick after a button is pressed (or an axis moved) while the page has focus.
 // Mapping is per page, saved in localStorage "fa_flight_joy": axes { i: axis index or -1, inv } and buttons (index or -1).
 const JOY_AXES = [["roll", "Roll", "滾轉"], ["pitch", "Pitch", "俯仰"], ["yaw", "Rudder", "方向舵"], ["thr", "Throttle", "油門"]];
-const JOY_BTNS = [["fire", "Fire", "開火"], ["weapon", "Next weapon", "切換武器"], ["flare", "Flares", "熱焰彈"], ["gear", "Gear", "起落架"], ["brake", "Brake", "煞車"], ["view", "View", "視角"], ["restart", "Restart", "重來"]];
-const JOY_DEF = { axes: { roll: { i: 0, inv: false }, pitch: { i: 1, inv: false }, yaw: { i: -1, inv: false }, thr: { i: -1, inv: false } },
-  btn: { fire: 0, weapon: 1, flare: 2, gear: 3, brake: -1, view: -1, restart: -1 }, dead: 0.06 };
+const JOY_BTNS = [["fire", "Fire", "開火"], ["gun", "Gun", "機砲"], ["weapon", "Next weapon", "切換武器"], ["flare", "Flares", "熱焰彈"], ["chaff", "Chaff", "干擾絲"], ["gear", "Gear", "起落架"], ["brake", "Brake", "煞車"], ["view", "View", "視角"], ["restart", "Restart", "重來"]];
+// defaults = Kuoyi's HOTAS (2026-11-16): rudder axis 5, throttle axis 2, fire button 4, gun button 0, next weapon button 3, view = hat on axis 9
+// (flares / chaff are on the keyboard: Delete / Insert)
+const JOY_DEF = { axes: { roll: { i: 0, inv: false }, pitch: { i: 1, inv: false }, yaw: { i: 5, inv: false }, thr: { i: 2, inv: false } },
+  btn: { fire: 4, gun: 0, weapon: 3, flare: -1, chaff: -1, gear: -1, brake: -1, view: -1, restart: -1 }, hat: 9, dead: 0.06 };
 let JOY = JSON.parse(JSON.stringify(JOY_DEF));
-try { const sv = JSON.parse(localStorage.getItem("fa_flight_joy") || "null"); if (sv && sv.axes && sv.btn){ Object.assign(JOY.axes, sv.axes); Object.assign(JOY.btn, sv.btn); if (sv.dead != null) JOY.dead = sv.dead; } } catch(e){}
+try { const sv = JSON.parse(localStorage.getItem("fa_flight_joy2") || "null"); if (sv && sv.axes && sv.btn){ Object.assign(JOY.axes, sv.axes); Object.assign(JOY.btn, sv.btn); if (sv.dead != null) JOY.dead = sv.dead; if (sv.hat != null) JOY.hat = sv.hat; } } catch(e){}
 const joy = { pad: null, prevBtn: [], learn: null, base: null, lastThr: null, ui: false };
-function saveJoy(){ try { localStorage.setItem("fa_flight_joy", JSON.stringify(JOY)); } catch(e){} }
+function saveJoy(){ try { localStorage.setItem("fa_flight_joy2", JSON.stringify(JOY)); } catch(e){} }
+// hat switch reported as one axis (Windows / Chrome): -1 = up, then +2/7 per 45° clockwise; ~1.29 (outside -1..1) = centred
+function hatDir(v){ if (v == null || v < -1.05 || v > 1.05) return -1; return ((Math.round((v + 1) * 3.5) % 8) + 8) % 8; }
 function getPad(){ const ps = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
   // a flight stick usually has more axes than a phone-style pad: prefer the device with the most axes
   return ps.sort((a, b) => b.axes.length - a.axes.length)[0] || null; }
@@ -1495,16 +1568,28 @@ function readJoy(){
   // learning: the first axis that moves well away from where it started, or the first button pressed
   if (joy.learn){ const [kind, key] = joy.learn;
     if (!joy.base) joy.base = { axes: pad.axes.slice(), btn: btn.slice() };
-    if (kind === "axis"){ let best = -1, d = 0.5; pad.axes.forEach((v, i) => { const dv = Math.abs(v - (joy.base.axes[i] ?? v)); if (dv > d){ d = dv; best = i; } });
+    if (kind === "hat"){ let best = -1; pad.axes.forEach((v, i) => { if (best < 0 && Math.abs(v - (joy.base.axes[i] ?? v)) > 0.1 && hatDir(v) >= 0) best = i; });
+      if (best >= 0){ JOY.hat = best; joy.learn = null; joy.base = null; saveJoy(); renderJoy(); } }
+    else if (kind === "axis"){ let best = -1, d = 0.5; pad.axes.forEach((v, i) => { const dv = Math.abs(v - (joy.base.axes[i] ?? v)); if (dv > d){ d = dv; best = i; } });
       if (best >= 0){ JOY.axes[key].i = best; joy.learn = null; joy.base = null; saveJoy(); renderJoy(); } }
     else { const i = btn.findIndex((b, i) => b && !joy.base.btn[i]); if (i >= 0){ for (const k in JOY.btn) if (JOY.btn[k] === i) JOY.btn[k] = -1; JOY.btn[key] = i; joy.learn = null; joy.base = null; joy.prevBtn = btn; saveJoy(); renderJoy(); return { pitch: 0, roll: 0, yaw: 0 }; } }
     joy.prevBtn = btn; return { pitch: 0, roll: 0, yaw: 0 };
   }
   const down = k => JOY.btn[k] >= 0 && btn[JOY.btn[k]], press = k => down(k) && !joy.prevBtn[JOY.btn[k]];
   if (press("fire")){ W.fireHeld = true; fireOnce(); } if (JOY.btn.fire >= 0 && !down("fire") && joy.prevBtn[JOY.btn.fire]){ W.fireHeld = false; updButtons(); }
-  if (press("weapon")) nextWeapon(); if (press("flare")) dropFlares(); if (press("gear")) toggleGear(); if (press("brake")) toggleBrake();
+  // gun: fires the cannon whatever weapon is selected, then goes back to that weapon
+  if (press("gun") && P.mode === "fly"){ const gi = WEAPONS.findIndex(w => w.id === "gun"); if (gi >= 0){ joy.gunPrev = W.sel; W.sel = gi; W.lock = null; W.fireHeld = true; fireOnce(); } }
+  if (JOY.btn.gun >= 0 && !down("gun") && joy.prevBtn[JOY.btn.gun] && joy.gunPrev != null){ W.fireHeld = false; W.sel = Math.min(joy.gunPrev, WEAPONS.length - 1); joy.gunPrev = null; updButtons(); }
+  if (press("weapon")) nextWeapon(); if (press("flare")) dropFlares(); if (press("chaff")) dropChaff(); if (press("gear")) toggleGear(); if (press("brake")) toggleBrake();
   if (press("view")) $("bView").click(); if (press("restart")) spawn();
   joy.prevBtn = btn;
+  // hat (POV) switch: pans the view smoothly while held (eases in up to 100°/s); the view stays where you leave it (Front button resets)
+  const hd = JOY.hat >= 0 && JOY.hat < pad.axes.length ? hatDir(pad.axes[JOY.hat]) : -1;
+  if (hd >= 0){ const a = hd * Math.PI / 4, dt = lastDt; joy.hatV = Math.min(1, (joy.hatV || 0) + dt / 0.35);
+    const w = joy.hatV * joy.hatV * 100 * Math.PI / 180 * dt;
+    cam.yaw -= Math.round(Math.sin(a) * 1e3) / 1e3 * w; cam.pitch = clamp(cam.pitch - Math.round(Math.cos(a) * 1e3) / 1e3 * w, -1.2, 1.4);
+    if (cam.yaw > Math.PI) cam.yaw -= 2 * Math.PI; if (cam.yaw < -Math.PI) cam.yaw += 2 * Math.PI; }
+  else joy.hatV = 0;
   // throttle lever: absolute (forward = full); it only takes over once it moves, so the keyboard / touch throttle still works
   const t = joyAxis(pad, "thr");
   if (t != null){ const want = clamp((1 - t) / 2, 0, 1); if (joy.lastThr == null || Math.abs(want - joy.lastThr) > 0.01){ if (joy.lastThr != null) P.thr = want; joy.lastThr = want; } }
@@ -1514,22 +1599,27 @@ function readJoy(){
 function renderJoy(){
   const box = $("joyBox"); if (!box) return;
   const pad = getPad();
-  let h = `<h3>🕹 ${L("Joystick", "飛行搖桿")}</h3><div class="jst">${pad ? L("Connected: ", "已連接：") + pad.id.replace(/</g, "&lt;") + ` (${pad.axes.length} ${L("axes", "軸")}, ${pad.buttons.length} ${L("buttons", "鍵")})`
+  let h = `<details${joy.open ? " open" : ""}><summary>🕹 ${L("Joystick", "飛行搖桿")}</summary><div class="jst">${pad ? L("Connected: ", "已連接：") + pad.id.replace(/</g, "&lt;") + ` (${pad.axes.length} ${L("axes", "軸")}, ${pad.buttons.length} ${L("buttons", "鍵")})`
     : L("Not detected. Plug in the stick and press any button on it: browsers only show a joystick to the page after a button press.", "未偵測到。插上搖桿後按一下搖桿上任一按鈕：瀏覽器要等按過按鈕才會讓網頁看到搖桿。")}</div>`;
   const lrn = (kind, k) => joy.learn && joy.learn[0] === kind && joy.learn[1] === k;
   for (const [k, en, zh] of JOY_AXES){ const m = JOY.axes[k];
     h += `<div class="jrow" data-a="${k}"><span>${L(en, zh)}: ${m.i < 0 ? "—" : L("axis ", "軸 ") + m.i}</span><div class="jbar"><i></i></div>`
       + `<button class="${lrn("axis", k) ? "on" : ""}">${lrn("axis", k) ? L("move it…", "請移動…") : L("Learn", "設定")}</button>`
       + `<label class="ck" style="margin:0" title="${L("invert", "反向")}"><input type="checkbox" ${m.inv ? "checked" : ""}>⇅</label></div>`; }
+  h += `<div class="jrow" data-h="1"><span>${L("View (hat)", "視角（苦力帽）")}: ${JOY.hat < 0 ? "—" : L("axis ", "軸 ") + JOY.hat}</span><span class="jhat"></span>`
+    + `<button class="${lrn("hat", "hat") ? "on" : ""}">${lrn("hat", "hat") ? L("push it…", "請壓下…") : L("Learn", "設定")}</button><button data-clr>✕</button></div>`;
   for (const [k, en, zh] of JOY_BTNS){ const b = JOY.btn[k];
     h += `<div class="jrow" data-b="${k}"><span>${L(en, zh)}: ${b < 0 ? "—" : L("button ", "按鈕 ") + b}</span><span></span>`
       + `<button class="${lrn("btn", k) ? "on" : ""}">${lrn("btn", k) ? L("press it…", "請按下…") : L("Learn", "設定")}</button><button data-clr>✕</button></div>`; }
   h += `<div class="row"><button id="joyReset">${L("Reset mapping", "還原預設")}</button></div>`
-    + `<p class="lonote">${L("Learn, then move the axis or press the button you want. Pull back = nose up; tick ⇅ if an axis works backwards. The throttle lever takes over once you move it.", "按「設定」後移動想要的軸或按下想要的按鈕。往後拉 = 抬頭；方向相反就勾 ⇅。油門桿移動後才會接管油門。")}</p>`;
-  box.innerHTML = h;
+    + `<p class="lonote">${L("Keyboard: Delete = flares, Insert = chaff. Learn, then move the axis or press the button you want. Pull back = nose up; tick ⇅ if an axis works backwards. The throttle lever takes over once you move it.", "按鍵盤：Delete = 熱焰彈，Insert = 干擾絲。按「設定」後移動想要的軸或按下想要的按鈕。往後拉 = 抬頭；方向相反就勾 ⇅。油門桿移動後才會接管油門。")}</p></details>`;
+  box.innerHTML = h; box.querySelector("details").ontoggle = e => { joy.open = e.target.open; };
   box.querySelectorAll("[data-a]").forEach(r => { const k = r.dataset.a;
     r.querySelector("button").onclick = () => { joy.learn = lrn("axis", k) ? null : ["axis", k]; joy.base = null; renderJoy(); };
     r.querySelector("input").onchange = e => { JOY.axes[k].inv = e.target.checked; saveJoy(); }; });
+  { const r = box.querySelector("[data-h]"), [a, c] = r.querySelectorAll("button");
+    a.onclick = () => { joy.learn = lrn("hat", "hat") ? null : ["hat", "hat"]; joy.base = null; renderJoy(); };
+    c.onclick = () => { JOY.hat = -1; saveJoy(); renderJoy(); }; }
   box.querySelectorAll("[data-b]").forEach(r => { const k = r.dataset.b, [a, c] = r.querySelectorAll("button");
     a.onclick = () => { joy.learn = lrn("btn", k) ? null : ["btn", k]; joy.base = null; renderJoy(); };
     c.onclick = () => { JOY.btn[k] = -1; saveJoy(); renderJoy(); }; });
@@ -1539,6 +1629,7 @@ function renderJoy(){
 function joyBars(){
   if (!$("panel").classList.contains("open")) return;
   if (!!joy.pad !== !!joy.shown){ joy.shown = !!joy.pad; renderJoy(); }
+  const hs = $("joyBox").querySelector(".jhat"); if (hs){ const d = JOY.hat >= 0 && joy.pad ? hatDir(joy.pad.axes[JOY.hat]) : -1; hs.textContent = d < 0 ? "·" : "↑↗→↘↓↙←↖"[d]; }
   $("joyBox").querySelectorAll("[data-a]").forEach(r => { const v = joyAxis(joy.pad, r.dataset.a), i = r.querySelector("i");
     if (v == null){ i.style.width = "0"; return; } i.style.left = (v < 0 ? 50 + v * 50 : 50) + "%"; i.style.width = Math.abs(v) * 50 + "%"; });
 }
@@ -1568,12 +1659,12 @@ function updButtons(){
 }
 function toggleGear(){ if (P.mode !== "fly" || P.onGround || P.crashed) return; P.gear = !P.gear; updButtons(); }
 function toggleBrake(){ P.brake = !P.brake; updButtons(); }
-function frontView(){ cam.yaw = cam.pitch = 0; cam.zoom = 1; cam.rc = false; updButtons(); }
+function frontView(){ cam.yaw = cam.pitch = 0; cam.zoom = 1; cam.rc = false; cam.fly = null; updButtons(); }
 $("bFront").onclick = frontView;
-$("bRC").onclick = () => { cam.rc = !cam.rc; cam.zoom = 1; cam.rcFov = 0; updButtons(); sub(cam.rc ? L("RC view: watching from the runway end, like flying a model plane. Pinch to zoom.", "遙控視角：站在跑道頭看飛機，像在飛遙控飛機。兩指可縮放。") : L("Chase view", "追蹤視角")); };
+$("bRC").onclick = () => { cam.rc = !cam.rc; cam.fly = null; cam.zoom = 1; cam.rcFov = 0; updButtons(); sub(cam.rc ? L("RC view: watching from the runway end, like flying a model plane. Pinch to zoom.", "遙控視角：站在跑道頭看飛機，像在飛遙控飛機。兩指可縮放。") : L("Chase view", "追蹤視角")); };
 $("bFlare").addEventListener("pointerdown", e => { e.preventDefault(); dropFlares(); });
 $("bGear").onclick = toggleGear; $("bBrake").onclick = toggleBrake; $("bReset").onclick = () => spawn();
-$("bView").onclick = () => { cam.mode = (cam.mode + 1) % 3; cam.yaw = cam.pitch = 0; cam.rc = false; updButtons(); sub([L("Chase view", "追蹤視角"), L("Far chase view", "遠距追蹤"), L("Close view", "近距視角")][cam.mode]); };
+$("bView").onclick = () => { cam.mode = (cam.mode + 1) % 3; cam.yaw = cam.pitch = 0; cam.rc = false; cam.fly = null; updButtons(); sub([L("Chase view", "追蹤視角"), L("Far chase view", "遠距追蹤"), L("Close view", "近距視角")][cam.mode]); };
 $("menuBtn").onclick = () => { $("panel").classList.toggle("open"); renderLoadout(); renderJoy(); };
 $("selFM").onchange = () => { try { localStorage.setItem("fa_flight_fm", $("selFM").value); } catch(e){} spawn(); };
 try { const v = localStorage.getItem("fa_flight_fm"); if (v) $("selFM").value = v; } catch(e){}
@@ -1604,8 +1695,8 @@ FAI18N.register({
   "▶ Start": "▶ 開始", "Invert pitch (push stick up = nose up)": "反轉俯仰（搖桿往上推 = 機頭抬起）", "Textures": "貼圖",
   "Right stick: up/down is pitch, left/right is rudder. Left stick: up/down changes the throttle (it stays where you leave it), left/right is roll. The sticks only answer touches inside their circles: drag anywhere else to look around (the view stays where you leave it; Front brings it back, RC view watches from the runway end like an RC model pilot), pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult. The weapon button on the right picks gun, AIM-9, AIM-120 (air targets), AGM-65 (ground and ships) or MK-82 bombs; missiles lock the target nearest your nose. To land, slow down, lower the gear and raise the nose: the jet settles gently nose-high, and the throttle sets how fast it sinks.":
     "右搖桿：上下是俯仰，左右是方向舵。左搖桿：上下調整油門（放開後會停在那個位置），左右是滾轉。搖桿只在圓圈內有效；在畫面其他地方拖曳都是轉動視角（視角會停在你轉到的地方，按「前向」回到正後方；「遙控視角」會站在跑道頭看飛機，像飛遙控飛機一樣），兩指縮放，點兩下讓鏡頭立刻回到後方。油門推到底會開後燃器；在航艦上也會啟動彈射器。右側的武器按鈕可切換機砲、AIM-9、AIM-120（打空中目標）、AGM-65（打地面和船艦）或 MK-82 炸彈；飛彈會鎖定最靠近機頭的目標。降落時減速、放下起落架、抬起機頭：飛機會以機頭朝上的姿態緩緩下降，用油門控制下降速度。",
-  "Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, R restart, mouse drag to look, wheel to zoom.":
-    "鍵盤：W/S 俯仰、A/D 滾轉、Q/E 方向舵、Shift/Ctrl 油門、G 起落架、B 煞車、空白鍵 發射、F 換武器、R 重來，滑鼠拖曳轉視角、滾輪縮放。",
+  "Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, C or Delete flares, Insert chaff, F9 fly-by view, R restart, mouse drag to look, wheel to zoom.":
+    "鍵盤：W/S 俯仰、A/D 滾轉、Q/E 方向舵、Shift/Ctrl 油門、G 起落架、B 煞車、空白鍵 發射、F 換武器、C 或 Delete 熱焰彈、Insert 干擾絲、F9 飛掠視角、R 重來，滑鼠拖曳轉視角、滾輪縮放。",
   "Mission": "任務", "⛰ Canyon strike mission": "⛰ 峽谷轟炸任務", "Free flight": "自由飛行", "Canyon strike": "峽谷轟炸任務",
   "Canyon strike: fly the winding canyon at low level. Above the rim the SAM radar sees you and the sites launch. At the end of the canyon pull up over the ridge, dive into the crater and bomb the reactor (MK-82 is selected; the yellow circle shows where the bomb falls), then climb out: the SAMs on the crater rim fire at you, so turn hard and drop flares (FLARE button or C). Get 3 nm clear to finish.":
     "峽谷轟炸任務：沿著蜿蜒的峽谷低空飛行。高過峽谷邊緣就會被防空雷達看到，飛彈陣地會發射。到峽谷盡頭拉起越過山脊，俯衝進入內凹的山谷，轟炸核子反應爐（已選好 MK-82，黃色圓圈是炸彈落點），然後拉出來：山谷上緣的防空飛彈會對你發射，要急轉並放熱焰彈（熱焰彈按鈕或 C 鍵）。飛離 3 浬即完成任務。",
