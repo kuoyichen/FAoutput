@@ -228,7 +228,7 @@ function parseModel(u8in) {
   // coordinate of 226 is also stored as the bytes E2 00
   const picAt = o => { let s = ""; for (let k = 2; k < 16 && c[o + k]; k++) s += String.fromCharCode(c[o + k]); return /^[\w-]+\.PIC$/i.test(s); };
   let start = 0x14; for (let o = 0; o < Math.min(stop, 0x400); o++) if (c[o] === 0xE2 && c[o + 1] === 0 && picAt(o)) { start = o + 16; break; }
-  const M = { u8, pe, c, dv, stop, scale, shift, bufs: [], verts: [], faces: [], f6: [], insts: [I3()], lods: [], texNames: [], warnings: [] };
+  const M = { u8, pe, c, dv, stop, scale, shift, bufs: [], verts: [], faces: [], f6: [], insts: [I3()], instMeta: [null], lods: [], texNames: [], warnings: [], stations: new Map(), fallSlots: 0 };
   for (let i = 0; i < u8.length - 16; i++) if (u8[i] === 0xE2 && u8[i + 1] === 0) { let s = ""; for (let k = 2; k < 16 && u8[i + k]; k++) s += String.fromCharCode(u8[i + k]); if (/^[\w-]+\.PIC$/i.test(s) && !M.texNames.includes(s.toUpperCase())) M.texNames.push(s.toUpperCase()); }
 
   const goodBuf = (o, limit) => {
@@ -261,7 +261,8 @@ function parseModel(u8in) {
     const k = F.o + ":" + refs.map(r => r[1]).join(",");
     if (faceKey.has(k)) return true;
     faceKey.set(k, M.faces.length);
-    M.faces.push({ ...F, id: M.faces.length, refs, lod, hooked, rec: F.o, del: false });
+    const store = refs.map(r => M.instMeta[r[1]]).find(x => x) || null;
+    M.faces.push({ ...F, id: M.faces.length, refs, lod, hooked, rec: F.o, del: false, store });
     return true;
   };
   const addF6 = (o, map, lod) => { const s = dv.getUint16(o + 1, true), r = map[s]; if (r) M.f6.push({ o, slot: s, vid: r[0], lod }); };
@@ -275,11 +276,39 @@ function parseModel(u8in) {
     const t = o + 4 + dv.getInt16(o + 2, true);
     if (t > lastLod && t < stop - 2 && [0x82, 0xFC, 0x06, 0x0C, 0x0E, 0x10, 0x12].includes(c[t])) hooks.set(o, t);
   }
-  const appendStart = hooks.size ? Math.min(...hooks.values()) : stop;
+  // Code reached from the hooks: our generators append blocks before the signature, and later edits stack
+  // (the F-14 stores chain jumps back into the F-14N nose block), so the appended area starts at the lowest
+  // address reached from any hook, not just the lowest hook target.
+  const reach = new Set(), todo = [...hooks.values()];
+  const fwd = (t, lim) => { if (t > lastLod && t < stop - 1) todo.push(t); };
+  while (todo.length) {
+    let t = todo.pop();
+    for (let g = 0; g < 4000 && t > lastLod && t < stop - 1 && !reach.has(t); g++) {
+      reach.add(t); const op = c[t];
+      if (op === 0x82 && c[t + 1] === 0) { const b = goodBuf(t, stop); if (!b) break; t = b.e; }
+      else if (op === 0xF6) t += 7;
+      else if (op === 0xFC) { const F = readFace(c, dv, t, stop); if (!F) break; t = F.end; }
+      else if ((op === 0x06 || op === 0x0C || op === 0x0E || op === 0x10) && c[t + 1] === 0) { const k = op === 0x06 ? 14 : 10; fwd(t + k + 2 + dv.getInt16(t + k, true)); fwd(t + k + 4 + dv.getInt16(t + k + 2, true)); t += k + 4; }
+      else if (op === 0x6C && c[t + 1] === 0) { fwd(t + 8 + dv.getInt16(t + 6, true)); fwd(t + 10 + dv.getInt16(t + 8, true)); t += 10; }
+      else if (op === 0x12 && c[t + 1] === 0) { fwd(t + 4 + dv.getInt16(t + 2, true)); t += 4; }
+      else if (op === 0x38) { t = t + 3 + dv.getInt16(t + 1, true); }
+      else if (op === 0xC4 && c[t + 1] === 0) { fwd(t + 16 + dv.getInt16(t + 14, true)); t += 16; }
+      else break;
+    }
+  }
+  const appendStart = hooks.size ? Math.min(...hooks.values(), ...[...reach].filter(t => [0x82, 0xFC, 0x06, 0x0C, 0x0E, 0x10, 0x12, 0x6C, 0xC4, 0xF0].includes(c[t]))) : stop;
   M.appendStart = appendStart; M.hooks = [...hooks.entries()];
 
+  // loadout stubs: the shared routine is the call target of the pylon stubs (bit 24); any other target is the
+  // falling-tank routine
+  const subTargets = new Set(), fallTargets = new Set(), allTargets = new Set();
+  for (let o = appendStart; o < stop - 12; o++) if (c[o] === 0xF0 && c[o + 1] === 0 && c[o + 2] === 0x68 && c[o + 7] === 0xE8) {
+    const tg = o + 12 + dv.getInt32(o + 8, true); allTargets.add(tg); if (c[o + 6] & 1) subTargets.add(tg);
+  }
+  if (subTargets.size) for (const tg of allTargets) if (!subTargets.has(tg)) fallTargets.add(tg);
+
   // structured walk of an appended block
-  const walk = (t, map, inst, lod, depth, seen) => {
+  const walk = (t, map, inst, lod, depth, seen, meta = null) => {
     for (let g = 0; g < 4000 && t >= appendStart && t < stop - 1; g++) {
       const key = t + "@" + inst; if (seen.has(key)) return; seen.add(key);
       const op = c[t];
@@ -288,28 +317,65 @@ function parseModel(u8in) {
       else if (op === 0xFC) { const F = readFace(c, dv, t, stop); if (!F) return; addFace(F, map, lod, true, false); t = F.end; }
       else if ((op === 0x06 || op === 0x0C || op === 0x0E || op === 0x10) && c[t + 1] === 0) {
         const k = op === 0x06 ? 14 : 10;
-        for (const [r, e] of [[t + k, t + k + 2], [t + k + 2, t + k + 4]]) { const g2 = e + dv.getInt16(r, true); if (g2 >= appendStart && depth < 40) walk(g2, map.slice(), inst, lod, depth + 1, seen); }
+        for (const [r, e] of [[t + k, t + k + 2], [t + k + 2, t + k + 4]]) { const g2 = e + dv.getInt16(r, true); if (g2 >= appendStart && depth < 40) walk(g2, map.slice(), inst, lod, depth + 1, seen, meta); }
         t += k + 4;
       }
       else if (op === 0x6C && c[t + 1] === 0) {
-        for (const [r, e] of [[t + 6, t + 8], [t + 8, t + 10]]) { const g2 = e + dv.getInt16(r, true); if (g2 >= appendStart && depth < 40) walk(g2, map.slice(), inst, lod, depth + 1, seen); }
+        for (const [r, e] of [[t + 6, t + 8], [t + 8, t + 10]]) { const g2 = e + dv.getInt16(r, true); if (g2 >= appendStart && depth < 40) walk(g2, map.slice(), inst, lod, depth + 1, seen, meta); }
         t += 10;
       }
-      else if (op === 0x12 && c[t + 1] === 0) { const g2 = t + 4 + dv.getInt16(t + 2, true); if (g2 >= appendStart && depth < 40) walk(g2, map, inst, lod, depth + 1, seen); t += 4; }
+      else if (op === 0x12 && c[t + 1] === 0) { const g2 = t + 4 + dv.getInt16(t + 2, true); if (g2 >= appendStart && depth < 40) walk(g2, map, inst, lod, depth + 1, seen, meta); t += 4; }
       else if (op === 0x38) { const g2 = t + 3 + dv.getInt16(t + 1, true); if (g2 < appendStart) return; t = g2; }
       else if (op === 0xC4 && c[t + 1] === 0) {
         const pos = [0, 1, 2].map(k => dv.getInt16(t + 2 + 2 * k, true)), rot = [3, 4, 5].map(k => dv.getInt16(t + 2 + 2 * k, true));
         const pt = t + 16 + dv.getInt16(t + 14, true);
-        if (pt >= appendStart && depth < 40) { M.insts.push(compose(M.insts[inst], c4Tf(pos, rot))); walk(pt, map.slice(), M.insts.length - 1, lod, depth + 1, seen); }
+        if (pt >= appendStart && depth < 40) { M.insts.push(compose(M.insts[inst], c4Tf(pos, rot))); M.instMeta.push(meta); walk(pt, map.slice(), M.insts.length - 1, lod, depth + 1, seen, meta); }
         t += 16;
+      }
+      else if (op === 0xF0 && c[t + 1] === 0 && c[t + 2] === 0x68 && c[t + 7] === 0xE8) {
+        // loadout stub (tools/shgen/f18_stores.py): `F0 00 68 imm32 E8 rel32` + i16 table (relative to the table).
+        // In the game the x86 routine reads the aircraft's stations and returns into one of the lists; here every
+        // list is walked once and tagged, and the page shows the ones that match the loadout picked by the user.
+        const imm = dv.getUint32(t + 3, true), tgt = t + 12 + dv.getInt32(t + 8, true), tb = t + 12;
+        const ent = k => tb + dv.getInt16(tb + 2 * k, true), n1 = dv.getInt16(tb + 2, true);
+        const st = imm & 255, rank = imm >> 8 & 255, def = imm >> 16 & 255;
+        const kind = imm >>> 24 & 1 ? "pylon" : fallTargets.has(tgt) || !subTargets.size && n1 === 8 && !(imm >>> 16) ? "fall" : "store";
+        if (kind === "fall") { M.fallSlots++; return; }
+        const S0 = M.stations.get(st) || { st, slots: [], kinds: new Set(), pylons: 0, def: 0, maxRank: 0 }; M.stations.set(st, S0);
+        if (kind === "pylon") { S0.pylons++; if (depth < 40) walk(ent(1), map.slice(), inst, lod, depth + 1, seen, { type: "pylon", st, stub: t }); return; }
+        const NK = n1 / 2; if (!(NK >= 2 && NK <= 32)) return;
+        S0.slots.push({ o: t, rank, def }); S0.maxRank = Math.max(S0.maxRank, rank); if (!S0.def || rank === 1) S0.def = def || S0.def;
+        for (let k = 1; k < NK; k++) { const lt = ent(k); if (c[lt] === 0 && c[lt + 1] === 0) continue; S0.kinds.add(k); if (depth < 40) walk(lt, map.slice(), inst, lod, depth + 1, seen, { type: "store", st, rank, kind: k, def, stub: t }); }
+        return;
       }
       else return;   // 00 00 / 1E return, or an op we do not follow
     }
   };
 
+  // Branches of the original BSP that lead into appended code: f18_stores.py (F18-8 on, F14 stores) chains new
+  // plane nodes in front of original subtrees by rewriting the original node's branch field.
+  const sites = [], inCode = t => t >= start && t < stop - 2;
+  const rel = (f) => f + 2 + dv.getInt16(f, true);
+  const entryOk = t => {   // an appended plane node / call / placement, checked deeply enough to rule out stray bytes
+    if (t < appendStart || t >= stop - 20 || c[t + 1] !== 0) return false;
+    if (c[t] === 0x06) { const A = rel(t + 14), B = rel(t + 16); return inCode(A) && B >= appendStart && B < stop - 4 && c[B + 1] === 0 && [0x06, 0x12, 0xC4].includes(c[B]); }
+    if (c[t] === 0x12) { const T = rel(t + 2); return T >= appendStart && T < stop - 4 && c[T + 1] === 0 && [0xF0, 0xC4, 0x06, 0x82].includes(c[T]); }
+    if (c[t] === 0xC4) { const T = rel(t + 14); return T >= appendStart && T < stop - 6 && c[T] === 0x82 && c[T + 1] === 0; }
+    return false;
+  };
+  if (hooks.size) for (let o = start; o < appendStart - 18; o++) {
+    const op = c[o]; if (c[o + 1] !== 0) continue;
+    const fl = op === 0x06 ? [14, 16] : op === 0x0C || op === 0x0E || op === 0x10 ? [10, 12] : op === 0x6C ? [6, 8] : null; if (!fl) continue;
+    const ts = fl.map(k => rel(o + k)); if (!ts.every(inCode)) continue;
+    for (const t of ts) if (!reach.has(t) && entryOk(t)) sites.push([o, t]);
+  }
+  M.sites = sites;
+  const siteSeen = new Set(); let si = 0;
+
   // linear pass
   let lod = -1, map = [];
   for (let o = start; o < appendStart - 1;) {
+    while (si < sites.length && sites[si][0] <= o) { walk(sites[si][1], map.slice(), 0, Math.max(lod, 0), 0, siteSeen); si++; }
     if (hooks.has(o)) { walk(hooks.get(o), map.slice(), 0, Math.max(lod, 0), 0, new Set()); o += 7; continue; }
     const op = c[o];
     if (op === 0x82 && c[o + 1] === 0) {
