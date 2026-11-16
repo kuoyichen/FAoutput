@@ -290,6 +290,25 @@ AIRCRAFT_CLS = 4
 AI_FLAG = 0x80            # object +1 byte bit 0x80: AI-controlled (2026-11-12 test: player F-14 = 0x17, B-52 = 0x97)
 RAW_AIRCRAFT = 0x380      # raw bytes saved per aircraft per frame (objects are ~0x374 apart); used for HP etc.
 
+HARD_LAST = 0x35B        # start of the LAST hardpoint entry in an aircraft object (entries are 0x11 bytes,
+                         # +6 type pointer, +0xA u16 count). The array is end-aligned, so where hardpoint 0
+                         # starts depends on how many hardpoints the .PT defines (factory F14.PT: 11 -> 0x2BB;
+                         # Kuoyi's F14.PT: 10 -> 0x2CC).
+GUN_HARD = 3             # hardpoint 3 = gun on FA aircraft; the select byte is the hardpoint index
+
+def hard_base(raw):
+    """Offset of hardpoint 0 in an aircraft object's raw bytes (walks back from HARD_LAST while the
+    entry still has a type pointer). Returns None if the layout isn't recognised."""
+    if len(raw) < HARD_LAST + STATION_STRIDE: return None
+    last, = struct.unpack_from("<I", raw, HARD_LAST + 6)
+    if not last: return None
+    o = HARD_LAST
+    while o - STATION_STRIDE >= 0x200:
+        p, = struct.unpack_from("<I", raw, o - STATION_STRIDE + 6)
+        if not p or p >> 24 != last >> 24: break
+        o -= STATION_STRIDE
+    return o
+
 def find_player(objs, pidx=None):
     """Find the player aircraft. 0x50CE80 is only a working copy of the object being processed,
     not always the player. Tries, in order:
@@ -357,10 +376,13 @@ def cmd_flight(h, hz, out):
             else:
                 if not warned and objs: print("  (player aircraft not found; using 0x50CE80 for now)"); warned = True
                 paddr = PLAYER; objs = [(0, PLAYER, read(h, PLAYER, OBJ_READ))] + objs
-            ext = read(h, paddr, 0x2EE + STATION_STRIDE * STATIONS)
+            ext = read(h, paddr, RAW_AIRCRAFT)
             if not ext: time.sleep(1 / hz); continue
             ctl = ext[0x16F:0x171]; sel = ext[0x11C]; thr = ext[THROTTLE_ADDR - PLAYER]; rpm = ext[RPM_ADDR - PLAYER]
-            stn = [struct.unpack_from("<H", ext, 0x2EE + k * STATION_STRIDE)[0] for k in range(STATIONS)]
+            # stations = hardpoints 3.. (gun first), so the replay's "select - 3" mapping still holds
+            hb = hard_base(ext); s0 = hb + GUN_HARD * STATION_STRIDE + 0xA if hb is not None else 0x2EE
+            end = HARD_LAST + 0xA if hb is not None else len(ext) - 2       # count field of the last hardpoint
+            stn = [struct.unpack_from("<H", ext, s0 + k * STATION_STRIDE)[0] if s0 + k * STATION_STRIDE <= end else 0 for k in range(STATIONS)]
             body = bytearray(); extra = bytearray(); nac = 0
             live = {i for i, _, _ in objs}; tg = bytearray(); ntg = 0
             for i, addr, b in objs:

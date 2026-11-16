@@ -281,6 +281,12 @@ function parseFlight(dv, u8, ver){
       frames.push(cur);
     } else break;
   }
+  // 武器掛點：錄製器以前固定讀玩家物件 +0x2EE，但掛點陣列是「靠尾端對齊」的（最後一個掛點固定在 +0x35B），
+  // 掛點數不同的 .PT（例如 Kuoyi 改過的 F14.PT 只有 10 個）起點就不同。有原始資料時重新算：掛點 3（機砲）起依序 8 格
+  for (const f of frames){ const rw = f.raw?.get(0); if (!rw || rw.length < 0x36C) continue;
+    const u32 = o => (rw[o] | rw[o+1] << 8 | rw[o+2] << 16 | rw[o+3] << 24) >>> 0, last = u32(0x35B + 6); if (!last) continue;
+    let hb = 0x35B; while (hb - 0x11 >= 0x200){ const q = u32(hb - 0x11 + 6); if (!q || q >>> 24 !== last >>> 24) break; hb -= 0x11; }
+    const s0 = hb + 3*0x11 + 0xA; f.stn = f.stn.map((_, k) => s0 + k*0x11 <= 0x35B + 0xA ? rw[s0 + k*0x11] | rw[s0 + k*0x11 + 1] << 8 : 0); }
   const d = { kind:"flight", ver, frames, raws, types };
   if (ver < 3) fixOldPlayer(d);
   // 類型定義 +5 是名稱字串指標；字串剛好在傾印範圍內時就能直接讀出（例如 AIM-9L、Pilot）
@@ -395,6 +401,8 @@ function G(g){
 }
 const keyOf = o => o.idx + "|" + o.name;
 const MISSILE_RE = /AIM|AGM|MISS|SAM|SA-|AA-|R-\d|ROCKET|BOMB|MK\d|GBU|HARM|MAV/i;
+// 機砲（型別名稱）：例如 M61A1、GSh-23L、M3 .50 cal。尾砲彈速可能低於 1800 ft/s，不能只靠速度判斷
+const GUN_RE = /^(M61|M39|M3\b|GSh|NR-|GAU|ADEN|DEFA|Mauser|BK ?27|KCA|Vulcan)|\bcal\b|\d\s?mm\b|cannon|\bgun\b/i;
 const dist3 = (a,b) => Math.hypot(a.x-b.x, a.y-b.y, a.z-b.z);
 
 const HP_OFF = 0x0E;   // 飛機物件 +0x0E：u16 生命值（B-52 / F-14 滿血 270）
@@ -456,6 +464,9 @@ function buildMission(k){
     const ti = f.tg?.get(idx), to = ti != null ? f.objs.get(ti) : null;
     tr.pts.push({ t:f.t, x:o.x, y:o.y, z:o.z, hdg:o.hdg, pitch:o.pitch, roll:o.roll, spd:o.spd, hp, tg: to ? keyOf(to) : null, ...ps });
     if (hp != null) tr.hpMax = Math.max(tr.hpMax || 0, hp);
+    // 任務剛開始的前一兩秒，FA 會先填一個暫時的生命值（F-14 是 135，約 0.4 秒後才變成 270）；這段期間生命值上升就把前面的值補成上升後的值
+    if (hp != null && tr.pts.length > 1 && f.t - tr.pts[0].t < 3){ const prev = tr.pts[tr.pts.length-2];
+      if (prev.hp != null && hp > prev.hp) for (const q of tr.pts) if (q.hp != null && q.hp < hp) q.hp = hp; }
     if (tr.nat == null && rw && rw.length > NAT_OFF) tr.nat = rw[NAT_OFF];
   }
   for (const r of data.raws) for (const tr of tracks.values()) if (tr.idx === r.idx && tr.nat == null && r.raw.length > NAT_OFF && r.raw[0] === tr.cls) tr.nat = r.raw[NAT_OFF];
@@ -482,7 +493,7 @@ function buildMission(k){
     else if (!moved) tr.kind = "static";
     else if (tr.cls === 6 || MISSILE_RE.test(tr.name)){
       // 類別 6 = 射出物：一出現就是固定高速（約 2000~2300 ft/s）的是機砲彈，其餘是飛彈
-      tr.kind = (tr.pts[0].spd >= 1800 && smax - smin < 400) ? "bullet" : "missile";
+      tr.kind = GUN_RE.test(tr.name) || (tr.pts[0].spd >= 1800 && smax - smin < 400) ? "bullet" : "missile";
     }
     else if (tr.cls === 2 && /pilot|eject/i.test(tr.name)) tr.kind = "pilot";
     else if (tr.cls === 2 && tr.t0 > T0 + 2) tr.kind = "debris";
