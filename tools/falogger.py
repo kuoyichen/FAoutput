@@ -1,38 +1,39 @@
 """
-FAlogger — FA.EXE 飛行錄製器（不修改 FA.EXE）
+FAlogger: flight recorder for Fighters Anthology (FA.EXE). It only reads memory; FA.EXE is not modified.
 
-直接執行（或雙擊打包好的 falogger.exe）= flight 模式：錄製播放用的 .bin，
-用 https://kuoyichen.github.io/FAoutput/tools/fa_replay.html 開啟播放。
+Run it with no arguments (or double-click the packaged falogger.exe) for flight mode: it records a
+.bin file per mission that you can play back at
+https://kuoyichen.github.io/FAoutput/tools/fa_replay.html
 
-模式:
-  python falogger.py                   同 flight
-  python falogger.py objects            每秒列出目前所有物件（含名稱、位置、速度）
-  python falogger.py log                以 10Hz 記錄所有物件到 objlog.csv，
-                                         並在 events.csv 記錄物件出現 / 消失（如飛彈發射、被擊毀）
-  python falogger.py flight             ★ 錄製播放用 flight_日期_時間.bin（所有物件 + 玩家動作），
-                                         用 fa_replay.html 開啟播放
-  python falogger.py record             找「動作」欄位用（起落架、彈藥數…）。不需要切換視窗：
-      先執行，再進遊戲飛行並依序做動作，每個動作間隔 5 秒以上；關遊戲即停止。
-      會錄下玩家物件原始位元組與鍵盤按鍵時間到 player_rec.bin
-  python falogger.py analyze            分析 player_rec.bin，輸出 analyze_report.txt
+Modes:
+  python falogger.py                    same as flight
+  python falogger.py objects            list all current objects once per second (name, position, speed)
+  python falogger.py log                log all objects at 10 Hz to objlog.csv, and object spawns /
+                                        despawns (missile launches, kills...) to events.csv
+  python falogger.py flight             * record flight_DATE_TIME.bin for playback (all objects +
+                                        player actions); open it in fa_replay.html
+  python falogger.py record             for finding action fields (gear, ammo...). No window switching:
+      start it, then fly and perform the actions in order, at least 5 s apart; it stops when the game closes.
+      Saves the player object's raw bytes and key-press times to player_rec.bin
+  python falogger.py analyze            analyse player_rec.bin and write analyze_report.txt
 
-腳本與 FA.EXE 誰先啟動都可以。
+FA.EXE and this script can be started in either order.
 
-打包成 exe（Windows，需 Python 3.8+）:
+Build an exe (Windows, Python 3.8+):
   pip install pyinstaller
-  pyinstaller --onefile --console --name falogger tools/falogger.py      → dist/falogger.exe
+  pyinstaller --onefile --console --name falogger tools/falogger.py      -> dist/falogger.exe
 
-靜態分析得到的結構（image base 0x400000 固定）:
-  0x553838  uint16   物件數量上限 (迴圈從 1 到 count-1)
-  0x553848  ptr[]    物件指標表
-  0x50CE80           玩家飛機物件（與其他物件同一種結構）
-  物件結構:
-    +0x00 uint8   類別代碼
-    +0x01 uint32  旗標 (bit0 = 啟用中)
-    +0x05 ptr     類型定義；其中第 3 個 0 結尾字串是類型名稱
-    +0x11/15/19 int32  X / Y(高度) / Z  (>>8 = 英尺)
-    +0x1D uint16  航向  +0x1F 俯仰  +0x21 滾轉 (65536 = 360 度)
-    +0x34 int32   速度 (>>8 = ft/s)   ※ 已在玩家上驗證；其他物件待驗證
+Structures from static analysis (image base 0x400000 is fixed):
+  0x553838  uint16   object count limit (loop runs from 1 to count-1)
+  0x553848  ptr[]    object pointer table
+  0x50CE80           working copy of the object being processed (same layout as other objects)
+  Object layout:
+    +0x00 uint8   class code
+    +0x01 uint32  flags (bit0 = active)
+    +0x05 ptr     type definition; its 3rd NUL-terminated string is the type name
+    +0x11/15/19 int32  X / Y (altitude) / Z  (>>8 = feet)
+    +0x1D uint16  heading  +0x1F pitch  +0x21 roll (65536 = 360 degrees)
+    +0x34 int32   speed (>>8 = ft/s)   verified on the player only
 """
 import argparse, csv, ctypes, ctypes.wintypes as wt, struct, sys, time
 
@@ -42,11 +43,11 @@ PROCESS_VM_READ, PROCESS_QUERY_INFORMATION, TH32CS_SNAPPROCESS = 0x10, 0x400, 0x
 PLAYER = 0x50CE80
 OBJ_COUNT = 0x553838
 OBJ_TABLE = 0x553848
-OBJ_READ = 0xF0          # 每個物件讀取的位元組數（含 +0xEE 目標）
-PLAYER_IDX = 0x520A1C    # u16：玩家飛機在物件表中的索引（FA.EXE 0x49139e 設定）
-TARGET_OFF = 0xEE        # 物件 +0xEE u16：目前注視／鎖定的物件索引（0 = 沒有）
-HUMAN_FLAG = 0x80        # 物件 +0x10 bit 0x80 = 真人控制（低 7 位元 = 玩家編號）
-MAX_OBJS = 2048          # 安全上限
+OBJ_READ = 0xF0          # bytes read per object (includes the +0xEE target)
+PLAYER_IDX = 0x520A1C    # u16: the player aircraft's object-table index (set by FA.EXE at 0x49139e)
+TARGET_OFF = 0xEE        # object +0xEE u16: index of the object it is watching / locked on (0 = none)
+HUMAN_FLAG = 0x80        # object +0x10 bit 0x80 = human-controlled (low 7 bits = player number)
+MAX_OBJS = 2048          # safety limit
 
 class PROCESSENTRY32(ctypes.Structure):
     _fields_ = [("dwSize", wt.DWORD), ("cntUsage", wt.DWORD),
@@ -68,12 +69,12 @@ def find_pid(name=b"fa.exe"):
 def attach():
     pid = find_pid()
     if not pid:
-        print("等待 FA.EXE 啟動中…（Ctrl+C 結束）")
+        print("Waiting for FA.EXE to start... (Ctrl+C to quit)")
         while not pid:
             time.sleep(1); pid = find_pid()
     h = k32.OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, False, pid)
-    if not h: sys.exit(f"OpenProcess 失敗 ({ctypes.get_last_error()})，試試以系統管理員執行")
-    print(f"已連上 FA.EXE (PID {pid})")
+    if not h: sys.exit(f"OpenProcess failed ({ctypes.get_last_error()}); try running as administrator")
+    print(f"Connected to FA.EXE (PID {pid})")
     return h
 
 def read(h, addr, n):
@@ -84,9 +85,9 @@ def read(h, addr, n):
 
 _name_cache = {}
 def type_name(h, tptr):
-    """類型名稱：類型定義 +5 是指向名稱字串的指標（短名稱 "F-14"，後面接長名稱、資料檔、.SH 外型檔）。
-    回傳 "F-14|f14.SH"；
-    讀不到時用類型定義位址當作代號（T1429C388）。"""
+    """Type name: type definition +5 points to the name strings (short name "F-14", then the long
+    name, the data file and the .SH shape file). Returns "F-14|f14.SH";
+    if it can't be read, the type definition address is used as an ID (T1429C388)."""
     if tptr in _name_cache: return _name_cache[tptr]
     name = f"T{tptr:08X}"
     hdr = read(h, tptr, 9) if tptr else None
@@ -94,12 +95,12 @@ def type_name(h, tptr):
         sp, = struct.unpack_from("<I", hdr, 5)
         txt = read(h, sp, 160) if sp else None
         if txt:
-            parts = txt.split(b"\0")[:4]          # 短名稱、長名稱、.JT/.NT/.PT 檔、.SH 外型檔
+            parts = txt.split(b"\0")[:4]          # short name, long name, .JT/.NT/.PT file, .SH shape file
             short = parts[0]
             if 1 < len(short) < 32 and all(0x20 <= c < 0x7F for c in short):
                 name = short.decode("ascii")
                 shp = next((x for x in parts[1:] if x.lower().endswith(b".sh") and all(0x20 <= c < 0x7F for c in x)), None)
-                if shp: name += "|" + shp.decode("ascii")   # 播放器用來找 3D 模型
+                if shp: name += "|" + shp.decode("ascii")   # the replay page uses this to find the 3D model
     _name_cache[tptr] = name
     return name
 
@@ -120,7 +121,7 @@ def decode(h, addr, b):
     }
 
 def snapshot(h):
-    """回傳 {索引: 物件資料}；索引 0 = 玩家。None = 遊戲已結束。"""
+    """Returns {index: object data}; index 0 = player. None = the game has exited."""
     pb = read(h, PLAYER, OBJ_READ)
     if pb is None: return None
     objs = {0: decode(h, PLAYER, pb)}
@@ -133,34 +134,34 @@ def snapshot(h):
         b = read(h, p, OBJ_READ)
         if not b: continue
         flags, = struct.unpack_from("<I", b, 1)
-        if not flags & 1: continue          # 未啟用
+        if not flags & 1: continue          # inactive
         objs[i] = decode(h, p, b)
     return objs
 
 def cmd_objects(h):
     while True:
         s = snapshot(h)
-        if s is None: print("FA.EXE 已結束"); return
-        print(f"\n=== {time.strftime('%H:%M:%S')}  共 {len(s)} 個物件 ===")
+        if s is None: print("FA.EXE has exited"); return
+        print(f"\n=== {time.strftime('%H:%M:%S')}  {len(s)} objects ===")
         print(f"{'idx':>4} {'cls':>3} {'name':<14} {'x':>9} {'alt':>7} {'z':>9} {'hdg':>6} {'kts':>5}  flags")
         for i, o in sorted(s.items()):
             print(f"{i:>4} {o['cls']:>3} {o['name'][:14]:<14} {o['x_ft']:>9} {o['alt_ft']:>7} "
                   f"{o['z_ft']:>9} {o['hdg_deg']:>6} {o['spd_kts']:>5}  {o['flags']}")
         time.sleep(1)
 
-# 玩家動作欄位（由 2026-11-11 兩次實測錄製檔分析得出）
-CTRL1_ADDR = 0x50CFEF     # bit 0x40 = 起落架放下 (G)，bit 0x80 = 煞車 (B)；0x50CFF3 為同步副本
-CTRL2_ADDR = 0x50CFF0     # bit 0x01 = 襟翼 (F)，bit 0x04 = 捕捉勾 (H)；0x50CFF4 為同步副本
-STATION_BASE = 0x50D16E   # 武器掛點陣列，每格 0x11 位元組，+0 為 uint16 剩餘數量
-STATION_STRIDE = 0x11     # 掛點 0 = 機砲（675 發，每 0.2 秒約 14 發），其後為飛彈 / 炸彈
+# Player action fields (from two test recordings on 2026-11-11)
+CTRL1_ADDR = 0x50CFEF     # bit 0x40 = gear down (G), bit 0x80 = brake (B); 0x50CFF3 is a mirror
+CTRL2_ADDR = 0x50CFF0     # bit 0x01 = flaps (F), bit 0x04 = hook (H); 0x50CFF4 is a mirror
+STATION_BASE = 0x50D16E   # weapon station array, 0x11 bytes each, +0 = uint16 rounds left
+STATION_STRIDE = 0x11     # station 0 = gun (675 rounds, ~14 per 0.2 s), then missiles / bombs
 STATIONS = 8
-SELECT_ADDR = 0x50CF9C    # 目前選擇的武器：值 - 3 = 掛點編號（3 = 機砲，[ ] 切換，空掛點會被跳過）
+SELECT_ADDR = 0x50CF9C    # selected weapon: value - 3 = station (3 = gun; [ ] cycles; empty stations are skipped)
 SELECT_OFFSET = 3
-THROTTLE_ADDR = 0x50D074  # 油門設定 %（第一次錄製時 100->68->58->44->41，0x50D072 同步）【候選，待確認】
-RPM_ADDR = 0x50D06F       # 引擎實際推力 %（緩慢跟隨油門變化）【候選，待確認】
+THROTTLE_ADDR = 0x50D074  # throttle setting % (100->68->58->44->41 in the first recording; 0x50D072 mirrors) [candidate, unconfirmed]
+RPM_ADDR = 0x50D06F       # actual engine thrust % (slowly follows the throttle) [candidate, unconfirmed]
 
-ACT_BITS = [("gear", CTRL1_ADDR, 0x40, "起落架"), ("brake", CTRL1_ADDR, 0x80, "煞車"),
-            ("flaps", CTRL2_ADDR, 0x01, "襟翼"), ("hook", CTRL2_ADDR, 0x04, "捕捉勾")]
+ACT_BITS = [("gear", CTRL1_ADDR, 0x40, "gear"), ("brake", CTRL1_ADDR, 0x80, "brake"),
+            ("flaps", CTRL2_ADDR, 0x01, "flaps"), ("hook", CTRL2_ADDR, 0x04, "hook")]
 ACT_FIELDS = [n for n, *_ in ACT_BITS] + ["sel_stn"] + [f"stn{i}" for i in range(STATIONS)]
 
 def player_actions(h):
@@ -181,7 +182,7 @@ def cmd_log(h, hz, out, evout):
         we = csv.writer(fe); we.writerow(["t", "event", "idx", "name", "cls", "x_ft", "alt_ft", "z_ft"])
         while True:
             s = snapshot(h)
-            if s is None: print("FA.EXE 已結束"); return
+            if s is None: print("FA.EXE has exited"); return
             t = round(time.time() - t0, 2)
             act = player_actions(h) or {}
             for i, o in s.items():
@@ -195,23 +196,23 @@ def cmd_log(h, hz, out, evout):
                     if act[n] != prev_act[n]:
                         ev(f"{n}_{'on' if act[n] else 'off'}", label)
                 if act["sel_stn"] != prev_act["sel_stn"]:
-                    ev(f"select_stn{act['sel_stn']}", "切換武器" + ("（機砲）" if act["sel_stn"] == 0 else ""))
+                    ev(f"select_stn{act['sel_stn']}", "weapon select" + (" (gun)" if act["sel_stn"] == 0 else ""))
                 for i in range(STATIONS):
                     k = f"stn{i}"; d = prev_act[k] - act[k]
                     if 0 < d < 1000:
-                        ev("gun_fired" if i == 0 else f"weapon_fired_stn{i}", f"x{d}，剩 {act[k]}")
+                        ev("gun_fired" if i == 0 else f"weapon_fired_stn{i}", f"x{d}, {act[k]} left")
             prev_act = act or prev_act
-            # 物件出現 / 消失（同一索引換了位址或名稱也算重新出現）
+            # object spawn / despawn (same index with a new address or name counts as a new spawn)
             for i, o in s.items():
                 q = prev.get(i)
                 if q is None or q["addr"] != o["addr"] or q["name"] != o["name"]:
-                    if prev:  # 第一輪不算
+                    if prev:  # skip the first pass
                         we.writerow([t, "spawn", i, o["name"], o["cls"], o["x_ft"], o["alt_ft"], o["z_ft"]])
-                        print(f"[{t:8.2f}] 出現 #{i} {o['name']} (cls {o['cls']})")
+                        print(f"[{t:8.2f}] spawn #{i} {o['name']} (cls {o['cls']})")
             for i, q in prev.items():
                 if i not in s:
                     we.writerow([t, "despawn", i, q["name"], q["cls"], q["x_ft"], q["alt_ft"], q["z_ft"]])
-                    print(f"[{t:8.2f}] 消失 #{i} {q['name']}")
+                    print(f"[{t:8.2f}] despawn #{i} {q['name']}")
             f.flush(); fe.flush()
             prev = s
             time.sleep(1 / hz)
@@ -220,15 +221,15 @@ KEYS = {0x47: "G", 0x20: "SPACE", 0x0D: "ENTER", 0x08: "BACKSPACE", 0x09: "TAB",
         0x42: "B", 0x46: "F", 0x57: "W", 0x48: "H", 0x4C: "L", 0x43: "C", 0x52: "R"}
 for _c in range(0x30, 0x3A): KEYS[_c] = chr(_c)          # 0-9
 for _c in range(0x70, 0x7C): KEYS[_c] = f"F{_c - 0x6F}"  # F1-F12
-KEYS_V1 = list(KEYS.values())                            # FAREC1 錄製檔使用的順序
-KEYS[0xDB] = "["; KEYS[0xDD] = "]"                        # 切換武器
+KEYS_V1 = list(KEYS.values())                            # key order used by FAREC1 recordings
+KEYS[0xDB] = "["; KEYS[0xDD] = "]"                        # weapon cycle
 
 def cmd_record(h, size, hz, out):
-    """不需切換視窗：持續錄下玩家物件原始位元組 + 鍵盤按鍵時間，事後再分析。"""
+    """No window switching: keep recording the player object's raw bytes + key-press times for later analysis."""
     u32 = ctypes.WinDLL("user32")
-    print(f"開始錄製玩家物件 0x{PLAYER:X} 起 0x{size:X} 位元組到 {out}")
-    print("回到遊戲：先穩定飛 5 秒，再依序按 G / F / H / B / TAB(按住約 1 秒) / SPACE / [ / ]，")
-    print("每個鍵做 2~3 次、動作之間隔 3 秒以上。關掉遊戲就會自動停止。")
+    print(f"Recording 0x{size:X} bytes of the player object from 0x{PLAYER:X} to {out}")
+    print("Back in the game: fly steady for 5 s, then press G / F / H / B / TAB (hold ~1 s) / SPACE / [ / ] in order,")
+    print("2-3 times each, at least 3 s apart. Recording stops when you close the game.")
     t0 = time.time(); n = 0
     with open(out, "wb") as f:
         kn = ",".join(KEYS.values()).encode()
@@ -242,10 +243,10 @@ def cmd_record(h, size, hz, out):
             f.write(struct.pack("<dQ", time.time() - t0, keys) + b); n += 1
             if n % int(hz * 10) == 0: f.flush()
             time.sleep(1 / hz)
-    print(f"FA.EXE 已結束，共錄 {n} 筆。執行: python fa_key_analyzer.py {out}")
+    print(f"FA.EXE has exited; recorded {n} frames. Next: python fa_key_analyzer.py {out}")
 
 def load_rec(path):
-    """讀取錄製檔 → (addr, size, 按鍵名稱列表, 時間[], 按鍵位元遮罩[], 影格[])"""
+    """Read a recording -> (addr, size, key names, times[], key bit masks[], frames[])"""
     raw = open(path, "rb").read()
     if raw[:6] == b"FAREC1":
         addr, size = struct.unpack_from("<II", raw, 6); pos = 14; names = KEYS_V1
@@ -253,7 +254,7 @@ def load_rec(path):
         addr, size, kl = struct.unpack_from("<IIH", raw, 6)
         names = raw[16:16 + kl].decode().split(","); pos = 16 + kl
     else:
-        raise SystemExit("不是錄製檔")
+        raise SystemExit("Not a recording file")
     rec = 16 + size; ts, keys, frames = [], [], []
     while pos + rec <= len(raw):
         t, k = struct.unpack_from("<dQ", raw, pos)
@@ -262,14 +263,14 @@ def load_rec(path):
 
 def cmd_analyze(path, report):
     addr, size, names, ts, keys, frames = load_rec(path)
-    lines = [f"錄製檔 {path}: {len(frames)} 筆, {ts[-1] if ts else 0:.1f} 秒, 位址 0x{addr:X} 長度 0x{size:X}", ""]
-    lines.append("== 鍵盤事件 ==")
+    lines = [f"Recording {path}: {len(frames)} frames, {ts[-1] if ts else 0:.1f} s, address 0x{addr:X} length 0x{size:X}", ""]
+    lines.append("== Key events ==")
     for i in range(1, len(keys)):
         down = keys[i] & ~keys[i - 1]
         for bit, nm in enumerate(names):
-            if down >> bit & 1: lines.append(f"  {ts[i]:8.2f}s  按下 {nm}")
+            if down >> bit & 1: lines.append(f"  {ts[i]:8.2f}s  pressed {nm}")
     lines.append("")
-    lines.append("== 很少變動的位元組（最可能是起落架、彈藥、武器狀態）==")
+    lines.append("== Rarely changing bytes (most likely gear, ammo, weapon state) ==")
     cands = []
     for off in range(size):
         ev = []
@@ -279,21 +280,22 @@ def cmd_analyze(path, report):
         if 1 <= len(ev) <= 40: cands.append((off, ev))
     cands.sort(key=lambda c: len(c[1]))
     for off, ev in cands:
-        lines.append(f"+0x{off:03X} (0x{addr + off:X})  變動 {len(ev)} 次:")
+        lines.append(f"+0x{off:03X} (0x{addr + off:X})  changed {len(ev)} times:")
         lines.append("    " + ", ".join(f"{t:.2f}s {a}->{b}" for t, a, b in ev[:20]) + (" ..." if len(ev) > 20 else ""))
     txt = "\n".join(lines)
     open(report, "w", encoding="utf-8").write(txt)
-    print(txt); print(f"\n已寫入 {report}，把這個檔案傳給 Claude 即可。")
+    print(txt); print(f"\nWrote {report}; send this file to Claude.")
 
 AIRCRAFT_CLS = 4
-AI_FLAG = 0x80            # 物件 +1 位元組的 0x80：AI 控制（2026-11-12 實測：玩家 F-14 = 0x17，B-52 = 0x97）
-RAW_AIRCRAFT = 0x380      # 每架飛機每筆保存的原始長度（物件間距約 0x374），用來找生命值等欄位
+AI_FLAG = 0x80            # object +1 byte bit 0x80: AI-controlled (2026-11-12 test: player F-14 = 0x17, B-52 = 0x97)
+RAW_AIRCRAFT = 0x380      # raw bytes saved per aircraft per frame (objects are ~0x374 apart); used for HP etc.
 
 def find_player(objs, pidx=None):
-    """找玩家飛機。0x50CE80 只是「目前正在計算的物件」的工作副本，不一定是玩家。
-    1. FA.EXE 自己的玩家索引 [0x520A1C]
-    2. +0x10 有真人旗標 0x80 的飛機
-    3. 舊方法：第一架沒有 AI 旗標的飛機（可能認錯）"""
+    """Find the player aircraft. 0x50CE80 is only a working copy of the object being processed,
+    not always the player. Tries, in order:
+    1. FA.EXE's own player index [0x520A1C]
+    2. an aircraft with the human flag 0x80 at +0x10
+    3. the old guess: the first aircraft without the AI flag (can pick the wrong one)"""
     for i, p, b in objs:
         if i == pidx and b[0] == AIRCRAFT_CLS: return i, p, b
     for i, p, b in objs:
@@ -303,25 +305,25 @@ def find_player(objs, pidx=None):
     return None
 
 def cmd_flight(h, hz, out):
-    """錄製播放器用的 .bin（FAFLT3）：所有物件 + 玩家動作 + 飛機原始資料。
+    """Record a .bin for the replay page (FAFLT3): all objects + player actions + aircraft raw data.
 
-    檔頭  b"FAFLT3"
-    區塊  b"N" u16 名稱編號, u8 長度, 名稱(latin1)             — 新類型名稱第一次出現時
-          b"T" u32 類型定義位址, u16 長度, 原始位元組          — 新類型第一次出現時（找機型名稱用）
-          b"O" u16 索引, u32 位址, u16 長度, 原始位元組         — 物件第一次出現時
-          b"F" f64 時間, u8 ctrl1, u8 ctrl2, u8 選擇值, u8 油門%, u8 推力%, u16 掛點數量[8], u16 物件數,
-               物件數 × (u16 索引, u8 類別, u16 名稱編號, i32 x, i32 y, i32 z,
-                         u16 航向, i16 俯仰, i16 滾轉, i32 速度)          — 索引 0 = 玩家
-          b"R" u16 索引, u16 長度, 原始位元組                  — 緊接在 F 之後，每架飛機一筆（找生命值用）
-          b"G" u16 數量, 數量 × (u16 索引, u16 目標索引)        — 緊接在 R 之後：誰正在注視／鎖定誰（索引 0 = 玩家）
+    Header  b"FAFLT3"
+    Blocks  b"N" u16 name id, u8 length, name (latin1)            - when a new type name first appears
+            b"T" u32 typedef address, u16 length, raw bytes       - when a new type first appears (for type names)
+            b"O" u16 index, u32 address, u16 length, raw bytes    - when an object first appears
+            b"F" f64 time, u8 ctrl1, u8 ctrl2, u8 select, u8 throttle%, u8 thrust%, u16 station counts[8], u16 n,
+                 n x (u16 index, u8 class, u16 name id, i32 x, i32 y, i32 z,
+                      u16 heading, i16 pitch, i16 roll, i32 speed)          - index 0 = player
+            b"R" u16 index, u16 length, raw bytes                 - right after F, one per aircraft (HP etc.)
+            b"G" u16 n, n x (u16 index, u16 target index)         - after the R blocks: who is watching / locking whom (0 = player)
     """
-    # 每一次任務存成一個檔：任務結束回到設定畫面（場景沒有飛機）就關檔，下一次任務開始再開新檔
+    # One file per mission: close it when the game returns to the setup screens (no aircraft), open a new one when the next mission starts
     names = {}; seen = set(); tdump = set(); t0 = None; n = 0; warned = False; waiting = False; last_pi = None
     f = None; files = []; base = out
     def new_name():
         if base: return base if not files else base.replace(".bin", "") + f"_{len(files) + 1}.bin"
         return time.strftime("flight_%Y%m%d_%H%M%S.bin")
-    print(f"等待任務開始（{hz} 筆/秒）。每次任務各存一個檔，關掉遊戲即停止。")
+    print(f"Waiting for a mission to start ({hz} frames/s). Each mission is saved to its own file; close the game to stop.")
     try:
         while True:
             if read(h, PLAYER, 1) is None: break
@@ -334,26 +336,26 @@ def cmd_flight(h, hz, out):
                 if not p or p == PLAYER: continue
                 b = read(h, p, OBJ_READ)
                 if b and struct.unpack_from("<I", b, 1)[0] & 1: objs.append((i, p, b))
-            # 還在遊戲設定畫面（場景裡沒有飛機）就不錄，等任務開始
+            # still in the setup screens (no aircraft in the scene): wait for the mission
             if not any(b[0] == AIRCRAFT_CLS for _, _, b in objs):
                 if f:
                     f.close(); f = None
-                    print(f"  任務結束，已存 {files[-1]}（{n} 筆）")
-                if not waiting: print("  等待任務開始（場景裡還沒有飛機）…"); waiting = True
+                    print(f"  Mission ended, saved {files[-1]} ({n} frames)")
+                if not waiting: print("  Waiting for a mission to start (no aircraft yet)..."); waiting = True
                 time.sleep(0.5); continue
             if f is None:
                 name = new_name(); files.append(name); f = open(name, "wb"); f.write(b"FAFLT3")
                 names = {}; seen = set(); tdump = set(); _name_cache.clear(); t0 = time.time(); n = 0; warned = False; last_pi = None
-                print(f"  任務開始，錄製到 {name}"); waiting = False
+                print(f"  Mission started, recording to {name}"); waiting = False
             pr = read(h, PLAYER_IDX, 2)
             pl = find_player(objs, struct.unpack("<H", pr)[0] if pr else None)
             pi = None
             if pl:
                 pi, paddr, pb = pl
-                if pi != last_pi: print(f"  玩家飛機 = 物件索引 {pi}（{type_name(h, struct.unpack_from('<I', pb, 5)[0])}）"); last_pi = pi
+                if pi != last_pi: print(f"  Player aircraft = object index {pi} ({type_name(h, struct.unpack_from('<I', pb, 5)[0])})"); last_pi = pi
                 objs = [(0, paddr, pb)] + [o for o in objs if o[0] != pi]
             else:
-                if not warned and objs: print("  （找不到玩家飛機，暫用 0x50CE80）"); warned = True
+                if not warned and objs: print("  (player aircraft not found; using 0x50CE80 for now)"); warned = True
                 paddr = PLAYER; objs = [(0, PLAYER, read(h, PLAYER, OBJ_READ))] + objs
             ext = read(h, paddr, 0x2EE + STATION_STRIDE * STATIONS)
             if not ext: time.sleep(1 / hz); continue
@@ -374,11 +376,11 @@ def cmd_flight(h, hz, out):
                 if (i, addr, nm) not in seen:
                     seen.add((i, addr, nm)); raw = read(h, addr, 0x100) or b""
                     f.write(b"O" + struct.pack("<HIH", i, addr, len(raw)) + raw)
-                # +0xEE 在飛機、地面防空等單位上是目標索引；類別 0 / 6 的同一位置是別的資料
+                # +0xEE is the target index on aircraft and ground units (SAM / AAA); on classes 0 / 6 it holds other data
                 if b[0] not in (0, 6) and len(b) > TARGET_OFF + 1:
                     t, = struct.unpack_from("<H", b, TARGET_OFF)
                     if t and t == pi: t = 0
-                    elif not t: t = i          # 0 = 沒有目標
+                    elif not t: t = i          # 0 = no target
                     if t != i and t in live and ntg < 1024:
                         tg += struct.pack("<HH", i, t); ntg += 1
                 if b[0] == AIRCRAFT_CLS and nac < 32:
@@ -387,23 +389,23 @@ def cmd_flight(h, hz, out):
             f.write(b"F" + struct.pack("<dBBBBB8HH", time.time() - t0, ctl[0], ctl[1], sel, thr, rpm, *stn, len(objs)) + body + extra + b"G" + struct.pack("<H", ntg) + tg)
             n += 1
             if n % int(hz * 5) == 0:
-                f.flush(); print(f"  {time.time() - t0:7.1f}s  {len(objs)} 個物件，{nac} 架飛機")
+                f.flush(); print(f"  {time.time() - t0:7.1f}s  {len(objs)} objects, {nac} aircraft")
             time.sleep(1 / hz)
     finally:
         if f: f.close()
-    print(f"FA.EXE 已結束，共錄了 {len(files)} 次任務：" + ("、".join(files) or "（無）") + "。用 fa_replay.html 開啟播放。")
+    print(f"FA.EXE has exited; recorded {len(files)} mission(s): " + (", ".join(files) or "(none)") + ". Open them in fa_replay.html to play back.")
 
 def main():
-    ap = argparse.ArgumentParser(prog="falogger", description="FA.EXE 飛行錄製器。不加參數 = flight 模式")
+    ap = argparse.ArgumentParser(prog="falogger", description="Flight recorder for Fighters Anthology (FA.EXE). No arguments = flight mode.")
     ap.add_argument("mode", nargs="?", default="flight", choices=["objects", "log", "record", "analyze", "flight"])
     ap.add_argument("--hz", type=float, default=10)
     ap.add_argument("--out", default="objlog.csv")
     ap.add_argument("--events", default="events.csv")
     ap.add_argument("--size", type=lambda s: int(s, 0), default=0x800,
-                    help="record 模式錄製的範圍（預設 0x800）")
-    ap.add_argument("--rec", default="player_rec.bin", help="record / analyze 用的錄製檔")
+                    help="bytes recorded in record mode (default 0x800)")
+    ap.add_argument("--rec", default="player_rec.bin", help="recording file for record / analyze")
     ap.add_argument("--report", default="analyze_report.txt")
-    ap.add_argument("--flight", default=None, help="flight 模式輸出檔（預設每次任務一個 flight_年月日_時分秒.bin；指定名稱時第 2 次任務起加 _2、_3）")
+    ap.add_argument("--flight", default=None, help="output file for flight mode (default: one flight_YYYYMMDD_HHMMSS.bin per mission; with a name, later missions get _2, _3...)")
     a = ap.parse_args()
     if a.mode == "analyze":
         cmd_analyze(a.rec, a.report); return
@@ -417,11 +419,11 @@ def main():
         pass
 
 if __name__ == "__main__":
-    # 雙擊 exe（沒有參數）時，結束後停一下，免得視窗直接關掉看不到存檔名稱
+    # When double-clicked (no arguments), pause at the end so the window doesn't close before the saved file names can be read
     pause = len(sys.argv) == 1
     try:
         main()
     finally:
         if pause:
-            try: input("按 Enter 關閉視窗…")
+            try: input("Press Enter to close this window...")
             except (EOFError, KeyboardInterrupt): pass
