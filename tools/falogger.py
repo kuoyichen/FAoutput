@@ -1,18 +1,26 @@
 """
-FA.EXE 記憶體探針 v2（不修改 FA.EXE）— 物件列舉、事件偵測、差異比對
+FAlogger — FA.EXE 飛行錄製器（不修改 FA.EXE）
+
+直接執行（或雙擊打包好的 falogger.exe）= flight 模式：錄製播放用的 .bin，
+用 https://kuoyichen.github.io/FAoutput/tools/fa_replay.html 開啟播放。
 
 模式:
-  python fa_probe2.py objects            每秒列出目前所有物件（含名稱、位置、速度）
-  python fa_probe2.py log                以 10Hz 記錄所有物件到 objlog.csv，
+  python falogger.py                   同 flight
+  python falogger.py objects            每秒列出目前所有物件（含名稱、位置、速度）
+  python falogger.py log                以 10Hz 記錄所有物件到 objlog.csv，
                                          並在 events.csv 記錄物件出現 / 消失（如飛彈發射、被擊毀）
-  python fa_probe2.py flight             ★ 錄製播放用 flight_日期_時間.bin（所有物件 + 玩家動作），
+  python falogger.py flight             ★ 錄製播放用 flight_日期_時間.bin（所有物件 + 玩家動作），
                                          用 fa_replay.html 開啟播放
-  python fa_probe2.py record             找「動作」欄位用（起落架、彈藥數…）。不需要切換視窗：
+  python falogger.py record             找「動作」欄位用（起落架、彈藥數…）。不需要切換視窗：
       先執行，再進遊戲飛行並依序做動作，每個動作間隔 5 秒以上；關遊戲即停止。
       會錄下玩家物件原始位元組與鍵盤按鍵時間到 player_rec.bin
-  python fa_probe2.py analyze            分析 player_rec.bin，輸出 analyze_report.txt
+  python falogger.py analyze            分析 player_rec.bin，輸出 analyze_report.txt
 
 腳本與 FA.EXE 誰先啟動都可以。
+
+打包成 exe（Windows，需 Python 3.8+）:
+  pip install pyinstaller
+  pyinstaller --onefile --console --name falogger tools/falogger.py      → dist/falogger.exe
 
 靜態分析得到的結構（image base 0x400000 固定）:
   0x553838  uint16   物件數量上限 (迴圈從 1 到 count-1)
@@ -386,8 +394,8 @@ def cmd_flight(h, hz, out):
     print(f"FA.EXE 已結束，共錄了 {len(files)} 次任務：" + ("、".join(files) or "（無）") + "。用 fa_replay.html 開啟播放。")
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("mode", choices=["objects", "log", "record", "analyze", "flight"])
+    ap = argparse.ArgumentParser(prog="falogger", description="FA.EXE 飛行錄製器。不加參數 = flight 模式")
+    ap.add_argument("mode", nargs="?", default="flight", choices=["objects", "log", "record", "analyze", "flight"])
     ap.add_argument("--hz", type=float, default=10)
     ap.add_argument("--out", default="objlog.csv")
     ap.add_argument("--events", default="events.csv")
@@ -409,4 +417,11 @@ def main():
         pass
 
 if __name__ == "__main__":
-    main()
+    # 雙擊 exe（沒有參數）時，結束後停一下，免得視窗直接關掉看不到存檔名稱
+    pause = len(sys.argv) == 1
+    try:
+        main()
+    finally:
+        if pause:
+            try: input("按 Enter 關閉視窗…")
+            except (EOFError, KeyboardInterrupt): pass
