@@ -64,7 +64,7 @@ def aim54():
     at = lambda frac: round(tip - frac * A54_LEN)                 # fwd at a fraction of the length from the nose
     SEC = [(1, 2), (2, 1), (2, -1), (1, -2), (-1, -2), (-2, -1), (-2, 1), (-1, 2)]   # octagon, top edge at up 2
     AX = -2                                                       # axis height: body top at up 0
-    nose, band0, band1 = at(.24), at(.40), at(.44)
+    nose, band0, band1 = at(.24) - 1, at(.40), at(.44)          # nose cone starts 1 further back (Kuoyi)
     rings = [tail, band0, band1, nose]
     V, rid = [], []
     for f in rings:
