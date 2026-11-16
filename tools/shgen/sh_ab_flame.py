@@ -12,7 +12,9 @@ AUR 的做法（見 skill/SH_edit_note.MD「後燃器火焰動畫」）：
   2. F14 原本的火焰區塊（後燃器 F0 條件呼叫的 82 + 8 面）不動，改寫呼叫目標到插在簽章前的新區塊：
      同樣 16 點、同樣的十字交叉面（兩具引擎 × 垂直/水平 × 正反面），但從噴嘴 y=-57 拉長到 TAIL，
      每個面包進 `40 00 03 00` 動畫切換
-用法：python3 sh_ab_flame.py F14 SH/F14.SH PIC/_F14.PIC 輸出.SH 輸出.PIC（或 F18 SH/F18.SH PIC/_F18.PIC …）
+基底要用原廠 F14（main 上的 SH/F14.SH 已經是改過的，原檔用 git show eee01f3^:SH/F14.SH 取得）。
+用法：python3 sh_ab_flame.py F14 SH/F14.SH PIC/_F14.PIC 輸出.SH 輸出.PIC [--grow 3000]（或 F18 SH/F18.SH PIC/_F18.PIC …）
+  --grow 毫秒：點燃後火焰在這段時間內從 15% 慢慢長到全長（F0 x86 每次畫的時候改尾端頂點）
 v2（Kuoyi 看過遊戲畫面）：長度 4/5，貼圖改成照實機照片的顏色（ab_flame_tex.py）
 """
 import os, struct, sys
@@ -50,6 +52,7 @@ def put(b, P, u, v, k):
 
 def main():
     prof, src, psrc, dst, pdst = sys.argv[1:6]
+    GROW = int(sys.argv[7]) if len(sys.argv) > 7 and sys.argv[6] == '--grow' else 0   # 毫秒，0 = 一點燃就全長
     G = PROFILES[prof]; F0, CALL, OLD, NOZZLE, OTAIL, TAIL, FL, SLOTS = (G[k] for k in ('F0', 'CALL', 'OLD', 'NOZ', 'OTAIL', 'TAIL', 'FL', 'SLOTS'))
     # ---- 1. 貼圖 ----
     pb = bytearray(open(psrc, 'rb').read()); P = read_pic(pb)
@@ -120,11 +123,73 @@ def main():
     # 新區塊最後的 1E 回到 12 00 呼叫之後。
     thunk = struct.unpack_from('<I', c, F0 + 18)[0]      # 後燃器 F0 裡的 push do_start_interp
     assert c[F0:F0+2] == b'\xf0\x00' and c[F0 + 17] == 0x68 and c[F0 + 22] == 0xC3
+    tramp = b''
+    if GROW:
+        # 後燃器點燃後火焰在 GROW 毫秒內從 15% 長到全長（Kuoyi 2026-11-16）。跳板先跑一段 x86：
+        #   物件編號 = word [0x580BEC]（FA.EXE 0x4AB450 畫物件前存的 handle 低 16 位，_PLafterBurner 等變數也在那裡設定）
+        #   毫秒 = timeGetTime（FA.EXE 匯入表 0x593758），每個物件在表 TBL 裡記「開始時間、上次看到的時間」
+        #   （32 格，以編號 & 31 選格，格子裡存編號當標籤）；編號不同或超過 1 秒沒畫到 = 剛點燃，重新計時
+        #   長度 = LEN × (0.15 + 0.85 × min(經過, GROW)/GROW)，直接寫進新區塊 82 頂點表裡 8 個尾端點的 y
+        # FA.EXE 的位址是固定的（基底 0x400000、不重定位），FA_BIG.EXE 這些位址相同。
+        while len(blk) % 4: blk += b'\x00'
+        TBL = tail + len(blk); blk += bytes(32 * 16)
+        tails = [tail + 6 + 6*i + 2 for i, v in enumerate(V) if v[1] == TAIL]
+        LEN = NOZZLE - TAIL
+        def src(Lpos):
+            st = "\n".join(f"mov word ptr [ebx + {tp - Lpos}], ax" for tp in tails)
+            return f"""
+                pushfd
+                pushad
+                call next
+            next:
+                pop ebx
+                movzx ecx, word ptr [0x580bec]
+                mov edi, ecx
+                and edi, 31
+                shl edi, 4
+                lea edi, [ebx + edi + {TBL - Lpos}]
+                call dword ptr [0x593758]
+                cmp word ptr [edi], cx
+                jne restart
+                mov edx, eax
+                sub edx, dword ptr [edi + 8]
+                cmp edx, 1000
+                jbe keep
+            restart:
+                mov word ptr [edi], cx
+                mov dword ptr [edi + 4], eax
+            keep:
+                mov dword ptr [edi + 8], eax
+                sub eax, dword ptr [edi + 4]
+                cmp eax, {GROW}
+                jbe ok
+                mov eax, {GROW}
+            ok:
+                imul eax, eax, 850
+                add eax, {150 * GROW}
+                imul eax, eax, {LEN}
+                xor edx, edx
+                mov ecx, {1000 * GROW}
+                div ecx
+                neg eax
+                add eax, {NOZZLE}
+                {st}
+                popad
+                popfd
+            """
+        import keystone
+        ks = keystone.Ks(keystone.KS_ARCH_X86, keystone.KS_MODE_32)
+        body0 = bytes(ks.asm(src(0), 0)[0])
+        Lpos = OLD + 2 + 2 + 5            # F0 00, pushfd+pushad (2), call next (5) → next = 標籤位置
+        body = bytes(ks.asm(src(Lpos), 0)[0]); assert len(body) == len(body0) and body[2] == 0xE8
+        tramp = body
     room = nxt - code['va'] - len(c)
     if len(blk) > room: sys.exit(f'空間不夠：需要 {len(blk)}，只有 {room}')
     L = len(blk)
-    c[OLD:OLD+13] = b'\xf0\x00\x68' + struct.pack('<I', code['va'] + tail) + b'\x68' + struct.pack('<I', thunk + L) + b'\xc3'
-    out = insert_blocks(d, pe, secs, code, c, tail, bytes(blk), extra_relocs=(OLD + 3 - tail, OLD + 8 - tail))
+    pp = OLD + 2 + len(tramp)
+    c[OLD:pp + 11] = b'\xf0\x00' + tramp + b'\x68' + struct.pack('<I', code['va'] + tail) + b'\x68' + struct.pack('<I', thunk + L) + b'\xc3'
+    assert pp + 11 <= OLD + 6 + 6*n + 8*39
+    out = insert_blocks(d, pe, secs, code, c, tail, bytes(blk), extra_relocs=(pp + 1 - tail, pp + 6 - tail))
     open(dst, 'wb').write(out); open(pdst, 'wb').write(pb)
     print(f'{dst}: 新火焰區塊 {len(blk)} 位元組（空間 {room}）在 CODE+{tail:#x}，長度 {NOZZLE - TAIL}；{pdst}: 3 張火焰圖')
 
