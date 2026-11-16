@@ -8,20 +8,22 @@ AUR 的做法（見 skill/SH_edit_note.MD「後燃器火焰動畫」）：
     所以一段段的亮環中間會透出背景，看起來像半透明、會流動的火焰
 
 這支程式：
-  1. 把 _AUR.PIC 的 3 張火焰圖複製到 _F14.PIC 沒用到的地方（第 3 張轉 90° 放，UV 跟著轉）
+  1. 3 張火焰圖（v1 從 _AUR.PIC 複製，v2 用 f14_flame_tex.py 畫）放到 _F14.PIC 沒用到的地方（第 3 張轉 90° 放，UV 跟著轉）
   2. F14 原本的火焰區塊（後燃器 F0 條件呼叫的 82 + 8 面）不動，改寫呼叫目標到插在簽章前的新區塊：
      同樣 16 點、同樣的十字交叉面（兩具引擎 × 垂直/水平 × 正反面），但從噴嘴 y=-57 拉長到 TAIL，
      每個面包進 `40 00 03 00` 動畫切換
-用法：python3 f14_ab_flame.py SH/F14.SH PIC/_F14.PIC PIC/_AUR.PIC 輸出.SH 輸出.PIC
+用法：python3 f14_ab_flame.py SH/F14.SH PIC/_F14.PIC 輸出.SH 輸出.PIC
+v2（Kuoyi 看過遊戲畫面）：長度 4/5，貼圖改成照實機照片的顏色（f14_flame_tex.py）
 """
 import os, struct, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sh_subdivide import pe_sections, insert_blocks
+from f14_flame_tex import frame
 
 SIG = bytes([1, 2, 3, 2, 1, 2, 3, 2, 1])
 CALL = 0x3973          # 後燃器 F0 條件後面的 `12 00 rel16`（原本呼叫 0x4766 的火焰區塊）
 OLD = 0x4766           # 原火焰區塊：82 00 16 點 + 8 個 FC（每個 39 位元組）+ 1E
-NOZZLE, TAIL = -57, -132   # 火焰從噴嘴到尾端的 y（原本到 -94）
+NOZZLE, TAIL = -57, -117   # 火焰從噴嘴到尾端的 y（原本到 -94；v1 到 -132，Kuoyi 要 4/5 長）
 # AUR 的 3 張火焰圖（貼圖座標 u0, v0；41×61，v 大的一端是噴嘴）
 AUR_FRAMES = [(199, 91), (127, 89), (0, 54)]
 # 放到 _F14.PIC 的位置（u0, v0, 轉 90°?）：轉的那張沿火焰方向是 u（u0 = 尾端），橫向是 v
@@ -43,16 +45,16 @@ def put(b, P, u, v, k):
 
 
 def main():
-    src, psrc, paur, dst, pdst = sys.argv[1:6]
+    src, psrc, dst, pdst = sys.argv[1:5]
     # ---- 1. 貼圖 ----
     pb = bytearray(open(psrc, 'rb').read()); P = read_pic(pb)
-    ab = open(paur, 'rb').read(); A = read_pic(ab)
-    for (au, av), (fu, fv, rot) in zip(AUR_FRAMES, F14_SLOTS):
+    # v2：貼圖照實機照片自己畫（f14_flame_tex.py），不再複製 AUR 的圖（AUR 尾端有散落的鬚鬚）
+    for k, (fu, fv, rot) in enumerate(F14_SLOTS):
+        F = frame(k)
         for r in range(61):            # r：沿火焰方向，0 = 尾端，60 = 噴嘴
             for a in range(41):        # a：橫向
-                k = pix(ab, A, au + a, av + r)
-                if rot: put(pb, P, fu + r, fv + a, k)
-                else:   put(pb, P, fu + a, fv + r, k)
+                if rot: put(pb, P, fu + r, fv + a, F[r][a])
+                else:   put(pb, P, fu + a, fv + r, F[r][a])
 
     def uv(slot, t, s):                # t：0 尾端 → 1 噴嘴；s：0/1 橫向兩邊
         fu, fv, rot = F14_SLOTS[slot]
