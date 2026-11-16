@@ -95,7 +95,7 @@ def aim54():
     F.append((FLAT, 143, list(rid[0])))                                       # tail cap
     G = orient(V, F, [0, (tail + tip) / 2, AX])
     # fins, outline (radial distance from the axis, fwd); root inside the body
-    wing = [(1.4, at(.46)), (5.7, at(.80)), (1.4, at(.80))]                   # pure delta wing (Kuoyi): tip at the trailing edge
+    wing = [(1.4, at(.38)), (5.7, at(.80)), (1.4, at(.80))]                   # pure delta wing (Kuoyi): root LE moved forward 46->38 %, tip at the trailing edge
     tailfin = [(1.4, at(.86)), (5.7, at(.89)), (5.7, tail), (1.4, tail)]       # small square tail fin
     for k in range(4):
         a = math.radians(A54_FIN_ROLL + 90 * k); ca, sa = math.cos(a), math.sin(a)
