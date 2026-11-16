@@ -98,7 +98,7 @@ def aim54():
     # fins, outline (radial distance from the axis, fwd); root inside the body
     tf0 = tail + (at(.86) - tail) // 2                                          # Kuoyi: half the length, still ending at the tail
     tailfin = [(1.4, tf0), (5.7, tf0), (5.7, tail), (1.4, tail)]                # small rectangular tail fin
-    wing = [(1.4, at(.38)), (5.7, tf0 - 4), (1.4, tf0 + 1)]                  # delta; Kuoyi (F14-30): root trailing edge 1 ahead of the tail fins, tip 1 behind the tail end
+    wing = [(1.4, at(.38)), (5.7, tf0 + 1), (1.4, tf0 + 3)]                  # delta; Kuoyi (F14-31): trailing edge 2 forward, whole edge ahead of the tail fins (gap)
     for k in range(4):
         a = math.radians(A54_FIN_ROLL + 90 * k); ca, sa = math.cos(a), math.sin(a)
         for outline, col in ((wing, 147), (tailfin, 146)):
