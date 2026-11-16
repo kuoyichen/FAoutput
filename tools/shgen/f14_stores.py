@@ -65,7 +65,7 @@ def aim54():
     SEC = [(1, 2), (2, 1), (2, -1), (1, -2), (-1, -2), (-2, -1), (-2, 1), (-1, 2)]   # octagon, top edge at up 2
     AX = -2                                                       # axis height: body top at up 0
     nose = at(.24) - 2                                            # nose cone starts 2 further back (Kuoyi)
-    mid = (nose + tail) // 2 + 2                                  # Kuoyi: blue band in the middle of the body, then 2 forward
+    mid = (nose + tail) // 2 + 6                                  # Kuoyi: blue band mid-body, then 2 and 4 forward (F14-34: band fwd 5..7)
     rings = [tail, mid - 1, mid + 1, nose]                        # (rings must run tail -> nose; the old 11/9 band ran backwards and was hidden)
     V, rid = [], []
     for f in rings:
@@ -99,7 +99,7 @@ def aim54():
     tf0 = tail + (at(.86) - tail) // 2                                          # Kuoyi: half the length, still ending at the tail
     FIN_R = 4.25                                                                 # Kuoyi (F14-32): fins ~half to 2/3 the old height (45 deg roll -> grid 3,3)
     tailfin = [(1.4, tf0), (FIN_R, tf0), (FIN_R, tail), (1.4, tail)]            # small rectangular tail fin
-    wing = [(1.4, mid + 1), (FIN_R, tf0 + 1), (1.4, tf0 + 1)]                # delta: front point at the blue band's front edge (Kuoyi F14-33), same height as the tail fins, square trailing edge 1 ahead of the fins
+    wing = [(1.4, mid - 1), (FIN_R, tf0 + 1), (1.4, tf0 + 1)]                # delta: front point fwd 5 (Kuoyi F14-34, = band's rear edge), same height as the tail fins, square trailing edge 1 ahead of the fins
     for k in range(4):
         a = math.radians(A54_FIN_ROLL + 90 * k); ca, sa = math.cos(a), math.sin(a)
         for outline, col in ((wing, 147), (tailfin, 146)):
