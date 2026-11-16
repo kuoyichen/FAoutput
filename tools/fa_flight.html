@@ -1524,10 +1524,13 @@ function readJoy(){
   if (press("weapon")) nextWeapon(); if (press("flare")) dropFlares(); if (press("chaff")) dropChaff(); if (press("gear")) toggleGear(); if (press("brake")) toggleBrake();
   if (press("view")) $("bView").click(); if (press("restart")) spawn();
   joy.prevBtn = btn;
-  // hat (POV) switch: look that way while held (up = front, down = behind), back to the front view on release
+  // hat (POV) switch: pans the view smoothly while held (eases in up to 100°/s); the view stays where you leave it (Front button resets)
   const hd = JOY.hat >= 0 && JOY.hat < pad.axes.length ? hatDir(pad.axes[JOY.hat]) : -1;
-  if (hd >= 0){ cam.yaw = -(hd <= 4 ? hd : hd - 8) * Math.PI / 4; cam.pitch = 0; joy.hatOn = true; }
-  else if (joy.hatOn){ joy.hatOn = false; cam.yaw = cam.pitch = 0; }
+  if (hd >= 0){ const a = hd * Math.PI / 4, dt = lastDt; joy.hatV = Math.min(1, (joy.hatV || 0) + dt / 0.35);
+    const w = joy.hatV * joy.hatV * 100 * Math.PI / 180 * dt;
+    cam.yaw -= Math.round(Math.sin(a) * 1e3) / 1e3 * w; cam.pitch = clamp(cam.pitch - Math.round(Math.cos(a) * 1e3) / 1e3 * w, -1.2, 1.4);
+    if (cam.yaw > Math.PI) cam.yaw -= 2 * Math.PI; if (cam.yaw < -Math.PI) cam.yaw += 2 * Math.PI; }
+  else joy.hatV = 0;
   // throttle lever: absolute (forward = full); it only takes over once it moves, so the keyboard / touch throttle still works
   const t = joyAxis(pad, "thr");
   if (t != null){ const want = clamp((1 - t) / 2, 0, 1); if (joy.lastThr == null || Math.abs(want - joy.lastThr) > 0.01){ if (joy.lastThr != null) P.thr = want; joy.lastThr = want; } }
