@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAlogger: record and replay FA missions</title>
+<meta name="description" content="FAlogger records every Fighters Anthology mission while you fly. Play the recording back in 3D in your browser, ACMI style, and turn it into a cinematic video.">
+<style>
+:root{ --bg:#0e1216; --card:#161c22; --card2:#1b232b; --line:#26303a; --text:#e2e8ee; --muted:#8a96a4; --accent:#ffd54a; --cyan:#6fd3ff; --ok:#5fd38a; --warn:#ffb347; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:var(--cyan)}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+header{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:12px 16px;background:#0e1216ee;border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+header .crumb{color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#langSlot{margin-left:auto}
+.fa-lang{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font:inherit;font-size:13px}
+main{max-width:980px;margin:0 auto;padding:24px 16px 60px}
+h1{font-size:clamp(30px,6vw,46px);line-height:1.1;margin:10px 0 8px}
+h1 b{color:var(--accent)}
+h2{font-size:22px;margin:46px 0 6px;scroll-margin-top:70px}
+h3{font-size:17px;margin:20px 0 6px}
+.lead{font-size:17px;color:#c4ccd5;max-width:740px}
+.muted{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.dl{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:18px}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#1a1a1a;font-weight:700;text-decoration:none;border-radius:10px;padding:11px 18px}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:none;color:var(--text);border:1px solid var(--line);font-weight:600}
+code,kbd{font:13px/1.4 ui-monospace,Consolas,monospace;background:#0b0f13;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+pre{font:13px/1.5 ui-monospace,Consolas,monospace;background:#0b0f13;border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow-x:auto;margin:10px 0}
+figure{margin:18px 0}
+figure img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line)}
+figcaption{color:var(--muted);font-size:13px;margin-top:6px}
+.acmi{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:start;margin-top:26px;border-left:3px solid var(--accent);background:#ffd54a0d;border-radius:0 12px 12px 0;padding:14px 18px}
+.acmi .big{font:800 26px/1 system-ui;color:var(--accent);letter-spacing:1px}
+.acmi p{margin:0 0 6px}
+.toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.toc a{font-size:13px;border:1px solid var(--line);border-radius:20px;padding:4px 12px;color:var(--text);text-decoration:none}
+.toc a:hover{border-color:var(--accent)}
+.feat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+.feat div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.feat b{display:block;margin-bottom:2px}
+.feat span{color:var(--muted);font-size:14px}
+ol.steps{padding-left:0;list-style:none;counter-reset:s;margin:10px 0}
+ol.steps li{counter-increment:s;position:relative;padding:4px 0 12px 42px}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:2px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#1a1a1a;font-weight:800;display:grid;place-items:center}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+td:first-child{white-space:nowrap;font-weight:600}
+.scroll{overflow-x:auto}
+.note{border-left:3px solid var(--warn);padding:8px 12px;background:#ffb3470f;border-radius:0 8px 8px 0;margin:12px 0}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+@media (max-width:700px){ .feat,.two{grid-template-columns:1fr} .acmi{grid-template-columns:1fr} td:first-child{white-space:normal} }
+</style>
+<script src="fashion_i18n.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <span class="crumb">FAlogger</span>
+  <span id="langSlot"></span>
+</header>
+<main>
+  <h1>FA<b>logger</b></h1>
+  <p class="lead" data-lang="en">Record every <em>Fighters Anthology</em> mission while you fly, then watch it again in 3D in your browser: every aircraft, missile and gun burst, who was locked on to whom, every flare and chaff, and the moment each jet went down. One click turns the mission into a cinematic video.</p>
+  <p class="lead" data-lang="zh">一邊飛 <em>Fighters Anthology</em>，一邊把整場任務錄下來，之後在瀏覽器裡用 3D 重看：每一架飛機、每一枚飛彈和每一串機砲、誰鎖定了誰、每一發熱焰彈和干擾絲，以及每架飛機被擊落的那一刻。再按一下，就能把任務做成精彩影片。</p>
+  <div class="dl">
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/FAlogger/falogger.zip" download>⬇ <span data-lang="en">Download falogger.zip</span><span data-lang="zh">下載 falogger.zip</span></a>
+    <a class="btn ghost" href="fa_replay.html">▶ <span data-lang="en">Open the replay page</span><span data-lang="zh">開啟重播網頁</span></a>
+    <span class="muted" style="font-size:13px"><span data-lang="en">ZIP 6.9 MB · falogger.exe + falogger.py · Windows</span><span data-lang="zh">ZIP 6.9 MB · 內含 falogger.exe 和 falogger.py · Windows</span></span>
+  </div>
+  <p class="muted" style="font-size:13px;margin-top:8px"><span data-lang="en">Or get the files one by one:</span><span data-lang="zh">也可以分開下載：</span>
+    <a href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/FAlogger/falogger.exe" download>falogger.exe</a> (7.1 MB) ·
+    <a href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/FAlogger/falogger.py" download>falogger.py</a> (26 KB)</p>
+
+  <div class="acmi">
+    <div class="big">ACMI</div>
+    <div data-lang="en">
+      <p><b>Why I made this.</b> I wanted ACMI for FA. ACMI (Air Combat Maneuvering Instrumentation) is the system real fighter squadrons use to record training dogfights: every jet's position, attitude and weapon shots are logged, and after landing the pilots replay the whole fight on a big screen to see who saw whom first and why a shot hit or missed. It is the debrief screen made famous by <em>Top Gun</em>.</p>
+      <p class="muted">FA never had one, so FAlogger reads the game's memory while you fly, and the replay page is the debrief room.</p>
+    </div>
+    <div data-lang="zh">
+      <p><b>為什麼做這個。</b>我想要 FA 也有 ACMI。ACMI（Air Combat Maneuvering Instrumentation，空戰演練儀）是真實戰鬥機部隊記錄空戰訓練的系統：每架飛機的位置、姿態和每一次開火都被記下來，落地後飛行員在大螢幕上重播整場纏鬥，看誰先發現誰、為什麼這一發打中或落空。《捍衛戰士》（Top Gun）裡講評室的那個畫面就是它。</p>
+      <p class="muted">FA 本來沒有這種東西，所以 FAlogger 在你飛行時讀取遊戲記憶體，重播網頁就是講評室。</p>
+    </div>
+  </div>
+
+  <figure>
+    <img src="../FAlogger/img/replay_overview.jpg" alt="Replay page: three F-14s against a Tu-22M, a Tu-95 and a MiG-29, with ribbon trails and target lines" loading="lazy">
+    <figcaption data-lang="en">A recorded mission on the replay page: ribbon trails, target lines (yellow = your lock), the colour key on the left and the player panel on the right.</figcaption>
+    <figcaption data-lang="zh">重播網頁上的一場任務：緞帶軌跡、目標連線（黃色是你的鎖定）、左邊是顏色代碼、右邊是玩家面板。</figcaption>
+  </figure>
+
+  <nav class="toc">
+    <a href="#what"><span data-lang="en">What it records</span><span data-lang="zh">記錄了什麼</span></a>
+    <a href="#record"><span data-lang="en">1 · Record</span><span data-lang="zh">1 · 錄製</span></a>
+    <a href="#open"><span data-lang="en">2 · Open in the browser</span><span data-lang="zh">2 · 在瀏覽器開啟</span></a>
+    <a href="#watch"><span data-lang="en">3 · Watch and explore</span><span data-lang="zh">3 · 觀看與操作</span></a>
+    <a href="#options"><span data-lang="en">Display options</span><span data-lang="zh">顯示選項</span></a>
+    <a href="#shapes"><span data-lang="en">Shapes</span><span data-lang="zh">外型</span></a>
+    <a href="#video"><span data-lang="en">4 · Make a video</span><span data-lang="zh">4 · 產生影片</span></a>
+    <a href="#online"><span data-lang="en">Share online</span><span data-lang="zh">線上分享</span></a>
+    <a href="#faq"><span data-lang="en">Questions</span><span data-lang="zh">常見問題</span></a>
+  </nav>
+
+  <h2 id="what"><span data-lang="en">What it records</span><span data-lang="zh">記錄了什麼</span></h2>
+  <p class="muted" data-lang="en">Ten times a second, for every object in the mission. Nothing in FA is changed: FAlogger only reads memory, like a cockpit camera.</p>
+  <p class="muted" data-lang="zh">每秒 10 次，記錄任務裡的每一個物件。FA 本身完全不會被修改：FAlogger 只讀記憶體，就像裝在座艙裡的攝影機。</p>
+  <div class="feat" data-lang="en">
+    <div><b>Every object</b><span>Aircraft, missiles, gun rounds, ships, SAMs, tanks, buildings and runways: position, heading, pitch, roll and speed.</span></div>
+    <div><b>Real names and shapes</b><span>Type names like “F-14A” or “Tu-22M” and the .SH file each one uses, so the replay draws the real 3D model.</span></div>
+    <div><b>Damage</b><span>Hit points of every aircraft, shown as the same damage % the game uses, plus kills, crashes and ejections.</span></div>
+    <div><b>Who is watching whom</b><span>The target each aircraft or SAM is tracking or locked on to, so you can see when someone starts hunting you.</span></div>
+    <div><b>Chaff and flares</b><span>How many each aircraft has left, and every time one is dropped.</span></div>
+    <div><b>Your cockpit</b><span>Throttle and thrust, gear, flaps, hook, brake, afterburner, swing-wing sweep, the selected weapon and the rounds left on every station.</span></div>
+  </div>
+  <div class="feat" data-lang="zh">
+    <div><b>每一個物件</b><span>飛機、飛彈、機砲彈、船艦、防空飛彈、戰車、建築和跑道：位置、航向、俯仰、滾轉和速度。</span></div>
+    <div><b>真實名稱與外型</b><span>像「F-14A」「Tu-22M」這樣的機型名稱，以及各自使用的 .SH 檔，重播時會畫出真正的 3D 模型。</span></div>
+    <div><b>損傷</b><span>每架飛機的生命值，以遊戲裡同樣的損傷 % 顯示，還有擊落、墜毀和跳傘。</span></div>
+    <div><b>誰在注視誰</b><span>每架飛機或防空單位正在追蹤或鎖定的目標，看得出誰開始盯上你。</span></div>
+    <div><b>干擾絲與熱焰彈</b><span>每架飛機剩下多少，以及每一次投放。</span></div>
+    <div><b>你的座艙</b><span>油門與推力、起落架、襟翼、尾鉤、減速板、後燃器、可變翼角度、選擇的武器，以及每個掛點剩下的數量。</span></div>
+  </div>
+
+  <h2 id="record"><span data-lang="en">Step 1 · Record a mission</span><span data-lang="zh">步驟 1 · 錄製任務</span></h2>
+  <ol class="steps" data-lang="en">
+    <li>Unzip <code>falogger.zip</code> into any folder, for example <code>C:\FAlogger</code>. The recordings are saved in this folder.</li>
+    <li>Double-click <code>falogger.exe</code>. A console window opens and says <code>Waiting for FA.EXE to start...</code> You can also start the game first: the order does not matter.</li>
+    <li>Start FA (FA.EXE or <a href="fa_big.html">FA_BIG</a>) and fly a mission as usual. When the mission starts the window shows <code>Mission started, recording to flight_20261116_153659.bin</code> and which object is your aircraft.</li>
+    <li>Every mission gets its own file. When you go back to the menus the file is closed, and the next mission starts a new one.</li>
+    <li>When you quit FA, FAlogger lists the files it saved. Press <kbd>Enter</kbd> to close the window.</li>
+  </ol>
+  <ol class="steps" data-lang="zh">
+    <li>把 <code>falogger.zip</code> 解壓到任何資料夾，例如 <code>C:\FAlogger</code>。錄好的檔案會存在這個資料夾。</li>
+    <li>雙擊 <code>falogger.exe</code>。會開一個命令視窗，顯示 <code>Waiting for FA.EXE to start...</code>。也可以先開遊戲，先後順序沒關係。</li>
+    <li>啟動 FA（FA.EXE 或 <a href="fa_big.html">FA_BIG</a>），照平常一樣飛任務。任務開始時視窗會顯示 <code>Mission started, recording to flight_20261116_153659.bin</code>，以及哪一個物件是你的飛機。</li>
+    <li>每一次任務各存一個檔。回到選單畫面時就關檔，下一次任務會開新檔。</li>
+    <li>關掉 FA 後，FAlogger 會列出這次存了哪些檔。按 <kbd>Enter</kbd> 關閉視窗。</li>
+  </ol>
+  <div class="note" data-lang="en">Windows may warn that <code>falogger.exe</code> is from an unknown publisher (it is not code-signed). Click <b>More info → Run anyway</b>, or run the Python version instead. If the window says <code>OpenProcess failed</code>, right-click <code>falogger.exe</code> and choose <b>Run as administrator</b>.</div>
+  <div class="note" data-lang="zh">Windows 可能會警告 <code>falogger.exe</code> 是不明發行者（沒有程式碼簽章）。按「<b>其他資訊 → 仍要執行</b>」，或改用 Python 版。如果視窗顯示 <code>OpenProcess failed</code>，在 <code>falogger.exe</code> 上按右鍵選「<b>以系統管理員身分執行</b>」。</div>
+  <h3 data-lang="en">Python version and options</h3>
+  <h3 data-lang="zh">Python 版與參數</h3>
+  <p data-lang="en"><code>falogger.py</code> is the same program as source code. It needs Python 3.8 or newer on Windows and nothing else. Run it from a command prompt; with no arguments it records flights, exactly like the exe. The exe takes the same options.</p>
+  <p data-lang="zh"><code>falogger.py</code> 是同一個程式的原始碼，只需要 Windows 上的 Python 3.8 以上，不用裝其他套件。在命令提示字元執行；不加參數就是錄製飛行，跟 exe 一樣。exe 也接受同樣的參數。</p>
+<pre>python falogger.py                      <span class="muted"># record flights (default)</span>
+python falogger.py --hz 20              <span class="muted"># 20 frames a second instead of 10</span>
+python falogger.py --flight dogfight.bin <span class="muted"># fixed name: dogfight.bin, dogfight_2.bin…</span>
+falogger.exe --help                     <span class="muted"># all options</span></pre>
+  <p class="muted" data-lang="en">Other modes (<code>objects</code>, <code>log</code>, <code>record</code>, <code>analyze</code>) are research tools for finding new memory fields; players do not need them.</p>
+  <p class="muted" data-lang="zh">其他模式（<code>objects</code>、<code>log</code>、<code>record</code>、<code>analyze</code>）是用來找新記憶體欄位的研究工具，一般玩家用不到。</p>
+
+  <h2 id="open"><span data-lang="en">Step 2 · Open the recording in your browser</span><span data-lang="zh">步驟 2 · 在瀏覽器開啟錄製檔</span></h2>
+  <ol class="steps" data-lang="en">
+    <li>Open the <a href="fa_replay.html">replay page</a> in Chrome, Edge or Firefox on a computer. Nothing is uploaded: the file is read inside your browser.</li>
+    <li>Drag a <code>flight_*.bin</code> file from Explorer onto the page, or press <b>Open .bin</b> at the bottom left and pick it.</li>
+    <li>If a file holds more than one mission (for example an older recording), a <b>Mission</b> menu appears in the bottom bar so you can pick which one to play.</li>
+    <li>Press <b>▶</b> or <kbd>Space</kbd> to play.</li>
+  </ol>
+  <ol class="steps" data-lang="zh">
+    <li>在電腦上用 Chrome、Edge 或 Firefox 開啟<a href="fa_replay.html">重播網頁</a>。檔案不會被上傳，是在你的瀏覽器裡讀取的。</li>
+    <li>從檔案總管把 <code>flight_*.bin</code> 拖進網頁，或按左下角的「<b>開啟 .bin</b>」選擇檔案。</li>
+    <li>如果一個檔案裡有好幾次任務（例如舊版錄的檔），下方工具列會出現「<b>任務</b>」選單，可以選要播放哪一次。</li>
+    <li>按 <b>▶</b> 或 <kbd>空白鍵</kbd> 開始播放。</li>
+  </ol>
+
+  <h2 id="watch"><span data-lang="en">Step 3 · Watch and explore</span><span data-lang="zh">步驟 3 · 觀看與操作</span></h2>
+  <figure>
+    <img src="../FAlogger/img/replay_close.jpg" alt="Follow view close to a Tu-22M dropping flares" loading="lazy">
+    <figcaption data-lang="en">Follow view on the Tu-22M as it drops flares. The info box shows its damage, its target and the chaff and flares it has left.</figcaption>
+    <figcaption data-lang="zh">跟隨視角對準正在投放熱焰彈的 Tu-22M。資訊框顯示它的損傷、目標，以及剩下的干擾絲和熱焰彈。</figcaption>
+  </figure>
+  <h3 data-lang="en">Mouse and keyboard</h3>
+  <h3 data-lang="zh">滑鼠與鍵盤</h3>
+  <div class="scroll"><table data-lang="en">
+    <tr><th>Do this</th><th>To</th></tr>
+    <tr><td>Left-drag</td><td>Rotate the camera around the selected aircraft</td></tr>
+    <tr><td>Right-drag or Shift + drag</td><td>Pan (switches to Free view)</td></tr>
+    <tr><td>Mouse wheel</td><td>Zoom in and out</td></tr>
+    <tr><td>Click an aircraft</td><td>Select it: the camera follows it and the info box shows its data</td></tr>
+    <tr><td><kbd>Space</kbd></td><td>Play / pause</td></tr>
+    <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Jump back / forward 5 seconds</td></tr>
+  </table>
+  <table data-lang="zh">
+    <tr><th>操作</th><th>作用</th></tr>
+    <tr><td>左鍵拖曳</td><td>繞著選取的飛機旋轉視角</td></tr>
+    <tr><td>右鍵拖曳或 Shift + 拖曳</td><td>平移（會切換成自由視角）</td></tr>
+    <tr><td>滾輪</td><td>拉近、拉遠</td></tr>
+    <tr><td>點一架飛機</td><td>選取它：視角跟著它，資訊框顯示它的資料</td></tr>
+    <tr><td><kbd>空白鍵</kbd></td><td>播放 / 暫停</td></tr>
+    <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>倒退 / 前進 5 秒</td></tr>
+  </table></div>
+
+  <h3 data-lang="en">The bottom bar</h3>
+  <h3 data-lang="zh">下方工具列</h3>
+  <div class="scroll"><table data-lang="en">
+    <tr><th>Control</th><th>What it does</th></tr>
+    <tr><td>Open .bin</td><td>Load a recording from your computer (or drag one onto the page).</td></tr>
+    <tr><td>☁ Online</td><td>Browse, play, upload and share missions. See <a href="#online">Share online</a>.</td></tr>
+    <tr><td>▶ and speed</td><td>Play / pause, and play at 0.25× to 16×.</td></tr>
+    <tr><td>Timeline</td><td>Drag to any moment. Ticks mark events: tall dark red = kills, red = shots, yellow = hits, gold = everything else.</td></tr>
+    <tr><td>Mission</td><td>Only when a file holds several missions: pick one.</td></tr>
+    <tr><td>🎬 Generate video</td><td>Make a cinematic video. See <a href="#video">Step 4</a>.</td></tr>
+    <tr><td>Reset</td><td>Back to the default camera, following your aircraft.</td></tr>
+    <tr><td>Panel</td><td>Show or hide the right-hand panel (more room on small screens).</td></tr>
+    <tr><td>English / 繁體中文</td><td>Language of the page, remembered for every FAshion page.</td></tr>
+  </table>
+  <table data-lang="zh">
+    <tr><th>控制項</th><th>作用</th></tr>
+    <tr><td>開啟 .bin</td><td>從電腦載入錄製檔（也可以直接拖進網頁）。</td></tr>
+    <tr><td>☁ 線上</td><td>瀏覽、播放、上傳和分享任務。見<a href="#online">線上分享</a>。</td></tr>
+    <tr><td>▶ 和速度</td><td>播放 / 暫停，以及 0.25× 到 16× 的播放速度。</td></tr>
+    <tr><td>時間軸</td><td>拖到任何時間點。刻度標出事件：較高的深紅色是擊落、紅色是開火、黃色是命中、金色是其他事件。</td></tr>
+    <tr><td>任務</td><td>只有檔案裡有好幾次任務時才出現，用來選擇其中一次。</td></tr>
+    <tr><td>🎬 產生影片</td><td>製作精彩影片。見<a href="#video">步驟 4</a>。</td></tr>
+    <tr><td>重設</td><td>回到預設視角，跟著你的飛機。</td></tr>
+    <tr><td>面板</td><td>顯示或隱藏右側面板（小螢幕上可以多一點空間）。</td></tr>
+    <tr><td>English / 繁體中文</td><td>網頁語言，所有 FAshion 網頁都會記住這個選擇。</td></tr>
+  </table></div>
+
+  <h3 data-lang="en">On the 3D view</h3>
+  <h3 data-lang="zh">3D 畫面上</h3>
+  <div class="two">
+    <div class="card" data-lang="en"><b>Clock box (top left)</b><br>Mission time, playback speed and the camera mode button. Click it to cycle through <b>Follow view</b> (camera stays on the selected aircraft), <b>Group view</b> (frames every aircraft at once, best for the big picture) and <b>Free view</b> (camera stays where you put it).</div>
+    <div class="card" data-lang="zh"><b>時間框（左上）</b><br>任務時間、播放速度，以及視角按鈕。點它可以輪流切換「<b>跟隨視角</b>」（鏡頭跟著選取的飛機）、「<b>群組視角</b>」（把所有飛機一起框進畫面，最適合看全局）和「<b>自由視角</b>」（鏡頭停在你放的位置）。</div>
+    <div class="card" data-lang="en"><b>Info box (top right)</b><br>The selected aircraft: ID, altitude, speed, pitch, heading, nation (friend or enemy), damage, its current target, chaff / flares left, and which SH shape is drawn. Click ✎ to rename an unnamed type.</div>
+    <div class="card" data-lang="zh"><b>資訊框（右上）</b><br>選取的飛機：編號、高度、速度、俯仰、航向、國別（敵我）、損傷、目前的目標、剩餘干擾絲 / 熱焰彈，以及畫的是哪一個 SH 外型。按 ✎ 可以幫沒有名稱的機型改名。</div>
+    <div class="card" data-lang="en"><b>Colour key (bottom left)</b><br>Every group in the mission with its colour and count. Click a group to hide or show it, for example to hide gun rounds or buildings.</div>
+    <div class="card" data-lang="zh"><b>顏色代碼（左下）</b><br>任務中每一組物件的顏色和數量。點一組可以隱藏或顯示，例如把機砲彈或建築藏起來。</div>
+    <div class="card" data-lang="en"><b>Right-hand panel</b><br><b>Player</b>: your type, altitude, speed, heading, pitch / roll, throttle / thrust and damage. <b>Controls</b>: gear, flaps, hook and brake light up when used. <b>Weapon stations</b>: rounds left on the gun and each station, the selected one highlighted, plus chaff and flares. <b>Events</b>: the mission log; click a line to jump there.</div>
+    <div class="card" data-lang="zh"><b>右側面板</b><br>「<b>玩家</b>」：機型、高度、速度、航向、俯仰 / 滾轉、油門 / 推力和損傷。「<b>操縱面</b>」：起落架、襟翼、尾鉤和煞車使用時會亮起。「<b>武器掛點</b>」：機砲和每個掛點剩下的數量，選中的會標亮，還有干擾絲和熱焰彈。「<b>事件</b>」：任務紀錄，點一行就跳到那個時間。</div>
+  </div>
+  <h3 data-lang="en">The event log</h3>
+  <h3 data-lang="zh">事件紀錄</h3>
+  <p data-lang="en">The replay works out what happened and lists it with times: gear, flaps, hook and brake; weapon selection; every missile launch and gun burst and who fired it; hits with the weapon name and damage %; kills, crashes, aircraft breaking in two and pilots ejecting; “👁 X is now watching you” and “🎯 You locked X”; and every chaff ✨ and flare 🔥 drop.</p>
+  <p data-lang="zh">重播網頁會自動推算發生了什麼，依時間列出：起落架、襟翼、尾鉤和煞車；切換武器；每一次發射飛彈和機砲連射，以及是誰開的火；命中（含武器名稱和損傷 %）；擊落、墜毀、斷成兩截和飛行員跳傘；「👁 X 開始注視你」和「🎯 你鎖定 X」；以及每一次投放干擾絲 ✨ 和熱焰彈 🔥。</p>
+
+  <h2 id="options"><span data-lang="en">Display options</span><span data-lang="zh">顯示選項</span></h2>
+  <p class="muted" data-lang="en">In the right-hand panel under <b>Display</b>.</p>
+  <p class="muted" data-lang="zh">在右側面板的「<b>顯示</b>」底下。</p>
+  <div class="scroll"><table data-lang="en">
+    <tr><th>Option</th><th>What it does</th></tr>
+    <tr><td>Ribbon trails</td><td>A ribbon behind each aircraft that twists with its roll, like ACMI tracks. Missiles leave a white line.</td></tr>
+    <tr><td>Trail length</td><td>How many seconds of trail to keep, 5 to 600.</td></tr>
+    <tr><td>Altitude drop lines</td><td>A vertical line from each aircraft to the ground, to judge height.</td></tr>
+    <tr><td>ID labels</td><td>Type name and object number next to each aircraft, with a small health bar.</td></tr>
+    <tr><td>Target lines</td><td>Dashed arrows from each aircraft or SAM to what it is watching. Red = aimed at you, yellow = your own lock.</td></tr>
+    <tr><td>Static objects</td><td>Show runways, buildings and other things that never move.</td></tr>
+    <tr><td>Point the nose along the direction of travel</td><td>Uses the flight path for the nose direction. Smoother; turn it off to see the raw heading from the game.</td></tr>
+    <tr><td>Mirror Z axis</td><td>Only if a mission looks left-right swapped.</td></tr>
+    <tr><td>Shape</td><td><b>SH 3D, coloured by nation</b> (default), <b>Flat</b> (the SH face colours), <b>Textured</b> (the PIC textures, like in the game) or <b>2D silhouette icons</b> (fastest).</td></tr>
+    <tr><td>Colour by</td><td><b>Nation</b> (friend blue, enemy red), <b>Type</b> (one colour per aircraft type) or <b>Class code</b> (for research).</td></tr>
+    <tr><td>Icon size</td><td>Make far-away aircraft bigger or smaller on screen.</td></tr>
+  </table>
+  <table data-lang="zh">
+    <tr><th>選項</th><th>作用</th></tr>
+    <tr><td>緞帶軌跡</td><td>每架飛機後面拖一條會隨滾轉扭動的緞帶，就像 ACMI 的航跡。飛彈留下白線。</td></tr>
+    <tr><td>軌跡長度</td><td>保留幾秒的軌跡，5 到 600 秒。</td></tr>
+    <tr><td>高度垂線</td><td>從每架飛機往地面畫一條垂直線，方便判斷高度。</td></tr>
+    <tr><td>編號標籤</td><td>每架飛機旁邊顯示機型和物件編號，以及小小的血條。</td></tr>
+    <tr><td>目標連線</td><td>從每架飛機或防空單位畫虛線箭頭指向它注視的目標。紅色是瞄準你，黃色是你自己的鎖定。</td></tr>
+    <tr><td>靜止物件</td><td>顯示跑道、建築等不會動的東西。</td></tr>
+    <tr><td>用移動方向決定機頭朝向</td><td>用飛行路徑決定機頭方向，看起來比較順；關掉就是遊戲原始的航向。</td></tr>
+    <tr><td>鏡像 Z 軸</td><td>只有任務看起來左右顛倒時才需要勾。</td></tr>
+    <tr><td>外型</td><td>「<b>SH 3D，依國別上色</b>」（預設）、「<b>平面</b>」（SH 面的原色）、「<b>貼圖</b>」（PIC 貼圖，像遊戲裡一樣）或「<b>2D 剪影圖示</b>」（最快）。</td></tr>
+    <tr><td>顏色依</td><td>「<b>國別</b>」（友軍藍、敵軍紅）、「<b>機型</b>」（每種機型一個顏色）或「<b>類別代碼</b>」（研究用）。</td></tr>
+    <tr><td>圖示大小</td><td>把遠處的飛機在畫面上放大或縮小。</td></tr>
+  </table></div>
+
+  <h2 id="shapes"><span data-lang="en">Shapes: which 3D model is drawn</span><span data-lang="zh">外型：畫的是哪一個 3D 模型</span></h2>
+  <p data-lang="en">The recording knows the .SH file of every type, and the replay draws it from the FAshion library of all 724 factory shapes. Gear, flaps, hook, speed brake, afterburner flames and swing wings move as they did in the mission.</p>
+  <p data-lang="zh">錄製檔記得每種機型用的 .SH 檔，重播網頁會從 FAshion 收錄的全部 724 個原廠外型裡找來畫。起落架、襟翼、尾鉤、減速板、後燃器火焰和可變翼都會照任務中的狀態動作。</p>
+  <ul data-lang="en">
+    <li><b>Your own or modded shapes:</b> under Display, <b>Choose SH folder</b> (pick your FA folder) or <b>Load .SH files</b>. Your files are used instead of the library and are remembered in this browser.</li>
+    <li><b>A different shape for one type:</b> select the aircraft and change <b>SH shape</b> in the info box.</li>
+    <li><b>Unnamed types:</b> very old recordings may show “Type A”, “Type B”. Click ✎ in the info box (or in the colour key when colouring by type) and type the real name, such as F-14; the shape follows the name.</li>
+  </ul>
+  <ul data-lang="zh">
+    <li><b>自己的或改過的外型：</b>在「顯示」底下按「<b>選擇 SH 資料夾</b>」（選你的 FA 目錄）或「<b>載入 .SH 檔</b>」。會優先使用你的檔案，而且這個瀏覽器會記住。</li>
+    <li><b>某個機型改用別的外型：</b>選取那架飛機，在資訊框改「<b>SH 外型</b>」。</li>
+    <li><b>沒有名稱的機型：</b>很舊的錄製檔可能顯示「機型 A」「機型 B」。按資訊框（或依機型上色時顏色代碼裡）的 ✎，輸入真正的名稱，例如 F-14，外型就會跟著換。</li>
+  </ul>
+
+  <h2 id="video"><span data-lang="en">Step 4 · Make a cinematic video</span><span data-lang="zh">步驟 4 · 產生精彩影片</span></h2>
+  <figure>
+    <img src="../FAlogger/img/replay_video.jpg" alt="The Generate cinematic video dialog listing the mission's key moments" loading="lazy">
+    <figcaption data-lang="en">The video dialog lists the key moments it found and how long the video will be.</figcaption>
+    <figcaption data-lang="zh">影片對話框會列出找到的精彩時刻，以及影片會有多長。</figcaption>
+  </figure>
+  <ol class="steps" data-lang="en">
+    <li>Load a mission and press <b>🎬 Generate video</b> in the bottom bar.</li>
+    <li>The page finds the key moments by itself: missile launches and where they went, gun attacks, hits, kills, close passes and merges, ejections and take-offs. Combat that happens close together becomes one engagement, with a wide <b>Tactical view</b> before it and a <b>Furball replay</b> after it.</li>
+    <li>Choose <b>Length</b> (short ≈40 s, normal ≈90 s, or every highlight), <b>Resolution</b> (480p, 720p or 1080p) and <b>Format</b> (MP4 when the browser supports it, otherwise WebM). Tick <b>Music and sound effects</b> and <b>Subtitles</b> (the event log burned into the picture) as you like.</li>
+    <li>Press <b>Preview</b> to watch it first, or <b>● Record video</b>. The video plays in real time while it records, so keep the tab in front until it finishes; the file then downloads by itself.</li>
+  </ol>
+  <ol class="steps" data-lang="zh">
+    <li>載入任務後，按下方工具列的「<b>🎬 產生影片</b>」。</li>
+    <li>網頁會自己找出精彩時刻：發射飛彈和它飛去哪裡、機砲攻擊、命中、擊落、近距離交會與迎頭交會、跳傘和起飛。時間相近的戰鬥會合成一場交戰，前面加一段「<b>戰場全景</b>」，後面加一段「<b>纏鬥全景重播</b>」。</li>
+    <li>選擇「<b>長度</b>」（短約 40 秒、一般約 90 秒，或全部精彩時刻）、「<b>解析度</b>」（480p、720p 或 1080p）和「<b>格式</b>」（瀏覽器支援就用 MP4，否則 WebM）。可以勾選「<b>配樂與音效</b>」和「<b>字幕</b>」（把事件紀錄直接印在畫面上）。</li>
+    <li>按「<b>預覽</b>」先看一次，或按「<b>● 錄製影片</b>」。錄製時影片會即時播放，請讓分頁保持在前景直到結束，完成後檔案會自動下載。</li>
+  </ol>
+  <p data-lang="en">Cameras used: chase, over-the-shoulder, gun camera, missile camera, impact, fly-by and orbit, with slow motion on hits and kills. If there was no fighting, the video simply flies along with you.</p>
+  <p data-lang="zh">會用到的鏡頭：追蹤、肩後、機砲瞄準、飛彈視角、命中、掠過和環繞，命中和擊落時會有慢動作。如果整場沒有戰鬥，影片就會跟著你一起飛。</p>
+
+  <h2 id="online"><span data-lang="en">Share missions online</span><span data-lang="zh">線上分享任務</span></h2>
+  <p data-lang="en">Press <b>☁ Online</b> on the replay page (on <a href="https://fashion-hawke.vercel.app/tools/fa_replay.html">fashion-hawke.vercel.app</a>) to see missions other pilots uploaded and play any of them with one click.</p>
+  <p data-lang="zh">在重播網頁（<a href="https://fashion-hawke.vercel.app/tools/fa_replay.html">fashion-hawke.vercel.app</a> 上）按「<b>☁ 線上</b>」，可以看到其他飛行員上傳的任務，點一下就能播放。</p>
+  <ul data-lang="en">
+    <li><b>Upload:</b> drag your <code>.bin</code> into the panel (or choose it), add your name and a short description, and optionally the mission's <code>.M</code> file and <code>.MT</code> briefing so others can fly it too. Press <b>Upload</b>.</li>
+    <li><b>Share:</b> each mission gets a link that opens it directly in the replay page.</li>
+    <li><b>Download:</b> the .bin, .M and .MT of any mission; 📄 reads the briefing.</li>
+    <li><b>Delete:</b> you can delete your own uploads from the same browser.</li>
+  </ul>
+  <ul data-lang="zh">
+    <li><b>上傳：</b>把 <code>.bin</code> 拖進面板（或選擇檔案），填上名字和簡短說明，也可以附上任務的 <code>.M</code> 檔和 <code>.MT</code> 簡報，讓別人也能飛同一場。按「<b>上傳</b>」。</li>
+    <li><b>分享：</b>每個任務都有一個連結，打開就直接在重播網頁播放。</li>
+    <li><b>下載：</b>任何任務的 .bin、.M 和 .MT；📄 可以閱讀簡報。</li>
+    <li><b>刪除：</b>在同一個瀏覽器可以刪除自己上傳的任務。</li>
+  </ul>
+  <p class="muted" data-lang="en">Uploads are public. Recordings up to 30 MB, .M / .MT up to 2 MB.</p>
+  <p class="muted" data-lang="zh">上傳的內容是公開的。錄製檔上限 30 MB，.M / .MT 上限 2 MB。</p>
+
+  <h2 id="faq"><span data-lang="en">Questions</span><span data-lang="zh">常見問題</span></h2>
+  <div class="scroll"><table data-lang="en">
+    <tr><th>Question</th><th>Answer</th></tr>
+    <tr><td>Does it change FA or affect online play?</td><td>No. It only reads the game's memory; FA.EXE and your files are never touched.</td></tr>
+    <tr><td>Which FA versions work?</td><td>FA 1.02f and <a href="fa_big.html">FA_BIG</a>, including modded aircraft and PT files.</td></tr>
+    <tr><td>Does it slow the game down?</td><td>It only reads a small amount of memory ten times a second. If you notice stutter, try <code>--hz 5</code>.</td></tr>
+    <tr><td>How big are the files?</td><td>Roughly 3 to 6 MB per minute, depending on how many objects and aircraft are in the mission.</td></tr>
+    <tr><td>The window closed straight away</td><td>Run it from a command prompt to see the message, or try <b>Run as administrator</b>.</td></tr>
+    <tr><td>My aircraft is drawn as a different type</td><td>Load your own SH folder, or pick the shape in the info box. See <a href="#shapes">Shapes</a>.</td></tr>
+    <tr><td>Old recordings</td><td>Still open. Files made before Nov 16, 2026 have no chaff / flare counts for you and targets only for aircraft; record again to get everything.</td></tr>
+  </table>
+  <table data-lang="zh">
+    <tr><th>問題</th><th>回答</th></tr>
+    <tr><td>會修改 FA 或影響連線對戰嗎？</td><td>不會。它只讀遊戲的記憶體，FA.EXE 和你的檔案都不會被動到。</td></tr>
+    <tr><td>支援哪些 FA 版本？</td><td>FA 1.02f 和 <a href="fa_big.html">FA_BIG</a>，改過的飛機和 PT 檔也可以。</td></tr>
+    <tr><td>會讓遊戲變慢嗎？</td><td>它每秒只讀 10 次少量的記憶體。如果覺得卡頓，可以試 <code>--hz 5</code>。</td></tr>
+    <tr><td>檔案多大？</td><td>大約每分鐘 3 到 6 MB，看任務裡有多少物件和飛機。</td></tr>
+    <tr><td>視窗一開就關掉</td><td>從命令提示字元執行就能看到訊息，或試試「<b>以系統管理員身分執行</b>」。</td></tr>
+    <tr><td>我的飛機被畫成別的機型</td><td>載入你自己的 SH 資料夾，或在資訊框選外型。見<a href="#shapes">外型</a>。</td></tr>
+    <tr><td>舊的錄製檔</td><td>一樣可以開。2026 年 11 月 16 日以前錄的檔沒有你自己的干擾絲 / 熱焰彈數量，目標也只有飛機的；重新錄就全部都有。</td></tr>
+  </table></div>
+
+  <div class="dl" style="margin-top:30px">
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/FAlogger/falogger.zip" download>⬇ <span data-lang="en">Download falogger.zip</span><span data-lang="zh">下載 falogger.zip</span></a>
+    <a class="btn ghost" href="fa_replay.html">▶ <span data-lang="en">Open the replay page</span><span data-lang="zh">開啟重播網頁</span></a>
+  </div>
+</main>
+<footer data-lang="en">FAlogger is part of FAshion by <b>hawke</b> (kuoyichen). Source on <a href="https://github.com/kuoyichen/FAoutput/tree/main/FAlogger">GitHub</a>.</footer>
+<footer data-lang="zh">FAlogger 是 hawke（kuoyichen）的 FAshion 專案的一部分。原始碼在 <a href="https://github.com/kuoyichen/FAoutput/tree/main/FAlogger">GitHub</a>。</footer>
+<script>
+"use strict";
+FAI18N.register({ "FAshion home": "FAshion 首頁" });
+document.getElementById("langSlot").append(FAI18N.picker());
+FAI18N.apply();
+</script>
+</body>
+</html>
