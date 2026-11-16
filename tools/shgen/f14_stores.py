@@ -99,7 +99,7 @@ def aim54():
     tf0 = tail + (at(.86) - tail) // 2                                          # Kuoyi: half the length, still ending at the tail
     FIN_R = 4.25                                                                 # Kuoyi (F14-32): fins ~half to 2/3 the old height (45 deg roll -> grid 3,3)
     tailfin = [(1.4, tf0), (FIN_R, tf0), (FIN_R, tail), (1.4, tail)]            # small rectangular tail fin
-    wing = [(1.4, at(.38)), (FIN_R, tf0 + 1), (1.4, tf0 + 1)]                # delta, same height as the tail fins, trailing edge square to the body, 1 ahead of the fins
+    wing = [(1.4, mid + 1), (FIN_R, tf0 + 1), (1.4, tf0 + 1)]                # delta: front point at the blue band's front edge (Kuoyi F14-33), same height as the tail fins, square trailing edge 1 ahead of the fins
     for k in range(4):
         a = math.radians(A54_FIN_ROLL + 90 * k); ca, sa = math.cos(a), math.sin(a)
         for outline, col in ((wing, 147), (tailfin, 146)):
