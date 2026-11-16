@@ -64,8 +64,9 @@ def aim54():
     at = lambda frac: round(tip - frac * A54_LEN)                 # fwd at a fraction of the length from the nose
     SEC = [(1, 2), (2, 1), (2, -1), (1, -2), (-1, -2), (-2, -1), (-2, 1), (-1, 2)]   # octagon, top edge at up 2
     AX = -2                                                       # axis height: body top at up 0
-    nose, band0, band1 = at(.24) - 2, at(.40), at(.44)          # nose cone starts 2 further back (Kuoyi)
-    rings = [tail, band0, band1, nose]
+    nose = at(.24) - 2                                            # nose cone starts 2 further back (Kuoyi)
+    mid = (nose + tail) // 2                                      # Kuoyi: blue band in the middle of the body
+    rings = [tail, mid - 1, mid + 1, nose]                        # (rings must run tail -> nose; the old 11/9 band ran backwards and was hidden)
     V, rid = [], []
     for f in rings:
         rid.append([])
@@ -97,7 +98,7 @@ def aim54():
     # fins, outline (radial distance from the axis, fwd); root inside the body
     tf0 = tail + (at(.86) - tail) // 2                                          # Kuoyi: half the length, still ending at the tail
     tailfin = [(1.4, tf0), (5.7, tf0), (5.7, tail), (1.4, tail)]                # small rectangular tail fin
-    wing = [(1.4, at(.38)), (5.7, tf0 + 1), (1.4, tf0 + 1)]                  # pure delta; trailing edge 1 ahead of the tail fins (Kuoyi)
+    wing = [(1.4, at(.38)), (5.7, tf0 - 2), (1.4, tf0)]                      # delta; Kuoyi (F14-28): tip 3 and root trailing edge 1 further back than F14-26
     for k in range(4):
         a = math.radians(A54_FIN_ROLL + 90 * k); ca, sa = math.cos(a), math.sin(a)
         for outline, col in ((wing, 147), (tailfin, 146)):
