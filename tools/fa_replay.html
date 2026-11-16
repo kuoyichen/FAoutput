@@ -460,6 +460,15 @@ function frameCM(fr){
       if (any) cm.set(idx, c); }
     f.cm = cm; }
 }
+// 任務開始前（掛彈設定畫面）FA 先把玩家生命值設成一半，進入飛行才補滿；從補滿那一筆開始播放
+function trimSetup(fr){
+  const hp = f => { const rw = f.raw?.get(0); return rw && rw.length > 0x10 ? rw[HP_OFF] | rw[HP_OFF+1] << 8 : null; };
+  const h0 = hp(fr[0]); if (h0 == null) return fr;
+  for (let j = 1; j < fr.length; j++){ const h = hp(fr[j]); if (h == null) continue;
+    if (h > h0) return fr.length - j > 1 ? fr.slice(j) : fr;
+    if (h !== h0) return fr; }
+  return fr;
+}
 let loadedName = "";
 function load(buf, name){
   try { data = parse(buf); } catch(e){ alert(e.message); return; }
@@ -473,7 +482,7 @@ function load(buf, name){
   if (window.onMissionLoaded) window.onMissionLoaded(buf, name);
 }
 function buildMission(k){
-  data.frames = data.segs[k]; const name = loadedName + (data.segs.length > 1 ? L(` · mission ${k+1}/${data.segs.length}`, ` · 任務 ${k+1}/${data.segs.length}`) : "");
+  data.frames = trimSetup(data.segs[k]); const name = loadedName + (data.segs.length > 1 ? L(` · mission ${k+1}/${data.segs.length}`, ` · 任務 ${k+1}/${data.segs.length}`) : "");
   $("mission").value = k;
   const fr = data.frames;
   T0 = fr[0].t; T1 = fr[fr.length-1].t; now = T0;
