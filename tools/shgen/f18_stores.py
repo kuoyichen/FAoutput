@@ -109,7 +109,12 @@ def tank480():
 AFT = -10      # every store ends this far behind its attach point, so it clears the lowered flaps
 
 
+NATIVE = True  # F18: FA's weapon models at their own size and origin (the PT point = where FA launches them);
+               # False (F-14 for now): scaled to real length, rear end AFT behind the attach point
+
+
 def aft(VF):
+    if NATIVE: return VF
     V, F = VF; d = AFT - min(v[1] for v in V)
     return [(x, f + d, u) for x, f, u in V], F
 
@@ -124,39 +129,65 @@ def pylon(h, bot, top):
 
 
 import fa_weapons
-# FA's own weapon models (with their colour bands), scaled to real length in F18 units (~9.5 units per metre)
-SHAPES = {TANK: tank480, AIM9: lambda: fa_weapons.load('SIDEM.SH', 29), AAM: lambda: fa_weapons.load('AMRAM.SH', 37),
-          ARM: lambda: fa_weapons.load('HARM.SH', 42), LGB: lambda: fa_weapons.load('PAVE.SH', 42, roll=45),
-          BOMB: lambda: fa_weapons.load('MK82.SH', 21),
-          AIM7: lambda: fa_weapons.load('SPAR.SH', 36), AIM54: lambda: fa_weapons.load('PHENX.SH', 40),
-          JDAM: lambda: fa_weapons.load('GB27.SH', 37)}       # GBU-3x JDAM: FA's GBU-29/30 shape (X fins), GBU-31 length
+_W = lambda name, length, roll=0: (lambda: fa_weapons.load(name, None if NATIVE else length, roll=roll))
+# FA's own weapon models (with their colour bands); lengths are the real ones in F18 units (~9.5 units per metre),
+# used only when NATIVE is off
+SHAPES = {TANK: tank480, AIM9: _W('SIDEM.SH', 29), AAM: _W('AMRAM.SH', 37), ARM: _W('HARM.SH', 42),
+          LGB: _W('PAVE.SH', 42, 45), BOMB: _W('MK82.SH', 21), AIM7: _W('SPAR.SH', 36), AIM54: _W('PHENX.SH', 40),
+          JDAM: _W('GB27.SH', 37)}       # GBU-3x JDAM: FA's GBU-29/30 shape (X fins)
+
+
+def top_of(kind):
+    """Height of the store's top above its centre (FA's launch point), at FA's own size."""
+    if kind == TANK: return 3.5
+    SHAPES[kind]()
+    return fa_weapons.LAST_TOP
+
 
 # ---------------------------------------------------------------- slots: (station, rank, default kind, attach x, up, fwd)
-# x / fwd from F18.PT; up = pylon bottom (wing pylons) or a point just under the belly / on the wingtip rail
+# Kuoyi's adjusted F18.PT (2026-11-16) gives where each weapon really sits (its centre, where FA launches it):
+#   hp4 tank (0, -9, 9)   hp5 AIM-120 (11, -5, -4)   hp6 (25, -6, 17)   hp7 (42, -6, 9)   hp8 AIM-9 (55, 0, -8)
+# The default store's centre goes exactly on that point; the attach point (store top = pylon bottom) is above it.
+# Wing underside: up 2.1 at x 25 (chord fwd -17..13), up 1 at x 42 (chord -17..4); belly up -4.4 at x 0.
+PT = {4: (0, -9, 9), 5: (11, -5, -4), 6: (25, -6, 13), 7: (42, -6, 5), 8: (55, 0, -8)}   # hp6/hp7 4 back (Kuoyi 2026-11-16)
+DEF = {4: TANK, 5: AAM, 6: LGB, 7: ARM, 8: AIM9}
+ATT = {st: (x, round(u + top_of(DEF[st])), f) for st, (x, u, f) in PT.items()}
+mx = lambda p: (-p[0],) + tuple(p[1:])
 SLOTS = {   # right side rank 2, left side rank 1: FA fires the right store of a pair first (seen in game)
-    'R6': (6, 2, LGB, (25, -4, -3)),  'L6': (6, 1, LGB, (-25, -4, -3)),
-    'R7': (7, 2, ARM, (41, -4, -4)),  'L7': (7, 1, ARM, (-41, -4, -4)),
-    'R8': (8, 2, AIM9, (57, 1, -9)),  'L8': (8, 1, AIM9, (-57, 1, -9)),
-    'C4': (4, 1, TANK, (0, -9, -8)),
-    'R5': (5, 2, AAM, (10, -7, 0)),   'L5': (5, 1, AAM, (-10, -7, 0)),
+    'R6': (6, 2, LGB, ATT[6]),  'L6': (6, 1, LGB, mx(ATT[6])),
+    'R7': (7, 2, ARM, ATT[7]),  'L7': (7, 1, ARM, mx(ATT[7])),
+    'R8': (8, 2, AIM9, ATT[8]), 'L8': (8, 1, AIM9, mx(ATT[8])),
+    'C4': (4, 1, TANK, ATT[4]),
+    'R5': (5, 2, AAM, ATT[5]),  'L5': (5, 1, AAM, mx(ATT[5])),
 }
-PYLONS = {'pyW': pylon(6, (5, -5), (6, -6)), 'pyC': pylon(3, (5, -6), (6, -7))}
-# wing pylon centre fwd per station: between the leading edge and the flap / aileron hinge
-PYFWD = {6: -1, 7: -4}
+# pylons: bottom on the store top, around the store centre; top inside the wing, ahead of the flap / aileron hinge
+UNDER = {6: 2.1, 7: 1.0, 4: -4.4}
+PYLONS = {
+    'pyW6': pylon(round(UNDER[6] + 1 - ATT[6][1]), (ATT[6][2] + 8, ATT[6][2] - 12), (7, -10)),     # top moved back 4 with the store
+    'pyW7': pylon(round(UNDER[7] + 1 - ATT[7][1]), (ATT[7][2] + 6, ATT[7][2] - 12), (-2, -12)),
+    'pyC': pylon(round(UNDER[4] + 1 - ATT[4][1]), (ATT[4][2] + 6, ATT[4][2] - 6), (ATT[4][2] + 7, ATT[4][2] - 7)),
+}
 
 
 def f18_pylon_units():
-    """Pylons drawn always: (unit name, pylon part, position (x, up, fwd), top of its box for the draw order)."""
-    pos = {k: v[3] for k, v in SLOTS.items()}
+    """Pylons: (unit name, pylon part, position (x, up, fwd), top of its box for the draw order).  Parts are in
+    absolute fwd (position fwd 0)."""
     out = []
     for s in ('R6', 'L6', 'R7', 'L7'):
-        ps = pos[s][:2] + (PYFWD[SLOTS[s][0]],); out.append(('py' + s, 'pyW', ps, ps[1] + 3))
-    cpy = pos['C4'][:2] + (pos['C4'][2] + 15,)                    # centre pylon at the middle of the tank
-    out.append(('pyC4', 'pyC', cpy, cpy[1] + 2))
+        st = SLOTS[s][0]; x, u, f = SLOTS[s][3]
+        out.append(('py' + s, 'pyW%d' % st, (x, u, 0), u + 3))
+    x, u, f = SLOTS['C4'][3]
+    out.append(('pyC4', 'pyC', (x, u, 0), u + 2))
     return out
 
 
 PYLON_UNITS = f18_pylon_units      # an aircraft module (f14_stores.py) replaces SLOTS, PYLONS and this
+HIDE_EMPTY_PYLONS = True           # pylon drawn only if its station holds a weapon type (fired: type kept)
+KIND_POS = {}                      # (slot, kind) -> attach point when that kind is loaded there (else the slot's)
+FALL_SLOTS = {'C4': 0, 'R6': 1, 'L6': 2, 'R7': 3, 'L7': 4}   # slot -> fall index k: a jettisoned tank there falls away
+FALL_MS = 2000                     # for this long (wall clock, timeGetTime)
+FALL_NSTATE = 128                  # aircraft tracked (object index & 127; the object pointer guards collisions)
+PLACER = None                      # e.g. sh_order-based placement: PLACER(c, ROOT, unit geometry, unit boxes)
 
 
 # ---------------------------------------------------------------- x86
@@ -221,7 +252,9 @@ def debug_src(src):
 
 def sub_bytes(sub_at, thunk_at, debug=False):
     """Shared routine (offsets are CODE offsets; VA = 0x1000 + offset).  Entry: [esp] = slot table
-    (i16 per kind, relative to the table), [esp+4] = station | rank << 8 | default kind << 16."""
+    (i16 per kind, relative to the table), [esp+4] = station | rank << 8 | default kind << 16 | pylon << 24.
+    Pylon mode (bit 24): returns 1 when the station record has a weapon type (also after firing, count 0), 0 when
+    the station was left empty in the loadout (type pointer 0); 1 when there is no object (default)."""
     src = '''
         pop ebx
         pop eax
@@ -247,6 +280,13 @@ def sub_bytes(sub_at, thunk_at, debug=False):
         imul esi, esi, 0x11
         add esi, dword ptr [ecx + 0x114]
         add esi, ecx
+        test edi, 0x1000000
+        jz COUNT
+        cmp dword ptr [esi], 0
+        je NONE
+        mov eax, 1
+        jmp OUT
+    COUNT:
         movzx edx, word ptr [esi + 4]
         and edx, 0x7fff
         mov eax, edi
@@ -323,6 +363,7 @@ def sub_bytes(sub_at, thunk_at, debug=False):
     ''' % GENERIC)
     # layout: head | jmp thunk | call over table | table | lookup | jmp OUT
     nop_at = head.index(b'\x90' * 5); out_at = nop_at + 5
+    global SUB_OUT; SUB_OUT = out_at
     b = bytearray(head)
     # return to the bytecode the way FA's own F0 blocks do: push do_start_interp; ret.  The pushed value is the
     # thunk's VA and needs a relocation: FA's loader copies CODE only up to the signature and points relocations
@@ -334,6 +375,158 @@ def sub_bytes(sub_at, thunk_at, debug=False):
     b += b'\xe8' + struct.pack('<i', len(tbl)) + tbl + look
     b += b'\xe9' + struct.pack('<i', out_at - (len(b) + 5))
     return bytes(b), reloc_at
+
+
+FALL_PIVOT = (-3.5, -25)           # tank tail (up, fwd in the tank part): the heavy nose drops, the tank turns about its tail
+FALL_PITCH = 50                    # nose-down degrees reached at FALL_TURN ms
+FALL_TURN = 1500
+
+
+def fall_table():
+    """32 steps of 64 ms: i16 pitch (65536 = 360 deg, positive = nose up as in the gallery), i16 up, i16 fwd offset.
+    Falls down g t^2 / 2 and back g t^2 / 4 (1 unit = 1 ft) while turning nose down about the tail (Kuoyi)."""
+    import math
+    out = b''
+    for i in range(32):
+        t = i * 64 / 1000; k = min(1, i * 64 / FALL_TURN)
+        a = math.radians(FALL_PITCH) * (1 - math.cos(math.pi * k)) / 2           # nose-down angle, eased
+        pu, pf = FALL_PIVOT
+        # rotate the pivot by pitch -a (nose down): up' = up cos a - fwd sin a ... (gallery rotateDeg with p = a)
+        ru = pu * math.cos(a) - pf * math.sin(a); rf = pu * math.sin(a) + pf * math.cos(a)
+        du = pu - ru - 16 * t * t; df = pf - rf - 8 * t * t
+        out += struct.pack('<3h', -round(a / (2 * math.pi) * 65536), round(du), round(df))
+    return out
+
+
+def fall_bytes(fall_at, sub_at):
+    """Falling jettisoned tank.  Stub `F0 00 68 imm32(station | k << 8) E8 rel32` + i16 table [EMPTY, list, base up,
+    base fwd] (relative to the table).  Per aircraft and tank slot a 16-byte state (object ptr, start time, last count,
+    class of the last weapon type: only a .GAS tank (class 8) falls, so a slot that can also hold missiles works)
+    sits in a zeroed table after the routine (CODE is writable: FA's own F0s patch C4 angles).  When the station's count
+    drops from > 0 to 0 the start time is recorded; for FALL_MS after it the routine sets the list's C4 from
+    fall_table() (64 ms steps: pitch, up and fwd offsets) and returns the list."""
+    nk = max(FALL_SLOTS.values()) + 1
+    src = '''
+        pop ebx
+        pop eax
+        push ecx
+        push edx
+        push esi
+        push edi
+        mov edi, eax
+        mov ecx, dword ptr [0x51ce26]
+        test ecx, ecx
+        jle NONE
+        movzx edx, word ptr [0x580bec]
+        cmp cx, dx
+        jne NONE
+        mov ecx, dword ptr [edx*4 + 0x553848]
+        test ecx, ecx
+        je NONE
+        cmp byte ptr [ecx], 4
+        jne NONE
+        call HERE
+    HERE:
+        pop esi
+        add esi, STATEOFF
+        and edx, %d
+        imul edx, edx, %d
+        mov eax, edi
+        shr eax, 8
+        and eax, 0xff
+        add edx, eax
+        shl edx, 4
+        add esi, edx
+        mov eax, edi
+        and eax, 0xff
+        imul eax, eax, 0x11
+        add eax, dword ptr [ecx + 0x114]
+        add eax, ecx
+        movzx edx, word ptr [eax + 4]
+        and edx, 0x7fff
+        mov edi, dword ptr [eax]
+        test edi, edi
+        jz NOCLS
+        movzx edi, byte ptr [edi]
+        jmp CLS
+    NOCLS:
+        xor edi, edi
+    CLS:
+        cmp dword ptr [esi], ecx
+        je SAME
+        mov dword ptr [esi], ecx
+        mov dword ptr [esi + 8], edx
+        mov dword ptr [esi + 12], edi
+        mov dword ptr [esi + 4], 0
+        jmp NONE
+    SAME:
+        test edx, edx
+        jz ZERO
+        mov dword ptr [esi + 8], edx
+        mov dword ptr [esi + 12], edi
+        mov dword ptr [esi + 4], 0
+        jmp NONE
+    ZERO:
+        cmp dword ptr [esi + 8], 0
+        je RUN
+        mov dword ptr [esi + 8], 0
+        cmp dword ptr [esi + 12], 8
+        jne RUN
+        call dword ptr [0x593758]
+        or eax, 1
+        mov dword ptr [esi + 4], eax
+    RUN:
+        mov ecx, dword ptr [esi + 4]
+        test ecx, ecx
+        jz NONE
+        push ecx
+        call dword ptr [0x593758]
+        pop ecx
+        sub eax, ecx
+        jns POS
+        xor eax, eax
+    POS:
+        cmp eax, %d
+        jae STOP
+        shr eax, 6
+        imul eax, eax, 6
+        call T2
+    T2:
+        pop ecx
+        add ecx, TABOFF
+        add ecx, eax
+        movsx eax, word ptr [ebx + 2]
+        add eax, ebx
+        movsx edx, word ptr [ebx + 4]
+        movsx edi, word ptr [ecx + 2]
+        add edx, edi
+        mov word ptr [eax + 4], dx
+        movsx edx, word ptr [ebx + 6]
+        movsx edi, word ptr [ecx + 4]
+        add edx, edi
+        mov word ptr [eax + 6], dx
+        mov dx, word ptr [ecx]
+        mov word ptr [eax + 10], dx
+        mov eax, 1
+        jmp OUTJ
+    STOP:
+        mov dword ptr [esi + 4], 0
+    NONE:
+        xor eax, eax
+    OUTJ:
+    ''' % (FALL_NSTATE - 1, nk, FALL_MS)
+    tab = fall_table()
+    ph = lambda a, b: src.replace('STATEOFF', str(a)).replace('TABOFF', str(b))
+    probe = asm(ph(0x7fffffff, 0x7ffffffe))
+    here = probe.index(b'\x5e\x81\xc6\xff\xff\xff\x7f')              # HERE: pop esi; add esi, imm32
+    t2 = probe.index(b'\x59\x81\xc1\xfe\xff\xff\x7f')                # T2: pop ecx; add ecx, imm32
+    end = len(probe) + 5                                                # routine + jmp OUT, then table, then state
+    b = bytearray(probe)                                                # position independent: patch the two imm32
+    struct.pack_into('<i', b, here + 3, end + len(tab) - here)
+    struct.pack_into('<i', b, t2 + 3, end - t2)
+    b += b'\xe9' + struct.pack('<i', (sub_at + SUB_OUT) - (fall_at + len(b) + 5))
+    b += tab
+    return bytes(b), FALL_NSTATE * nk * 16
 
 
 # ---------------------------------------------------------------- SH build
@@ -437,8 +630,14 @@ def build(d, static=False, debug=False):
 
     # ---- draw order: every store unit is inserted into the model's own BSP tree (see place_units)
     leaves = {s: [('call', s)] for s in SLOTS}
+    if not static:
+        for s in FALL_SLOTS: leaves[s].append(('call', 'F' + s))     # falling tank, drawn where the tank is
     pyu = PYLON_UNITS()
-    for name, part, ps, top in pyu: leaves[name] = [('c4', ('P', part), ps)]
+    pstub = {}                                        # pylons of a station: hidden when it was empty at takeoff
+    for name, part, ps, top in pyu:
+        if HIDE_EMPTY_PYLONS and name[2:] in SLOTS:
+            pstub[name] = (SLOTS[name[2:]][0], part, ps); leaves[name] = [('call', name)]
+        else: leaves[name] = [('c4', ('P', part), ps)]
 
     def box(V, ps, clip_up=None):
         P = [(ps[0] + x, ps[1] + u, ps[2] + f) for x, f, u in V]
@@ -447,7 +646,13 @@ def build(d, static=False, debug=False):
         return lo, hi
     ubox = {k: box(shapes[v[2]][0], v[3]) for k, v in SLOTS.items()}
     for name, part, ps, top in pyu: ubox[name] = box(PYLONS[part][0], ps, top)
-    plan, rootrefs = place_units(c, ROOT, ubox)
+    if PLACER is None: plan, rootrefs = place_units(c, ROOT, ubox)
+    else:
+        ugeo = {}
+        def geo(V, F, ps): return [(bool(fl & 0x40), [(ps[0] + V[i][0], ps[1] + V[i][2], ps[2] + V[i][1]) for i in idx]) for fl, col, idx in F]
+        for k, v in SLOTS.items(): ugeo[k] = geo(*shapes[v[2]], v[3])
+        for name, part, ps, top in pyu: ugeo[name] = geo(*PYLONS[part], ps)
+        plan, rootrefs = PLACER(c, ROOT, ugeo, ubox)
     nodes = []                                        # (key, plane n, d, A target, B leaf)
     chain_top = {}
     for T, lst in plan.items():
@@ -468,11 +673,20 @@ def build(d, static=False, debug=False):
         at['S' + s] = p; p += (STUB if not static else 6)
         for kd in range(1, NK):
             at[('L', s, kd)] = p; p += 18             # C4 + 00 00
+    for s in pstub:
+        at['S' + s] = p; p += (2 + 5 + 5 + 4 if not static else 6)
+        at[('L', s, 1)] = p; p += 18
+    fall = FALL_SLOTS if not static else {}
+    for s in fall:
+        at['SF' + s] = p; p += 2 + 5 + 5 + 8
+        at[('LF', s)] = p; p += 18
     at['EMPTY'] = p; p += 2
     at['SUB'] = p
     sub, _ = sub_bytes(0, 0, debug)
     sub_len = len(sub) if not static else 0
     p += sub_len
+    if fall:
+        at['FALL'] = p; fb, st_len = fall_bytes(0, 0); p += len(fb); at['STATE'] = p; p += st_len
     pad = p % 2; p += pad
     relocs = []
     for k in parts: at[k] = p + len(HDR); p += len(parts[k])   # target = the 82 after the header
@@ -524,7 +738,24 @@ def build(d, static=False, debug=False):
                 blk += struct.pack('<h', tgt - tb)
         for kd in range(1, NK):
             q = at[('L', s, kd)]
-            blk += struct.pack('<BB6h', 0xC4, 0, *ps, 0, 0, 0) + struct.pack('<h', at[('K', kd)] - (q+16)) + b'\x00\x00'
+            blk += struct.pack('<BB6h', 0xC4, 0, *KIND_POS.get((s, kd), ps), 0, 0, 0) + struct.pack('<h', at[('K', kd)] - (q+16)) + b'\x00\x00'
+    for s, (st, part, ps) in pstub.items():
+        o = at['S' + s]; assert len(blk) == o - tail
+        if static: blk += b'\x12\x00' + struct.pack('<h', at[('L', s, 1)] - (o+4)) + b'\x00\x00'
+        else:
+            blk += b'\xf0\x00' + b'\x68' + struct.pack('<I', st | 1 << 8 | 1 << 16 | 1 << 24)
+            blk += b'\xe8' + struct.pack('<i', at['SUB'] - (o + 12))
+            blk += struct.pack('<hh', at['EMPTY'] - (o + 12), at[('L', s, 1)] - (o + 12))
+        q = at[('L', s, 1)]
+        blk += struct.pack('<BB6h', 0xC4, 0, *ps, 0, 0, 0) + struct.pack('<h', at[('P', part)] - (q+16)) + b'\x00\x00'
+    for s in fall:
+        o = at['SF' + s]; assert len(blk) == o - tail
+        st, rank, dflt, ps = SLOTS[s]
+        blk += b'\xf0\x00' + b'\x68' + struct.pack('<I', st | fall[s] << 8)
+        blk += b'\xe8' + struct.pack('<i', at['FALL'] - (o + 12))
+        blk += struct.pack('<hhhh', at['EMPTY'] - (o + 12), at[('LF', s)] - (o + 12), ps[1], ps[2])
+        q = at[('LF', s)]
+        blk += struct.pack('<BB6h', 0xC4, 0, *ps, 0, 0, 0) + struct.pack('<h', at[('K', TANK)] - (q+16)) + b'\x00\x00'
     blk += b'\x00\x00'
     if not static:
         assert len(blk) == at['SUB'] - tail
@@ -532,6 +763,10 @@ def build(d, static=False, debug=False):
         relocs = [at['SUB'] - tail + rel]
         assert len(sub) == sub_len
         blk += sub
+        if fall:
+            fb, st_len = fall_bytes(at['FALL'], at['SUB'])
+            assert len(blk) == at['FALL'] - tail
+            blk += fb + b'\x00' * st_len
     blk += b'\x00' * pad
     for k in parts: blk += parts[k]
     assert len(blk) == L, (len(blk), L)

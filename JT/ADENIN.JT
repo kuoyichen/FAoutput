@@ -1,0 +1,193 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 7
+    word 315
+    word 52
+	ptr ot_names
+    dword $7
+    word $80
+	ptr shape
+    dword 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 2003
+    word 59
+    word 0
+    word 100
+    word 100
+    word 100
+    word 100
+    word 0
+    word 25
+    word 350
+    word 8
+    word 24
+    word 16
+    word 155
+    byte 30
+    byte 3
+    dword 242
+    word 0
+
+;---------------- movement info ----------------
+
+    word 0
+    word 0
+    word 16380
+    word -16380
+    word 16380
+    word 0
+    word 4722
+    word 4722
+    dword ^1466
+    dword ^32
+    dword ^0
+    dword $7fffff00
+	symbol _PROJProc	; utilProc
+
+;---------------- sound info ----------------
+
+	ptr loopSound
+    dword 0
+    dword 0
+    dword 0
+    byte 1
+    word 7000
+    word 300
+    word 130
+    word 20
+    word 1600
+    word 0
+    word 0
+    word 0
+    dword 0
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+
+;---------------- START OF PROJ_TYPE ----------------
+
+    dword $1206f
+    word 1
+    byte 10
+	ptr si_names
+    word 0
+    byte $0
+    byte 2
+    byte $0
+    byte 10
+    byte 0
+    byte 0
+    byte 0
+    byte 10
+    word 32760
+    word 16380
+    dword ^2439
+    dword ^195120
+    dword $8011c180
+    dword $7fee3e80
+    word 32760
+    word 11830
+    dword ^2439
+    dword ^195120
+    dword $8011c180
+    dword $7fee3e80
+    byte 20
+    byte 50
+    byte 12
+    byte 5
+    byte 6
+    word 0
+    word 0
+    word 0
+    word 0
+    byte 1
+    byte 1
+    byte 1
+    byte 0
+    byte 24
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 31
+    word 1200
+    word 3220
+    word 0
+    word 6
+    word 1000
+    word 182
+    word 9100
+    byte 75
+    byte 100
+    byte 75
+    byte 50
+    byte 75
+    byte 50
+    word 546
+    word 1
+    word 16
+    byte 100
+    byte 10
+    byte 12
+    byte 2
+    byte 5
+    byte 30
+    byte 70
+    byte 80
+    byte 70
+    byte 15
+    byte 0
+    byte 0
+    byte 10
+    byte 0
+    byte 0
+    byte 0
+    byte 30
+    byte 0
+    byte 9
+    word 4
+    word 100
+    byte 0
+    byte 21
+    byte 17
+	ptr fireSound
+    word 6000
+    word 0
+    word 1000
+    word 35
+
+;---------------- END OF PROJ_TYPE ----------------
+
+:ot_names
+	string "Mica IR"
+	string "Mica IR"
+	string "AIM120.JT"
+:shape
+	string "mica.SH"
+:loopSound
+	string "&missile.11k"
+:si_names
+	string "Mica IR"
+	string "Mica IR"
+	string "ADENIN.JT"
+:fireSound
+	string "&mpass.5K"
+	end

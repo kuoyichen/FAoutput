@@ -1,0 +1,476 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 5
+    word 468
+    word 490
+	ptr ot_names
+    dword $2bf3
+    word $4000
+	ptr shape
+	ptr shadowShape
+    dword 0
+    dword 0
+    word 50
+    word 0
+    word 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 50
+    dword 0
+    dword 1956
+    word 342
+    word 0
+    word 135
+    word 135
+    word 100
+    word 100
+    word 0
+    word 38
+    word 255
+    word 255
+    word 255
+    word 255
+    word 255
+    byte 30
+    byte 0
+    dword 8500
+    word 199
+
+;---------------- movement info ----------------
+
+    word 0
+    word 3640
+    word 8190
+    word -8190
+    word 3640
+    word 0
+    word 0
+    word 0
+    dword ^0
+    dword ^0
+    dword ^300
+    dword ^19000
+	symbol _PLANEProc	; utilProc
+
+;---------------- sound info ----------------
+
+	ptr loopSound
+	ptr secondSound
+	ptr engineOnSound
+	ptr engineOffSound
+    byte 1
+    word 15000
+    word 320
+    word 160
+    word 20
+    word 1600
+    word 0
+    word 20
+    word 60
+	ptr hudName
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+
+;---------------- START OF NPC_TYPE ----------------
+
+    dword $0
+	ptr ctName
+    byte 12
+    byte 32
+    byte 20
+    word 32767
+    word 0
+    byte 1
+	ptr hards
+
+;---------------- END OF NPC_TYPE ----------------
+
+
+;---------------- START OF PLANE_TYPE ----------------
+
+    dword $65
+	ptr env
+    word -1
+    word 2
+    word 366
+    word 366
+    word -73
+    word 0
+    word 73
+    word 73
+    word -146
+    word 146
+    word 7
+    word 7
+    word -146
+    word 146
+    word 73
+    word 73
+    word -5
+    word 5
+    word 4
+    word 8
+    word 0
+    word 0
+    word 6
+    word 6
+    word -45
+    word 45
+    word 90
+    word 90
+    word 20
+    word 70
+    word 15
+    word 115
+    word -2
+    word 2
+    word 2
+    word 6
+    word 10
+    word 128
+    word 5
+    word -90
+    word 90
+    word 4
+    word 8
+    word -90
+    word 90
+    word 4
+    word 8
+    word -90
+    word 90
+    word 4
+    word 8
+    word 256
+    word 768
+    word 256
+    word 30
+    word 0
+    word -1
+    word 120
+    word 180
+    word 30
+    word 70
+    word 15
+    word 5
+    word 0
+    word 330
+    word 51
+    word 95
+    word 25
+    word 10
+    byte 3
+    word 0
+    dword 11000
+    dword 0
+    word 30
+    word 60
+    word 0
+    word -120
+    word 100
+    word 1
+    word 0
+    dword 4200
+    word 256
+    word 28
+    word 0
+    word 102
+    word 0
+    word 23
+    word 0
+    word 25
+    word 20
+    word 4
+    word 40
+    word 40
+    word 40
+    word 2560
+    word 5120
+    byte 20
+    byte 22
+    byte 20
+    byte 148
+    byte 22
+    byte 20
+    byte 20
+    byte 20
+    byte 20
+    byte 148
+    byte 148
+    byte 148
+    byte 20
+    byte 20
+    byte 20
+    byte 148
+    byte 20
+    byte 22
+    byte 20
+    byte 20
+    byte 20
+    byte 22
+    byte 22
+    byte 20
+    byte 20
+    byte 20
+    byte 148
+    byte 22
+    byte 36
+    byte 148
+    byte 36
+    byte 0
+    byte 0
+    byte 0
+    byte 22
+    byte 150
+    byte 20
+    byte 22
+    byte 22
+    byte 22
+    byte 6
+    byte 6
+    byte 6
+    byte 6
+    byte 6
+    word 10
+    word 10
+    dword 43050
+:hards
+;-------- hardpoint 0
+    word $8
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+	ptr defaultTypeName0
+    byte 0
+    word 1
+    byte 1
+:env
+
+;--- envelope for G = -1
+    word -1
+    word 4
+    word 1
+    word 2
+    word 30
+    dword 0
+    word 50
+    dword 1000
+    word 70
+    dword 1000
+    word 60
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+
+;--- envelope for G = 0
+    word 0
+    word 4
+    word 1
+    word 3
+    word 15
+    dword 0
+    word 60
+    dword 8000
+    word 160
+    dword 8000
+    word 180
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+
+;--- envelope for G = 1
+    word 1
+    word 4
+    word 1
+    word 2
+    word 20
+    dword 0
+    word 100
+    dword 7000
+    word 150
+    dword 7000
+    word 150
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+
+;--- envelope for G = 2
+    word 2
+    word 4
+    word 1
+    word 2
+    word 30
+    dword 0
+    word 50
+    dword 6000
+    word 70
+    dword 6000
+    word 65
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+    word 0
+    dword 0
+;-------------------------------- Su-25
+; 4G area = 0.396750
+; 5G area = 0.285863
+; 6G area = 0.116475
+; 6 = rating for Su-25
+
+;---------------- END OF PLANE_TYPE ----------------
+
+:ot_names
+	string "Blimp"
+	string "Blimp"
+	string "BLIMP.PT"
+:shape
+	string "bli.SH"
+:shadowShape
+	string "bli_s.SH"
+:loopSound
+	string "&prop11.11K"
+:secondSound
+	string "&prop11.11K"
+:engineOnSound
+	string "&prp2on.5K"
+:engineOffSound
+	string "&prp2off.5K"
+:hudName
+	string "ac130.HUD"
+:ctName
+	string "h.BI"
+:defaultTypeName0
+	string "VIS340.SEE"
+	end

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Parse an SH main LOD into its draw-order tree (BSP) with the bounding box of what each subtree draws.
 
-Node kinds: ('node', addr, op, n(x,up,fwd), d(x,up,fwd), A, B)  -- 06 and the 2D 0C/0E/10 nodes as 3D planes
+Node kinds: ('node', addr, op, n(x,up,fwd), d(x,up,fwd), A, B, ctx)  ctx '' / 'c4' (inside a C4 part) / 'f0' (after an F0 block)  -- 06 and the 2D 0C/0E/10 nodes as 3D planes
             ('seq', [items])  items: ('face', addr, pts)  ('part', addr, pts)  (C4 parts / F0 chains flattened)
 Coordinates are (x, up, fwd) like the eye.  F0 blocks follow the first `push imm32` (gear / flaps down).
 Usage: python3 sh_bsp.py F18.SH [depth]
@@ -29,7 +29,7 @@ def parse(c, start=None):
         return p + 6 + 6*n
     load82(o0)
 
-    def seq(p, tf, depth=0):
+    def seq(p, tf, depth=0, ctx=''):
         items = []
         for _ in range(20000):
             if not 0 <= p < len(c) - 1: break
@@ -51,21 +51,21 @@ def parse(c, start=None):
             elif op == 0xE2 and c[p+1] == 0: p += 16
             elif op == 0x06 and c[p+1] == 0:
                 nn = (h(p+2), h(p+6), h(p+10)); dd = (h(p+4), h(p+8), h(p+12))
-                items.append(('node', p, 6, nn, dd, seq(p+16+h(p+14), tf, depth+1), seq(p+18+h(p+16), tf, depth+1))); p += 18
+                items.append(('node', p, 6, nn, dd, seq(p+16+h(p+14), tf, depth+1, ctx), seq(p+18+h(p+16), tf, depth+1, ctx), ctx)); p += 18
             elif op in (0x0C, 0x0E, 0x10) and c[p+1] == 0:
                 ax = {0x0C: (1, 2), 0x0E: (0, 2), 0x10: (0, 1)}[op]
                 nn = [0, 0, 0]; dd = [0, 0, 0]
                 nn[ax[0]], dd[ax[0]], nn[ax[1]], dd[ax[1]] = h(p+2), h(p+4), h(p+6), h(p+8)
-                items.append(('node', p, op, tuple(nn), tuple(dd), seq(p+12+h(p+10), tf, depth+1), seq(p+14+h(p+12), tf, depth+1))); p += 14
+                items.append(('node', p, op, tuple(nn), tuple(dd), seq(p+12+h(p+10), tf, depth+1, ctx), seq(p+14+h(p+12), tf, depth+1, ctx), ctx)); p += 14
             elif op == 0x6C and c[p+1] == 0:
-                items.append(('node', p, 0x6C, None, struct.unpack_from('<Hh', c, p+2), seq(p+8+h(p+6), tf, depth+1), seq(p+10+h(p+8), tf, depth+1))); p += 10
-            elif op == 0x12 and c[p+1] == 0: items.append(('call', p, seq(p+4+h(p+2), tf, depth+1))); p += 4
+                items.append(('node', p, 0x6C, None, struct.unpack_from('<Hh', c, p+2), seq(p+8+h(p+6), tf, depth+1, ctx), seq(p+10+h(p+8), tf, depth+1, ctx), ctx)); p += 10
+            elif op == 0x12 and c[p+1] == 0: items.append(('call', p, seq(p+4+h(p+2), tf, depth+1, ctx))); p += 4
             elif op == 0x38: p = p+3+h(p+1)
             elif op == 0x48 and c[p+1] == 0: p = p+4+h(p+2)
             elif op == 0xC4 and c[p+1] == 0:
                 pos = struct.unpack_from('<3h', c, p+2)
                 ptf = (lambda pos, tf: lambda v: tf(tuple(pos[j] + v[j] for j in range(3))))(pos, tf)
-                items.append(('call', p, seq(p+16+h(p+14), ptf, depth+1))); p += 16
+                items.append(('call', p, seq(p+16+h(p+14), ptf, depth+1, 'c4'))); p += 16
             elif op == 0xF0 and c[p+1] == 0:
                 r = None
                 for q in range(p+2, p+200):
@@ -73,7 +73,7 @@ def parse(c, start=None):
                         v = struct.unpack_from('<I', c, q+1)[0] - 0x1000
                         if 0 < v < len(c): r = v; break
                 if r is None: break
-                p = r
+                p = r; ctx = ctx or 'f0'
             else:
                 items.append(('stop', p, op)); break
         return items

@@ -25,12 +25,16 @@ button.on{border-color:var(--accent);color:var(--accent)}
 #thr i{position:absolute;left:0;right:0;bottom:0;background:var(--hud)}
 #thr i.ab{background:#ff9a3c}
 #msg{position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);font:700 22px/1.3 system-ui,sans-serif;color:#fff;text-shadow:0 2px 6px #000;text-align:center;pointer-events:none;z-index:4;white-space:pre-line}
-#sub{position:fixed;top:calc(100px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);font-size:12px;color:#fff;text-shadow:0 1px 3px #000;pointer-events:none;z-index:4;white-space:nowrap}
+#sub{position:fixed;top:calc(100px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);font-size:12px;color:#fff;text-shadow:0 1px 3px #000;pointer-events:none;z-index:4;white-space:normal;max-width:min(92vw,560px);text-align:center}
 .stick{position:fixed;width:130px;height:130px;margin:-65px 0 0 -65px;border-radius:50%;border:2px solid #ffffff55;background:#00000026;pointer-events:none;z-index:3;transition:opacity .2s}
 .stick i{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:#ffffff55;border:2px solid #fff9}
 .stick span{position:absolute;left:0;right:0;top:-20px;text-align:center;font-size:11px;color:#fff;text-shadow:0 1px 2px #000}
-#btns{position:fixed;left:calc(10px + env(safe-area-inset-left));top:calc(50px + env(safe-area-inset-top));display:grid;grid-template-columns:repeat(2,58px);gap:6px;z-index:5}
-#btns button{padding:7px 0;font-weight:600;font-size:12px;background:#0e1216aa}
+/* buttons split between both top corners so neither stick is covered */
+.btns{position:fixed;top:calc(50px + env(safe-area-inset-top));display:grid;grid-template-columns:repeat(2,58px);gap:6px;z-index:5}
+#btns{left:calc(10px + env(safe-area-inset-left))}
+#btnsR{right:calc(36px + env(safe-area-inset-right))}
+@media (orientation:portrait){ .btns{top:calc(96px + env(safe-area-inset-top))} #wpn{top:calc(186px + env(safe-area-inset-top))} #sub{top:calc(300px + env(safe-area-inset-top))} }
+.btns button{padding:7px 0;font-weight:600;font-size:12px;background:#0e1216aa}
 #wpn{position:fixed;right:calc(36px + env(safe-area-inset-right));top:calc(176px + env(safe-area-inset-top));display:flex;flex-direction:column;align-items:center;gap:8px;z-index:5}
 #bWpn{min-width:96px;font:700 13px/1.2 ui-monospace,Consolas,monospace;padding:7px 8px;background:#0e1216bb;color:var(--hud)}
 #bFire{width:76px;height:76px;border-radius:50%;font-weight:800;font-size:15px;background:#c0392bcc;border:2px solid #ffffffaa;color:#fff;touch-action:none}
@@ -64,6 +68,7 @@ button.on{border-color:var(--accent);color:var(--accent)}
   <div>ALT<b id="hAlt">0</b>ft</div>
   <div>HDG<b id="hHdg">000</b>°</div>
   <div id="hKillD">KILL<b id="hKill">0</b>&nbsp;</div>
+  <div id="hTimeD">TIME<b id="hTime">0:00</b>&nbsp;</div>
 </div>
 <div id="thr"><i id="thrBar"></i></div>
 <div id="sub"></div>
@@ -72,9 +77,12 @@ button.on{border-color:var(--accent);color:var(--accent)}
 <div class="stick" id="stR"><span id="stRt">Pitch / Roll</span><i></i></div>
 <canvas id="ov"></canvas>
 <div id="wpn"><button id="bWpn">GUN</button><button id="bFire">FIRE</button></div>
-<div id="btns">
+<div id="btns" class="btns">
   <button id="bGear">Gear</button>
   <button id="bBrake">Brake</button>
+  <button id="bFlare" style="grid-column:span 2;color:#ffd54a">FLARE</button>
+</div>
+<div id="btnsR" class="btns">
   <button id="bView">View</button>
   <button id="bReset">Restart</button>
   <button id="bFront">Front</button>
@@ -82,16 +90,20 @@ button.on{border-color:var(--accent);color:var(--accent)}
 </div>
 <div id="panel">
   <h2>Flight setup</h2>
+  <button id="bMission" style="width:100%;padding:10px;font-weight:700;color:#ffd54a;border-color:#ffd54a">⛰ Canyon strike mission</button>
   <label for="selShape">Model to drive (any SH)</label>
   <select id="selShape"></select>
   <label for="selMode">Control mode</label>
   <select id="selMode"><option value="auto">Auto (by model)</option><option value="fly">Fly (aircraft)</option><option value="drive">Drive (ground vehicle)</option><option value="sail">Sail (ship)</option></select>
   <label for="selSpawn">Start position</label>
   <select id="selSpawn"><option value="runway">Airfield runway</option><option value="carrier">Carrier deck</option><option value="air">In the air</option><option value="sea">At sea (ships)</option></select>
+  <label for="selMission">Mission</label>
+  <select id="selMission"><option value="free">Free flight</option><option value="canyon">Canyon strike</option></select>
   <div class="row"><button id="bGo">▶ Start</button></div>
   <label class="ck"><input type="checkbox" id="inv"> Invert pitch (push stick up = nose up)</label>
   <label class="ck"><input type="checkbox" id="tex" checked> Textures</label>
   <p id="help1">Right stick: pitch and roll. Left stick: up/down changes the throttle (it stays where you leave it), left/right is rudder. The sticks only answer touches inside their circles: drag anywhere else to look around (the view stays where you leave it; Front brings it back, RC view watches from the runway end like an RC model pilot), pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult. The weapon button on the right picks gun, AIM-9, AIM-120 (air targets), AGM-65 (ground and ships) or MK-82 bombs; missiles lock the target nearest your nose. To land, slow down, lower the gear and raise the nose: the jet settles gently nose-high, and the throttle sets how fast it sinks.</p>
+  <p id="help3">Canyon strike: fly the winding canyon at low level. Above the rim the SAM radar sees you and the sites launch. At the end of the canyon pull up over the ridge, dive into the crater and bomb the reactor (MK-82 is selected; the yellow circle shows where the bomb falls), then climb out: the SAMs on the crater rim fire at you, so turn hard and drop flares (FLARE button or C). Get 3 nm clear to finish.</p>
   <p id="help2">Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, R restart, mouse drag to look, wheel to zoom.</p>
 </div>
 <div id="load"><div id="loadT">Loading…</div><small id="loadS"></small></div>
@@ -471,40 +483,73 @@ function rawHeight(x, y){
   const flat = 1 - smooth(0, 3500, dAir);                                        // airfield: flat, a little below the runway shape
   return h * (1 - flat) + (AIR_Z - 12) * flat;
 }
-let TH = null;   // height samples on the grid
-function terrainH(x, y){
-  const gx = (x + T_EXT) / T_CELL, gy = (y + T_EXT) / T_CELL;
-  if (gx < 0 || gy < 0 || gx >= T_N || gy >= T_N) return -900;
-  const i = Math.floor(gx), j = Math.floor(gy), fx = gx - i, fy = gy - j, H = (a, b) => TH[b * (T_N+1) + a];
+// height grids: terrainH reads the fine grid where there is one (the canyon map), else the coarse one
+function mkGrid(x0, y0, cell, nx, ny, fn){ const n = nx + 1, H = new Float32Array(n * (ny + 1));
+  for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) H[j*n + i] = fn(x0 + i*cell, y0 + j*cell);
+  return { x0, y0, cell, nx, ny, H, x1: x0 + nx*cell, y1: y0 + ny*cell }; }
+function gridH(g, x, y){
+  const gx = (x - g.x0) / g.cell, gy = (y - g.y0) / g.cell;
+  if (!(gx >= 0 && gy >= 0 && gx < g.nx && gy < g.ny)) return null;
+  const n = g.nx + 1, i = Math.floor(gx), j = Math.floor(gy), fx = gx - i, fy = gy - j, H = (a, b) => g.H[b * n + a];
   // same triangles as the mesh: split along the diagonal (i,j)-(i+1,j+1)
   return fx > fy ? H(i,j) + (H(i+1,j) - H(i,j)) * fx + (H(i+1,j+1) - H(i+1,j)) * fy : H(i,j) + (H(i,j+1) - H(i,j)) * fy + (H(i+1,j+1) - H(i,j+1)) * fx;
 }
-function buildTerrain(){
-  const n = T_N + 1; TH = new Float32Array(n * n);
-  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) TH[j*n + i] = rawHeight(-T_EXT + i*T_CELL, -T_EXT + j*T_CELL);
-  const data = new Float32Array(n * n * 9);
-  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++){
-    const h = TH[j*n+i], hl = TH[j*n + Math.max(0, i-1)], hr = TH[j*n + Math.min(n-1, i+1)], hd = TH[Math.max(0, j-1)*n + i], hu = TH[Math.min(n-1, j+1)*n + i];
-    const nr = vnorm([(hl - hr) / (2*T_CELL), (hd - hu) / (2*T_CELL), 1]), x = -T_EXT + i*T_CELL, y = -T_EXT + j*T_CELL;
-    const v = hash(i*7 + 3, j*13 + 1) * 0.08, slope = 1 - nr[2];
-    const dAir = Math.max(AIRFIELD.x0 - x, x - AIRFIELD.x1, AIRFIELD.y0 - y, y - AIRFIELD.y1, 0);
-    let c;
-    if (h < 25 && dAir >= 2500) c = [0.76, 0.70, 0.52];                                               // beach
-    else if (h < 2600) c = [0.30 + v, 0.46 + v + (h / 2600) * -0.08, 0.22];          // grass and forest
-    else if (h < 5200) c = [0.45 + v, 0.42 + v, 0.36];                                // rock
-    else c = [0.93, 0.94, 0.96];                                                      // snow
-    if (slope > 0.25 && h > 25) c = c.map((k, q) => k * 0.6 + [0.42, 0.38, 0.33][q] * 0.4);
-    if (dAir < 2500) c = [0.42, 0.52, 0.30];
-    data.set([x, y, h, ...c, ...nr], (j*n + i) * 9);
+let TMAP = null;   // terrain in use: { grids: [fine?, coarse], outside, chunks }
+function terrainH(x, y){ for (const g of TMAP.grids){ const h = gridH(g, x, y); if (h !== null) return h; } return TMAP.outside; }
+// triangles for a grid in pieces of < 65536 vertices (16-bit indices); skip(i, j) leaves out cells a finer grid covers
+function meshGrid(g, color, skip){
+  const n = g.nx + 1, out = [], rows = Math.max(1, Math.floor(65000 / n) - 1), H = (a, b) => g.H[clamp(b, 0, g.ny) * n + clamp(a, 0, g.nx)];
+  for (let j0 = 0; j0 < g.ny; j0 += rows){
+    const j1 = Math.min(g.ny, j0 + rows), data = new Float32Array((j1 - j0 + 1) * n * 9), idx = [];
+    for (let j = j0; j <= j1; j++) for (let i = 0; i < n; i++){
+      const h = H(i, j), nr = vnorm([(H(i-1, j) - H(i+1, j)) / (2*g.cell), (H(i, j-1) - H(i, j+1)) / (2*g.cell), 1]), x = g.x0 + i*g.cell, y = g.y0 + j*g.cell;
+      data.set([x, y, h, ...color(x, y, h, nr, i, j), ...nr], ((j - j0) * n + i) * 9);
+    }
+    for (let j = j0; j < j1; j++) for (let i = 0; i < g.nx; i++){ if (skip && skip(i, j)) continue; const a = (j - j0)*n + i, b = a + 1, c = a + n, d = c + 1; idx.push(a, b, d, a, d, c); }
+    out.push({ data, idx: new Uint16Array(idx) });
   }
-  const idx = new Uint16Array(T_N * T_N * 6); let k = 0;
-  for (let j = 0; j < T_N; j++) for (let i = 0; i < T_N; i++){ const a = j*n + i, b = a + 1, c = a + n, d = c + 1; idx.set([a, b, d, a, d, c], k); k += 6; }
-  return { data, idx, count: idx.length };
+  return out;
+}
+function islandColor(x, y, h, nr, i, j){
+  const v = hash(i*7 + 3, j*13 + 1) * 0.08, slope = 1 - nr[2];
+  const dAir = Math.max(AIRFIELD.x0 - x, x - AIRFIELD.x1, AIRFIELD.y0 - y, y - AIRFIELD.y1, 0);
+  let c;
+  if (h < 25 && dAir >= 2500) c = [0.76, 0.70, 0.52];                                               // beach
+  else if (h < 2600) c = [0.30 + v, 0.46 + v + (h / 2600) * -0.08, 0.22];          // grass and forest
+  else if (h < 5200) c = [0.45 + v, 0.42 + v, 0.36];                                // rock
+  else c = [0.93, 0.94, 0.96];                                                      // snow
+  if (slope > 0.25 && h > 25) c = c.map((k, q) => k * 0.6 + [0.42, 0.38, 0.33][q] * 0.4);
+  if (dAir < 2500) c = [0.42, 0.52, 0.30];
+  return c;
+}
+
+// ===== canyon strike map: a desert plateau cut by a winding canyon that ends under a ridge; past the ridge a deep crater holds the reactor =====
+const CY = { end: 42000, bx: 0, by: 52000, pad: 3300, floor: 700 };
+function cyX(y){ const u = Math.PI * clamp(y / CY.end, 0, 1); return 3800 * Math.sin(3 * u) * Math.sin(u); }   // canyon centre line: three S-bends, straight at both ends
+const cyHW = y => 950 + 250 * Math.sin(y / 5200 + 2);                                                                                                      // half width of the floor
+function plateauH(x, y){ return 2500 + 600 * fbm(x / 16000 + 3, y / 16000 + 1, 3) + 3200 * smooth(13000, 40000, Math.abs(x)) * fbm(x / 9000 + 5, y / 9000, 4); }
+function canyonRaw(x, y){
+  const P = plateauH(x, y), base = 280 + 140 * fbm(x / 3000, y / 3000, 3);
+  const rise = smooth(-7000, -1500, y);                                          // flat desert to the south; the plateau rises at the canyon mouth
+  const d = Math.abs(x - cyX(y)) + (fbm(x / 1400, y / 1400, 3) - 0.5) * 320, hw = cyHW(y);
+  const cut = (1 - smooth(hw, hw + 650, d)) * (1 - smooth(CY.end - 6500, CY.end, y));   // the canyon floor climbs out at the end
+  const far = smooth(12000, 30000, Math.abs(x));
+  let h = base + (P - base) * Math.max(rise * (1 - cut), far);
+  const r = Math.hypot(x - CY.bx, y - CY.by);
+  h += 800 * Math.exp(-(((r - 5400) / 900) ** 2));                               // crater rim
+  return h + (CY.floor - h) * (1 - smooth(CY.pad, 5000, r));                     // crater: steep walls, flat floor for the plant
+}
+function canyonColor(x, y, h, nr, i, j){
+  const v = hash(i*7 + 3, j*13 + 1) * 0.06, slope = 1 - nr[2], r = Math.hypot(x - CY.bx, y - CY.by);
+  if (r < CY.pad - 150) return [0.52 + v, 0.50 + v, 0.46 + v];                    // levelled ground of the plant
+  if (slope > 0.28){ const b = 0.5 + 0.5 * Math.sin(h / 95 + fbm(x / 2500, y / 2500, 2) * 4); return [0.56 + 0.12*b + v, 0.32 + 0.07*b + v, 0.21 + 0.04*b]; }   // banded red rock
+  if (h < plateauH(x, y) - 500) return [0.78 + v, 0.66 + v, 0.47 + v];           // sand: canyon floor and desert
+  return [0.66 + v, 0.52 + v, 0.36 + v * 0.5];                                   // plateau top
 }
 
 // ===== WebGL =====
 const cv = $("cv"), gl = cv.getContext("webgl", { antialias: true, alpha: false });
-const SKY = [0.55, 0.70, 0.86], SUN = vnorm([0.4, -0.5, 0.75]);
+let SKY = [0.55, 0.70, 0.86]; const SUN = vnorm([0.4, -0.5, 0.75]);
 const MVS = `attribute vec3 aP; attribute vec2 aUV; attribute vec3 aN; attribute vec2 aC;
 uniform mat4 uPV, uM; uniform vec3 uSun; varying vec2 vUV; varying vec2 vC; varying float vL; varying float vD;
 void main(){ vec4 w = uM * vec4(aP, 1.0); vUV = aUV; vC = aC; vec3 n = normalize(mat3(uM) * aN); vL = abs(dot(n, uSun)); vD = length(w.xyz); gl_Position = uPV * w; }`;
@@ -520,8 +565,18 @@ void main(){
 }`;
 const TVS = `attribute vec3 aP; attribute vec3 aCol; attribute vec3 aN; uniform mat4 uPV; uniform vec3 uOff, uSun; varying vec3 vCol; varying vec3 vW;
 void main(){ vec3 w = aP + uOff; vW = w; vCol = aCol * (0.45 + 0.65 * max(dot(aN, uSun), 0.0)); gl_Position = uPV * vec4(w, 1.0); }`;
-const TFS = `precision highp float; varying vec3 vCol; varying vec3 vW; uniform vec3 uFogC; uniform vec2 uFog;
-void main(){ gl_FragColor = vec4(mix(vCol, uFogC, smoothstep(uFog.x, uFog.y, length(vW))), 1.0); }`;
+const TFS = `precision highp float; varying vec3 vCol; varying vec3 vW; uniform vec3 uFogC; uniform vec2 uFog; uniform vec3 uEye; uniform float uWave, uTime;
+void main(){
+  vec3 c = vCol; float d = length(vW);
+  if (uWave > 0.5){   // sea: swell plus short chop (faded with distance) so you can see a ship move over it
+    vec2 p = vW.xy + uEye.xy;
+    float w = sin(dot(p, vec2(0.011, 0.007)) + uTime * 0.9) + 0.7 * sin(dot(p, vec2(-0.006, 0.013)) + uTime * 0.7);
+    float near = 1.0 - smoothstep(600.0, 5000.0, d);
+    float ch = sin(dot(p, vec2(0.031, 0.017)) + 0.8 * sin(p.y * 0.009) + uTime * 1.1) * sin(dot(p, vec2(-0.014, 0.036)) + 0.8 * sin(p.x * 0.011) - uTime * 0.8);
+    c *= 0.92 + 0.06 * w + 0.10 * ch * near;
+    c = mix(c, vec3(0.80, 0.86, 0.92), smoothstep(0.7, 0.98, ch) * near * 0.35);
+  }
+  gl_FragColor = vec4(mix(c, uFogC, smoothstep(uFog.x, uFog.y, d)), 1.0); }`;
 function mkProg(vs, fs){
   const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
   const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
@@ -582,9 +637,12 @@ function getMesh(s, st = {}){
 const world = { objs: [], platforms: [] };   // obj: { s, mesh, pos, q, hdg }
 const CARRIER = { x: 42000, y: 9000, hdg: 0 };
 const RUNWAY_SPAWN = { x: -884, y: -2050, hdg: 0 };
+// FA ship shapes put their origin anywhere from the keel to mid-height: float the keel a little below the sea (draft)
+const waterZ = mesh => -mesh.lo[2] - Math.min(30, 0.08 * (mesh.hi[2] - mesh.lo[2]));
 async function addObj(name, x, y, z, hdg, st, platform){
   try {
     const s = await loadShape(name), mesh = getMesh(s, st || { gear: true }), q = qAxis([0,0,1], hdg);
+    if (s.isShip && z === 0) z = waterZ(mesh);
     const o = { s, mesh, pos: [x, y, z], q, hdg }; world.objs.push(o);
     if (platform){ const c = Math.cos(hdg), sn = Math.sin(hdg);
       for (const f of mesh.flat) world.platforms.push({ pts: f.pts.map(([a, b]) => [x + a*c - b*sn, y + a*sn + b*c]), z: z + f.z, kind: platform }); }
@@ -609,15 +667,18 @@ const AC = { vStall: 215, vRot: 235, mil: 24, ab: 42, drag: 1.7e-5, v1: 506, a1:
 
 function playerMode(){ const sel = $("selMode").value; if (sel !== "auto") return sel; return P.s.isPlane ? "fly" : P.s.isShip ? "sail" : "drive"; }
 function spawn(){
-  const mode = playerMode(); P.mode = mode; P.crashed = false; P.sink = 0; P.cat = 0; P.brake = false;
+  const mis = $("selMission").value === "canyon" && !!MAPS.canyon;
+  setMap(mis ? "canyon" : "island"); MS.on = mis;
+  const mode = mis ? "fly" : playerMode(); P.mode = mode; P.crashed = false; P.sink = 0; P.cat = 0; P.brake = false;
   cam.yaw = 0; cam.pitch = 0;
-  let where = $("selSpawn").value;
+  let where = mis ? "mission" : $("selSpawn").value;
   if (mode === "sail") where = "sea"; else if (where === "sea") where = mode === "fly" ? "air" : "runway";
   if (where === "carrier" && mode === "drive") where = "carrier";
   P.gear = true; P.thr = 0; P.speed = 0; P.onGround = true; P.vel = null; P.alpha = 0; P.gammaHold = null;
   if (where === "runway"){ P.pos = [RUNWAY_SPAWN.x, RUNWAY_SPAWN.y, 0]; P.hdg = 0; }
   else if (where === "carrier"){ P.pos = [CARRIER.x + 136, CARRIER.y - 120, 0]; P.hdg = CARRIER.hdg; }
   else if (where === "air"){ P.pos = [RUNWAY_SPAWN.x, RUNWAY_SPAWN.y - 14000, 0]; P.pos[2] = Math.max(2500, groundAt(P.pos[0], P.pos[1]).h + 2000); P.hdg = 0; P.onGround = false; P.gear = false; P.thr = 0.7; P.speed = 520; P.vel = [0, 520, 0]; }
+  else if (where === "mission"){ P.pos = [0, -8000, 900]; P.hdg = 0; P.onGround = false; P.gear = false; P.thr = 0.75; P.speed = 780; P.vel = [0, 780, 0]; }
   else { P.pos = [CARRIER.x - 3000, CARRIER.y - 6000, 0]; P.hdg = 0; }
   P.pitch = 0; P.q = qFromHP(P.hdg, 0);
   if (P.onGround){ const g = groundAt(P.pos[0], P.pos[1]); P.pos[2] = g.h + (mode === "fly" ? gearH() : 0); }
@@ -625,12 +686,17 @@ function spawn(){
   { const sp = where === "air" ? RUNWAY_SPAWN : { x: P.pos[0], y: P.pos[1], hdg: P.hdg }, r = getMesh(P.s, {}).radius;
     const f = [-Math.sin(sp.hdg), Math.cos(sp.hdg)], lf = [-Math.cos(sp.hdg), -Math.sin(sp.hdg)], x = sp.x + lf[0] * r * 3 + f[0] * r, y = sp.y + lf[1] * r * 3 + f[1] * r;
     cam.rcEye = [x, y, groundAt(x, y).h + 6]; }
-  W.ammo = WEAPONS.map(w => w.ammo); W.lock = null;
+  W.ammo = WEAPONS.map(w => w.ammo); W.lock = null; W.shots = []; W.bullets = []; EM.length = 0; FL.length = 0; flares = 24;
+  if (mis){ W.ammo = [600, 2, 0, 2, 4]; W.sel = 4;
+    for (const t of targets){ t.dead = 0; t.hp = t.maxHp; t.cd = 0; }
+    Object.assign(MS, { phase: "canyon", c0: MS.clock, exp: 0, killT: 0, doneT: 0, time: 0, reactor: targets.find(t => t.objective) }); }
   $("msg").textContent = ""; updButtons();
   sub(mode === "fly" ? (where === "air" ? L("Flying. Lower the gear to land on the runway or the carrier.", "飛行中。放下起落架就能降落在跑道或航艦上。")
       : where === "carrier" ? L("Push the throttle to full: the catapult launches you. Pull up off the bow.", "油門推到底：彈射器會把你彈出去，到艦首時拉起。")
       : L("Push the left stick up to full throttle, pull back on the right stick at about 140 kt.", "左搖桿往上推到全油門，大約 140 節時把右搖桿往後拉。"))
     : mode === "sail" ? L("Left stick: throttle. Right stick: steer.", "左搖桿：油門。右搖桿：轉向。") : L("Left stick: throttle (down = reverse). Right stick: steer.", "左搖桿：油門（往下 = 倒車）。右搖桿：轉向。"));
+  if (mis) sub(L("Canyon strike: fly the canyon below the rim (above it the SAM radar sees you). At the end pull up over the ridge, dive into the crater and bomb the reactor, then climb out and use flares.",
+    "峽谷轟炸任務：在峽谷裡低飛，不要高過峽谷邊緣（太高會被防空雷達發現）。峽谷盡頭拉起越過山脊，俯衝進凹谷炸掉核子反應爐，再拉出來，用熱焰彈躲避飛彈。"));
 }
 let subT = null; function sub(t){ $("sub").textContent = t; clearTimeout(subT); subT = setTimeout(() => $("sub").textContent = "", 9000); }
 function curMesh(){ return getMesh(P.s, { gear: P.mode === "fly" ? P.gear : true, ab: P.mode === "fly" && P.thr > 0.9, brake: P.mode === "fly" && P.brake && !P.onGround, flaps: P.mode === "fly" && P.gear }); }
@@ -707,7 +773,7 @@ function stepFly(dt){
     const flatOk = g.kind === "runway" || g.kind === "deck" || g.kind === "terrain" && Math.abs(terrainH(P.pos[0] + 60, P.pos[1]) - terrainH(P.pos[0] - 60, P.pos[1])) < 15 && Math.abs(terrainH(P.pos[0], P.pos[1] + 60) - terrainH(P.pos[0], P.pos[1] - 60)) < 15;
     const deep = g.h - (P.pos[2] - hh);
     if (g.kind === "water") crash(L("Splash! You hit the sea.", "撲通！掉進海裡了。"));
-    else if (!P.gear) crash(L("Crashed: the gear was up.", "墜毀：起落架沒放下。"));
+    else if (!P.gear) crash(MS.on ? L("Crashed into the rocks!", "撞上岩壁了！") : L("Crashed: the gear was up.", "墜毀：起落架沒放下。"));
     else if (deep > 40) crash(L("Crashed into the side!", "撞上側面了！"));
     else if (vel[2] < -32 || Math.abs(roll) > 0.4 || pitch < -0.12 || pitch > 0.55 || !flatOk) crash(vel[2] < -32 ? L("Crashed: touched down too hard.", "墜毀：落地太重。") : L("Crashed!", "墜毀！"));
     else { P.onGround = true; P.hdg = Math.atan2(-f[0], f[1]); P.pitch = Math.max(0, pitch); P.speed = Math.hypot(vel[0], vel[1]); P.pos[2] = g.h + hh; P.vel = null;
@@ -725,7 +791,7 @@ function stepDrive(dt){
   const blocked = ship ? g.kind !== "water" || terrainH(np[0] + f[0]*len, np[1] + f[1]*len) > -12 : g.kind === "water" || g.h > P.pos[2] + 40;
   if (blocked){ P.speed = 0; return; }
   P.pos = np;
-  if (ship){ P.pos[2] = 0; P.q = qFromHP(P.hdg, 0); return; }
+  if (ship){ P.pos[2] = waterZ(curMesh()); P.q = qFromHP(P.hdg, 0); return; }
   P.pos[2] = g.h;
   const hf = groundAt(P.pos[0] + f[0]*len, P.pos[1] + f[1]*len).h, hb = groundAt(P.pos[0] - f[0]*len, P.pos[1] - f[1]*len).h;
   P.q = qFromHP(P.hdg, Math.atan2(hf - hb, 2*len));
@@ -734,6 +800,19 @@ function step(dt){
   P.thr = clamp(P.thr + input.thrRate * dt * 0.7, P.mode === "drive" ? -0.3 : 0, 1);
   if (!P.crashed){ if (P.mode === "fly") stepFly(dt); else stepDrive(dt); }
   stepCombat(dt);
+  stepMission(dt);
+  stepWake(dt);
+}
+// foam wake behind a ship you sail: white patches that spread and fade
+const WAKE = []; let wakeT = 0;
+function stepWake(dt){
+  for (const w of WAKE) w.age += dt;
+  while (WAKE.length && WAKE[0].age > 25) WAKE.shift();
+  if (P.mode !== "sail" || P.crashed || Math.abs(P.speed) < 2) return;
+  wakeT -= dt; if (wakeT > 0) return; wakeT = 0.15;
+  const m = curMesh(), f = [-Math.sin(P.hdg), Math.cos(P.hdg)], back = -m.lo[1] * 0.92, beam = Math.max(5, (m.hi[0] - m.lo[0]) / 4);
+  WAKE.push({ pos: [P.pos[0] - f[0] * back, P.pos[1] - f[1] * back, -1], r: beam, age: 0 });
+  WAKE.push({ pos: [P.pos[0] + f[0] * m.hi[1] * 0.85, P.pos[1] + f[1] * m.hi[1] * 0.85, -1], r: beam * 0.5, age: 0, bow: true });
 }
 
 // ===== weapons and targets =====
@@ -745,7 +824,7 @@ const WEAPONS = [
   { id: "mk82", name: "MK-82", sh: "MK82", ammo: 6, bomb: true, dmg: 14, blast: 500 },
 ];
 const W = { sel: 0, ammo: WEAPONS.map(w => w.ammo), bullets: [], shots: [], booms: [], lock: null, fireHeld: false, gunT: 0, kills: 0, side: 1 };
-const targets = [];
+let targets = [];
 let lastPV = null, lastEye = [0,0,0], sphere = null, COL = {};
 function nearestPal(rgb, r, g, b){ let bi = 0, bd = 1e9; for (let i = 0; i < 256; i++){ const d = (rgb[3*i]-r)**2 + (rgb[3*i+1]-g)**2 + (rgb[3*i+2]-b)**2; if (d < bd){ bd = d; bi = i; } } return bi; }
 function buildSphere(col){   // fireball: a small lat/long sphere in the model vertex format
@@ -790,7 +869,7 @@ function placeTarget(t, dt){
     t.vel = vmul(vsub([x, y, z], t.pos), dt > 0 ? 1 / dt : 0); t.pos = [x, y, z];
     t.q = qMul(qFromHP(o.ph + (o.dir > 0 ? 0 : Math.PI), 0), qAxis([0,1,0], -0.55 * o.dir)); return; }
   t.vel = [0, 0, 0];
-  if (t.kind === "sea") t.pos[2] = 0;
+  if (t.kind === "sea") t.pos[2] = waterZ(t.mesh);
   else if (t.kind === "bld"){ if (dt) return; const m = t.mesh; let h = 1e9;
     for (const [a, b] of [[m.lo[0], m.lo[1]], [m.hi[0], m.lo[1]], [m.lo[0], m.hi[1]], [m.hi[0], m.hi[1]], [0, 0]]) h = Math.min(h, terrainH(t.pos[0] + a, t.pos[1] + b));
     t.pos[2] = Math.max(0, h) - m.lo[2]; }
@@ -800,7 +879,7 @@ const fwdOf = q => qRot(q, [0,1,0]);
 // line of sight over the terrain (no lock on targets hidden behind a ridge)
 function clearLine(a, b){ for (let i = 1; i < 24; i++){ const k = i / 24, x = a[0] + (b[0]-a[0])*k, y = a[1] + (b[1]-a[1])*k, z = a[2] + (b[2]-a[2])*k; if (terrainH(x, y) > z + 20) return false; } return true; }
 function nextWeapon(){ if (P.mode !== "fly") return; W.sel = (W.sel + 1) % WEAPONS.length; W.lock = null; updButtons(); }
-function launchFrom(){ const r = curMesh().radius, f = fwdOf(P.q), rt = qRot(P.q, [1,0,0]), up = qRot(P.q, [0,0,1]); W.side = -W.side;
+function launchFrom(){ const r = getMesh(P.s, {}).radius, f = fwdOf(P.q), rt = qRot(P.q, [1,0,0]), up = qRot(P.q, [0,0,1]); W.side = -W.side;
   return vadd(P.pos, vadd(vmul(rt, W.side * r * 0.25), vadd(vmul(up, -r * 0.08), vmul(f, r * 0.1)))); }
 function fireOnce(){
   if (P.mode !== "fly" || P.crashed) return;
@@ -819,7 +898,7 @@ function boom(pos, size){ W.booms.push({ pos: pos.slice(), size, t0: performance
 const tCenter = t => t.kind === "bld" ? vadd(t.pos, [0, 0, (t.mesh.lo[2] + t.mesh.hi[2]) / 2]) : t.pos;
 function hitTarget(p, extra){ for (const t of targets) if (!t.dead && vlen(vsub(p, tCenter(t))) < t.mesh.radius * (t.kind === "bld" ? 0.75 : 0.6) + extra) return t; return null; }
 function stepCombat(dt){
-  for (const t of targets){ if (t.dead && performance.now() - t.dead > 30000){ t.dead = 0; t.hp = t.maxHp; } if (!t.dead) placeTarget(t, dt); }
+  for (const t of targets){ if (t.dead && !t.noRespawn && performance.now() - t.dead > 30000){ t.dead = 0; t.hp = t.maxHp; } if (!t.dead) placeTarget(t, dt); }
   const w = WEAPONS[W.sel];
   // lock: the valid target nearest the nose, inside the seeker cone and range
   if (P.mode === "fly" && !P.crashed && (w.air || w.gnd)){
@@ -832,7 +911,7 @@ function stepCombat(dt){
   // gun
   W.gunT -= dt;
   if (W.fireHeld && w.id === "gun" && P.mode === "fly" && !P.crashed && W.ammo[0] > 0 && W.gunT <= 0){
-    W.gunT = 0.06; W.ammo[0]--; const f = fwdOf(P.q), r = curMesh().radius, v0 = P.vel || vmul(f, P.speed);
+    W.gunT = 0.06; W.ammo[0]--; const f = fwdOf(P.q), r = getMesh(P.s, {}).radius, v0 = P.vel || vmul(f, P.speed);
     // a little aim help: bullets bend toward a target close to the gun line
     W.bullets.push({ pos: vadd(P.pos, vmul(f, r * 0.55)), vel: vadd(v0, vmul(f, 3300)), life: 1.6 });
     if (W.ammo[0] % 10 === 0) updButtons();
@@ -868,6 +947,61 @@ function stepCombat(dt){
   W.shots = W.shots.filter(m => m.life > 0);
   W.booms = W.booms.filter(b => performance.now() - b.t0 < 2500);
 }
+// ===== canyon strike mission: SAM sites, enemy missiles, flares =====
+const MS = { map: "island", on: false, phase: "", clock: 0, c0: 0, exp: 0, killT: 0, doneT: 0, time: 0, reactor: null };
+const EM = [], FL = [];   // enemy missiles in flight, flares
+let flares = 24, flareT = 0, samScan = 0;
+const exposedNow = () => P.pos[1] > -2000 && P.pos[1] < CY.end - 6500 && P.pos[2] > plateauH(P.pos[0], P.pos[1]) - 80;   // above the canyon rim
+function dropFlares(){
+  if (P.mode !== "fly" || P.crashed || flares <= 0 || flareT > 0) return;
+  flareT = 0.35; flares -= 2;
+  const v0 = P.vel || vmul(fwdOf(P.q), P.speed), rt = qRot(P.q, [1,0,0]), pair = [];
+  for (const sd of [-1, 1]){ const f = { pos: P.pos.slice(), vel: vadd(vmul(v0, 0.55), vadd(vmul(rt, sd * 120), [0, 0, -60])), life: 3.5 }; FL.push(f); pair.push(f); }
+  // each missile chasing you may go for the flares instead
+  for (const m of EM) if (m.tgt === "player" && vlen(vsub(m.pos, P.pos)) < 12000 && Math.random() < 0.8) m.tgt = pair[Math.random() < 0.5 ? 0 : 1];
+  updButtons();
+}
+function stepMission(dt){
+  flareT -= dt;
+  for (const f of FL){ f.vel = vmul(f.vel, 1 - Math.min(1, 0.8 * dt)); f.vel[2] -= G * 0.5 * dt; f.pos = vadd(f.pos, vmul(f.vel, dt)); f.life -= dt; }
+  for (let i = FL.length - 1; i >= 0; i--) if (FL[i].life <= 0) FL.splice(i, 1);
+  if (!MS.on) return;
+  const alive = P.mode === "fly" && !P.crashed, now = performance.now(); MS.clock += dt;
+  MS.exp = alive && MS.phase !== "done" && exposedNow() ? MS.exp + dt : 0;
+  // SAM sites: the canyon ones fire once you have been above the rim for a moment, the crater ones after the reactor blows
+  samScan -= dt;
+  if (samScan <= 0){ samScan = 0.25; let inAir = EM.filter(m => m.tgt === "player").length;
+    for (const t of targets){ if (!t.sam || t.dead) continue; t.cd = (t.cd || 0) - 0.25; if (!alive || t.cd > 0 || inAir >= 2) continue;
+      const d = vlen(vsub(P.pos, t.pos));
+      const want = t.sam === "canyon" ? MS.exp > 1.2 && d < 20000 : MS.phase === "egress" && MS.clock - MS.killT > 1.5 && d < 17000;
+      if (want && clearLine(vadd(t.pos, [0, 0, 60]), P.pos)){ const p = vadd(t.pos, [0, 0, 40]); EM.push({ pos: p, vel: vmul(vnorm(vadd(vnorm(vsub(P.pos, p)), [0, 0, 0.8])), 300), t: 0, life: 14, tgt: "player", trail: [p.slice()] }); t.cd = t.sam === "canyon" ? 8 : 7; inAir++; } }
+  }
+  for (const m of EM){
+    m.t += dt; m.life -= dt;
+    let spd = vlen(m.vel), dir = vmul(m.vel, 1 / Math.max(1, spd));
+    spd = m.t < 5 ? Math.min(2100, spd + 650 * dt) : Math.max(500, spd - 60 * dt);
+    const flare = m.tgt && m.tgt !== "player", tg = flare ? (m.tgt.life > 0 ? m.tgt.pos : null) : alive ? P.pos : null;
+    if (m.t > 0.3 && tg){
+      const tv = flare ? m.tgt.vel : P.vel || [0, 0, 0], tt = vlen(vsub(tg, m.pos)) / Math.max(spd, 1), aim = vnorm(vsub(vadd(tg, vmul(tv, tt * 0.8)), m.pos));
+      const maxTurn = 25 * G / Math.max(spd, 300) * dt, ang = Math.acos(clamp(vdot(dir, aim), -1, 1));
+      dir = ang <= maxTurn ? aim : vnorm(vadd(vmul(dir, Math.sin(ang - maxTurn)), vmul(aim, Math.sin(maxTurn))));
+    }
+    m.vel = vmul(dir, spd); m.pos = vadd(m.pos, vmul(m.vel, dt));
+    if (vlen(vsub(m.pos, m.trail[m.trail.length - 1])) > 150){ m.trail.push(m.pos.slice()); if (m.trail.length > 40) m.trail.shift(); }
+    if (!flare && alive && vlen(vsub(m.pos, P.pos)) < 90){ m.life = 0; boom(P.pos, 120); crash(L("Shot down by a SAM!", "被防空飛彈擊落！")); continue; }
+    if (flare && tg && vlen(vsub(m.pos, tg)) < 160){ m.life = 0; boom(m.pos, 70); continue; }
+    if (m.pos[2] < terrainH(m.pos[0], m.pos[1])){ m.life = 0; boom(m.pos, 70); continue; }
+    if (m.life <= 0) boom(m.pos, 40);
+  }
+  for (let i = EM.length - 1; i >= 0; i--) if (EM[i].life <= 0) EM.splice(i, 1);
+  if (!alive) return;
+  if (MS.phase === "canyon" && P.pos[1] > CY.end - 7000){ MS.phase = "attack";
+    sub(L("End of the canyon: pull up over the ridge, then dive into the crater and bomb the reactor!", "峽谷盡頭：拉起越過山脊，再俯衝進凹谷，炸毀核子反應爐！")); }
+  if ((MS.phase === "canyon" || MS.phase === "attack") && MS.reactor && MS.reactor.dead){ MS.phase = "egress"; MS.killT = MS.clock;
+    sub(L("Reactor destroyed! Climb out of the crater: the SAMs on the rim are launching. Flares!", "反應爐摧毀！快拉出凹谷：山谷上緣的防空飛彈要發射了，放熱焰彈！")); }
+  if (MS.phase === "egress" && Math.hypot(P.pos[0] - CY.bx, P.pos[1] - CY.by) > 18000 && !EM.some(m => m.tgt === "player")){
+    MS.phase = "done"; MS.doneT = now; MS.time = MS.clock - MS.c0; }
+}
 function renderCombat(eye){
   for (const t of targets){
     const dd = vlen(vsub(t.pos, eye)); if (dd > FOG[1] + t.mesh.radius) continue;
@@ -877,22 +1011,30 @@ function renderCombat(eye){
   }
   for (const m of W.shots){ const s = shapes[m.w.sh]; if (!s) continue; const d = vnorm(m.vel);
     drawModel(s, getMesh(s, {}), modelMat(qFromHP(Math.atan2(-d[0], d[1]), Math.asin(clamp(d[2], -1, 1))), vsub(m.pos, eye), 0.8), false); }
+  { const s = shapes.SA6M; if (s) for (const m of EM){ const d = vnorm(m.vel);
+    drawModel(s, getMesh(s, {}), modelMat(qFromHP(Math.atan2(-d[0], d[1]), Math.asin(clamp(d[2], -1, 1))), vsub(m.pos, eye), 2), false); } }
   // tracers and smoke trails as lines
   const L2 = [], push = (a, b, col) => { for (const q of [a, b]) L2.push(q[0] - eye[0], q[1] - eye[1], q[2] - eye[2], 0, 0, SUN[0], SUN[1], SUN[2], col, 0); };
   for (const b of W.bullets) if (b.prev) push(vsub(b.pos, vmul(b.vel, 0.03)), b.pos, COL.tracer);
   for (const m of W.shots) for (let i = 1; i < m.trail.length; i++) push(m.trail[i-1], i === m.trail.length - 1 ? m.pos : m.trail[i], COL.smoke);
   for (const m of W.shots) if (m.trail.length && !m.w.bomb) push(m.trail[m.trail.length - 1], m.pos, COL.smoke);
+  for (const m of EM){ for (let i = 1; i < m.trail.length; i++) push(m.trail[i-1], m.trail[i], COL.smoke); push(m.trail[m.trail.length - 1], m.pos, COL.smoke); }
   if (L2.length){
     gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(L2), gl.DYNAMIC_DRAW);
     gl.uniformMatrix4fv(mProg.U("uM"), false, new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1])); gl.uniform1f(mProg.U("uTex"), 0);
     bindModelAttrs(lineBuf); gl.drawArrays(gl.LINES, 0, L2.length / 10);
   }
   // fireballs
-  if (W.booms.length){
+  if (W.booms.length || FL.length || WAKE.length){
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
     for (const b of W.booms){ const t = (performance.now() - b.t0) / 2500;
       gl.uniform4f(mProg.U("uTint"), 1, 0.55 - 0.35 * t, 0.12, 0.85); gl.uniform1f(mProg.U("uAlpha"), (1 - t) * 0.9);
       drawModel({ picTex: blankTex, pic: null }, sphere, modelMat([0,0,0,1], vsub(b.pos, eye), b.size * (0.4 + 1.2 * Math.sqrt(t))), false); }
+    gl.uniform4f(mProg.U("uTint"), 0.95, 0.97, 1, 1);
+    for (const w of WAKE){ if (w.bow && w.age > 3) continue; const k = w.age / (w.bow ? 3 : 25), M = modelMat([0,0,0,1], vsub(w.pos, eye), w.r * (1 + w.age * (w.bow ? 0.4 : 0.12))); M[10] *= 0.01;
+      gl.uniform1f(mProg.U("uAlpha"), 0.3 * (1 - k) * (1 - k)); drawModel({ picTex: blankTex, pic: null }, sphere, M, false); }
+    gl.uniform4f(mProg.U("uTint"), 1, 0.95, 0.75, 1);
+    for (const f of FL){ gl.uniform1f(mProg.U("uAlpha"), Math.min(1, f.life)); drawModel({ picTex: blankTex, pic: null }, sphere, modelMat([0,0,0,1], vsub(f.pos, eye), 14 + 6 * Math.sin(f.life * 30)), false); }
     gl.uniform4f(mProg.U("uTint"), 0, 0, 0, 0); gl.uniform1f(mProg.U("uAlpha"), 1); gl.depthMask(true); gl.disable(gl.BLEND);
   }
 }
@@ -906,14 +1048,18 @@ function drawOverlay(){
   if (P.mode !== "fly" || !P.s) return;
   ox.lineWidth = 1.5; ox.font = "600 11px ui-monospace,Consolas,monospace"; ox.textAlign = "center";
   const w = WEAPONS[W.sel];
-  for (const t of targets){ if (t.dead) continue; const dist = vlen(vsub(t.pos, P.pos)); if (dist > (t.kind === "bld" ? 30000 : 70000)) continue;
+  for (const t of targets){ if (t.dead) continue; const dist = vlen(vsub(t.pos, P.pos)); if (dist > (t.kind === "bld" ? 30000 : t.sam ? 16000 : 70000) && !t.objective) continue;
     const s = project(tCenter(t)); if (!s) continue; const lock = W.lock === t, valid = w.air ? t.kind === "air" : w.gnd || w.bomb ? t.kind !== "air" : true, r = lock ? 16 : t.kind === "bld" ? 6 : 10;
     ox.strokeStyle = lock ? "#ff4040" : valid ? "#9dffb0" : "#9dffb066"; ox.fillStyle = ox.strokeStyle;
     if (t.kind === "air"){ ox.beginPath(); ox.moveTo(s[0], s[1] - r); ox.lineTo(s[0] + r, s[1]); ox.lineTo(s[0], s[1] + r); ox.lineTo(s[0] - r, s[1]); ox.closePath(); ox.stroke(); }
     else ox.strokeRect(s[0] - r, s[1] - r, 2*r, 2*r);
     if (lock){ ox.strokeRect(s[0] - r - 4, s[1] - r - 4, 2*r + 8, 2*r + 8); ox.fillText("LOCK", s[0], s[1] - r - 9); }
-    if (lock || t.kind === "air" || t.kind === "sea") ox.fillText(dist > 9000 ? (dist / 6076).toFixed(1) + "nm" : Math.round(dist) + "ft", s[0], s[1] + r + 13);
+    if (t.objective){ ox.strokeStyle = ox.fillStyle = lock ? "#ff4040" : "#ffd54a"; ox.strokeRect(s[0] - 20, s[1] - 20, 40, 40); ox.fillText(L("TARGET", "目標"), s[0], s[1] - 26); }
+    else if (t.sam && !lock && dist < 16000) ox.fillText("SAM", s[0], s[1] - r - 5);
+    if (lock || t.objective || t.kind === "air" || t.kind === "sea") ox.fillText(dist > 9000 ? (dist / 6076).toFixed(1) + "nm" : Math.round(dist) + "ft", s[0], s[1] + r + 13);
   }
+  ox.strokeStyle = ox.fillStyle = "#ff4040";
+  for (const m of EM){ const s = project(m.pos); if (!s) continue; ox.beginPath(); ox.arc(s[0], s[1], 9, 0, 7); ox.stroke(); ox.fillText(m.tgt === "player" ? "SAM" : "", s[0], s[1] - 13); }
   if (P.crashed) return;
   // gun cross / bomb impact point
   const f = fwdOf(P.q);
@@ -931,7 +1077,7 @@ function drawOverlay(){
 
 // ===== camera =====
 function camera(dt){
-  const mesh = curMesh(), r = mesh.radius;   // a turned view stays until the Front button (or a double-tap) brings it back
+  const mesh = getMesh(P.s, {}), r = mesh.radius;   // framed on the clean model, so the afterburner flame, gear or speed brake never change the size; a turned view stays until the Front button (or a double-tap) brings it back
   const center0 = vadd(P.pos, [0, 0, (mesh.hi[2] + mesh.lo[2]) / 2]);
   if (cam.rc && cam.rcEye){
     // RC view: you stand at the runway end, beside where the jet started, and follow it with your eyes. The zoom follows the
@@ -954,14 +1100,47 @@ function camera(dt){
 }
 
 // ===== drawing =====
-let terrain = null, tBuf, tIdx, waterBuf;
+let waterBuf; const MAPS = {};
+function uploadTerrain(T, chunks){
+  T.chunks = chunks.map(c => { const vb = gl.createBuffer(), ib = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, c.data, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, c.idx, gl.STATIC_DRAW); return { vb, ib, count: c.idx.length }; });
+  return T; }
 function initTerrain(){
-  terrain = buildTerrain();
-  tBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, tBuf); gl.bufferData(gl.ARRAY_BUFFER, terrain.data, gl.STATIC_DRAW);
-  tIdx = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, tIdx); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, terrain.idx, gl.STATIC_DRAW);
+  const g = mkGrid(-T_EXT, -T_EXT, T_CELL, T_N, T_N, rawHeight);
+  MAPS.island = { terr: uploadTerrain({ grids: [g], outside: -900 }, meshGrid(g, islandColor)), objs: world.objs, platforms: world.platforms, targets, sky: SKY };
+  TMAP = MAPS.island.terr;
   const W = 600000, c = [0.16, 0.34, 0.52], n = [0,0,1], wd = [];
   for (const [x, y] of [[-W,-W],[W,-W],[W,W],[-W,-W],[W,W],[-W,W]]) wd.push(x, y, -2, ...c, ...n);
   waterBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, waterBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(wd), gl.STATIC_DRAW);
+}
+function setMap(name){
+  const M = MAPS[name]; if (!M || MS.map === name) return; MS.map = name;
+  TMAP = M.terr; world.objs = M.objs; world.platforms = M.platforms; targets = M.targets; SKY = M.sky;
+  W.shots = []; W.bullets = []; W.booms = []; W.lock = null; EM.length = 0; FL.length = 0;
+}
+// the canyon map is built the first time the mission starts
+async function buildCanyon(){
+  if (MAPS.canyon) return;
+  $("load").style.display = "flex"; $("loadT").textContent = L("Building the canyon…", "建立峽谷…"); await new Promise(r => setTimeout(r, 30));
+  const fine = mkGrid(-11700, -9000, 150, 156, 486, canyonRaw), coarse = mkGrid(-T_EXT, -T_EXT, T_CELL, T_N, T_N, canyonRaw);
+  const inFine = (i, j) => { const x = coarse.x0 + i*coarse.cell, y = coarse.y0 + j*coarse.cell; return x >= fine.x0 && x + coarse.cell <= fine.x1 && y >= fine.y0 && y + coarse.cell <= fine.y1; };
+  MAPS.canyon = { terr: uploadTerrain({ grids: [fine, coarse], outside: 2500 }, [...meshGrid(fine, canyonColor), ...meshGrid(coarse, canyonColor, inFine)]),
+    objs: [], platforms: [], targets: [], sky: [0.66, 0.72, 0.80] };
+  const back = MS.map; setMap("canyon");
+  await loadShape("SA6M").catch(() => null);
+  const mk = async (name, kind, hp, x, y, hdg, extra) => { try { const t = Object.assign({ name, kind, hp, x, y, hdg, noRespawn: true }, extra);
+    t.s = await loadShape(name); t.mesh = getMesh(t.s, { gear: true }); t.maxHp = hp; t.dead = 0; t.pos = [x, y, 0]; t.q = qAxis([0,0,1], hdg); placeTarget(t, 0); targets.push(t); return t; } catch(e){ console.warn(e); } };
+  // the nuclear plant on the crater floor: the reactor is the target, the rest can be hit too
+  await addObj("REACTB", CY.bx, CY.by, CY.floor + 3, 0, null, null);
+  await mk("REACTR", "bld", 14, CY.bx, CY.by, 0, { objective: true });
+  await mk("NUCRD", "bld", 10, CY.bx, CY.by - 1500, 0);
+  await mk("NUCCT", "bld", 10, CY.bx - 1300, CY.by + 1500, 0); await mk("NUCCT", "bld", 10, CY.bx + 1300, CY.by + 1500, 0);
+  await mk("NUCOB", "bld", 8, CY.bx + 1250, CY.by - 1300, Math.PI / 2);
+  // SAM sites on both rims of the canyon (they see you only when you climb above the rim) and around the crater (they wake up when the reactor blows)
+  for (let k = 0, y = 4500; y <= 34000; y += 4200, k++){ const side = k % 2 ? 1 : -1; await mk("SA6", "gnd", 6, cyX(y) + side * (cyHW(y) + 2300), y, side > 0 ? Math.PI / 2 : -Math.PI / 2, { sam: "canyon" }); }
+  for (let k = 0; k < 6; k++){ const a = -0.9 + k * Math.PI / 3; await mk("SA6", "gnd", 6, CY.bx + 5450 * Math.cos(a), CY.by + 5450 * Math.sin(a), a + Math.PI / 2, { sam: "rim" }); }
+  setMap(back);
 }
 function perspective(fov, asp, near, far){ const f = 1 / Math.tan(fov / 2); return new Float32Array([f/asp,0,0,0, 0,f,0,0, 0,0,(far+near)/(near-far),-1, 0,0,2*far*near/(near-far),0]); }
 function lookAt0(dir, up){ const f = vnorm(dir), s = vnorm(vcross(f, up)), u = vcross(s, f); return new Float32Array([s[0],u[0],-f[0],0, s[1],u[1],-f[1],0, s[2],u[2],-f[2],0, 0,0,0,1]); }
@@ -986,10 +1165,12 @@ function drawModel(s, mesh, M, shadow, far){
 function render(){
   resize(); gl.viewport(0, 0, cv.width, cv.height);
   gl.clearColor(...SKY, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  if (!P.s || !terrain) return;
+  if (!P.s || !TMAP) return;
   const c = camera(lastDt), eye = c.eye, dist = vlen(vsub(c.target, eye));
   const above = eye[2] - groundAt(eye[0], eye[1]).h;
-  const near = clamp(Math.min(dist * 0.15, above * 0.5), 2, 60), proj = perspective(c.fov, cv.width / cv.height, near, 260000);
+  // RC view: the eye stands on the ground (near plane would be ~3 ft) while the jet is miles away with a narrow lens, so depth
+  // precision ran out and the far side of the jet showed through the near side. Push the near plane out to half the distance.
+  const near = cam.rc && cam.rcEye ? Math.max(3, dist * 0.5) : clamp(Math.min(dist * 0.15, above * 0.5), 2, 60), proj = perspective(c.fov, cv.width / cv.height, near, 260000);
   const PV = mul4(proj, lookAt0(vsub(c.target, eye), c.up));
   gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
   // terrain + sea
@@ -997,8 +1178,9 @@ function render(){
   gl.uniformMatrix4fv(tProg.U("uPV"), false, PV); gl.uniform3fv(tProg.U("uSun"), SUN); gl.uniform3fv(tProg.U("uFogC"), SKY); gl.uniform2fv(tProg.U("uFog"), FOG);
   gl.uniform3fv(tProg.U("uOff"), vmul(eye, -1));
   const tA = (buf) => { gl.bindBuffer(gl.ARRAY_BUFFER, buf); for (const [n, sz, off] of [["aP",3,0],["aCol",3,12],["aN",3,24]]){ const l = tProg.A(n); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, 36, off); } };
-  tA(waterBuf); gl.drawArrays(gl.TRIANGLES, 0, 6);
-  tA(tBuf); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, tIdx); gl.drawElements(gl.TRIANGLES, terrain.count, gl.UNSIGNED_SHORT, 0);
+  gl.uniform3fv(tProg.U("uEye"), eye); gl.uniform1f(tProg.U("uTime"), performance.now() / 1000 % 10000); gl.uniform1f(tProg.U("uWave"), 1);
+  tA(waterBuf); gl.drawArrays(gl.TRIANGLES, 0, 6); gl.uniform1f(tProg.U("uWave"), 0);
+  for (const c of TMAP.chunks){ tA(c.vb); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, c.ib); gl.drawElements(gl.TRIANGLES, c.count, gl.UNSIGNED_SHORT, 0); }
   for (const n of ["aCol"]) gl.disableVertexAttribArray(tProg.A(n));
   // models
   gl.useProgram(mProg);
@@ -1033,9 +1215,15 @@ function hud(){
   $("hAlt").textContent = Math.round(P.pos[2]);
   $("hHdg").textContent = String(Math.round(((-P.hdg * 180 / Math.PI) % 360 + 360) % 360)).padStart(3, "0");
   if (P.mode === "fly" && !P.onGround){ const f = qRot(P.q, [0,1,0]); $("hHdg").textContent = String(Math.round(((Math.atan2(f[0], f[1]) * 180 / Math.PI) + 360) % 360)).padStart(3, "0"); }
+  $("hTimeD").style.display = MS.on ? "" : "none";
+  if (MS.on){ const ts = MS.phase === "done" ? MS.time : MS.clock - MS.c0; $("hTime").textContent = Math.floor(ts / 60) + ":" + String(Math.floor(ts % 60)).padStart(2, "0"); }
   const tb = $("thrBar"), t = Math.max(0, P.thr); tb.style.height = (t * 100) + "%"; tb.classList.toggle("ab", P.mode === "fly" && P.thr > 0.9);
   if (P.mode === "fly" && !P.onGround && !P.crashed){
-    const agl = P.pos[2] - g.h, warn = (P.alpha || 0) > AC.aStall && (P.vz || 0) < -30 ? L("STALL", "失速") : agl < 400 && !P.gear && (P.vz || 0) < -20 ? L("PULL UP", "拉起") : "";
+    const agl = P.pos[2] - g.h, now = performance.now();
+    let warn = (P.alpha || 0) > AC.aStall && (P.vz || 0) < -30 ? L("STALL", "失速") : agl < (MS.on ? 150 : 400) && !P.gear && (P.vz || 0) < -20 ? L("PULL UP", "拉起") : "";
+    if (MS.on && MS.exp > 0) warn = L("TOO HIGH: SAM RADAR!", "太高了：被防空雷達發現！");
+    if (EM.some(m => m.tgt === "player" && vlen(vsub(m.pos, P.pos)) < 16000)) warn = now % 600 < 380 ? L("MISSILE! FLARES!", "飛彈來襲！放熱焰彈！") : "";
+    if (MS.on && MS.phase === "done" && now - MS.doneT < 10000) warn = L("MISSION COMPLETE", "任務完成") + "\n" + Math.floor(MS.time / 60) + ":" + String(Math.floor(MS.time % 60)).padStart(2, "0");
     if ($("msg").textContent !== warn) $("msg").textContent = warn;
   }
 }
@@ -1079,7 +1267,7 @@ addEventListener("resize", placeSticks);
 const keys = new Set();
 addEventListener("keydown", e => { if (e.target.tagName === "SELECT") return; keys.add(e.code);
   if (e.code === "KeyG") toggleGear(); if (e.code === "KeyB") toggleBrake(); if (e.code === "KeyR") spawn(); if (e.code === "KeyV") $("bView").click();
-  if (e.code === "KeyF" || e.code === "KeyX") nextWeapon(); if (e.code === "Space" && !e.repeat){ e.preventDefault(); W.fireHeld = true; fireOnce(); } });
+  if (e.code === "KeyF" || e.code === "KeyX") nextWeapon(); if (e.code === "KeyC") dropFlares(); if (e.code === "Space" && !e.repeat){ e.preventDefault(); W.fireHeld = true; fireOnce(); } });
 addEventListener("keyup", e => { keys.delete(e.code); if (e.code === "Space") W.fireHeld = false; });
 addEventListener("blur", () => keys.clear());
 function readInput(){
@@ -1097,7 +1285,8 @@ function updButtons(){
   $("bRC").classList.toggle("on", !!cam.rc);
   $("bGear").classList.toggle("on", P.gear); $("bBrake").classList.toggle("on", P.brake); $("bView").classList.toggle("on", !!cam.lock);
   $("bGear").style.display = P.mode === "fly" ? "" : "none";
-  $("wpn").style.display = $("hKillD").style.display = P.mode === "fly" ? "" : "none";
+  $("wpn").style.display = $("hKillD").style.display = $("bFlare").style.display = P.mode === "fly" ? "" : "none";
+  $("bFlare").textContent = L("FLARE", "熱焰彈") + " ×" + flares;
   const w = WEAPONS[W.sel]; $("bWpn").textContent = (w.id === "gun" ? L("GUN", "機砲") : w.name) + " ×" + W.ammo[W.sel];
   $("stRt").textContent = P.mode === "fly" ? L("Pitch / Roll", "俯仰 / 滾轉") : L("Steer", "轉向");
   $("stLt").textContent = P.mode === "fly" ? L("Throttle / Rudder", "油門 / 方向舵") : L("Throttle", "油門");
@@ -1107,12 +1296,14 @@ function toggleBrake(){ P.brake = !P.brake; updButtons(); }
 function frontView(){ cam.yaw = cam.pitch = 0; cam.zoom = 1; cam.rc = false; updButtons(); }
 $("bFront").onclick = frontView;
 $("bRC").onclick = () => { cam.rc = !cam.rc; cam.zoom = 1; cam.rcFov = 0; updButtons(); sub(cam.rc ? L("RC view: watching from the runway end, like flying a model plane. Pinch to zoom.", "遙控視角：站在跑道頭看飛機，像在飛遙控飛機。兩指可縮放。") : L("Chase view", "追蹤視角")); };
+$("bFlare").addEventListener("pointerdown", e => { e.preventDefault(); dropFlares(); });
 $("bGear").onclick = toggleGear; $("bBrake").onclick = toggleBrake; $("bReset").onclick = () => spawn();
 $("bView").onclick = () => { cam.mode = (cam.mode + 1) % 3; cam.yaw = cam.pitch = 0; cam.rc = false; updButtons(); sub([L("Chase view", "追蹤視角"), L("Far chase view", "遠距追蹤"), L("Close view", "近距視角")][cam.mode]); };
 $("menuBtn").onclick = () => $("panel").classList.toggle("open");
 { const sel = $("selShape"), grp = (label, names) => { const g = document.createElement("optgroup"); g.label = label; for (const n of names){ const o = document.createElement("option"); o.value = n; o.textContent = n; g.appendChild(o); } sel.appendChild(g); };
   grp("F/A-18", F18S); grp("Ships", [...SHIPS].filter(n => SH_NAMES.includes(n))); grp("All SH", SH_NAMES); sel.value = "F18"; }
-$("bGo").onclick = async () => { $("panel").classList.remove("open"); await choose($("selShape").value); };
+$("bMission").onclick = async () => { $("panel").classList.remove("open"); $("selMission").value = "canyon"; await buildCanyon(); await choose($("selShape").value); };
+$("bGo").onclick = async () => { $("panel").classList.remove("open"); if ($("selMission").value === "canyon") await buildCanyon(); await choose($("selShape").value); };
 async function choose(name){
   $("load").style.display = "flex"; $("loadT").textContent = L("Loading ", "載入 ") + name + ".SH…";
   try { P.s = await loadShape(name); getMesh(P.s, {}); spawn(); try { localStorage.setItem("fa_flight_shape", name); } catch(e){} }
@@ -1138,6 +1329,9 @@ FAI18N.register({
     "右搖桿：俯仰和滾轉。左搖桿：上下調整油門（放開後會停在那個位置），左右是方向舵。搖桿只在圓圈內有效；在畫面其他地方拖曳都是轉動視角（視角會停在你轉到的地方，按「前向」回到正後方；「遙控視角」會站在跑道頭看飛機，像飛遙控飛機一樣），兩指縮放，點兩下讓鏡頭立刻回到後方。油門推到底會開後燃器；在航艦上也會啟動彈射器。右側的武器按鈕可切換機砲、AIM-9、AIM-120（打空中目標）、AGM-65（打地面和船艦）或 MK-82 炸彈；飛彈會鎖定最靠近機頭的目標。降落時減速、放下起落架、抬起機頭：飛機會以機頭朝上的姿態緩緩下降，用油門控制下降速度。",
   "Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, R restart, mouse drag to look, wheel to zoom.":
     "鍵盤：W/S 俯仰、A/D 滾轉、Q/E 方向舵、Shift/Ctrl 油門、G 起落架、B 煞車、空白鍵 發射、F 換武器、R 重來，滑鼠拖曳轉視角、滾輪縮放。",
+  "Mission": "任務", "⛰ Canyon strike mission": "⛰ 峽谷轟炸任務", "Free flight": "自由飛行", "Canyon strike": "峽谷轟炸任務",
+  "Canyon strike: fly the winding canyon at low level. Above the rim the SAM radar sees you and the sites launch. At the end of the canyon pull up over the ridge, dive into the crater and bomb the reactor (MK-82 is selected; the yellow circle shows where the bomb falls), then climb out: the SAMs on the crater rim fire at you, so turn hard and drop flares (FLARE button or C). Get 3 nm clear to finish.":
+    "峽谷轟炸任務：沿著蜿蜒的峽谷低空飛行。高過峽谷邊緣就會被防空雷達看到，飛彈陣地會發射。到峽谷盡頭拉起越過山脊，俯衝進入內凹的山谷，轟炸核子反應爐（已選好 MK-82，黃色圓圈是炸彈落點），然後拉出來：山谷上緣的防空飛彈會對你發射，要急轉並放熱焰彈（熱焰彈按鈕或 C 鍵）。飛離 3 浬即完成任務。",
   "Pitch / Roll": "俯仰 / 滾轉", "FIRE": "發射", "Front": "前向", "RC view": "遙控視角", "Throttle / Rudder": "油門 / 方向舵", "Loading…": "載入中…"
 });
 $("langSlot").append(FAI18N.picker()); FAI18N.apply(); FAI18N.onChange(updButtons);
@@ -1166,6 +1360,7 @@ $("langSlot").append(FAI18N.picker()); FAI18N.apply(); FAI18N.onChange(updButton
     for (const o of world.objs) if (/^F18/.test(o.s.name)) o.pos[2] = groundAt(o.pos[0], o.pos[1]).h - o.mesh.lo[2];
     let start = "F18"; try { const s = localStorage.getItem("fa_flight_shape"); if (s && SH_NAMES.includes(s)) start = s; } catch(e){}
     $("selShape").value = start;
+    if (new URLSearchParams(location.search).get("mission") === "canyon"){ $("selMission").value = "canyon"; await buildCanyon(); }
     await choose(start);
   } catch(e){ $("loadT").textContent = e.message; console.error(e); return; }
   placeSticks(); requestAnimationFrame(frame);
