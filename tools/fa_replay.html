@@ -80,6 +80,7 @@ aside h2:first-child{margin-top:2px}
 #events li.hit{color:#ffd23c}
 #events li.kill{color:#ff6a50;font-weight:600}
 #events li.tgt{color:#e8a23a}
+#events li.cm{color:#ffb35c}
 #events li.past.hit,#events li.past.kill{opacity:.65}
 #events li time{font-variant-numeric:tabular-nums;color:var(--muted);min-width:46px}
 .opts label{display:flex;align-items:center;gap:6px;margin:3px 0;cursor:pointer}
@@ -157,6 +158,7 @@ button.mdl{padding:2px 7px;font-size:12px;margin:1px 2px 1px 0}
       <span>國別</span><span id="i_nat">—</span>
       <span>損傷</span><span id="i_hp">—</span>
       <span>目標</span><span id="i_tgt">—</span>
+      <span>干擾絲 / 熱焰彈</span><span id="i_cm">—</span>
       <span>SH 外型</span><span><select id="i_model" style="font:inherit;font-size:12px;max-width:120px"></select></span>
     </div>
   </div>
@@ -260,6 +262,11 @@ function parseFlight(dv, u8, ver){
       const n = dv.getUint16(p,true); p += 2; if (p + n*4 > u8.length) break;
       const tg = new Map(); for (let i=0;i<n;i++){ tg.set(dv.getUint16(p,true), dv.getUint16(p+2,true)); p += 4; }
       if (cur) cur.tg = tg;
+    } else if (tag === 0x43){ // C：每架有干擾彈艙的飛機剩下的干擾絲／熱焰彈（屬於前一個 F）
+      if (p + 2 > u8.length) break;
+      const n = dv.getUint16(p,true); p += 2; if (p + n*6 > u8.length) break;
+      const cm = new Map(); for (let i=0;i<n;i++){ cm.set(dv.getUint16(p,true), [dv.getUint16(p+2,true), dv.getUint16(p+4,true)]); p += 6; }
+      if (cur) cur.cm = cm;
     } else if (tag === 0x46){ // F：一筆影格
       const hdr = 8+3+(ver>=2?2:0)+16+2; if (p + hdr > u8.length) break;
       const t = dv.getFloat64(p,true); p += 8;
@@ -370,6 +377,7 @@ function builtinShape(n){
 // ================= 狀態 =================
 let hasHp = false, data = null, events = [], T0 = 0, T1 = 0, now = 0, playing = false;
 const tracks = new Map();   // key -> {key, idx, name, cls, kind, pts:[...]}
+let drops = [];
 let gunShots = [], hits = [], kills = [], selKey = null, playerKey = null, playerCls = 4;
 let viewMode = "follow";
 let cineHook = null;   // fa_cine.js（生成影片）播放時的掛勾
@@ -386,7 +394,7 @@ const natName = v => NATIONS[v & 0x7F] ?? `國別 ${v & 0x7F}`, natNameL = v => 
 const FRIEND_COL = ["#2f8cff","#22c3d6","#5b6cff","#36d39a"], ENEMY_COL = ["#ff3b2f","#ff8a1c","#e0408a","#b8321a"];
 const PALETTE = ["#ffc21a","#36c3f2","#ff4a2a","#2f9b3a","#a35bd8","#ff7aa8","#f07c1a","#e8e8e8","#1c6fd1","#93c83e"];
 const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
-FAI18N.register({"FA Mission Replay": "FA 任務重播", "Speed: ": "播放：", "Follow view": "跟隨視角", "Free view": "自由視角", "Group view": "群組視角", "ID": "編號", "Altitude": "高度", "Speed": "速度", "Pitch": "俯仰", "Heading": "航向", "Nation": "國別", "Damage": "損傷", "SH shape": "SH 外型", "Colour key": "顏色代碼", "Drop flight_*.bin here, or press “Open .bin” below": "把 flight_*.bin 拖進來，或按下方「開啟 .bin」", "Player": "玩家", "Type": "機型", "Pitch / roll": "俯仰 / 滾轉", "Throttle / thrust": "油門 / 推力", "Controls": "操縱面", "Gear": "起落架", "Flaps": "襟翼", "Hook": "捕捉勾", "Brake": "煞車", "Weapon stations": "武器掛點", "Display": "顯示", "Ribbon trails": "緞帶軌跡", "Altitude drop lines": "高度垂線", "ID labels": "編號標籤", "Target lines (who is watching whom)": "目標連線（誰在注視誰）", "Target": "目標", "Static objects (runways, buildings…)": "靜止物件（跑道、建築…）", "Point the nose along the direction of travel": "用移動方向決定機頭朝向", "Mirror Z axis (tick if left and right are swapped)": "鏡像 Z 軸（方向左右相反時勾選）", "Shape": "外型", "Flat (SH face colours)": "平面（SH 面的顏色）", "Textured (PIC)": "貼圖（PIC）", "SH 3D, coloured by nation": "SH 3D，依國別上色", "2D silhouette icons": "2D 剪影圖示", "Choose SH folder": "選擇 SH 資料夾", "Load .SH files": "載入 .SH 檔", "Colour by": "顏色依", "Nation (friend / foe)": "國別（敵我）", "Class code": "類別代碼", "Icon size": "圖示大小", "Trail length": "軌跡長度", "Events": "事件", "(shown after a file is loaded)": "（載入檔案後顯示）", "Open .bin": "開啟 .bin", "Nothing loaded": "尚未載入", "Reset": "重設", "Panel": "面板", "Rename this aircraft type": "改這個機型的名稱", "Throttle (light) / thrust (line)": "油門（淡）/ 推力（線）", "Play / pause": "播放 / 暫停", "Playback speed": "播放速度", "This file holds several missions; pick the one to play": "這個檔案裡錄到好幾次任務，選擇要播放哪一次", "Reset view": "重設視角", "Show / hide the side panel": "顯示 / 隱藏右側面板", "FAshion home": "FAshion 首頁"});
+FAI18N.register({"FA Mission Replay": "FA 任務重播", "Speed: ": "播放：", "Follow view": "跟隨視角", "Free view": "自由視角", "Group view": "群組視角", "ID": "編號", "Altitude": "高度", "Speed": "速度", "Pitch": "俯仰", "Heading": "航向", "Nation": "國別", "Damage": "損傷", "SH shape": "SH 外型", "Colour key": "顏色代碼", "Drop flight_*.bin here, or press “Open .bin” below": "把 flight_*.bin 拖進來，或按下方「開啟 .bin」", "Player": "玩家", "Type": "機型", "Pitch / roll": "俯仰 / 滾轉", "Throttle / thrust": "油門 / 推力", "Controls": "操縱面", "Gear": "起落架", "Flaps": "襟翼", "Hook": "捕捉勾", "Brake": "煞車", "Weapon stations": "武器掛點", "Display": "顯示", "Ribbon trails": "緞帶軌跡", "Altitude drop lines": "高度垂線", "ID labels": "編號標籤", "Target lines (who is watching whom)": "目標連線（誰在注視誰）", "Target": "目標", "Chaff / flares": "干擾絲 / 熱焰彈", "Static objects (runways, buildings…)": "靜止物件（跑道、建築…）", "Point the nose along the direction of travel": "用移動方向決定機頭朝向", "Mirror Z axis (tick if left and right are swapped)": "鏡像 Z 軸（方向左右相反時勾選）", "Shape": "外型", "Flat (SH face colours)": "平面（SH 面的顏色）", "Textured (PIC)": "貼圖（PIC）", "SH 3D, coloured by nation": "SH 3D，依國別上色", "2D silhouette icons": "2D 剪影圖示", "Choose SH folder": "選擇 SH 資料夾", "Load .SH files": "載入 .SH 檔", "Colour by": "顏色依", "Nation (friend / foe)": "國別（敵我）", "Class code": "類別代碼", "Icon size": "圖示大小", "Trail length": "軌跡長度", "Events": "事件", "(shown after a file is loaded)": "（載入檔案後顯示）", "Open .bin": "開啟 .bin", "Nothing loaded": "尚未載入", "Reset": "重設", "Panel": "面板", "Rename this aircraft type": "改這個機型的名稱", "Throttle (light) / thrust (line)": "油門（淡）/ 推力（線）", "Play / pause": "播放 / 暫停", "Playback speed": "播放速度", "This file holds several missions; pick the one to play": "這個檔案裡錄到好幾次任務，選擇要播放哪一次", "Reset view": "重設視角", "Show / hide the side panel": "顯示 / 隱藏右側面板", "FAshion home": "FAshion 首頁"});
 const NATIONS_EN = ["USA", "UK", "China", "France", "Germany", "Belgium", "Jordan", "Israel", "Japan", "North Korea", "Russia", "South Korea", "Syria", "Egypt (Arab)", "Egypt (Islamic)", "Estonia", "Latvia", "Lithuania", "Poland", "Belarus", "North Vietnam", "South Vietnam", "Ukraine", "Iraq", "Iran", "Kuwait", "Saudi Arabia", "Oman", "UAE", "Qatar", "Bahrain", "Libya", "Sudan", "Cuba", "Panama", "Colombia", "Pakistan", "India", "Afghanistan", "Taiwan", "Greece", "Turkey", "Italy", "Sweden", "Finland", "Norway", "Spain", "Portugal", "Austria", "Denmark", "Netherlands", "Canada", "Bulgaria", "Hungary", "Romania", "Australia", "Philippines", "Argentina", "Bosnia", "Serbia"];
 // group names stay Chinese inside (colour table, friend / foe test); G() shows them in the current language
 const GROUP_EN = { "飛彈":"Missiles", "機砲彈":"Gun rounds", "殘骸":"Debris", "跳傘飛行員":"Ejected pilots", "建築 / 跑道":"Buildings / runways", "地面單位":"Ground units" };
@@ -434,6 +442,24 @@ function frameTargets(fr){
       if (t !== idx && f.objs.has(t)) tg.set(idx, t); }
     f.tg = tg; }
 }
+// 干擾絲／熱焰彈：新檔有 C 區塊（錄製器只加總類別 9 的 ECM 掛點）。舊檔沒有掛點類別，只能從飛機原始資料猜：
+// 掛點陣列位置在物件 +0x114（指向第一個掛點的類型指標），每個掛點 0x11 位元組，+6 = 干擾絲、+7 = 熱焰彈剩餘數。
+// 整場只減不增、而且至少減少過一次的掛點才算（機砲、油箱那幾格的同位置是會上下跳的其他資料）
+function frameCM(fr){
+  if (fr.some(f => f.cm)) return;
+  const entries = rw => { if (rw.length < 0x36C) return null; const a = rw[0x114] | rw[0x115] << 8, o = a - 6;
+    if (o < 0x200 || o > 0x35B || (0x35B - o) % 0x11) return null; const out = []; for (let e = o; e <= 0x35B; e += 0x11) out.push(e); return out; };
+  const stat = new Map();   // "idx|hardpoint" -> { up, down }
+  const last = new Map();
+  for (const f of fr) if (f.raw) for (const [idx, rw] of f.raw){ const es = entries(rw); if (!es) continue;
+    es.forEach((e, k) => { for (const j of [0, 1]){ const key = idx + "|" + k + "|" + j, v = rw[e + 0xC + j], pv = last.get(key);
+      const st = stat.get(key) || { up:0, down:0 }; if (pv != null){ if (v > pv) st.up++; else if (v < pv) st.down++; } stat.set(key, st); last.set(key, v); } }); }
+  for (const f of fr) if (f.raw){ const cm = new Map();
+    for (const [idx, rw] of f.raw){ const es = entries(rw); if (!es) continue; let c = [0, 0], any = false;
+      es.forEach((e, k) => { for (const j of [0, 1]){ const st = stat.get(idx + "|" + k + "|" + j); if (st && !st.up && st.down){ c[j] += rw[e + 0xC + j]; any = true; } } });
+      if (any) cm.set(idx, c); }
+    f.cm = cm; }
+}
 let loadedName = "";
 function load(buf, name){
   try { data = parse(buf); } catch(e){ alert(e.message); return; }
@@ -452,7 +478,7 @@ function buildMission(k){
   const fr = data.frames;
   T0 = fr[0].t; T1 = fr[fr.length-1].t; now = T0;
   tracks.clear(); hidden.clear();
-  frameTargets(fr);
+  frameTargets(fr); frameCM(fr);
   for (const f of fr) for (const [idx,o] of f.objs){
     if (idx === 0 && o.x === 0 && o.y === 0 && o.z === 0){ f.objs.delete(0); continue; }   // 任務開始前玩家還沒放進場景
     const key = keyOf(o); let tr = tracks.get(key);
@@ -462,7 +488,7 @@ function buildMission(k){
     // +0x16F 位元 0x20 後燃器、0x40 起落架、0x80 煞車，+0x170 位元 0x01 襟翼、0x04 尾鉤
     const ps = rw && rw.length > 0x239 ? { gp: rw[0x238] | rw[0x239] << 8, sw: (rw[0x1A1] | rw[0x1A2] << 8) << 16 >> 16, c1: rw[0x16F], c2: rw[0x170] } : {};
     const ti = f.tg?.get(idx), to = ti != null ? f.objs.get(ti) : null;
-    tr.pts.push({ t:f.t, x:o.x, y:o.y, z:o.z, hdg:o.hdg, pitch:o.pitch, roll:o.roll, spd:o.spd, hp, tg: to ? keyOf(to) : null, ...ps });
+    tr.pts.push({ t:f.t, x:o.x, y:o.y, z:o.z, hdg:o.hdg, pitch:o.pitch, roll:o.roll, spd:o.spd, hp, tg: to ? keyOf(to) : null, cm: f.cm?.get(idx) ?? null, ...ps });
     if (hp != null) tr.hpMax = Math.max(tr.hpMax || 0, hp);
     // 任務剛開始的前一兩秒，FA 會先填一個暫時的生命值（F-14 是 135，約 0.4 秒後才變成 270）；這段期間生命值上升就把前面的值補成上升後的值
     if (hp != null && tr.pts.length > 1 && f.t - tr.pts[0].t < 3){ const prev = tr.pts[tr.pts.length-2];
@@ -585,6 +611,16 @@ function buildEvents(fr){
     if (a.sel !== b.sel) ev.push({t, text:L("Select ", "選擇 ") + stnName(b.sel-3), kind:"sel"});
     for (let k=1;k<STATIONS;k++){ const d = a.stn[k]-b.stn[k]; if (d>0 && d<1000) ev.push({t, text:L(`Fired stn ${k} (${b.stn[k]} left)`, `發射 掛點${k}（剩 ${b.stn[k]}）`), kind:"wpn"}); }
   }
+  // 干擾絲／熱焰彈：剩餘數減少 = 投放
+  drops = [];
+  for (const tr of tracks.values()){ let prev = null;
+    for (const p of tr.pts){ if (!p.cm) continue;
+      if (prev) for (const j of [0, 1]){ const n = prev[j] - p.cm[j];
+        if (n > 0 && n < 50){ drops.push({ t:p.t, key:tr.key, kind:j, n });
+          const who = tr.key === playerKey ? L("You", "你") : label(tr.key);
+          ev.push({ t:p.t, text: j ? L(`🔥 ${who} dropped ${n} flare${n>1?"s":""} (${p.cm[1]} left)`, `🔥 ${who} 投放熱焰彈 ×${n}（剩 ${p.cm[1]}）`)
+                                   : L(`✨ ${who} dropped ${n} chaff (${p.cm[0]} left)`, `✨ ${who} 投放干擾絲 ×${n}（剩 ${p.cm[0]}）`), kind:"cm" }); } }
+      prev = p.cm; } }
   // 目標：誰開始注視／鎖定玩家、玩家鎖定了誰
   for (const tr of tracks.values()){ let last = null;
     for (const p of tr.pts){ if (p.tg === last) continue;
@@ -1268,7 +1304,7 @@ function sampleTrack(tr, t){
   const a = tr.pts[i], b = tr.pts[Math.min(i+1, tr.pts.length-1)];
   if (b.t - a.t > 2) return t - a.t < 0.5 ? { ...a } : null;
   const f = b.t>a.t ? Math.min(1, Math.max(0,(t-a.t)/(b.t-a.t))) : 0;
-  return { hp:a.hp, tg:a.tg, gp: a.gp != null && b.gp != null ? Math.round(a.gp + (b.gp - a.gp)*f) : a.gp, sw: a.sw != null && b.sw != null ? Math.round(a.sw + (b.sw - a.sw)*f) : a.sw, c1:a.c1, c2:a.c2, x:a.x+(b.x-a.x)*f, y:a.y+(b.y-a.y)*f, z:a.z+(b.z-a.z)*f,
+  return { hp:a.hp, tg:a.tg, cm:a.cm, gp: a.gp != null && b.gp != null ? Math.round(a.gp + (b.gp - a.gp)*f) : a.gp, sw: a.sw != null && b.sw != null ? Math.round(a.sw + (b.sw - a.sw)*f) : a.sw, c1:a.c1, c2:a.c2, x:a.x+(b.x-a.x)*f, y:a.y+(b.y-a.y)*f, z:a.z+(b.z-a.z)*f,
     hdg:lerpAng(a.hdg,b.hdg,f), pitch:lerpAng(a.pitch,b.pitch,f), roll:lerpAng(a.roll,b.roll,f), spd:a.spd+(b.spd-a.spd)*f,
     vh: a.vh!=null && b.vh!=null ? lerpAng(a.vh,b.vh,f) : a.vh, vp: a.vp!=null && b.vp!=null ? a.vp+(b.vp-a.vp)*f : a.vp };
 }
@@ -1297,6 +1333,21 @@ function clipSeg(A,B,n){
   if (A[2]<n){ const f=(n-A[2])/(B[2]-A[2]); A=[A[0]+(B[0]-A[0])*f, A[1]+(B[1]-A[1])*f, n]; }
   if (B[2]<n){ const f=(n-B[2])/(A[2]-B[2]); B=[B[0]+(A[0]-B[0])*f, B[1]+(A[1]-B[1])*f, n]; }
   return [A,B];
+}
+// 投放的熱焰彈（橘色亮點，往下掉）與干擾絲（銀色碎點，散開），各畫 3 秒
+function drawDrops(n0){
+  for (const d of drops){ const age = now - d.t; if (age < 0 || age > 3) continue;
+    const tr = tracks.get(d.key), s = tr && sampleTrack(tr, d.t); if (!s) continue;
+    const r = rotate([0,0,1], s.vh ?? s.hdg, s.vp ?? s.pitch, 0), back = Math.min(age, 1.5) * Math.min(400, s.spd) * 0.5;
+    for (let k = 0; k < Math.min(d.n, 6) * (d.kind ? 1 : 4); k++){
+      const sp = d.kind ? 0 : 60 * age, a = k * 2.4;
+      const x = s.x - r[0]*back + Math.cos(a)*sp + (d.kind ? (k - 1) * 25 : 0), y = s.y - 20 - 60*age*age, z = s.z - r[2]*back + Math.sin(a)*sp;
+      const c = toCam(x, y, z); if (c[2] <= n0) continue; const [px, py] = proj(c), fade = 1 - age/3;
+      if (d.kind){ const rr = Math.max(3, Math.min(14, F*18/c[2])) * (0.6 + 0.4*fade), g = ctx.createRadialGradient(px, py, 0, px, py, rr*2.2);
+        g.addColorStop(0, `rgba(255,255,220,${fade})`); g.addColorStop(0.3, `rgba(255,170,60,${0.9*fade})`); g.addColorStop(1, "rgba(255,90,30,0)");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, rr*2.2, 0, 7); ctx.fill(); }
+      else { ctx.fillStyle = `rgba(225,232,240,${0.9*fade})`; ctx.fillRect(px-1.5, py-1.5, 3, 3); }
+    } }
 }
 // 目標連線：從注視者畫虛線箭頭到目標；指向玩家的用紅色，玩家自己的鎖定用黃色
 function drawTargets(live, n0){
@@ -1504,6 +1555,7 @@ function draw(){
     }
   }
   if ($("o_tgt").checked) drawTargets(live, n0);
+  drawDrops(n0);
   // 物件（由遠到近）
   // 地面建築（跑道、城市…）先畫，貼在地上；其他物件再由遠到近畫在上面
   const use3d = $("o_model").value !== "sil";
@@ -1648,6 +1700,7 @@ function update(){
     $("i_hdg").textContent = `${((s.vh ?? s.hdg)+360)%360 | 0}°`;
     fillModelSelect();
     $("i_nat").textContent = tr.nat != null ? L(`${natNameL(tr.nat)} (${tr.nat & 0x80 ? "enemy" : "friendly"})`, `${natName(tr.nat)}（${tr.nat & 0x80 ? "敵方" : "友方"}）`) : "—";
+    $("i_cm").textContent = s.cm ? `${s.cm[0]} / ${s.cm[1]}` : "—";
     $("i_tgt").textContent = s.tg ? label(s.tg) + (s.tg === playerKey ? L(" (you)", "（你）") : "") : "—";
     $("i_hp").textContent = tr.hpMax && s.hp != null ? `${Math.round((1-s.hp/tr.hpMax)*100)}%（${s.hp}/${tr.hpMax}）` : "—";
   } else { $("i_name").textContent = tr ? `${displayName(tr.name)}${L(" (not present)", "（不在場）")}` : "—"; }
@@ -1674,7 +1727,7 @@ function renderEvents(){
   const ul = $("events"); ul.innerHTML = "";
   if (!events.length){ ul.innerHTML = `<li class='past'>${L("(no events)", "（沒有事件）")}</li>`; return; }
   for (const e of events){
-    const li = document.createElement("li"); li.dataset.t = e.t; if (e.kind==="kill") li.className = "kill"; if (e.kind==="tgt") li.classList.add("tgt"); if (e.kind==="hit") li.classList.add("hit");
+    const li = document.createElement("li"); li.dataset.t = e.t; if (e.kind==="kill") li.className = "kill"; if (e.kind==="tgt") li.classList.add("tgt"); if (e.kind==="cm") li.classList.add("cm"); if (e.kind==="hit") li.classList.add("hit");
     li.innerHTML = `<time>${fmt(e.t-T0)}</time><span>${e.text}</span>`;
     li.onclick = () => { now = Math.max(T0, e.t-1.5); update(); };
     ul.appendChild(li);

@@ -296,10 +296,18 @@ HARD_LAST = 0x35B        # start of the LAST hardpoint entry in an aircraft obje
                          # Kuoyi's F14.PT: 10 -> 0x2CC).
 GUN_HARD = 3             # hardpoint 3 = gun on FA aircraft; the select byte is the hardpoint index
 
+HARD_PTR = 0x114         # dword in the object: offset of the hardpoint array (FA.EXE reads [0x50CF94]);
+                         # it points at an entry's type pointer, i.e. our entry start + 6
+ECM_CLASS = 9            # hardpoint type class of ECM / dispenser stores (AV8.ECM, F18.ECM...)
+CHAFF_OFF, FLARE_OFF = 0xC, 0xD   # in an ECM hardpoint entry: chaff left, flares left (FA.EXE 0x4C39A0)
+
 def hard_base(raw):
-    """Offset of hardpoint 0 in an aircraft object's raw bytes (walks back from HARD_LAST while the
-    entry still has a type pointer). Returns None if the layout isn't recognised."""
+    """Offset of hardpoint 0 in an aircraft object's raw bytes. Uses the object's own array pointer
+    (+0x114); if that looks wrong, walks back from HARD_LAST while the entry still has a type pointer.
+    Returns None if the layout isn't recognised."""
     if len(raw) < HARD_LAST + STATION_STRIDE: return None
+    o = struct.unpack_from("<I", raw, HARD_PTR)[0] - 6
+    if 0x200 <= o <= HARD_LAST and (HARD_LAST - o) % STATION_STRIDE == 0: return o
     last, = struct.unpack_from("<I", raw, HARD_LAST + 6)
     if not last: return None
     o = HARD_LAST
@@ -308,6 +316,21 @@ def hard_base(raw):
         if not p or p >> 24 != last >> 24: break
         o -= STATION_STRIDE
     return o
+
+_cls_cache = {}
+def countermeasures(h, raw):
+    """(chaff, flares) left on an aircraft: summed over its ECM hardpoints. None if it has none."""
+    hb = hard_base(raw)
+    if hb is None: return None
+    ch = fl = 0; found = False
+    for o in range(hb, HARD_LAST + 1, STATION_STRIDE):
+        tp, = struct.unpack_from("<I", raw, o + 6)
+        if not tp: continue
+        if tp not in _cls_cache:
+            c = read(h, tp, 1); _cls_cache[tp] = c[0] if c else None
+        if _cls_cache[tp] == ECM_CLASS:
+            found = True; ch += raw[o + CHAFF_OFF]; fl += raw[o + FLARE_OFF]
+    return (ch, fl) if found else None
 
 def find_player(objs, pidx=None):
     """Find the player aircraft. 0x50CE80 is only a working copy of the object being processed,
@@ -335,6 +358,7 @@ def cmd_flight(h, hz, out):
                       u16 heading, i16 pitch, i16 roll, i32 speed)          - index 0 = player
             b"R" u16 index, u16 length, raw bytes                 - right after F, one per aircraft (HP etc.)
             b"G" u16 n, n x (u16 index, u16 target index)         - after the R blocks: who is watching / locking whom (0 = player)
+            b"C" u16 n, n x (u16 index, u16 chaff, u16 flares)    - after G: countermeasures left on each aircraft with an ECM store
     """
     # One file per mission: close it when the game returns to the setup screens (no aircraft), open a new one when the next mission starts
     names = {}; seen = set(); tdump = set(); t0 = None; n = 0; warned = False; waiting = False; last_pi = None
@@ -364,7 +388,7 @@ def cmd_flight(h, hz, out):
                 time.sleep(0.5); continue
             if f is None:
                 name = new_name(); files.append(name); f = open(name, "wb"); f.write(b"FAFLT3")
-                names = {}; seen = set(); tdump = set(); _name_cache.clear(); t0 = time.time(); n = 0; warned = False; last_pi = None
+                names = {}; seen = set(); tdump = set(); _name_cache.clear(); _cls_cache.clear(); t0 = time.time(); n = 0; warned = False; last_pi = None
                 print(f"  Mission started, recording to {name}"); waiting = False
             pr = read(h, PLAYER_IDX, 2)
             pl = find_player(objs, struct.unpack("<H", pr)[0] if pr else None)
@@ -384,7 +408,7 @@ def cmd_flight(h, hz, out):
             end = HARD_LAST + 0xA if hb is not None else len(ext) - 2       # count field of the last hardpoint
             stn = [struct.unpack_from("<H", ext, s0 + k * STATION_STRIDE)[0] if s0 + k * STATION_STRIDE <= end else 0 for k in range(STATIONS)]
             body = bytearray(); extra = bytearray(); nac = 0
-            live = {i for i, _, _ in objs}; tg = bytearray(); ntg = 0
+            live = {i for i, _, _ in objs}; tg = bytearray(); ntg = 0; cms = bytearray(); ncm = 0
             for i, addr, b in objs:
                 tptr, = struct.unpack_from("<I", b, 5)
                 nm = type_name(h, tptr)
@@ -407,8 +431,11 @@ def cmd_flight(h, hz, out):
                         tg += struct.pack("<HH", i, t); ntg += 1
                 if b[0] == AIRCRAFT_CLS and nac < 32:
                     raw = read(h, addr, RAW_AIRCRAFT)
-                    if raw: extra += b"R" + struct.pack("<HH", i, len(raw)) + raw; nac += 1
-            f.write(b"F" + struct.pack("<dBBBBB8HH", time.time() - t0, ctl[0], ctl[1], sel, thr, rpm, *stn, len(objs)) + body + extra + b"G" + struct.pack("<H", ntg) + tg)
+                    if raw:
+                        extra += b"R" + struct.pack("<HH", i, len(raw)) + raw; nac += 1
+                        cm = countermeasures(h, raw)
+                        if cm: cms += struct.pack("<HHH", i, *cm); ncm += 1
+            f.write(b"F" + struct.pack("<dBBBBB8HH", time.time() - t0, ctl[0], ctl[1], sel, thr, rpm, *stn, len(objs)) + body + extra + b"G" + struct.pack("<H", ntg) + tg + b"C" + struct.pack("<H", ncm) + cms)
             n += 1
             if n % int(hz * 5) == 0:
                 f.flush(); print(f"  {time.time() - t0:7.1f}s  {len(objs)} objects, {nac} aircraft")
