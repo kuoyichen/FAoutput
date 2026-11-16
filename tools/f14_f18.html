@@ -311,15 +311,31 @@ function isFlame(idx, C){
     const r = pal[3*k], g = pal[3*k+1], b = pal[3*k+2]; if (r > 150 && r > g + 40 && b < 120 || r + g + b < 40) hot++; }
   return n > 0 && hot / n > 0.45;
 }
+// afterburner animation: frame every 70 ms (FA flips per game frame), flame grows over 3 s from the moment it is switched on
+const AB = { frame: 0, grow: 1, t0: 0 };
+function abTick(t){
+  if ($("ab").checked && cur && curName && cache[curName]){
+    const M = cache[curName].M, fr = Math.floor(t / 70) % 6, g = Math.min(1, (t - AB.t0) / 3000);
+    const anim = M.faces.some(f => f.ab), grow = !!M.abGrow && AB.grow < 1;
+    if ((anim && fr !== AB.frame) || grow){ AB.frame = fr; AB.grow = M.abGrow ? Math.floor(g * 8) / 8 : 1; if (g >= 1) AB.grow = 1; build(); }
+  }
+  requestAnimationFrame(abTick);
+}
+requestAnimationFrame(abTick);
 function build(){
   const C = cache[curName], M = C.M, ab = $("ab").checked;
   M.place({ vars: ctlState(M) });
-  const faces = [];
-  for (const f of M.faces){
-    if (f.lod !== 0 || f.del || (f.store && (f.store.type === "fall" || !storeShown(C.loadout, f.store))) || (!ab && isFlame(f, C))) continue;
-    if (!f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed)) continue;
-    faces.push({ pts: f.refs.map(r => { const w = SHCore.worldOf(M, r[0], r[1]); return [w[0], w[2], w[1]]; }), uv: f.uv, col: f.col });
-  }
+  const faces = [], gr = ab && M.abGrow ? M.abGrow : null, g = Math.min(1, AB.grow);
+  // growing flame (F0 x86 in the SH): FA moves the tail points from 15 % to full length over 3 s after the burner lights
+  if (gr) for (const G of gr) for (const id of G.vids) M.verts[id].p[1] = Math.round(G.noz - (G.noz - G.tail) * (0.15 + 0.85 * g));
+  try {
+    for (const f of M.faces){
+      if (f.lod !== 0 || f.del || (f.store && (f.store.type === "fall" || !storeShown(C.loadout, f.store))) || (!ab && isFlame(f, C))) continue;
+      if (f.ab && (!ab || f.ab.frame !== AB.frame % f.ab.frames)) continue;   // animated flame (SH op 40): one frame at a time
+      if (!f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed)) continue;
+      faces.push({ pts: f.refs.map(r => { const w = SHCore.worldOf(M, r[0], r[1]); return [w[0], w[2], w[1]]; }), uv: f.uv, col: f.col });
+    }
+  } finally { if (gr) for (const G of gr) for (const id of G.vids) M.verts[id].p[1] = G.tail; }
   const data = [], ed = [];
   faces.forEach(f => { const p = f.pts; let nx = 0, ny = 0, nz = 0;
     for (let k = 0; k < p.length; k++){ const q = p[k], r = p[(k+1) % p.length]; nx += (q[1]-r[1])*(q[2]+r[2]); ny += (q[2]-r[2])*(q[0]+r[0]); nz += (q[0]-r[0])*(q[1]+r[1]); }
@@ -402,7 +418,8 @@ $("ldFired").onclick = () => { preset("fired"); loadUI(); build(); };
 $("ldEmpty").onclick = () => { preset("empty"); loadUI(); build(); };
 
 // ===== Configuration =====
-for (const id of ["gear", "flaps", "hook", "brake", "ab"]) $(id).onchange = () => cur && build();
+for (const id of ["gear", "flaps", "hook", "brake"]) $(id).onchange = () => cur && build();
+$("ab").onchange = () => { AB.t0 = performance.now(); AB.grow = 0; cur && build(); };
 $("sweep").oninput = () => { $("sweepOut").textContent = $("sweep").value + "°"; cur && build(); };
 $("edges").onchange = () => draw();
 const PRESETS = { clean: [0,0,0,0,0,20], trap: [1,1,1,0,0,20], fight: [0,0,0,1,1,68] };
