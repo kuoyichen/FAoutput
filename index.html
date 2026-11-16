@@ -311,7 +311,7 @@ function draw(){
 addEventListener("resize", () => cur && draw());
 (async () => {
   try {
-    // hero model: the new F-14 or F/A-18, picked at random on each visit (?m=F14 / ?m=F18 forces one)
+    // hero model: the new F-14 or F/A-18 (with their loadout stores), picked at random on each visit (?m=F14 / ?m=F18 forces one)
     const HERO = ["F14", "F18"], q = (new URLSearchParams(location.search).get("m") || "").toUpperCase();
     const name = HERO.includes(q) ? q : HERO[Math.floor(Math.random() * HERO.length)];
     const [u8, palU8] = await Promise.all([fetchAny(["SH/" + name + ".SH"]), fetchAny(["PIC/PALETTE.PAL"])]);
