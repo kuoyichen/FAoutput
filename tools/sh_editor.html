@@ -57,6 +57,11 @@ kbd{background:#2c3440;border:1px solid var(--line);border-radius:4px;padding:0 
 #help{font-size:12px;color:var(--muted);line-height:1.6}
 
 @media (max-width:820px){ #main{grid-template-columns:1fr;grid-template-rows:60vh auto} body{overflow:auto} #side{border-left:0;border-top:1px solid var(--line)} }
+dialog{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;max-width:460px}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+dialog .row>label{width:110px;color:var(--muted)}
+dialog input[type=text],dialog input[type=password]{flex:1;width:auto}
+button.prim{background:var(--accent);color:#14181d;font-weight:600;border-color:var(--accent)}
 </style>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
 <script src="sh_editor_core.js"></script>
@@ -74,6 +79,7 @@ kbd{background:#2c3440;border:1px solid var(--line);border-radius:4px;padding:0 
   <span class="sep"></span>
   <button id="save" disabled title="Write the edited SH (Ctrl+S). Opened from a folder: overwrites that file. Otherwise: download.">Save</button>
   <button id="saveAs" disabled title="Save under a new name / download a copy">Save as…</button>
+  <button id="ghBtn" disabled title="Write the edited SH to SH/ on GitHub (admin key required)">☁ Commit to GitHub</button>
   <span class="sep"></span>
   <span id="langSlot"></span>
   <span id="msg"></span>
@@ -97,6 +103,15 @@ kbd{background:#2c3440;border:1px solid var(--line);border-radius:4px;padding:0 
   <label class="ck" title="Select through the model (also hidden points)"><input type="checkbox" id="xray">X-ray</label>
   <button id="undo" disabled title="Ctrl+Z">Undo</button><button id="redo" disabled title="Ctrl+Y">Redo</button>
 </div>
+<dialog id="ghDlg">
+  <h3 style="margin:0 0 8px">Commit to GitHub</h3>
+  <p style="font-size:12px;color:var(--muted)" id="ghWhat"></p>
+  <div class="row"><label>File name</label><input type="text" id="ghName" title="Name in SH/ on GitHub, e.g. F14.SH (the game loads F14.SH)"></div>
+  <div class="row"><label>Admin key</label><input type="password" id="ghKey" autocomplete="current-password"></div>
+  <div class="row"><label>Commit message</label><input type="text" id="ghMsgIn"></div>
+  <p style="font-size:12px" id="ghRes"></p>
+  <div class="row" style="justify-content:flex-end"><button id="ghCancel">Cancel</button><button id="ghGo" class="prim">Commit</button></div>
+</dialog>
 <div id="main">
   <div id="view"><canvas id="cv"></canvas><div id="box"></div><div id="hud"></div><div id="guideLbl"></div><canvas id="axes" width="128" height="128"></canvas><div id="drop">Drop .SH / .PIC / .PAL or a reference image</div></div>
   <div id="side">
@@ -759,7 +774,7 @@ async function openModel(name, u8, opts = {}){
   $("lod").innerHTML = M.lods.map(l => `<option value="${l.id}">${l.id === 0 ? "0 (main)" : l.id}</option>`).join("");
   M.place({ gear: $("gear").checked });
   loadPreset("default"); loadUI();
-  $("save").disabled = $("saveAs").disabled = false;
+  $("save").disabled = $("saveAs").disabled = $("ghBtn").disabled = false;
   $("stFile").innerHTML = `<b>${name}</b>${cur.handle ? L(" (folder file: Save overwrites it)", "（資料夾裡的檔案：存檔會直接覆寫）") : ""}`;
   document.title = name + " · SH Editor";
   rebuild(false); setView("persp"); modelInfo();
@@ -946,6 +961,9 @@ FAI18N.register({
   "Load an SH from the FAoutput repository (SH/ folder), e.g. F14, F18G": "從 FAoutput repo（SH/ 資料夾）載入 SH，例如 F14、F18G",
   "Write the edited SH (Ctrl+S). Opened from a folder: overwrites that file. Otherwise: download.": "寫出編輯後的 SH（Ctrl+S）。從資料夾開的會直接覆寫，否則下載。",
   "Save under a new name / download a copy": "存成新檔名／下載一份",
+  "☁ Commit to GitHub": "☁ 提交到 GitHub", "Write the edited SH to SH/ on GitHub (admin key required)": "把修改後的 SH 寫到 GitHub 的 SH/（需要管理金鑰）",
+  "Commit to GitHub": "提交到 GitHub", "File name": "檔名", "Admin key": "管理金鑰", "Commit message": "提交說明", "Cancel": "取消", "Commit": "提交",
+  "Name in SH/ on GitHub, e.g. F14.SH (the game loads F14.SH)": "GitHub 上 SH/ 裡的檔名，例如 F14.SH（遊戲讀的是 F14.SH）",
   "Level of detail": "細節層級", "Textured": "貼圖", "Flat": "單色", "Wireframe": "線框", "Edges": "邊線", "Points": "點", "All parts": "所有零件", "Gear down": "起落架放下",
   "Show the faces of sub-parts that are not drawn in the current state (e.g. gear-up variants)": "也顯示目前狀態下不會畫的零件（例如收起的起落架）",
   "Front": "前視", "Side": "側視", "Top": "上視", "Front (1)": "前視（1）", "Right side (3)": "右側視（3）", "Top (7)": "上視（7）", "Bottom": "下視", "Bottom (9), to see the stores": "下視（9），看外掛用", "Perspective (5)": "透視（5）",
@@ -979,6 +997,41 @@ FAI18N.register({
 $("langSlot").append(FAI18N.picker());
 FAI18N.apply();
 FAI18N.onChange(() => { updateInfo(); modelInfo(); loadUI(); hud(); dirty(); if (cur) $("stFile").innerHTML = `<b>${cur.name}</b>${cur.handle ? L(" (folder file: Save overwrites it)", "（資料夾裡的檔案：存檔會直接覆寫）") : ""}`; });
+
+// ---------- commit to GitHub (Vercel function api/pt-commit.js, site admin key, same as the PT / JT editors) ----------
+const VERCEL = "https://fashion-hawke.vercel.app", API = /vercel\.app$|^localhost$|^127\./.test(location.hostname) ? "" : VERCEL;
+const esc = t => String(t).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
+const ghName = () => ($("ghName").value.trim() || cur.name).toUpperCase().replace(/\.SH$/i, "") + ".SH";
+function ghWhat(){ $("ghWhat").textContent = L(`Writes SH/${ghName()} (with your unsaved edits) on the main branch of kuoyichen/FAoutput. Only the site admin key can do this.`, `會把 SH/${ghName()}（含尚未存檔的修改）寫到 kuoyichen/FAoutput 的 main 分支。只有網站管理金鑰可以使用。`); }
+$("ghBtn").onclick = () => {
+  if (!M) return; let key = ""; try { key = localStorage.getItem("fashion_admin_key") || ""; } catch(e){}
+  $("ghKey").value = key; $("ghName").value = cur.name.toUpperCase(); $("ghMsgIn").value = `SH editor: update ${cur.name.toUpperCase()}`; $("ghRes").textContent = "";
+  ghWhat(); $("ghDlg").showModal();
+  // tell the admin up front whether the server side is ready (admin key + GITHUB_TOKEN set in Vercel)
+  fetch(API + "/api/pt-commit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ check: true, adminKey: key }) })
+    .then(r => r.json()).then(j => { if ($("ghRes").textContent) return;
+      $("ghRes").textContent = !j.githubConfigured ? L("Server: GITHUB_TOKEN is not set in Vercel yet.", "伺服器：Vercel 尚未設定 GITHUB_TOKEN。")
+        : key && j.admin ? L("Server ready (GitHub token set, admin key OK).", "伺服器已就緒（GitHub token 已設定，管理金鑰正確）。") : L("Server ready (GitHub token set).", "伺服器已就緒（GitHub token 已設定）。"); })
+    .catch(() => {});
+};
+$("ghName").oninput = ghWhat;
+$("ghCancel").onclick = () => $("ghDlg").close();
+$("ghGo").onclick = async () => {
+  const key = $("ghKey").value.trim(); if (!key){ $("ghRes").textContent = L("Enter the admin key.", "請輸入管理金鑰。"); return; }
+  const name = ghName(); if (!/^[A-Z0-9_~\-]{1,12}\.SH$/.test(name)){ $("ghRes").textContent = L("File name: letters, digits, _ ~ - only, at most 12 before .SH.", "檔名只能用英數字和 _ ~ -，.SH 前最多 12 個字。"); return; }
+  $("ghGo").disabled = true; $("ghRes").textContent = L("Committing…", "提交中…");
+  try {
+    const { bytes } = S.buildFile(M, { renormal: $("optNorm").checked, f6: $("optF6").checked });
+    let b64 = ""; for (let i = 0; i < bytes.length; i += 8192) b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+    const r = await fetch(API + "/api/pt-commit", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ adminKey: key, name, content: btoa(b64), message: $("ghMsgIn").value.trim() }) });
+    const j = await r.json().catch(() => ({ error: "HTTP " + r.status }));
+    if (!r.ok || !j.ok) throw new Error(j.error || "HTTP " + r.status);
+    try { localStorage.setItem("fashion_admin_key", key); } catch(e){}
+    $("ghRes").innerHTML = j.unchanged ? esc(L("No change: GitHub already has this exact file.", "沒有變更：GitHub 上已經是同樣的檔案。")) : `${esc(L("Committed", "已提交"))} <a href="${esc(j.commitUrl)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc((j.sha || "").slice(0, 7))}</a>`;
+  } catch(e){ $("ghRes").textContent = L("Failed: ", "失敗：") + e.message; }
+  $("ghGo").disabled = false;
+};
 
 // ---------- start ----------
 (async () => {
