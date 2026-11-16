@@ -1589,7 +1589,9 @@ function readJoy(){
   const hd = JOY.hat >= 0 && JOY.hat < pad.axes.length ? hatDir(pad.axes[JOY.hat]) : -1;
   if (hd >= 0){ const a = hd * Math.PI / 4, dt = lastDt; joy.hatV = Math.min(1, (joy.hatV || 0) + dt / 0.35);
     const w = joy.hatV * joy.hatV * 100 * Math.PI / 180 * dt;
-    cam.yaw += Math.round(Math.sin(a) * 1e3) / 1e3 * w;   // sign per Kuoyi: hat right turns the view the other way from the first version cam.pitch = clamp(cam.pitch - Math.round(Math.cos(a) * 1e3) / 1e3 * w, -1.2, 1.4);
+    // hat left/right sign per Kuoyi (swapped from the first version)
+    cam.yaw += Math.round(Math.sin(a) * 1e3) / 1e3 * w;
+    cam.pitch = clamp(cam.pitch - Math.round(Math.cos(a) * 1e3) / 1e3 * w, -1.2, 1.4);
     if (cam.yaw > Math.PI) cam.yaw -= 2 * Math.PI; if (cam.yaw < -Math.PI) cam.yaw += 2 * Math.PI; }
   else joy.hatV = 0;
   // throttle lever: absolute (forward = full); it only takes over once it moves, so the keyboard / touch throttle still works
