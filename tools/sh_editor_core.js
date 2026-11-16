@@ -408,7 +408,7 @@ function defaultVars(M, gearDown) {
 function placeParts(M, state) {
   for (const b of M.bufs) { b.base = I3(); b.placed = !M.subs.includes(b); }
   if (!M.ctl) { for (const b of M.subs) b.placed = true; return; }
-  const ev = evalCtl(M.c, M.ctl, M.subs, defaultVars(M, state.gear));
+  const ev = evalCtl(M.c, M.ctl, M.subs, state.vars || defaultVars(M, state.gear));   // state.vars: full control-variable set (release page)
   for (const e of ev) { const b = M.subs[e.part]; if (!b || b.placed) continue; b.placed = true; b.base = fromFn(partFn(e)); }
   // parts drawn by plain code (no F0 / C4) keep identity: a sub whose faces are not reached by any control code
   const reached = new Set(ev.map(e => e.part));
