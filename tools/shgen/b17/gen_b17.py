@@ -26,7 +26,7 @@ from f18g_growler import grow_vas
 import b17_geom as G
 
 PIC_NAME = b'_B17.PIC'
-PB = 668                     # vertex-table slot of the part buffers (parts are drawn one at a time)
+PB = int(os.environ.get('B17_PB', 668))   # vertex-table slot of the part buffers (parts are drawn one at a time)
 MAXV = PB                    # main LOD must stay below the part slots
 EXT = (500, 140, 420)        # header words CODE+8 (copied before each C4 part): stock SHs have ~2.2-2.4x the
                              # model's |x|, |up|, |fwd| extents (A47: 442, 124, 357); B-17 |fwd| reaches 184
@@ -307,14 +307,17 @@ def rudder_obj():
 
 
 def flap_obj(side):
-    if side > 0: return obj_from('flapR', G.flap(1).V, lambda a: a.cond_eq('RFLAP', -1, lambda: a.call('p_flapR')))
+    if side > 0: return obj_from('flapR', G.flap(1).V, lambda a: a.cond_eq('LFLAP', -1, lambda: a.call('p_flapR')))
     return obj_from('flapL', G.flap(-1).V, lambda a: a.cond_eq('LFLAP', -1, lambda: a.call('p_flapL')))
 
 
 def bay_obj(fus, fm):
     bc, bo = G.bay_parts(fus, fm)
     if 'bay' not in FEAT: return obj_from('bay', bc.V + bo.V, lambda a: a.call('p_bayC'), pad=0.5)
-    return obj_from('bay', bc.V + bo.V, lambda a: a.bay_if(lambda: a.call('p_bayO'), lambda: a.call('p_bayC')), pad=0.5)
+    def bay(a):
+        a.cond_eq('BAYOPEN', 1, lambda: a.call('p_bayO'))
+        a.cond_eq('BAYOPEN', 0, lambda: a.call('p_bayC'))
+    return obj_from('bay', bc.V + bo.V, bay, pad=0.5)
 
 
 # hand-made draw-order nodes: ('node', n, d, A, B, [], []) -> eye with n.eye >= d draws A then B
@@ -443,7 +446,8 @@ def lod_code(a, V, tree):
 def build_code(c, sig, lods):
     """c = A47 CODE bytes (possibly after grow_vas), sig = signature offset. Returns (new CODE, reloc offsets)"""
     # import thunks after the signature: ff 25 [IAT] (gearDown, gearPos, leftFlap, rightFlap, rudder, do_start_interp)
-    names = ['GEARDOWN', 'GEARPOS', 'LFLAP', 'RFLAP', 'RUDDER', 'RESUME']
+    # A47's 4th import _PLrightFlap is renamed _PLbayOpen (as B-52): both flaps follow _PLleftFlap
+    names = ['GEARDOWN', 'GEARPOS', 'LFLAP', 'BAYOPEN', 'RUDDER', 'RESUME']
     tail = bytes(c[sig:])
     trailer = bytearray(c[A47_TRAILER:sig])
     hdr = bytearray(c[:0x80])
@@ -569,7 +573,9 @@ def main(src, dst):
         d = grow_vas(d, grow)
     else:
         sys.exit('CODE still too big')
-    out = write_pe(d, nc, relocs)
+    out = bytearray(write_pe(d, nc, relocs))
+    k = out.find(b'_PLrightFlap\x00'); assert k > 0 and out.count(b'_PLrightFlap') == 1
+    out[k:k + 13] = b'_PLbayOpen\x00\x00\x00'
     open(dst, 'wb').write(out)
     print(f'{dst}: {len(out)} bytes; bbox {bb}')
 

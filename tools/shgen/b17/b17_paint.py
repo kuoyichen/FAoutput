@@ -20,7 +20,7 @@ def load(path):
     code = next(s for s in secs if s['name'] == 'CODE')
     c = d[code['ro']:code['ro'] + code['vs']]
     sig = c.find(bytes([1, 2, 3, 2, 1, 2, 3, 2, 1]))
-    names = ['gearDown', 'gearPos', 'leftFlap', 'rightFlap', 'rudder', 'resume']
+    names = ['gearDown', 'gearPos', 'leftFlap', 'bayOpen', 'rudder', 'resume']
     thunks = {0x1000 + sig + 10 + 6 * k: n for k, n in enumerate(names)}
     return c, thunks
 
@@ -185,7 +185,7 @@ def render(path, views, out_png, size=600, scale=230, state=None, lod=2, pic=Non
 
 if __name__ == '__main__':
     a = sys.argv[1:]
-    st = {'gearDown': 0 if '--nogear' in a else 1, 'bay': '--bay' in a, 'rudder': 0, 'leftFlap': 0, 'rightFlap': 0}
+    st = {'gearDown': 0 if '--nogear' in a else 1, 'bayOpen': 1 if '--bay' in a else 0, 'rudder': 0, 'leftFlap': 0}
     lod = int(a[a.index('--lod') + 1]) if '--lod' in a else 2
     views = [(35, 25, 900), (150, 25, 900), (90, 0, 900), (0, 89, 900), (210, -30, 900), (0, -89, 900)]
     pic = os.path.join(os.path.dirname(a[0]), '_B17.PIC')
