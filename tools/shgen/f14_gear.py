@@ -40,6 +40,10 @@ REV_PER_S = 2
 VMAX = 304                         # 180 節 = 304 呎/秒
 
 
+TEXCOLS = (STRUT,)
+STRIP = (206, 212, 110, 116)       # 輪柱貼圖（原版 PIC 的前輪柱圓筒段：左暗右亮的漸層，u0, u1, v0, v1）
+
+
 class Part:
     def __init__(s, base): s.base, s.V, s.F = base, [], []
     def v(s, p):
@@ -47,6 +51,9 @@ class Part:
         s.V.append(p); return len(s.V) - 1
     def face(s, idx, col, inside, fl=FLAT, uvf=None):
         """inside：形狀內部的一點，用來決定面朝外。uvf(頂點座標, 步) → (u, v)，有的話是貼圖面"""
+        if STRIP and fl == FLAT and col in TEXCOLS and len(idx) == 4:       # 輪柱、斜撐：貼上金屬圓筒貼圖
+            u0, u1, v0, v1 = STRIP
+            fl, uvf, col = TEX, dict(zip(idx, ((u0, v0), (u1, v0), (u1, v1), (u0, v1)))), 0
         P = [s.V[i] for i in idx]
         n = [0, 0, 0]
         for k in range(len(P)):
@@ -60,7 +67,7 @@ class Part:
         return len(s.F) - 1
     def uv(s, k, step):
         fl, col, idx, uvf = s.F[k]
-        return [uvf(s.V[i], step) for i in idx]
+        return [uvf[i] for i in idx] if isinstance(uvf, dict) else [uvf(s.V[i], step) for i in idx]
     def bytes(s):
         b = bytearray(struct.pack('<BBHH', 0x82, 0, len(s.V), s.base * 8))
         for p in s.V: b += struct.pack('<hhh', *p)
