@@ -90,6 +90,18 @@ def prism(part, a, b, r, n, col, rot=0.0, caps=(True, True)):
     return list(range(f0, len(part.F)))
 
 
+def box(part, xs, ys, zs, col):
+    """軸對齊的方塊（6 面）"""
+    V = {(i, j, k): part.v((xs[i], ys[j], zs[k])) for i in (0, 1) for j in (0, 1) for k in (0, 1)}
+    mid = (sum(xs)/2, sum(ys)/2, sum(zs)/2); f0 = len(part.F)
+    for ax in range(3):
+        for e in (0, 1):
+            q = [(0, 0), (1, 0), (1, 1), (0, 1)]
+            key = lambda a, b: tuple(e if t == ax else (a, b)[[u for u in range(3) if u != ax].index(t)] for t in range(3))
+            part.face([V[key(a, b)] for a, b in q], col, mid)
+    return list(range(f0, len(part.F)))
+
+
 def wheel_part(base, r, hub, x0, x1):
     """輪子子零件（會轉）：兩側各一片圓形貼圖（軸沿 x，在 x0、x1，各朝外），主輪八角形、前輪正方形（外切圓，圓外透明）"""
     p = Part(base); hu, hv, hc = hub
@@ -165,7 +177,7 @@ def build(side):
         fwd = (0, 0, -3)
         wp = wheel_part(WBASE, 5, HUB_MAIN, -1, 1)
     else:
-        g_s = prism(st, (-3, 5, -13), (3, 5, -13), 0.71, 4, BRACE, rot=math.pi/4)   # 輪軸
+        g_s = box(st, (-3, 3), (5, 6), (-13, -12), BRACE)                           # 輪軸：1×1（座標是整數，這是最細的）
         g_s += prism(st, (0, 5, 0), (0, 5, -13), 1.0, 4, STRUT)                     # 垂直支柱
         g_b = prism(st, (0, 5, -7), (0, 15, -2), 0.71, 4, BRACE, rot=math.pi/4)
         wheels = [((x, -13, 5), tread(st, (x, 5, -13), 3, 0, 1)) for x in (-4, 3)]   # 前輪厚 1：-4..-3、3..4
