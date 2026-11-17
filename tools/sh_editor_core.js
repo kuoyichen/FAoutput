@@ -415,8 +415,27 @@ function parseModel(u8in) {
     if (grow) { const vs = M.verts.slice(v0); if (vs.length) { const ys = vs.map(v => v.p[1]), noz = Math.max(...ys), tail = Math.min(...ys);
       if (tail < noz) (M.abGrow = M.abGrow || []).push({ vids: vs.filter(v => v.p[1] === tail).map(v => v.id), noz, tail }); } }
   }
+  // F0 gear trampolines (tools/shgen/f14_gear.py, f18_gear.py): the old gear part now starts with `F0 00 <spin x86> 68 <new part> 68 <ret> C3`.
+  // The new part (struts, wheels in nested C4 sub-parts) is walked once under its own instance; placeParts moves the whole group
+  // (and its nested placements) to wherever the control code puts the old part, and shows it only while that part is drawn.
+  M.gearGroups = [];
+  for (let T = start; T < appendStart - 12; T++) {
+    if (c[T] !== 0xF0 || c[T + 1] !== 0 || c[T + 2] === 0x68 && c[T + 7] === 0xE8) continue;
+    let q = -1; for (let k = T + 2; k < Math.min(T + 400, stop - 11); k++) if (c[k] === 0x68 && c[k + 5] === 0x68 && c[k + 10] === 0xC3) { q = k; break; }
+    if (q < 0) continue;
+    const N = dv.getUint32(q + 1, true) - SH_VA;
+    if (N < appendStart || N >= stop - 6 || M.abBlocks.includes(N) || c[N] !== 0x82 || c[N + 1] !== 0) continue;
+    const i0 = M.insts.length, f0 = M.faces.length; M.insts.push(I3()); M.instMeta.push(null);
+    walk(N, [], i0, 0, 0, new Set());
+    const grp = { o: T, f: [], insts: [], local: [], shown: false };
+    for (let i = i0; i < M.insts.length; i++) { grp.insts.push(i); grp.local.push(M.insts[i]); }
+    for (let i = f0; i < M.faces.length; i++) { M.faces[i].grp = grp; grp.f.push(M.faces[i]); }
+    M.gearGroups.push(grp);
+  }
   // original sub-parts of the main LOD: place them like FA does for the default state (gear down)
   const subs = M.bufs.filter(b => b.lod === 0 && !b.hooked).slice(1);
+  for (const g of M.gearGroups || []) subs.push(g);
+  subs.sort((x, y) => x.o - y.o);
   M.subs = subs;
   try {
     M.imp = shImports(u8, c); M.ctl = parseCtl(c, dv, subs);
@@ -435,7 +454,9 @@ function placeParts(M, state) {
   for (const b of M.bufs) { b.base = I3(); b.placed = !M.subs.includes(b); }
   if (!M.ctl) { for (const b of M.subs) b.placed = true; return; }
   const ev = evalCtl(M.c, M.ctl, M.subs, state.vars || defaultVars(M, state.gear));   // state.vars: full control-variable set (release page)
-  for (const e of ev) { const b = M.subs[e.part]; if (!b || b.placed) continue; b.placed = true; b.base = fromFn(partFn(e)); }
+  for (const g of M.gearGroups || []) g.placed = false;
+  for (const e of ev) { const b = M.subs[e.part]; if (!b || b.placed) continue; b.placed = true; b.base = fromFn(partFn(e));
+    if (b.insts) b.insts.forEach((i, k) => { M.insts[i] = compose(b.base, b.local[k]); }); }
   // parts drawn by plain code (no F0 / C4) keep identity: a sub whose faces are not reached by any control code
   const reached = new Set(ev.map(e => e.part));
   if (!M.ctl.blocks.length && !M.ctl.statics.length) for (const b of M.subs) b.placed = true;
@@ -539,6 +560,7 @@ function polysAt(M, opts) {
   for (const f of M.faces) {
     if (f.lod !== 0 || f.del || (f.store && (f.store.type === "fall" || !shown(f.store)))) continue;
     if (f.ab && (!(opts.on && opts.on._PLafterBurner) || f.ab.frame !== (opts.abFrame || 0) % f.ab.frames)) continue;   // flame: AB on, one animation frame
+    if (f.grp && !f.grp.placed) continue;
     if (!f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed)) continue;
     out.push({ pts: f.refs.map(r => { const w = worldOf(M, r[0], r[1]); return [w[0] * k, w[1] * k, w[2] * k]; }), uv: f.uv, col: f.col, face: f });
   }
