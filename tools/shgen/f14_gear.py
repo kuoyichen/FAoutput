@@ -284,9 +284,10 @@ def main():
         starts[side] = tail + len(blk)
         b, w = part_block(side, tail + len(blk), header); blk += b; c4s[side] = w
     while len(blk) % 4: blk += b'\x00'
-    tbls = {}
-    for side in 'LRN':
-        tbls[side] = tail + len(blk); blk += bytes(32 * 8)
+    # 三個起落架共用一個角度表（輪子轉速都一樣；後畫的那個 dt≈0，角度已被先畫的更新）。省 512 位元組，
+    # 因為 FA 讀 SH 檔的大小只用 16 位元：檔案要小於 65536 位元組，否則 Not enough memory（剛好 64K）或被截斷（更大）
+    tbl = tail + len(blk); blk += bytes(32 * 8)
+    tbls = {side: tbl for side in 'LRN'}
     room = nxt - code['va'] - len(c)
     if len(blk) > room: sys.exit(f'空間不夠：需要 {len(blk)}，只有 {room}')
     L = len(blk)
@@ -303,6 +304,7 @@ def main():
         c[old:old + len(tr)] = tr
         relocs += [pp + 1 - tail, pp + 6 - tail]
     out = insert_blocks(d, pe, secs, code, c, tail, bytes(blk), extra_relocs=relocs)
+    assert len(out) < 65536, f'SH 檔 {len(out)} 位元組，FA 只接受 < 65536'
     open(dst, 'wb').write(out); open(pdst, 'wb').write(pb)
     print(f'{dst}: 起落架 {len(blk)} 位元組（空間 {room}）在 CODE+{tail:#x}，CODE 長 {len(c) + L:#x}；零件 {[hex(v) for v in starts.values()]}；輪子 C4 {c4s}')
     return dict(tail=tail, starts=starts, c4s=c4s, tbls=tbls)
