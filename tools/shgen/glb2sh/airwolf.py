@@ -187,13 +187,15 @@ def build(g):
     # 2. sponsons (right group, mirrored)
     Ts, _ = g.grp([55, 56])
     Ss, los, vs = voxel_solid(Ts, vox=0.5, lo=(-24, -26, -8), hi=(24, 18, 6))
+    right = []                                         # right sponson rings; the left one is their mirror (Kuoyi)
+    for y in SPON_STA:
+        c = section2(Ss, los, vs, y, xside=1)
+        if c is None or len(c) < 8: continue
+        right.append((y, ring(c, 8)))
     for side in (1, -1):
         rs = []
-        for y in SPON_STA:
-            c = section2(Ss, los, vs, y, xside=side)
-            if c is None or len(c) < 8: continue
-            R = ring(c, 8)
-            if side < 0: R = R[::-1]
+        for y, R in right:
+            if side < 0: R = [(-x, z) for x, z in R][::-1]
             rs.append([M.add((x, y, z)) for x, z in R])
         ctr_f = np.mean([M.V[i] for i in rs[0]], 0); ctr_b = np.mean([M.V[i] for i in rs[-1]], 0)
         f = M.add((ctr_f[0], SPON_STA[0] + 2.5, ctr_f[2])); bk = M.add((ctr_b[0], SPON_STA[-1] - 3, ctr_b[2]))
@@ -299,11 +301,11 @@ def repaint(M):
         if k < M.nbody:
             if 27.5 < y < 32 and z > 0.5: col = GLASS                       # windscreen, lower front
             elif 22.5 < y < 27.5 and z > 3 and ax < 8: col = GLASS          # windscreen, upper
-            elif 11 < y < 22.5 and ax > 6 and 1.5 < z < 9.5: col = GLASS    # side (door) window
+            # side window removed (Kuoyi v5: front windscreen only, sides black)
             elif -38 < y < 22 and z < -1: col = WHITE                       # belly
         else:                                                               # sponson undersides white
             P = np.array([M.V[i] for i in ids]); fn = -sum(np.cross(P[i], P[(i+1) % len(P)]) for i in range(len(P)))
-            if fn[2] < -0.2 * np.linalg.norm(fn): col = WHITE
+            col = WHITE if fn[2] < -0.2 * np.linalg.norm(fn) else BLACK
         F[k] = (ids, col, smooth, nrm)
     M.F = F
 
