@@ -28,18 +28,13 @@ from f14_nose import face_bytes
 SIG = bytes([1, 2, 3, 2, 1, 2, 3, 2, 1])
 AB_F0 = 0x395C                     # 後燃器 F0（拿它的 push do_start_interp）
 OLD = {'L': 0x4499, 'R': 0x43D8, 'N': 0x4670}
+SPAN_END = {'R': 0x4499, 'L': 0x455A, 'N': 0x4766}   # 舊零件的結尾（下一段：L、前輪艙門、後燃器）
 FLAT, TEX = 0x661, 0x75C           # 平面色面；貼圖面（色號 0、u8 UV、0xFF 透明）
 STRUT, BRACE = 146, 148
-BASE = 594                         # 頂點編號起點
+BASE, WBASE = 594, 630             # 頂點編號：支柱零件、輪子子零件（都低於 640）
 # 輪框貼圖：中心 (u, v)、半徑（格）
 HUB_MAIN, HUB_NOSE = (152, 173, 16), (152, 211, 11)
 HUB_AREA = (134, 155, 170, 229)
-# 胎紋：左上 (u, v)、寬、高（不含捲動的一個週期）
-TREAD_MAIN, TREAD_NOSE = (227, 56, 8, 20), (240, 56, 6, 12)
-TREAD_AREA = (225, 53, 251, 127)
-PERIOD = 4                         # 胎紋週期（格）
-STEPS = 80                         # 一圈幾步
-DISC_N = 16                        # 輪框：1/5 圈 = 16 步
 REV_PER_S = 2
 VMAX = 320
 
@@ -95,40 +90,15 @@ def prism(part, a, b, r, n, col, rot=0.0, caps=(True, True)):
     return list(range(f0, len(part.F)))
 
 
-def wheel(p, ctr, x0, x1, r, hub, tread):
-    """在零件 p 裡加一個輪子（軸沿 x，中心 ctr=(·, y, z)）。回傳 (面列表, [(面, 步數)])"""
-    _, cy, cz = ctr; hu, hv, hc = hub
-    # 兩側：主輪八角形（外切圓），前輪正方形
+def wheel_part(base, r, hub):
+    """輪子子零件：一片雙面的圓形貼圖（軸沿 x、在 x=0），主輪八角形、前輪正方形（外切圓，圓外透明）"""
+    p = Part(base); hu, hv, hc = hub
     if r >= 4: m, R0, a0 = 8, r / math.cos(math.pi / 8), math.pi / 8
     else:      m, R0, a0 = 4, r * math.sqrt(2), math.pi / 4
-    def disc_uv(P, step):
-        th = 2 * math.pi * step / STEPS
-        dy, dz = (P[1] - cy) / r, (P[2] - cz) / r          # 材料座標 = 位置轉 +θ（往前滾，上面往前）
-        my, mz = dy*math.cos(th) - dz*math.sin(th), dy*math.sin(th) + dz*math.cos(th)
-        return (max(0, min(255, round(hu + hc*my))), max(0, min(255, round(hv - hc*mz))))
-    mid = ((x0+x1)/2, cy, cz)
-    faces, anim = [], []
-    # 胎面：輪軸平面上的倒角長方形，正面（朝前）和背面各一片
-    tu, tv, tw, th_ = tread
-    if r >= 4: prof = [(0, r-1), (1, r), (-1, r), (0, r-1)]     # (離邊 x, 高)：左下角開始的倒角
-    else:      prof = None
-    if prof:
-        Q = [(x0, cz+r-1), (x0+1, cz+r), (x1-1, cz+r), (x1, cz+r-1), (x1, cz-r+1), (x1-1, cz-r), (x0+1, cz-r), (x0, cz-r+1)]
-    else:
-        xc = (x0+x1)/2
-        Q = [(x0, cz+r-1), (xc, cz+r), (x1, cz+r-1), (x1, cz-r+1), (xc, cz-r), (x0, cz-r+1)]
-    for side in (1, -1):
-        def tr_uv(P, step, side=side):
-            s = (-step * side) % PERIOD                      # 正面：胎面往下走；背面：往上走
-            u = tu + (P[0] - x0) / (x1 - x0) * (tw - 1)
-            v = tv + s + (cz + r - P[2]) / (2*r) * (th_ - 1)
-            return (round(u), round(v))
-        idx = [p.v((x, cy, z)) for x, z in Q]
-        k = p.face(idx, 0, (mid[0], cy - side, cz), TEX, tr_uv); faces.append(k); anim.append((k, PERIOD))
-    for xs in (x0, x1):
-        idx = [p.v((xs, cy + R0*math.cos(a0 + 2*math.pi*i/m), cz + R0*math.sin(a0 + 2*math.pi*i/m))) for i in range(m)]
-        k = p.face(idx, 0, mid, TEX, disc_uv); faces.append(k); anim.append((k, DISC_N))
-    return faces, anim
+    uvf = lambda P, step: (round(hu + hc * P[1] / r), round(hv - hc * P[2] / r))
+    idx = [p.v((0, R0*math.cos(a0 + 2*math.pi*i/m), R0*math.sin(a0 + 2*math.pi*i/m))) for i in range(m)]
+    p.face(idx, 0, (1, 0, 0), TEX, uvf); p.face(idx, 0, (-1, 0, 0), TEX, uvf)
+    return p
 
 
 def read_pic(b):
@@ -141,7 +111,7 @@ def put(b, P, u, v, k):
 
 
 def draw_textures(pb, P):
-    for area in (HUB_AREA, TREAD_AREA):
+    for area in (HUB_AREA,):
         for v in range(area[1], area[3] + 1):
             for u in range(area[0], area[2] + 1): put(pb, P, u, v, 255)
     for (hu, hv, hc), rim, cap in ((HUB_MAIN, 147, 152), (HUB_NOSE, 144, 164)):
@@ -161,77 +131,66 @@ def draw_textures(pb, P):
                         ha = 2*math.pi*h/5
                         if math.hypot(dx - 0.42*math.cos(ha), dy - 0.42*math.sin(ha)) < 0.12: k = 157
                 put(pb, P, hu + x, hv + y, k)
-    for tu, tv, tw, th_ in (TREAD_MAIN, TREAD_NOSE):
-        for y in range(th_ + PERIOD):
-            for x in range(tw):
-                edge = x == 0 or x == tw - 1
-                groove = tw >= 8 and x in (2, tw - 3) or tw < 8 and x == tw // 2
-                k = 156 if edge else 159 if groove else 158
-                if y % PERIOD == 0 and not edge: k = 155            # 一圈圈的磨痕，捲動時看得出在轉
-                put(pb, P, tu + x, tv + y, k)
 
 
 def node(at, n, d, a, b):
     return struct.pack('<BB6h', 0x06, 0, n[0], d[0], n[1], d[1], n[2], d[2]) + struct.pack('<hh', a - (at+16), b - (at+18)) + b'\x00\x00'
 
 
+def c4(at, pos, target):
+    """C4 00 位置(x, 上, 前) 角度(航向, 俯仰, 滾轉) rel16（相對指令結尾）"""
+    return struct.pack('<BB6h', 0xC4, 0, *pos, 0, 0, 0) + struct.pack('<h', target - (at + 16))
+
+
 def build(side):
-    st = Part(BASE); anim = []
+    """回傳 (支柱零件, 支柱面, 斜撐面, 輪子 C4 位置 [(x, 上, 前)], 分割平面, 前後平面, 輪子零件)"""
+    st = Part(BASE)
     if side in 'LR':
-        sx = 1 if side == 'L' else -1                     # L：支柱在 +x，輪子在外側
+        sx = 1 if side == 'L' else -1                     # L：支柱在 +x，輪子在外側 -x
         g_s = prism(st, (3*sx, 1, 1), (3*sx, 1, -19), 1.42, 4, STRUT, rot=math.pi/4)
         g_s += prism(st, (3*sx, 1, -6), (3*sx, 1, -9), 1.9, 4, BRACE, rot=math.pi/4)
-        g_s += prism(st, (3*sx, 1, -19), (1*sx, 1, -19), 0.71, 4, BRACE, rot=math.pi/4)    # 輪軸
+        g_s += prism(st, (3*sx, 1, -19), (-1*sx, 1, -19), 0.71, 4, BRACE, rot=math.pi/4)   # 輪軸
         g_b = prism(st, (3*sx, 1, -11), (6*sx, 8, 0), 0.75, 4, BRACE, rot=math.pi/4)
-        x0, x1 = (-2, 1) if sx > 0 else (-1, 2)
-        w, a = wheel(st, (0, 1, -19), x0, x1, 5, HUB_MAIN, TREAD_MAIN); anim += a
-        wheels = [w]
-        split = ((16384*sx, 0, 0), (-1*sx, 0, 0))         # 眼睛在支柱那一側 → 先畫輪子
+        wheels = [(-1*sx, -19, 1)]
+        split = ((16384*sx, 0, 0), (0, 0, 0))             # 眼睛在 x=0 的支柱那一側 → 先畫輪子
         fwd = (0, 0, -3)
+        wp = wheel_part(WBASE, 5, HUB_MAIN)
     else:
         g_s = prism(st, (-3, 5, -13), (3, 5, -13), 0.71, 4, BRACE, rot=math.pi/4)   # 輪軸
         g_s += prism(st, (0, 7, -1), (0, 5, -13), 1.0, 4, STRUT)
         g_b = prism(st, (0, 6, -7), (0, 15, -2), 0.71, 4, BRACE, rot=math.pi/4)
-        wheels = []
-        for cx in (-3, 3):
-            w, a = wheel(st, (cx, 5, -13), cx-1, cx+1, 3, HUB_NOSE, TREAD_NOSE); anim += a; wheels.append(w)
+        wheels = [(-3, -13, 5), (3, -13, 5)]
         split = ((16384, 0, 0), (0, 0, 0))
         fwd = (0, 0, -8)
-    return st, g_s, g_b, wheels, split, fwd, anim
+        wp = wheel_part(WBASE, 3, HUB_NOSE)
+    return st, g_s, g_b, wheels, split, fwd, wp
 
 
-def part_block(side, at):
-    """回傳 (bytes, {面: UV 在 CODE 的位置}, 零件)"""
-    st, g_s, g_b, wheels, (n, d), fwd, anim = build(side)
+def part_block(side, at, header):
+    """回傳 (bytes, 輪子 C4 位置列表)。輪子零件前面放 6 位元組範圍標頭（C4 會讀它，沒有的話零件畫不出來）"""
+    st, g_s, g_b, wheels, (n, d), fwd, wp = build(side)
     out = bytearray(st.bytes())
-    S, ps = st.group(g_s); B, pb_ = st.group(g_b)
-    W = [st.group(w) for w in wheels]
-    uvpos = {}
+    S, _ = st.group(g_s); B, _ = st.group(g_b)
+    WB = header + wp.bytes() + wp.group(range(len(wp.F)))[0]
+    c4s = []
     if side in 'LR':
-        N1 = at + len(out); SG = N1 + 20; s = SG + 20; b = s + len(S); w = b + len(B)
-        out += node(N1, n, d, w, SG) + node(SG, (0, 0, 16384), fwd, s, b) + S + B + W[0][0]
-        uvpos.update({k: w + o for k, o in W[0][1].items()})
+        N1 = at + len(out); WC = N1 + 20; SG = WC + 17; s = SG + 20; b = s + len(S); wpos = b + len(B) + 6
+        out += node(N1, n, d, WC, SG) + c4(WC, wheels[0], wpos) + b'\x1e' + node(SG, (0, 0, 16384), fwd, s, b) + S + B + WB
+        c4s.append(WC)
     else:
-        N1 = at + len(out); N2 = N1 + 20; SG = N2 + 20; s = SG + 20; b = s + len(S); wl = b + len(B); wr = wl + len(W[0][0])
-        out += node(N1, n, d, wl, N2) + node(N2, n, d, SG, wr) + node(SG, (0, 0, 16384), fwd, s, b) + S + B + W[0][0] + W[1][0]
-        uvpos.update({k: wl + o for k, o in W[0][1].items()}); uvpos.update({k: wr + o for k, o in W[1][1].items()})
-    return bytes(out), uvpos, st, anim
+        N1 = at + len(out); WL = N1 + 20; N2 = WL + 17; WR = N2 + 20; SG = WR + 17; s = SG + 20; b = s + len(S); wpos = b + len(B) + 6
+        out += node(N1, n, d, WL, N2) + c4(WL, wheels[0], wpos) + b'\x1e' + node(N2, n, d, SG, WR) + c4(WR, wheels[1], wpos) + b'\x1e'
+        out += node(SG, (0, 0, 16384), fwd, s, b) + S + B + WB
+        c4s += [WL, WR]
+    assert out[wpos - at] == 0x82
+    return bytes(out), c4s
 
 
-def spin_routine(R, state, patches):
-    """新區塊裡的程式（位置 R）：更新角度，把 UV 表複製到面。patches = [(uv 位置, 表位置, 步數, 位元組)]"""
-    cp = ""
-    for uv, tbl, n, nb in patches:
-        cp += f"""
-        mov edx, eax
-        and edx, {n - 1}
-        imul edx, edx, {nb}
-        lea esi, [ebx + edx + {tbl - (R + 6)}]
-        lea edi, [ebx + {uv - (R + 6)}]
-        mov ecx, {nb}
-        rep movsb"""
+def spin_x86(Lpos, tbl, pitch_fields):
+    st = "\n".join(f"mov word ptr [ebx + {f - Lpos}], ax" for f in pitch_fields)
     return f"""
-        cld
+        pushfd
+        pushad
         call next
     next:
         pop ebx
@@ -248,7 +207,7 @@ def spin_routine(R, state, patches):
     slow:
         mov edi, ecx
         and edi, 31
-        lea edi, [ebx + edi*8 + {state - (R + 6)}]
+        lea edi, [ebx + edi*8 + {tbl - Lpos}]
         call dword ptr [0x593758]
         cmp word ptr [edi], cx
         je same
@@ -266,13 +225,11 @@ def spin_routine(R, state, patches):
         imul edx, edx, {round(65536 * REV_PER_S / VMAX / 1000 * 1024)}
         shr edx, 10
         mov ax, word ptr [edi + 2]
-        add ax, dx
+        sub ax, dx
         mov word ptr [edi + 2], ax
-        movzx eax, ax
-        imul eax, eax, {STEPS}
-        shr eax, 16
-        {cp}
-        ret
+        {st}
+        popad
+        popfd
     """
 
 
@@ -283,66 +240,44 @@ def main():
     d = bytearray(open(src, 'rb').read())
     pe, opt, secs = pe_sections(d)
     code = next(s for s in secs if s['name'] == 'CODE'); nxt = min(s['va'] for s in secs if s['va'] > code['va'])
-    if nxt - code['va'] - code['vs'] < 8192:
+    if nxt - code['va'] - code['vs'] < 4096:
         from f18g_growler import grow_vas
-        d = bytearray(grow_vas(d, 0x2000)); pe, opt, secs = pe_sections(d)
+        d = bytearray(grow_vas(d, 0x1000)); pe, opt, secs = pe_sections(d)
         code = next(s for s in secs if s['name'] == 'CODE'); nxt = min(s['va'] for s in secs if s['va'] > code['va'])
     c = bytearray(d[code['ro']:code['ro']+code['vs']])
     for o in OLD.values(): assert c[o] == 0x82, hex(o)
+    header = bytes(c[OLD['L'] - 6:OLD['L']])
+    assert all(bytes(c[o - 6:o]) == header for o in OLD.values()), '零件範圍標頭不一樣'
     assert c[AB_F0:AB_F0+2] == b'\xf0\x00' and c[AB_F0 + 17] == 0x68 and c[AB_F0 + 22] == 0xC3
     thunk = struct.unpack_from('<I', c, AB_F0 + 18)[0]
     tail = bytes(c).find(SIG)
-    import keystone
-    ks = keystone.Ks(keystone.KS_ARCH_X86, keystone.KS_MODE_32)
-    blk = bytearray(); starts = {}; info = {}
+    blk = bytearray(); starts = {}; c4s = {}
     for side in 'LRN':
         starts[side] = tail + len(blk)
-        b, uvpos, st, anim = part_block(side, tail + len(blk)); blk += b; info[side] = (uvpos, st, anim)
+        b, w = part_block(side, tail + len(blk), header); blk += b; c4s[side] = w
     while len(blk) % 4: blk += b'\x00'
-    patches = {}
+    tbls = {}
     for side in 'LRN':
-        uvpos, st, anim = info[side]; patches[side] = []
-        for k, n in anim:
-            t = tail + len(blk)
-            for step in range(n): blk += b''.join(bytes(x) for x in st.uv(k, step))
-            patches[side].append((uvpos[k], t, n, 2 * len(st.F[k][2])))
-        while len(blk) % 4: blk += b'\x00'
-    states = {}
-    for side in 'LRN':
-        states[side] = tail + len(blk); blk += bytes(32 * 8)
-    routs = {}
-    for side in 'LRN':
-        R = tail + len(blk)
-        code_b = bytes(ks.asm(spin_routine(R, states[side], patches[side]), 0)[0])
-        assert code_b[1] == 0xE8 and len(code_b) > 6
-        routs[side] = R; blk += code_b
+        tbls[side] = tail + len(blk); blk += bytes(32 * 8)
     room = nxt - code['va'] - len(c)
     if len(blk) > room: sys.exit(f'空間不夠：需要 {len(blk)}，只有 {room}')
     L = len(blk)
+    import keystone
+    ks = keystone.Ks(keystone.KS_ARCH_X86, keystone.KS_MODE_32)
     relocs = []
     for side, old in OLD.items():
-        nx = old + 2 + 2 + 5                                 # F0 00 pushfd pushad call → next
-        body = bytes(ks.asm(f"""
-            pushfd
-            pushad
-            call next
-        next:
-            pop ebx
-            add ebx, {routs[side] - nx}
-            call ebx
-            popad
-            popfd
-        """, 0)[0])
+        Lpos = old + 2 + 2 + 5
+        body = bytes(ks.asm(spin_x86(Lpos, tbls[side], [a + 10 for a in c4s[side]]), 0)[0])
+        assert body[2] == 0xE8
         pp = old + 2 + len(body)
         tr = b'\xf0\x00' + body + b'\x68' + struct.pack('<I', code['va'] + starts[side]) + b'\x68' + struct.pack('<I', thunk + L) + b'\xc3'
-        n = struct.unpack_from('<H', c, old + 2)[0]
-        assert len(tr) <= 6 + 6*n, (side, len(tr))
+        assert old + len(tr) <= SPAN_END[side], (side, len(tr))     # 只蓋到舊零件自己的面（舊零件只從 C4 進來）
         c[old:old + len(tr)] = tr
         relocs += [pp + 1 - tail, pp + 6 - tail]
     out = insert_blocks(d, pe, secs, code, c, tail, bytes(blk), extra_relocs=relocs)
     open(dst, 'wb').write(out); open(pdst, 'wb').write(pb)
-    print(f'{dst}: 起落架 {len(blk)} 位元組（空間 {room}）在 CODE+{tail:#x}；零件 {[hex(v) for v in starts.values()]}；轉動程式 {[hex(v) for v in routs.values()]}')
-    return dict(tail=tail, starts=starts, routs=routs, states=states, patches=patches, info=info, va=code['va'])
+    print(f'{dst}: 起落架 {len(blk)} 位元組（空間 {room}）在 CODE+{tail:#x}，CODE 長 {len(c) + L:#x}；零件 {[hex(v) for v in starts.values()]}；輪子 C4 {c4s}')
+    return dict(tail=tail, starts=starts, c4s=c4s, tbls=tbls)
 
 
 if __name__ == '__main__': main()
