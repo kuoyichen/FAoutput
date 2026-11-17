@@ -43,11 +43,12 @@ def frames(put, u0, v0, size, rot, tip_col, width):
 
 
 def glass(put, u0, v0, size):
-    """see-through glass: half the texels transparent (0xFF, left untouched), the rest dark blue-grey tint
-    with a sparse highlight"""
+    """clear glass (Kuoyi: the stipple dots looked wrong): every texel transparent (0xFF, left untouched) except
+    two thin diagonal reflection streaks"""
     for v in range(size):
         for u in range(size):
-            if (u + v) % 2 == 0: put(u0 + u, v0 + v, GLASS_HI if (u + 3 * v) % 14 == 0 else GLASS_T)
+            d = (u - v) % size
+            if d in (7, 11): put(u0 + u, v0 + v, GLASS_HI)
 
 
 def main(src, dst, preview=None):
