@@ -30,8 +30,8 @@ AB_F0 = 0x395C                     # 後燃器 F0（拿它的 push do_start_inte
 OLD = {'L': 0x4499, 'R': 0x43D8, 'N': 0x4670}
 SPAN_END = {'R': 0x4499, 'L': 0x455A, 'N': 0x4766}   # 舊零件的結尾（下一段：L、前輪艙門、後燃器）
 FLAT, TEX = 0x661, 0x75C           # 平面色面；貼圖面（色號 0、u8 UV、0xFF 透明）
-STRUT, BRACE = 146, 148
-BASE, WBASE = 594, 630             # 頂點編號：支柱零件、輪子子零件（都低於 640）
+STRUT, BRACE, TIRE = 146, 148, 158
+BASE, WBASE = 594, 652             # 頂點編號：支柱零件（含胎面，最多 58 點）、輪子子零件（v1 左輪用到 664 也正常）
 # 輪框貼圖：中心 (u, v)、半徑（格）
 HUB_MAIN, HUB_NOSE = (152, 173, 16), (152, 211, 11)
 HUB_AREA = (134, 155, 170, 229)
@@ -90,15 +90,25 @@ def prism(part, a, b, r, n, col, rot=0.0, caps=(True, True)):
     return list(range(f0, len(part.F)))
 
 
-def wheel_part(base, r, hub):
-    """輪子子零件：一片雙面的圓形貼圖（軸沿 x、在 x=0），主輪八角形、前輪正方形（外切圓，圓外透明）"""
+def wheel_part(base, r, hub, x0, x1):
+    """輪子子零件（會轉）：兩側各一片圓形貼圖（軸沿 x，在 x0、x1，各朝外），主輪八角形、前輪正方形（外切圓，圓外透明）"""
     p = Part(base); hu, hv, hc = hub
     if r >= 4: m, R0, a0 = 8, r / math.cos(math.pi / 8), math.pi / 8
     else:      m, R0, a0 = 4, r * math.sqrt(2), math.pi / 4
     uvf = lambda P, step: (round(hu + hc * P[1] / r), round(hv - hc * P[2] / r))
-    idx = [p.v((0, R0*math.cos(a0 + 2*math.pi*i/m), R0*math.sin(a0 + 2*math.pi*i/m))) for i in range(m)]
-    p.face(idx, 0, (1, 0, 0), TEX, uvf); p.face(idx, 0, (-1, 0, 0), TEX, uvf)
+    for x in (x0, x1):
+        idx = [p.v((x, R0*math.cos(a0 + 2*math.pi*i/m), R0*math.sin(a0 + 2*math.pi*i/m))) for i in range(m)]
+        p.face(idx, 0, (0, 0, 0), TEX, uvf)
     return p
+
+
+def tread(st, c, r, h, x0, x1):
+    """胎面（不轉，放在支柱零件）：輪子的前、後、上、下各一小片黑色平面，寬 = 胎寬，長 2h。c = 輪心 (x, 前, 上)"""
+    cx, cy, cz = c; f = []
+    for s_ in (1, -1):
+        f.append(st.face([st.v((cx+x0, cy + s_*r, cz - h)), st.v((cx+x1, cy + s_*r, cz - h)), st.v((cx+x1, cy + s_*r, cz + h)), st.v((cx+x0, cy + s_*r, cz + h))], TIRE, c))
+        f.append(st.face([st.v((cx+x0, cy - h, cz + s_*r)), st.v((cx+x1, cy - h, cz + s_*r)), st.v((cx+x1, cy + h, cz + s_*r)), st.v((cx+x0, cy + h, cz + s_*r))], TIRE, c))
+    return f
 
 
 def read_pic(b):
@@ -143,7 +153,7 @@ def c4(at, pos, target):
 
 
 def build(side):
-    """回傳 (支柱零件, 支柱面, 斜撐面, 輪子 C4 位置 [(x, 上, 前)], 分割平面, 前後平面, 輪子零件)"""
+    """回傳 (支柱零件, 支柱面, 斜撐面, [(輪子 C4 位置 (x, 上, 前), 胎面)], 分割平面, 前後平面, 輪子零件)"""
     st = Part(BASE)
     if side in 'LR':
         sx = 1 if side == 'L' else -1                     # L：支柱在 +x，輪子在外側 -x
@@ -151,38 +161,45 @@ def build(side):
         g_s += prism(st, (3*sx, 1, -6), (3*sx, 1, -9), 1.9, 4, BRACE, rot=math.pi/4)
         g_s += prism(st, (3*sx, 1, -19), (-1*sx, 1, -19), 0.71, 4, BRACE, rot=math.pi/4)   # 輪軸
         g_b = prism(st, (3*sx, 1, -11), (6*sx, 8, 0), 0.75, 4, BRACE, rot=math.pi/4)
-        wheels = [(-1*sx, -19, 1)]
-        split = ((16384*sx, 0, 0), (0, 0, 0))             # 眼睛在 x=0 的支柱那一側 → 先畫輪子
+        wheels = [((-1*sx, -19, 1), tread(st, (-1*sx, 1, -19), 5, 2, -2, 2))]
+        split = ((16384*sx, 0, 0), (-1*sx, 0, 0))         # 眼睛在 x=1 的支柱那一側 → 先畫輪子
         fwd = (0, 0, -3)
-        wp = wheel_part(WBASE, 5, HUB_MAIN)
+        wp = wheel_part(WBASE, 5, HUB_MAIN, -2, 2)
     else:
         g_s = prism(st, (-3, 5, -13), (3, 5, -13), 0.71, 4, BRACE, rot=math.pi/4)   # 輪軸
-        g_s += prism(st, (0, 7, -1), (0, 5, -13), 1.0, 4, STRUT)
-        g_b = prism(st, (0, 6, -7), (0, 15, -2), 0.71, 4, BRACE, rot=math.pi/4)
-        wheels = [(-3, -13, 5), (3, -13, 5)]
+        g_s += prism(st, (0, 5, 0), (0, 5, -13), 1.0, 4, STRUT)                     # 垂直支柱
+        g_b = prism(st, (0, 5, -7), (0, 15, -2), 0.71, 4, BRACE, rot=math.pi/4)
+        wheels = [((x, -13, 5), tread(st, (x, 5, -13), 3, 1, -1, 1)) for x in (-3, 3)]
         split = ((16384, 0, 0), (0, 0, 0))
         fwd = (0, 0, -8)
-        wp = wheel_part(WBASE, 3, HUB_NOSE)
+        wp = wheel_part(WBASE, 3, HUB_NOSE, -1, 1)
+    assert BASE + len(st.V) <= WBASE, len(st.V)
     return st, g_s, g_b, wheels, split, fwd, wp
 
 
 def part_block(side, at, header):
-    """回傳 (bytes, 輪子 C4 位置列表)。輪子零件前面放 6 位元組範圍標頭（C4 會讀它，沒有的話零件畫不出來）"""
+    """回傳 (bytes, 輪子 C4 位置列表)。輪子零件前面放 6 位元組範圍標頭（C4 會讀它，沒有的話零件畫不出來）
+    每個輪子 = 胎面（支柱零件的面）＋ C4 輪框子零件 ＋ 1E"""
     st, g_s, g_b, wheels, (n, d), fwd, wp = build(side)
     out = bytearray(st.bytes())
     S, _ = st.group(g_s); B, _ = st.group(g_b)
+    T = [st.group(t)[0][:-1] for _, t in wheels]
     WB = header + wp.bytes() + wp.group(range(len(wp.F)))[0]
     c4s = []
     if side in 'LR':
-        N1 = at + len(out); WC = N1 + 20; SG = WC + 17; s = SG + 20; b = s + len(S); wpos = b + len(B) + 6
-        out += node(N1, n, d, WC, SG) + c4(WC, wheels[0], wpos) + b'\x1e' + node(SG, (0, 0, 16384), fwd, s, b) + S + B + WB
-        c4s.append(WC)
+        N1 = at + len(out); WC = N1 + 20; SG = WC + len(T[0]) + 17; s = SG + 20; b = s + len(S); wpos = b + len(B) + 6
+        C = WC + len(T[0])
+        out += node(N1, n, d, WC, SG) + T[0] + c4(C, wheels[0][0], wpos) + b'\x1e' + node(SG, (0, 0, 16384), fwd, s, b) + S + B + WB
+        c4s.append(C)
     else:
-        N1 = at + len(out); WL = N1 + 20; N2 = WL + 17; WR = N2 + 20; SG = WR + 17; s = SG + 20; b = s + len(S); wpos = b + len(B) + 6
-        out += node(N1, n, d, WL, N2) + c4(WL, wheels[0], wpos) + b'\x1e' + node(N2, n, d, SG, WR) + c4(WR, wheels[1], wpos) + b'\x1e'
+        N1 = at + len(out); WL = N1 + 20; N2 = WL + len(T[0]) + 17; WR = N2 + 20; SG = WR + len(T[1]) + 17
+        s = SG + 20; b = s + len(S); wpos = b + len(B) + 6
+        CL, CR = WL + len(T[0]), WR + len(T[1])
+        out += node(N1, n, d, WL, N2) + T[0] + c4(CL, wheels[0][0], wpos) + b'\x1e'
+        out += node(N2, n, d, SG, WR) + T[1] + c4(CR, wheels[1][0], wpos) + b'\x1e'
         out += node(SG, (0, 0, 16384), fwd, s, b) + S + B + WB
-        c4s += [WL, WR]
-    assert out[wpos - at] == 0x82
+        c4s += [CL, CR]
+    assert out[wpos - at] == 0x82 and all(out[c - at] == 0xC4 for c in c4s)
     return bytes(out), c4s
 
 
