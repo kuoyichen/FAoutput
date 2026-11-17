@@ -338,6 +338,7 @@ function build(){
     for (const f of M.faces){
       if (f.lod !== 0 || f.del || (f.store && (f.store.type === "fall" || !storeShown(C.loadout, f.store))) || (!ab && isFlame(f, C))) continue;
       if (f.ab && (!ab || f.ab.frame !== AB.frame % f.ab.frames)) continue;   // animated flame (SH op 40): one frame at a time
+      if (f.grp && !f.grp.placed) continue;
       if (!f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed)) continue;
       faces.push({ pts: f.refs.map(r => { const w = SHCore.worldOf(M, r[0], r[1]); return [w[0], w[2], w[1]]; }), uv: f.uv, col: f.col });
     }
