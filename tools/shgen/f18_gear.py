@@ -23,14 +23,15 @@ from f14_gear import Part, prism, box, wheel_part, tread, node, c4, put, read_pi
 OLD = {'R': 0x3BA6, 'L': 0x3CDF, 'N': 0x3F2E}
 SPAN_END = {'R': 0x3CD0, 'L': 0x3E09, 'N': 0x3FE0}   # 舊零件的 1E（只從 C4 進來）
 THUNK_F0 = 0x30A2                                    # 一個現成的 F0（push 位址; push do_start_interp; ret）
-BASE, WBASE = 594, 652
+BASE, WBASE = 594, 668
 # 輪框貼圖：中心 (u, v)、半徑（格）；要清成透明的區域
 HUB_MAIN, HUB_NOSE = (102, 64, 14), (180, 122, 10)
 AREAS = [(86, 47, 118, 81), (164, 91, 196, 153)]
 # 每個主輪：支柱頂 x、支柱底 x、輪心 x（零件座標）
 MAIN = {'R': (1, 4, 8), 'L': (0, -2, -6)}
 WZ, NZ, NY, NTOP = -10, -12, 1, 2                    # 主輪輪心高度；前輪輪心高度、前後位置、支柱頂（機身底在零件 z=2）
-NOSE_DOOR_C4, NOSE_DOOR_UP = 0x2E27, -4               # 前輪艙門 C4 的高度 -6 → -4，貼到機身底（機身底 up -4）
+NOSE_DOOR_C4, NOSE_DOOR_UP = 0x2E27, -4
+REAR_BRACE_C4, REAR_BRACE = 0x2DC0, 0x3EC3        # 後斜撐零件：C4 (0,-5,44) → (0,-6,48)，末端接到活塞後面（零件 y=1、z -7..-5）；頂端兩點 z 0/-1 → 2/1 接到機身底               # 前輪艙門 C4 的高度 -6 → -4，貼到機身底（機身底 up -4）
 
 
 def build(side):
@@ -44,13 +45,19 @@ def build(side):
         split = ((-16384*sx, 0, 0), (-mid, 0, 0), None)                        # 眼睛在支柱那一側 → 先畫輪子
         wp = wheel_part(WBASE, 4, HUB_MAIN, -1, 1)
     else:
-        # 支柱 1×1（輪子半徑 2 = 支柱寬的 4 倍，照片的比例），頂到機身底（零件 z=2 = 機身 up -4）
-        g_s = prism(st, (-1, NY, NZ), (2, NY, NZ), 1.0, 4, BRACE, caps=(False, False))    # 輪軸：菱形，中心對準輪心
-        g_s += box(st, (0, 1), (NY, NY + 1), (NZ, NTOP), STRUT)                             # 支柱
-        q = [st.v(p) for p in ((0, NY, -6), (1, NY, -6), (1, 6, NTOP), (0, 6, NTOP))]           # 斜撐：寬 1 的雙面薄片
-        g_s += [st.face(q, BRACE, (0.5, 0, 0)), st.face(q, BRACE, (0.5, 9, -9))]
-        wheels = [((x, NZ, NY), tread(st, (x, NY, NZ), 2, 0, 1)) for x in (-2, 2)]           # 兩輪 -2..-1、2..3，對稱於支柱 0..1
-        split = ((16384, 0, 0), (0, 0, 0), (-2, 0, 0))                                       # x=0 分左輪，x=2 分右輪
+        # 照片的樣子：上段粗筒身（頂到機身底 z=2）、細活塞、套環、下端輪叉座、往前上的牽引桿；後斜撐是原本的零件
+        g = {}
+        g['housing'] = box(st, (-1, 2), (0, 3), (-4, NTOP), STRUT)
+        g['piston'] = box(st, (0, 1), (NY, NY + 1), (-11, -4), BRACE)
+        g['piston'] += box(st, (-1, 2), (0, 3), (-8, -7), STRUT)                            # 套環（後斜撐接這裡）
+        g['block'] = box(st, (-1, 2), (0, 2), (NZ - 1, NZ + 1), STRUT)                       # 輪叉座，兩輪的軸心
+        # 牽引桿：截面 1×1 的斜桿（四個側面），從套環前面 (y3, z-8..-7) 往前上到 (y8, z-3..-2)
+        A = [st.v(p) for p in ((0, 3, -8), (1, 3, -8), (1, 3, -7), (0, 3, -7))]
+        B = [st.v(p) for p in ((0, 8, -3), (1, 8, -3), (1, 8, -2), (0, 8, -2))]
+        g['bar'] = [st.face([A[i], A[(i+1) % 4], B[(i+1) % 4], B[i]], BRACE, (0.5, 5.5, -5)) for i in range(4)] + [st.face(B, BRACE, (0.5, 5.5, -5))]
+        g_s = g
+        wheels = [((x, NZ, NY), tread(st, (x, NY, NZ), 2, 0, 1)) for x in (-2, 2)]           # 兩輪 -2..-1、2..3
+        split = ((16384, 0, 0), (1, 0, 0), (-2, 0, 0))                                       # x=-1 分左輪，x=2 分右輪
         wp = wheel_part(WBASE, 2, HUB_NOSE, 0, 1)
     assert BASE + len(st.V) <= WBASE, len(st.V)
     return st, g_s, wheels, split, wp
@@ -59,16 +66,23 @@ def build(side):
 def part_block(side, at, header):
     st, g_s, wheels, (n, d, d2), wp = build(side)
     out = bytearray(st.bytes())
-    S, _ = st.group(g_s)
     T = [st.group(t)[0][:-1] for _, t in wheels]
     WB = header + wp.bytes() + wp.group(range(len(wp.F)))[0]
     c4s = []
     if side in 'LR':
+        S, _ = st.group(g_s)
         N1 = at + len(out); W = N1 + 20; C = W + len(T[0]); s = C + 17; wpos = s + len(S) + 6
         out += node(N1, n, d, W, s) + T[0] + c4(C, wheels[0][0], wpos) + b'\x1e' + S + WB
         c4s.append(C)
     else:
-        N1 = at + len(out); WL = N1 + 20; N2 = WL + len(T[0]) + 17; WR = N2 + 20; s = WR + len(T[1]) + 17; wpos = s + len(S) + 6
+        G_ = {k: st.group(v)[0] for k, v in g_s.items()}
+        slen = 3 * 20 + sum(len(v) for v in G_.values())
+        N1 = at + len(out); WL = N1 + 20; N2 = WL + len(T[0]) + 17; WR = N2 + 20; s = WR + len(T[1]) + 17; wpos = s + slen + 6
+        # 結構：node(前後 y=3：其餘 → 牽引桿) → node(z=-4：下段 → 筒身) → node(z=-11：輪叉座 → 活塞＋套環)
+        R1 = s + 20; R2 = R1 + 20; PC = R2 + 20; BK = PC + len(G_['piston']); HS = BK + len(G_['block']); BR = HS + len(G_['housing'])
+        S = (node(s, (0, 0, 16384), (0, 0, -3), R1, BR) + node(R1, (0, 16384, 0), (0, 4, 0), R2, HS)
+             + node(R2, (0, 16384, 0), (0, 11, 0), BK, PC) + G_['piston'] + G_['block'] + G_['housing'] + G_['bar'])
+        assert len(S) == slen
         CL, CR = WL + len(T[0]), WR + len(T[1])
         out += node(N1, n, d, WL, N2) + T[0] + c4(CL, wheels[0][0], wpos) + b'\x1e'
         out += node(N2, n, d2, s, WR) + T[1] + c4(CR, wheels[1][0], wpos) + b'\x1e' + S + WB
@@ -123,6 +137,10 @@ def main():
     thunk = struct.unpack_from('<I', c, THUNK_F0 + 8)[0]
     assert c[NOSE_DOOR_C4:NOSE_DOOR_C4 + 2] == b'\xc4\x00' and struct.unpack_from('<h', c, NOSE_DOOR_C4 + 4)[0] == -6
     struct.pack_into('<h', c, NOSE_DOOR_C4 + 4, NOSE_DOOR_UP)
+    assert struct.unpack_from('<3h', c, REAR_BRACE_C4 + 2) == (0, -5, 44)
+    struct.pack_into("<3h", c, REAR_BRACE_C4 + 2, 0, -6, 48)
+    assert c[REAR_BRACE] == 0x82 and struct.unpack_from('<6h', c, REAR_BRACE + 6) == (0, 0, 0, 0, 0, -1)
+    struct.pack_into('<6h', c, REAR_BRACE + 6, 0, 0, 2, 0, 0, 1)
     tail = bytes(c).find(SIG)
     blk = bytearray(); starts = {}; c4s = {}
     for side in 'RLN':
