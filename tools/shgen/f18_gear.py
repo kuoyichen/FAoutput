@@ -18,7 +18,7 @@ import math, os, struct, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sh_subdivide import pe_sections, insert_blocks
 import f14_gear as G
-from f14_gear import Part, prism, wheel_part, tread, node, c4, put, read_pic, SIG, STRUT, BRACE
+from f14_gear import Part, prism, box, wheel_part, tread, node, c4, put, read_pic, SIG, STRUT, BRACE
 
 OLD = {'R': 0x3BA6, 'L': 0x3CDF, 'N': 0x3F2E}
 SPAN_END = {'R': 0x3CD0, 'L': 0x3E09, 'N': 0x3FE0}   # 舊零件的 1E（只從 C4 進來）
@@ -29,7 +29,8 @@ HUB_MAIN, HUB_NOSE = (102, 64, 14), (180, 122, 10)
 AREAS = [(86, 47, 118, 81), (164, 91, 196, 153)]
 # 每個主輪：支柱頂 x、支柱底 x、輪心 x（零件座標）
 MAIN = {'R': (1, 4, 8), 'L': (0, -2, -6)}
-WZ, NZ, NY = -10, -12, 1                             # 主輪輪心高度；前輪輪心高度、前後位置
+WZ, NZ, NY, NTOP = -10, -12, 1, 2                    # 主輪輪心高度；前輪輪心高度、前後位置、支柱頂（機身底在零件 z=2）
+NOSE_DOOR_C4, NOSE_DOOR_UP = 0x2E27, -4               # 前輪艙門 C4 的高度 -6 → -4，貼到機身底（機身底 up -4）
 
 
 def build(side):
@@ -40,21 +41,23 @@ def build(side):
         g_s += prism(st, (bx, 0, WZ), (wx, 0, WZ), 1.0, 4, BRACE, caps=(False, False))     # 輪軸：菱形，置中
         wheels = [((wx, WZ, 0), tread(st, (wx, 0, WZ), 4, -1, 1))]
         mid = wx - 2*sx                                                   # 支柱和輪子之間的平面
-        split = ((-16384*sx, 0, 0), (-mid, 0, 0))                        # 眼睛在支柱那一側 → 先畫輪子
+        split = ((-16384*sx, 0, 0), (-mid, 0, 0), None)                        # 眼睛在支柱那一側 → 先畫輪子
         wp = wheel_part(WBASE, 4, HUB_MAIN, -1, 1)
     else:
-        g_s = prism(st, (-1, NY, NZ), (1, NY, NZ), 1.0, 4, BRACE, caps=(False, False))    # 輪軸
-        g_s += prism(st, (0, NY, 0), (0, NY, NZ - 1), 1.0, 4, STRUT, caps=(False, True))   # 垂直支柱
-        g_s += prism(st, (0, NY, -6), (0, 6, 0), 0.71, 4, BRACE, rot=math.pi/4, caps=(False, False))  # 斜撐
-        wheels = [((x, NZ, NY), tread(st, (x, NY, NZ), 2, 0, 1)) for x in (-2, 1)]
-        split = ((16384, 0, 0), (0, 0, 0))
+        # 支柱 1×1（輪子半徑 2 = 支柱寬的 4 倍，照片的比例），頂到機身底（零件 z=2 = 機身 up -4）
+        g_s = prism(st, (-1, NY, NZ), (2, NY, NZ), 1.0, 4, BRACE, caps=(False, False))    # 輪軸：菱形，中心對準輪心
+        g_s += box(st, (0, 1), (NY, NY + 1), (NZ, NTOP), STRUT)                             # 支柱
+        q = [st.v(p) for p in ((0, NY, -6), (1, NY, -6), (1, 6, NTOP), (0, 6, NTOP))]           # 斜撐：寬 1 的雙面薄片
+        g_s += [st.face(q, BRACE, (0.5, 0, 0)), st.face(q, BRACE, (0.5, 9, -9))]
+        wheels = [((x, NZ, NY), tread(st, (x, NY, NZ), 2, 0, 1)) for x in (-2, 2)]           # 兩輪 -2..-1、2..3，對稱於支柱 0..1
+        split = ((16384, 0, 0), (0, 0, 0), (-2, 0, 0))                                       # x=0 分左輪，x=2 分右輪
         wp = wheel_part(WBASE, 2, HUB_NOSE, 0, 1)
     assert BASE + len(st.V) <= WBASE, len(st.V)
     return st, g_s, wheels, split, wp
 
 
 def part_block(side, at, header):
-    st, g_s, wheels, (n, d), wp = build(side)
+    st, g_s, wheels, (n, d, d2), wp = build(side)
     out = bytearray(st.bytes())
     S, _ = st.group(g_s)
     T = [st.group(t)[0][:-1] for _, t in wheels]
@@ -68,7 +71,7 @@ def part_block(side, at, header):
         N1 = at + len(out); WL = N1 + 20; N2 = WL + len(T[0]) + 17; WR = N2 + 20; s = WR + len(T[1]) + 17; wpos = s + len(S) + 6
         CL, CR = WL + len(T[0]), WR + len(T[1])
         out += node(N1, n, d, WL, N2) + T[0] + c4(CL, wheels[0][0], wpos) + b'\x1e'
-        out += node(N2, n, d, s, WR) + T[1] + c4(CR, wheels[1][0], wpos) + b'\x1e' + S + WB
+        out += node(N2, n, d2, s, WR) + T[1] + c4(CR, wheels[1][0], wpos) + b'\x1e' + S + WB
         c4s += [CL, CR]
     assert out[wpos - at] == 0x82 and all(out[c - at] == 0xC4 for c in c4s)
     return bytes(out), c4s
@@ -118,6 +121,8 @@ def main():
     assert all(bytes(c[o - 6:o]) == header for o in OLD.values()), '零件範圍標頭不一樣'
     assert c[THUNK_F0:THUNK_F0+2] == b'\xf0\x00' and c[THUNK_F0 + 2] == 0x68 and c[THUNK_F0 + 7] == 0x68 and c[THUNK_F0 + 12] == 0xC3
     thunk = struct.unpack_from('<I', c, THUNK_F0 + 8)[0]
+    assert c[NOSE_DOOR_C4:NOSE_DOOR_C4 + 2] == b'\xc4\x00' and struct.unpack_from('<h', c, NOSE_DOOR_C4 + 4)[0] == -6
+    struct.pack_into('<h', c, NOSE_DOOR_C4 + 4, NOSE_DOOR_UP)
     tail = bytes(c).find(SIG)
     blk = bytearray(); starts = {}; c4s = {}
     for side in 'RLN':
