@@ -218,19 +218,47 @@ def gear_part(c, hdr_off):
     return bytes(out + b'\x00\x00')
 
 
-def prop_part():
-    """animated propeller disc: A47's two blur frames (texture u 0-76 / 78-154, v 215-291), both sides"""
+def bake_part(blob, pos):
+    """a part blob (82 buffer at PB + FC faces + 00 00) moved by pos (x, up, fwd): vertices and face plane points"""
+    from sh_subdivide import parse_face
+    b = bytearray(blob); assert b[0] == 0x82
+    n = struct.unpack_from('<H', b, 2)[0]
+    V = []
+    for i in range(n):
+        x, f, u = struct.unpack_from('<hhh', b, 6 + 6 * i)
+        v = (x + pos[0], f + pos[2], u + pos[1]); V.append(v); struct.pack_into('<hhh', b, 6 + 6 * i, *v)
+    out = bytearray(b[:6 + 6 * n]); q = 6 + 6 * n
+    while b[q] == 0xFC:
+        f = parse_face(b, q); raw = bytearray(b[q:f['end']]); fl = f['fl']
+        if fl & 0x60:
+            if fl & 0x200:
+                pt = struct.unpack_from('<bbb', raw, 11)
+                pt = (pt[0] + pos[0], pt[1] + pos[1], pt[2] + pos[2])      # FC point order (x, up, fwd)
+                raw = raw[:1] + struct.pack('<H', fl & ~0x200) + raw[3:11] + struct.pack('<hhh', *pt) + raw[14:]
+            else:
+                pt = struct.unpack_from('<hhh', raw, 11)
+                struct.pack_into('<hhh', raw, 11, pt[0] + pos[0], pt[1] + pos[1], pt[2] + pos[2])
+        out += raw; q = f['end']
+    assert b[q:q + 2] == b'\x00\x00', b[q:q + 4].hex()
+    return bytes(out + b'\x00\x00')
+
+
+def prop_part(pos=(0, 0, 0)):
+    """animated propeller disc: A47's two blur frames (texture u 0-76 / 78-154, v 215-291), both sides.
+    pos (x, up, fwd): the disc centre, baked into the vertices (FA crashed on C4 sub-parts in the B-17, so
+    every moving part is a plain called block in model coordinates)"""
     R = 23
     corners = [(-R, -R), (R, -R), (R, R), (-R, R)]        # (dx, dz)
     uvs = [(76, 215), (0, 215), (0, 291), (76, 291)]
     V = [(dx, 0, dz) for dx, dz in corners] + [(0, 6, 0), (-3, 1, -3), (3, 1, -3), (3, 1, 3), (-3, 1, 3)]
+    V = [(x + pos[0], f + pos[2], u + pos[1]) for x, f, u in V]          # 82 order is (x, fwd, up)
     b = bytearray(struct.pack('<BBHH', 0x82, 0, len(V), PB * 8))
     for v in V: b += struct.pack('<hhh', *v)
     def disc(frame):
         o = bytearray()
         for sgn, order in ((1, [0, 1, 2, 3]), (-1, [3, 2, 1, 0])):
             # front side (normal +fwd) and back side
-            o += struct.pack('<BHH', 0xFC, 0x064C, 0) + struct.pack('<hhh', 0, 0, 32767 * sgn) + struct.pack('<bbb', 0, 0, 0)
+            o += struct.pack('<BHH', 0xFC, 0x044C, 0) + struct.pack('<hhh', 0, 0, 32767 * sgn) + struct.pack('<hhh', *pos)
             ids = order if sgn > 0 else order
             # winding: FA sum PxP points inward -> for normal +fwd (y) need Newell along -y
             P = [V[i] for i in ids]
@@ -274,27 +302,35 @@ FEAT = set(os.environ.get('B17_FEAT', 'props,gear,flaps,rudder,bay').split(','))
 NODECAL = os.environ.get('B17_NODECAL') == '1'
 
 
+PROP_POS = {}          # part label -> disc position (x, up, fwd)
+
+
 def prop_obj(pos):
     x, up, fwd = pos
-    return Obj('prop', (x - 24, fwd - 1, up - 24), (x + 24, fwd + 7, up + 24), lambda a: a.c4(pos, (0, 0, 0), 'p_prop'))
+    lab = 'p_prop_%d_%d_%d' % pos; PROP_POS[lab] = pos
+    return Obj('prop', (x - 24, fwd - 1, up - 24), (x + 24, fwd + 7, up + 24), lambda a: a.call(lab))
+
+
+def gear_pos(side):
+    """where A47's gear parts go (C4 position, x/up/fwd): gearL part sits at x = -90 in its own frame, gearR at +90"""
+    gx = round(G.ENG_Y[0] * G.U); gf = round((G.S0 - 27.5) * G.U)
+    return (gx - 90, -7, gf) if side > 0 else (90 - gx, -7, gf)
 
 
 def gear_obj(side):
-    """A47 gear parts: gearL part sits at x = -90 in its own frame, gearR at +90 (A47 placed them at +-45)"""
+    """gear shown (fixed, down) while _PLgearDown == 1; baked into model coordinates (no C4: it crashed FA)"""
     gx = round(G.ENG_Y[0] * G.U); gf = round((G.S0 - 27.5) * G.U)
-    def gear(pos, field, ops, part):
-        return lambda a: a.cond_eq('GEARDOWN', 1, lambda: a.patch_c4('GEARPOS', field, ops, 'RESUME',
-                                                                     lambda: a.c4(pos, (0, 0, 0), part)))
-    if side > 0:
-        return Obj('gearR', (gx - 8, gf - 10, -33), (gx + 8, gf + 10, -10), gear((gx - 90, -7, gf), 0x0A, SAR(1), 'p_gearR'))
-    return Obj('gearL', (-gx - 8, gf - 10, -33), (-gx + 8, gf + 10, -10), gear((90 - gx, -7, gf), 0x0A, SAR(1), 'p_gearL'))
+    lab = 'p_gearR' if side > 0 else 'p_gearL'
+    x0 = gx if side > 0 else -gx
+    return Obj(lab[2:], (x0 - 8, gf - 10, -33), (x0 + 8, gf + 10, -10), lambda a: a.cond_eq('GEARDOWN', 1, lambda: a.call(lab)))
+
+
+TAIL_POS = (0, -2, round((G.S0 - 67.5) * G.U))
 
 
 def tailwheel_obj():
-    tf = round((G.S0 - 67.5) * G.U)
-    return Obj('tail', (-4, tf - 6, -33), (4, tf + 6, -2),
-               lambda a: a.cond_eq('GEARDOWN', 1, lambda: a.patch_c4('GEARPOS', 0x0A, SAR(1) + NEG, 'RESUME',
-                                                                      lambda: a.c4((0, -2, tf), (0, 0, 0), 'p_tail'))))
+    tf = TAIL_POS[2]
+    return Obj('tail', (-4, tf - 6, -33), (4, tf + 6, -2), lambda a: a.cond_eq('GEARDOWN', 1, lambda: a.call('p_tail')))
 
 
 def rudder_obj():
@@ -463,11 +499,12 @@ def build_code(c, sig, lods):
         def part(label, blob, with_hdr=True):
             if with_hdr: a.emit(phdr[-6:])
             a.label(label); a.emit(blob)
-        a.emit(phdr[:8])
-        part('p_prop', prop_part())
-        for k, nm in (('gearL', 'p_gearL'), ('gearR', 'p_gearR')):
-            part(nm, gear_part(c, A47_GEAR[k]))
-        tailM = tail_wheel(); part('p_tail', part_bytes(tailM)[0])
+        a.label('parts')
+        for lab, pos in sorted(PROP_POS.items()):
+            part(lab, prop_part(pos), False)
+        for k, nm, sd in (('gearL', 'p_gearL', -1), ('gearR', 'p_gearR', 1)):
+            part(nm, bake_part(gear_part(c, A47_GEAR[k]), gear_pos(sd)), False)
+        part('p_tail', bake_part(part_bytes(tail_wheel())[0], TAIL_POS), False)
         for st, nm in ((1, 'p_rudP'), (0, 'p_rud0'), (-1, 'p_rudM')):
             part(nm, part_bytes(G.rudder(st))[0], False)
         part('p_flapR', part_bytes(G.flap(1))[0], False); part('p_flapL', part_bytes(G.flap(-1))[0], False)
@@ -510,7 +547,7 @@ def build_code(c, sig, lods):
         if i < 0: break
         nc[i + 2:i + 16] = PIC_NAME.ljust(14, b'\0'); i += 16
     relocs += [len(blob) + 12 + 6 * k for k in range(len(names))]
-    print(f'CODE {len(nc)} bytes (main {a.labels["p_prop"] - 0x80}, med {a.labels["low"] - a.labels["med"]}, low {len(blob) - a.labels["low"]})')
+    print(f'CODE {len(nc)} bytes (main {a.labels["parts"] - 0x80}, med {a.labels["low"] - a.labels["med"]}, low {len(blob) - a.labels["low"]})')
     return bytes(nc), relocs, bb
 
 
