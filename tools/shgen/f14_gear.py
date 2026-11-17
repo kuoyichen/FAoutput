@@ -181,7 +181,7 @@ def build(side):
         # 照 F-18 的結構（Kuoyi 2026-11-17）：上段粗筒身、細活塞、套環、下端輪叉座（兩輪中間）、往前上的斜撐（1×1 斜桿）
         # 頂端 z=0 = 機身底（機身在這裡約 up -6～-7）。後面的斜桿是原本的牽引桿零件 0x4605，前端拉到支柱（main() 裡改）
         g = {}
-        g['housing'] = prism(st, (0, 5, 0), (0, 5, -5), 2.0, 4, STRUT, caps=(False, True))   # 菱形，角離中心 2
+        g['housing'] = prism(st, (0, 5, -1), (0, 5, -5), 2.0, 4, STRUT, caps=(True, True))   # 菱形，角離中心 2
         g['piston'] = prism(st, (0, 5, -5), (0, 5, -12), 1.0, 4, BRACE, caps=(False, False))
         g['piston'] += prism(st, (0, 5, -8), (0, 5, -9), 2.0, 4, STRUT)                       # 套環
         g['block'] = box(st, (-3, 3), (4, 6), (-14, -12), STRUT)                               # 輪叉座 = 輪軸
