@@ -135,7 +135,7 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
       </div>
       <div class="card" id="dl">
         <h3>Download</h3>
-        <div class="dlrow"><div><div class="f">F14.SH</div><div class="d" data-lang="en">F-14 shape · 60,928 bytes</div><div class="d" data-lang="zh">F-14 外形 · 60,928 bytes</div></div><a class="b" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/F14.SH" download>⬇ SH</a></div>
+        <div class="dlrow"><div><div class="f">F14.SH</div><div class="d" data-lang="en">F-14 shape · 64,000 bytes</div><div class="d" data-lang="zh">F-14 外形 · 64,000 bytes</div></div><a class="b" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/F14.SH" download>⬇ SH</a></div>
         <div class="dlrow"><div><div class="f">F14.PT</div><div class="d" data-lang="en">matching F-14 stations (required)</div><div class="d" data-lang="zh">對應的 F-14 掛點（必要）</div></div><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PT/F14.PT" download>⬇ PT</a></div>
         <div class="dlrow"><div><div class="f">_F14.PIC</div><div class="d" data-lang="en">F-14 texture with the afterburner flame (required) · 121,484 bytes</div><div class="d" data-lang="zh">含後燃器火焰的 F-14 貼圖（必要） · 121,484 bytes</div></div><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PIC/_F14.PIC" download>⬇ PIC</a></div>
         <div class="dlrow"><div><div class="f">F18.SH</div><div class="d" data-lang="en">F/A-18 shape · 62,976 bytes</div><div class="d" data-lang="zh">F/A-18 外形 · 62,976 bytes</div></div><a class="b" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/F18.SH" download>⬇ SH</a></div>
@@ -162,6 +162,7 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <li><b>Its own AIM-54</b> (octagonal body, straight cone nose, Phoenix fins). The other weapons are FA's own weapon models at their real size. AIM-7s have a blue band, and the tanks sit slightly nose-up to fit under the nacelles.</li>
         <li><b>Glove pylons</b> with a raked leading edge. Pylons stay after firing and disappear when the station is empty.</li>
         <li><b>Jettisoned or empty tanks fall away</b> for 2 seconds, nose dropping about the tail.</li>
+        <li><b>3D landing gear:</b> struts, a nose-gear housing, piston and launch bar, and round wheels with an octagonal tyre. The wheels spin in flight-sim style: still at 0 kt, faster with speed, and stopped again above 180 kt.</li>
       </ul>
       <ul data-lang="zh">
         <li><b>新機鼻。</b>雷達罩用平滑的環重做，鼻尖從側面看落在機身中線上，跟真機一樣，不再往下垂。拿掉了黑色雷達罩塗裝和空速管，上下輪廓線平順地接回機身。共 57 點、94 面，並計算了光影法向量，在遊戲裡看起來是圓的。</li>
@@ -170,6 +171,7 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <li><b>自己做的 AIM-54</b>（八角形彈身、直錐形彈頭、鳳凰飛彈的尾翼）。其他武器用 FA 原本的武器模型，維持實際大小。AIM-7 有藍色色帶，副油箱略為抬頭，好貼合發動機艙下方。</li>
         <li><b>翼套派龍</b>前緣做成斜的。武器射完派龍架還在，掛點清空才會消失。</li>
         <li><b>拋棄或用完的副油箱會往下掉</b> 2 秒，以尾端為軸低頭落下。</li>
+        <li><b>立體起落架：</b>輪柱、前輪筒身、活塞和彈射桿，輪子是圓形貼圖加八角形輪胎。輪子會轉：0 節不轉、愈快轉愈快、超過 180 節又停下。</li>
       </ul>
     </div>
     <div class="card chg">
@@ -181,6 +183,7 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <li><b>FA's own weapon models</b> at their own size, hung on the hardpoints of the new F18.PT. The 480-gallon tank has a pointed nose and tail cone.</li>
         <li><b>Wing stores moved 4 units back</b> so their tails clear the lowered flaps. Wing pylons hide when a station is empty.</li>
         <li><b>Jettisoned or empty tanks fall away</b> from the centreline and both wing stations. Only fuel tanks fall; fired missiles just disappear.</li>
+        <li><b>3D landing gear:</b> the nose strut now reaches the fuselage, with a housing, piston, collar, fork block and launch bar, and the wheels spin with speed (still at 0 kt, stopped above 180 kt).</li>
       </ul>
       <ul data-lang="zh">
         <li><b>照 FAshion F/A-18C 修整外形：</b>機身變窄變低、座艙罩降低、機鼻和機尾加長、垂直和水平尾翼縮小。保留雙座座艙。整個家族請看 <a href="f18_showcase.html">F/A-18 展示</a>。</li>
@@ -189,6 +192,7 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <li><b>用 FA 原本的武器模型</b>，維持原本大小，掛在新 F18.PT 的掛點上。480 加侖副油箱有尖頭和尾錐。</li>
         <li><b>翼下外掛往後移 4 單位</b>，尾端不會碰到放下的襟翼。掛點清空時翼下派龍會隱藏。</li>
         <li><b>拋棄或用完的副油箱會往下掉</b>，機腹中線和兩組翼下掛點都有。只有副油箱會掉，飛彈射出就直接消失。</li>
+        <li><b>立體起落架：</b>前輪柱接到機身，加了筒身、活塞、套環、叉座和彈射桿，輪子會隨速度轉（0 節不轉、超過 180 節停下）。</li>
       </ul>
     </div>
   </div>
@@ -200,7 +204,7 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
   <div class="card" style="overflow-x:auto">
     <table class="num">
       <tr><th></th><th data-lang="en">Factory</th><th data-lang="zh">原廠</th><th data-lang="en">New</th><th data-lang="zh">新版</th><th data-lang="en">What was added</th><th data-lang="zh">新增內容</th></tr>
-      <tr><td><b>F14.SH</b></td><td class="n">33,280 B · CODE 0x8000</td><td class="n">60,928 B</td><td><span data-lang="en">new nose, own AIM-54, 9 store kinds × 10 slots, pylons, falling-tank timers, BSP nodes, animated afterburner flame that grows over 3 s</span><span data-lang="zh">新機鼻、自製 AIM-54、9 種外掛 × 10 個位置、派龍架、油箱掉落計時、BSP 節點、3 秒內變長的動態後燃器火焰</span></td></tr>
+      <tr><td><b>F14.SH</b></td><td class="n">33,280 B · CODE 0x8000</td><td class="n">64,000 B</td><td><span data-lang="en">new nose, own AIM-54, 9 store kinds × 10 slots, pylons, falling-tank timers, BSP nodes, animated afterburner flame that grows over 3 s</span><span data-lang="zh">新機鼻、自製 AIM-54、9 種外掛 × 10 個位置、派龍架、油箱掉落計時、BSP 節點、3 秒內變長的動態後燃器火焰</span></td></tr>
       <tr><td><b>F18.SH</b></td><td class="n">33,280 B · CODE 0x7000</td><td class="n">62,976 B</td><td><span data-lang="en">reshaped body, 9 store kinds × 9 slots, pylons, falling-tank tables for 5 tank slots, BSP nodes, animated afterburner flame that grows over 3 s</span><span data-lang="zh">修整機身、9 種外掛 × 9 個位置、派龍架、5 個油箱位置的掉落表、BSP 節點、3 秒內變長的動態後燃器火焰</span></td></tr>
     </table>
   </div>

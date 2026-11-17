@@ -33,6 +33,21 @@ PROFILES = {
     # F18：原本 35 長，照 F14 的比例（×1.62）→ 57
     'F18': dict(F0=0x3087, CALL=0x309E, OLD=0x42AA, NOZ=-64, OTAIL=-99, TAIL=-121, FL=0x064C,
                 SLOTS=[(53, 148, False), (94, 151, False), (32, 274, False)]),
+    # 其他 F-18（2026-11-16，Kuoyi：F14/F18 都成功，接著改其他 F18）。長度照 F18 的比例 ×57/35。
+    # 貼圖位置：掃整個 CODE 所有帶 UV 的 FC（各 LOD、零件都算）都沒用到、而且是 0xFF 的地方；
+    # F18T 的 PIC 沒有這麼大的 0xFF 空白，用的是沒有任何面用到的已上色像素。
+    'F18C': dict(F0=0x2F22, CALL=0x2F39, OLD=0x41CB, NOZ=-64, OTAIL=-99, TAIL=-121, FL=0x064C,
+                 SLOTS=[(33, 247, False), (214, 344, False), (166, 347, False)]),
+    'F18E': dict(F0=0x2F22, CALL=0x2F39, OLD=0x41CB, NOZ=-70, OTAIL=-102, TAIL=-122, FL=0x064C,
+                 SLOTS=[(33, 247, False), (214, 344, False), (166, 347, False)]),
+    'F18T': dict(F0=0x2F22, CALL=0x2F39, OLD=0x41CB, NOZ=-70, OTAIL=-102, TAIL=-122, FL=0x064C,
+                 SLOTS=[(34, 239, False), (173, 313, False), (214, 320, False)]),
+    'F18F': dict(F0=0x3087, CALL=0x309E, OLD=0x42AA, NOZ=-70, OTAIL=-102, TAIL=-122, FL=0x064C,
+                 SLOTS=[(53, 148, False), (94, 151, False), (32, 274, False)]),
+    'F18G': dict(F0=0x3087, CALL=0x309E, OLD=0x42AA, NOZ=-70, OTAIL=-102, TAIL=-122, FL=0x064C,
+                 SLOTS=[(53, 148, False), (94, 151, False), (32, 274, False)]),
+    'F18U': dict(F0=0x3087, CALL=0x309E, OLD=0x42AA, NOZ=-70, OTAIL=-102, TAIL=-122, FL=0x064C,
+                 SLOTS=[(53, 147, False), (94, 151, False), (32, 274, False)]),
 }
 
 
@@ -72,6 +87,10 @@ def main():
     d = bytearray(open(src, 'rb').read())
     pe, opt, secs = pe_sections(d)
     code = next(s for s in secs if s['name'] == 'CODE'); nxt = min(s['va'] for s in secs if s['va'] > code['va'])
+    if nxt - code['va'] - code['vs'] < 1800:     # 會拉長的版本約 1.7 KB；F18C/E/T 原本只有 1594 → 後面區段的虛擬位址往上移 0x1000
+        from f18g_growler import grow_vas
+        d = bytearray(grow_vas(d, 0x1000)); pe, opt, secs = pe_sections(d)
+        code = next(s for s in secs if s['name'] == 'CODE'); nxt = min(s['va'] for s in secs if s['va'] > code['va'])
     c = bytearray(d[code['ro']:code['ro']+code['vs']])
     assert c[CALL:CALL+2] == b'\x12\x00' and CALL + 4 + struct.unpack_from('<h', c, CALL+2)[0] == OLD, f'不是預期的 {prof} 火焰呼叫'
     n, t = struct.unpack_from('<HH', c, OLD+2); assert c[OLD] == 0x82 and n == 16
