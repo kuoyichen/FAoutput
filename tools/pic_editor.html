@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PIC Editor</title>
+<meta name="description" content="FAshion PIC Editor by hawke (kuoyichen): open, paint and save Fighters Anthology .PIC textures in the browser.">
+<style>
+:root{ --bg:#14181d; --card:#1d232b; --card2:#232a33; --line:#2e3742; --text:#dde3ea; --muted:#8b96a5; --accent:#ffd54a; --bad:#ff6a50; --ok:#7bd88f; }
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}
+body{display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:8px 14px;background:var(--card);border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0 6px 0 0;font-weight:600}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+button,select,input,label.btn{background:#262e38;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font:inherit}
+button,label.btn{cursor:pointer;white-space:nowrap}
+button:hover,label.btn:hover{border-color:var(--muted)}
+button.on{border-color:var(--accent);color:var(--accent);background:#2f3640}
+button.prim{background:var(--accent);color:#14181d;font-weight:600;border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:default}
+input[type=number]{width:64px;text-align:right}
+input[type=checkbox]{accent-color:var(--accent)}
+#picIn{width:170px}
+#msg{color:var(--accent)} #msg.err{color:var(--bad)}
+#main{flex:1;display:grid;grid-template-columns:52px minmax(0,1fr) 300px;min-height:0}
+#tools{background:var(--card);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:4px;padding:6px;overflow:auto}
+#tools button{width:38px;height:36px;padding:0;font-size:17px;line-height:1}
+#tools hr{width:100%;border:0;border-top:1px solid var(--line);margin:4px 0}
+#stage{position:relative;min-width:0;min-height:0;overflow:hidden;background:#0f1216}
+#cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+#drop{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center;pointer-events:none;padding:20px}
+#status{display:flex;flex-wrap:wrap;gap:4px 14px;padding:4px 12px;background:var(--card);border-top:1px solid var(--line);font:12px ui-monospace,Consolas,monospace;color:var(--muted)}
+#status b{color:var(--text);font-weight:600}
+#side{background:var(--card);border-left:1px solid var(--line);overflow:auto;padding:8px 10px 20px}
+#side h3{margin:10px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#ff8f70}
+#side h3:first-child{margin-top:0}
+.row{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:5px 0}
+.row label{display:flex;align-items:center;gap:5px}
+.note{color:var(--muted);font-size:12px;margin:4px 0}
+#sw{display:flex;align-items:center;gap:10px}
+.swatch{width:42px;height:42px;border-radius:6px;border:2px solid var(--line);position:relative;cursor:pointer}
+.swatch span{position:absolute;left:0;right:0;bottom:-17px;text-align:center;font:11px ui-monospace,monospace;color:var(--muted)}
+.swatch.ff,.cell.ff{background-image:linear-gradient(45deg,#555 25%,transparent 25%,transparent 75%,#555 75%),linear-gradient(45deg,#555 25%,#888 25%,#888 75%,#555 75%);background-size:10px 10px;background-position:0 0,5px 5px}
+#pal{display:grid;grid-template-columns:repeat(16,1fr);gap:1px;margin-top:22px;background:var(--line);border:1px solid var(--line);user-select:none}
+.cell{aspect-ratio:1;cursor:pointer;position:relative}
+.cell.p{outline:2px solid #fff;outline-offset:-2px;z-index:1}
+.cell.s{box-shadow:inset 0 0 0 2px #000,inset 0 0 0 3px #ffd54a}
+.cell.u::after{content:"";position:absolute;right:1px;bottom:1px;width:3px;height:3px;border-radius:50%;background:#fff;box-shadow:0 0 0 1px #000}
+#palInfo{font:12px ui-monospace,monospace;color:var(--muted);min-height:18px;margin-top:4px}
+kbd{font:11px ui-monospace,monospace;background:#262e38;border:1px solid var(--line);border-radius:3px;padding:0 4px}
+.keys{color:var(--muted);font-size:12px;line-height:1.7}
+dialog{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;max-width:420px}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+@media (max-width:900px){
+  body{overflow:auto;height:auto} #main{grid-template-columns:48px minmax(0,1fr);grid-template-rows:60vh auto}
+  #side{grid-column:1/3;border-left:0;border-top:1px solid var(--line)} #tools button{width:34px;height:32px}
+}
+</style>
+<script src="fashion_i18n.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <h1>PIC Editor</h1>
+  <input id="picIn" list="picList" placeholder="PIC in repository…" title="Type or pick a PIC file from the FAoutput repository, then press Enter">
+  <datalist id="picList"></datalist>
+  <label class="btn" title="Open a .PIC file from your disk (or drop it on the page)">📂 Open<input type="file" id="fileIn" accept=".pic,.PIC" hidden></label>
+  <button id="newBtn" title="Start a new blank PIC">＋ New</button>
+  <button id="saveBtn" disabled title="Download the edited .PIC (Ctrl+S)">⬇ Save .PIC</button>
+  <button id="pngBtn" disabled title="Download the texture as a PNG image">PNG</button>
+  <label class="btn" title="Import a PNG/JPG; colours are matched to the palette and it is pasted as a movable selection">🖼 Import image<input type="file" id="imgIn" accept="image/*" hidden></label>
+  <span id="langSlot"></span>
+  <span id="msg"></span>
+</header>
+<div id="main">
+  <div id="tools">
+    <button data-tool="pencil" title="Pencil (B) — left: primary colour, right: secondary">✏️</button>
+    <button data-tool="eraser" title="Eraser (E) — paints index FF (transparent)">🧽</button>
+    <button data-tool="picker" title="Eyedropper (I) — left: primary, right: secondary. Hold Alt with any tool">💧</button>
+    <button data-tool="fill" title="Fill (G)">🪣</button>
+    <button data-tool="line" title="Line (L) — Shift: 45° steps">╱</button>
+    <button data-tool="rect" title="Rectangle (R)">▭</button>
+    <button data-tool="select" title="Select region (M) — drag inside to move it">⬚</button>
+    <button data-tool="hand" title="Pan (H) — or hold Space / use the middle button">✋</button>
+    <hr>
+    <button id="undoBtn" title="Undo (Ctrl+Z)">↶</button>
+    <button id="redoBtn" title="Redo (Ctrl+Y)">↷</button>
+    <hr>
+    <button id="zIn" title="Zoom in (+)">＋</button>
+    <button id="zOut" title="Zoom out (−)">－</button>
+    <button id="zFit" title="Fit to window (0)">⤢</button>
+    <button id="z1" title="Actual size (1)">1:1</button>
+  </div>
+  <div id="stage"><canvas id="cv"></canvas><div id="drop"><div><b style="font-size:15px">Open a PIC texture</b><br>Pick one from the repository list, open a file from your disk, or drop a .PIC here.</div></div></div>
+  <div id="side">
+    <h3>Colour</h3>
+    <div id="sw">
+      <div class="swatch" id="swP" title="Primary colour (left button)"><span id="swPl"></span></div>
+      <div class="swatch" id="swS" title="Secondary colour (right button)"><span id="swSl"></span></div>
+      <button id="swapBtn" title="Swap primary and secondary (X)">⇄</button>
+      <button id="ffBtn" title="Set primary to FF (transparent)">FF</button>
+    </div>
+    <div id="pal"></div>
+    <div id="palInfo"></div>
+    <div class="row"><label>Palette <select id="palSel" title="Colours used to show the indices">
+      <option value="game">FA palette (PALETTE.PAL)</option><option value="emb">Palette inside this PIC</option><option value="gray">Greyscale</option></select></label>
+      <label class="btn" title="Load another palette (.PAL, JASC, RIFF, or an FA .LIB)">Load…<input type="file" id="palIn" hidden></label></div>
+    <div class="row"><label><input type="checkbox" id="ffChk" checked> Show FF as checkerboard</label></div>
+    <div class="row"><label><input type="checkbox" id="usedChk" checked> Mark colours used in the PIC</label></div>
+
+    <h3>Tool options</h3>
+    <div class="row"><label>Brush size <input type="number" id="size" min="1" max="32" value="1"></label>
+      <label><input type="checkbox" id="round"> Round</label></div>
+    <div class="row"><label><input type="checkbox" id="contig" checked> Fill: contiguous only</label></div>
+    <div class="row"><label><input type="checkbox" id="rectFill"> Rectangle: filled</label></div>
+    <div class="row"><label><input type="checkbox" id="pasteT" checked> FF in pasted pixels is transparent</label></div>
+    <div class="row"><label><input type="checkbox" id="gridChk" checked> Pixel grid when zoomed in</label></div>
+
+    <h3>Selection</h3>
+    <div class="row">
+      <button id="copyBtn" title="Copy (Ctrl+C)">Copy</button><button id="cutBtn" title="Cut (Ctrl+X)">Cut</button><button id="pasteBtn" title="Paste (Ctrl+V)">Paste</button>
+      <button id="delBtn" title="Fill the selection with FF (Delete)">Clear</button>
+    </div>
+    <div class="row">
+      <button id="flipH" title="Flip horizontally">⇋ Flip H</button><button id="flipV" title="Flip vertically">⇵ Flip V</button>
+      <button id="allBtn" title="Select all (Ctrl+A)">All</button><button id="noneBtn" title="Deselect / place the pasted pixels (Esc)">Done</button>
+    </div>
+    <div class="row"><label>Replace <input type="text" id="repA" size="3" value="" placeholder="98" title="Index to replace (hex)"></label>
+      <label>with <input type="text" id="repB" size="3" value="" placeholder="FF" title="New index (hex)"></label><button id="repBtn" title="Replace one index with another (inside the selection when there is one)">Replace</button></div>
+    <p class="note">Painting, fill and replace stay inside the selection when one is active.</p>
+
+    <h3>File</h3>
+    <div id="fileInfo" class="note">No PIC loaded.</div>
+
+    <h3>Keys</h3>
+    <div class="keys" data-lang="en"><kbd>B</kbd> pencil <kbd>E</kbd> eraser <kbd>I</kbd> eyedropper <kbd>G</kbd> fill <kbd>L</kbd> line <kbd>R</kbd> rectangle <kbd>M</kbd> select <kbd>H</kbd> pan<br>
+      <kbd>Alt</kbd> pick colour · <kbd>Space</kbd> pan · wheel zoom · <kbd>X</kbd> swap colours · <kbd>[</kbd> <kbd>]</kbd> brush size<br>
+      <kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd> undo/redo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>X</kbd>/<kbd>V</kbd> copy/cut/paste · arrows nudge a selection · <kbd>Esc</kbd> done · <kbd>Ctrl</kbd>+<kbd>S</kbd> save</div>
+    <div class="keys" data-lang="zh"><kbd>B</kbd> 畫筆 <kbd>E</kbd> 橡皮擦 <kbd>I</kbd> 吸色 <kbd>G</kbd> 填色 <kbd>L</kbd> 直線 <kbd>R</kbd> 矩形 <kbd>M</kbd> 選取 <kbd>H</kbd> 平移<br>
+      <kbd>Alt</kbd> 吸色・<kbd>Space</kbd> 平移・滾輪縮放・<kbd>X</kbd> 交換顏色・<kbd>[</kbd> <kbd>]</kbd> 筆刷大小<br>
+      <kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd> 復原／重做・<kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>X</kbd>/<kbd>V</kbd> 複製／剪下／貼上・方向鍵微移選取・<kbd>Esc</kbd> 完成・<kbd>Ctrl</kbd>+<kbd>S</kbd> 存檔</div>
+    <p class="note" style="margin-top:14px">by <b>hawke</b> (kuoyichen) · <a href="sh_texture.html" style="color:var(--muted)">see a PIC on its SH</a></p>
+  </div>
+</div>
+<div id="status"><span>x,y <b id="stXY">–</b></span><span>index <b id="stIdx">–</b></span><span>zoom <b id="stZ">–</b></span><span id="stSel"></span><span id="stDirty"></span></div>
+<dialog id="newDlg">
+  <h3 style="margin:0 0 8px">New PIC</h3>
+  <div class="row"><label>Width <input type="number" id="nW" value="256" min="1" max="4096"></label><label>Height <input type="number" id="nH" value="256" min="1" max="4096"></label></div>
+  <div class="row"><label>File name <input type="text" id="nName" value="_NEW.PIC"></label></div>
+  <p class="note">FA textures are 256 pixels wide. The new PIC is filled with FF and uses the game palette.</p>
+  <div class="row" style="justify-content:flex-end"><button id="nCancel">Cancel</button><button id="nGo" class="prim">Create</button></div>
+</dialog>
+<script>
+"use strict";
+const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
+const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
+FAI18N.register({
+  "FAshion home": "FAshion 首頁", "PIC Editor": "PIC 編輯器", "PIC in repository…": "倉庫裡的 PIC…",
+  "Type or pick a PIC file from the FAoutput repository, then press Enter": "輸入或挑選 FAoutput 倉庫裡的 PIC，按 Enter 開啟",
+  "📂 Open": "📂 開啟", "Open a .PIC file from your disk (or drop it on the page)": "從電腦開啟 .PIC（也可以拖進網頁）",
+  "＋ New": "＋ 新增", "Start a new blank PIC": "建立空白 PIC", "⬇ Save .PIC": "⬇ 存成 .PIC", "Download the edited .PIC (Ctrl+S)": "下載改好的 .PIC（Ctrl+S）",
+  "Download the texture as a PNG image": "把貼圖下載成 PNG", "🖼 Import image": "🖼 匯入圖片",
+  "Import a PNG/JPG; colours are matched to the palette and it is pasted as a movable selection": "匯入 PNG/JPG：顏色會對應到調色盤最接近的色號，貼上後可以拖曳移動",
+  "Pencil (B) — left: primary colour, right: secondary": "畫筆（B）— 左鍵：主色，右鍵：副色", "Eraser (E) — paints index FF (transparent)": "橡皮擦（E）— 畫成色號 FF（透明）",
+  "Eyedropper (I) — left: primary, right: secondary. Hold Alt with any tool": "吸色（I）— 左鍵設主色、右鍵設副色；任何工具按住 Alt 也能吸色",
+  "Fill (G)": "填色（G）", "Line (L) — Shift: 45° steps": "直線（L）— Shift：45° 角", "Rectangle (R)": "矩形（R）",
+  "Select region (M) — drag inside to move it": "選取區塊（M）— 在選取範圍內拖曳可移動", "Pan (H) — or hold Space / use the middle button": "平移（H）— 或按住 Space／滑鼠中鍵",
+  "Undo (Ctrl+Z)": "復原（Ctrl+Z）", "Redo (Ctrl+Y)": "重做（Ctrl+Y）", "Zoom in (+)": "放大（+）", "Zoom out (−)": "縮小（−）", "Fit to window (0)": "符合視窗（0）", "Actual size (1)": "實際大小（1）",
+  "Open a PIC texture": "開啟 PIC 貼圖", "Pick one from the repository list, open a file from your disk, or drop a .PIC here.": "從倉庫清單挑一個、從電腦開啟，或把 .PIC 拖到這裡。",
+  "Colour": "顏色", "Primary colour (left button)": "主色（左鍵）", "Secondary colour (right button)": "副色（右鍵）", "Swap primary and secondary (X)": "交換主色和副色（X）", "Set primary to FF (transparent)": "主色設成 FF（透明）",
+  "Palette": "調色盤", "Colours used to show the indices": "用來顯示色號的顏色", "FA palette (PALETTE.PAL)": "FA 調色盤（PALETTE.PAL）", "Palette inside this PIC": "PIC 內附的調色盤", "Greyscale": "灰階",
+  "Load…": "載入…", "Load another palette (.PAL, JASC, RIFF, or an FA .LIB)": "載入其他調色盤（.PAL、JASC、RIFF 或 FA 的 .LIB）",
+  "Show FF as checkerboard": "FF 顯示成棋盤格", "Mark colours used in the PIC": "標出 PIC 有用到的顏色", "Tool options": "工具選項", "Brush size": "筆刷大小", "Round": "圓形",
+  "Fill: contiguous only": "填色：只填相連區域", "Rectangle: filled": "矩形：實心", "FF in pasted pixels is transparent": "貼上時 FF 當透明", "Pixel grid when zoomed in": "放大時顯示像素格線",
+  "Selection": "選取", "Copy": "複製", "Cut": "剪下", "Paste": "貼上", "Clear": "清除", "Copy (Ctrl+C)": "複製（Ctrl+C）", "Cut (Ctrl+X)": "剪下（Ctrl+X）", "Paste (Ctrl+V)": "貼上（Ctrl+V）", "Fill the selection with FF (Delete)": "選取範圍填成 FF（Delete）",
+  "⇋ Flip H": "⇋ 左右翻轉", "⇵ Flip V": "⇵ 上下翻轉", "Flip horizontally": "左右翻轉", "Flip vertically": "上下翻轉", "All": "全選", "Done": "完成", "Select all (Ctrl+A)": "全選（Ctrl+A）", "Deselect / place the pasted pixels (Esc)": "取消選取／放下貼上的像素（Esc）",
+  "Replace": "取代", "with": "換成", "Index to replace (hex)": "要取代的色號（16 進位）", "New index (hex)": "新色號（16 進位）", "Replace one index with another (inside the selection when there is one)": "把一個色號換成另一個（有選取時只在選取範圍內）",
+  "Painting, fill and replace stay inside the selection when one is active.": "有選取範圍時，畫筆、填色和取代都只作用在範圍內。",
+  "File": "檔案", "No PIC loaded.": "還沒載入 PIC。", "Keys": "快速鍵", "see a PIC on its SH": "看 PIC 貼在 SH 上的樣子",
+  "x,y": "x,y", "index": "色號", "zoom": "縮放", "New PIC": "新增 PIC", "Width": "寬", "Height": "高", "File name": "檔名",
+  "FA textures are 256 pixels wide. The new PIC is filled with FF and uses the game palette.": "FA 的貼圖寬 256 像素。新 PIC 會填滿 FF，使用遊戲的調色盤。", "Cancel": "取消", "Create": "建立"
+});
+
+// ===================== PIC file format =====================
+// Format 0 (every PIC in the repo): u16 fmt @0, u32 width @2, u32 height @6, u32 pixel offset @0x0A, u32 pixel size @0x0E,
+// u32 palette offset/size @0x12/@0x16 (0 = uses the game's PALETTE.PAL), u32 @0x1E (= 10*(h+1) in every file), u32 row table
+// offset/size @0x22/@0x26 (one u32 file offset per row). Rows are stored bottom-up: table row y is texture row h-1-y
+// (SH UVs count from the top-left). Saving copies the original bytes and writes only the pixel rows (and nothing else),
+// so a PIC that is opened and saved untouched comes back byte-identical.
+function parsePIC(u8){
+  if (u8.length < 0x2A) throw new Error(L("File is too short for a PIC", "檔案太短，不是 PIC"));
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const fmt = dv.getUint16(0, true), w = dv.getUint32(2, true), h = dv.getUint32(6, true), po = dv.getUint32(10, true);
+  const palO = dv.getUint32(18, true), palS = dv.getUint32(22, true), rowO = dv.getUint32(0x22, true), rowS = dv.getUint32(0x26, true);
+  if (fmt !== 0 || !w || !h || w > 4096 || h > 4096) throw new Error(L(`PIC format ${fmt} (${w}×${h}) is not supported`, `不支援 PIC 格式 ${fmt}（${w}×${h}）`));
+  const rowOff = new Array(h), useTable = rowS >= 4 * h && rowO + 4 * h <= u8.length;
+  let short = 0;
+  for (let y = 0; y < h; y++) rowOff[y] = useTable ? dv.getUint32(rowO + 4 * y, true) : po + y * w;
+  const px = new Uint8Array(w * h).fill(0xFF);
+  for (let y = 0; y < h; y++){ const s = rowOff[y], e = Math.min(s + w, u8.length); if (e - s < w) short++; if (e > s) px.set(u8.subarray(s, e), (h - 1 - y) * w); }
+  let pal = null, pal6 = false;
+  if (palO && palS >= 768 && palO + 768 <= u8.length){ const raw = u8.subarray(palO, palO + 768); pal6 = raw.every(b => b < 64); pal = palFromBytes(raw); }
+  return { w, h, px, pal, pal6, rowOff, useTable, short, orig: u8 };
+}
+function buildPIC(pic){
+  const out = pic.orig.slice(), { w, h } = pic;
+  for (let y = 0; y < h; y++){ const s = pic.rowOff[y], n = Math.min(w, out.length - s); if (n > 0) out.set(pic.px.subarray((h - 1 - y) * w, (h - 1 - y) * w + n), s); }
+  return out;
+}
+function newPIC(w, h){
+  const po = 0x40, ps = w * h, ro = po + ps, u8 = new Uint8Array(ro + 4 * h), dv = new DataView(u8.buffer);
+  dv.setUint16(0, 0, true); dv.setUint32(2, w, true); dv.setUint32(6, h, true); dv.setUint32(10, po, true); dv.setUint32(14, ps, true);
+  dv.setUint32(0x1E, 10 * (h + 1), true); dv.setUint32(0x22, ro, true); dv.setUint32(0x26, 4 * h, true);
+  for (let y = 0; y < h; y++) dv.setUint32(ro + 4 * y, po + y * w, true);
+  u8.fill(0xFF, po, po + ps);
+  return parsePIC(u8);
+}
+// palette: 768-byte RGB (6-bit VGA values are scaled up), RIFF PAL, JASC-PAL text, or a PALETTE.PAL found inside an FA .LIB
+function palFromBytes(u8){
+  const txt = String.fromCharCode(...u8.subarray(0, 8));
+  if (txt.startsWith("JASC-PAL")){ const n = new TextDecoder().decode(u8).trim().split(/\s+/).slice(3).map(Number), p = new Uint8Array(768); p.set(n.slice(0, 768)); return p; }
+  if (txt.startsWith("RIFF")){ const p = new Uint8Array(768); for (let i = 0; i < 256; i++) for (let k = 0; k < 3; k++) p[3*i+k] = u8[24 + 4*i + k] || 0; return p; }
+  if (u8.length < 768) return null;
+  if (u8.length > 4096){ const s = new TextDecoder("latin1").decode(u8), i = s.toUpperCase().indexOf("PALETTE.PAL");
+    if (i >= 0){ const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+      for (let k = i + 11; k < i + 20 && k + 4 <= u8.length; k++){ const o = dv.getUint32(k, true); if (o > i && o + 768 <= u8.length){ const seg = u8.subarray(o, o + 768); if (seg.every(b => b < 64) && new Set(seg).size > 32) return palFromBytes(seg); } } }
+    return null; }
+  const p = u8.slice(0, 768); let mx = 0; for (const b of p) mx = Math.max(mx, b);
+  if (mx < 64) for (let i = 0; i < 768; i++) p[i] = p[i] << 2 | p[i] >> 4;
+  return p;
+}
+const PAL_GRAY = (() => { const p = new Uint8Array(768); for (let i = 0; i < 256; i++) p[3*i] = p[3*i+1] = p[3*i+2] = i; return p; })();
+
+async function fetchAny(paths){
+  const urls = [];
+  for (const p of paths) if (/^https?:$/.test(location.protocol)) urls.push(new URL("../" + p, location.href).href);
+  for (const p of paths) urls.push(REMOTE + p);
+  for (const u of urls){ try { const r = await fetch(u); if (r.ok) return new Uint8Array(await r.arrayBuffer()); } catch(e){} }
+  return null;
+}
+
+// ===================== state =====================
+let pic = null, name = "", dirty = false;
+let gamePal = null, userPal = null;
+let prim = 0x98, sec = 0xFF, tool = "pencil";
+const view = { z: 1, ox: 0, oy: 0 };
+let sel = null;        // {x,y,w,h} marquee
+let flt = null;        // floating pixels {x,y,w,h,px,base}
+let clip = null;       // {w,h,px}
+const undo = [], redo = [];
+const cv = $("cv"), cx = cv.getContext("2d");
+const off = document.createElement("canvas"), ox = off.getContext("2d");
+let img = null, rgba = null;
+
+try { const s = localStorage.getItem("fa_palette"); if (s) userPal = Uint8Array.from(atob(s), ch => ch.charCodeAt(0)); } catch(e){}
+const curPal = () => { const v = $("palSel").value; return v === "gray" ? PAL_GRAY : v === "emb" && pic && pic.pal ? pic.pal : (userPal || gamePal || pic?.pal || PAL_GRAY); };
+const msg = (t, err) => { $("msg").textContent = t || ""; $("msg").className = err ? "err" : ""; };
+const hex = i => i.toString(16).toUpperCase().padStart(2, "0");
+
+// ===================== rendering =====================
+function rebuild(){
+  if (!pic) return;
+  if (off.width !== pic.w || off.height !== pic.h){ off.width = pic.w; off.height = pic.h; img = ox.createImageData(pic.w, pic.h); rgba = new Uint32Array(img.data.buffer); }
+  const P = curPal(), lut = new Uint32Array(256), chk = $("ffChk").checked;
+  for (let i = 0; i < 256; i++) lut[i] = 0xFF000000 | P[3*i+2] << 16 | P[3*i+1] << 8 | P[3*i];
+  if (chk) lut[255] = 0;
+  const { w, h, px } = pic;
+  for (let i = 0; i < w * h; i++) rgba[i] = lut[px[i]];
+  if (flt) for (let y = 0; y < flt.h; y++) for (let x = 0; x < flt.w; x++){
+    const X = flt.x + x, Y = flt.y + y; if (X < 0 || Y < 0 || X >= w || Y >= h) continue;
+    const c = flt.px[y * flt.w + x]; if (c === 0xFF && $("pasteT").checked) continue; rgba[Y * w + X] = lut[c]; }
+  ox.putImageData(img, 0, 0);
+  draw();
+}
+let rq = 0; const queue = () => { if (!rq) rq = requestAnimationFrame(() => { rq = 0; rebuild(); }); };
+let preview = null;   // overlay drawn by tools (brush outline)
+function draw(){
+  const W = cv.width, H = cv.height, dpr = devicePixelRatio || 1;
+  cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, W, H);
+  if (!pic) return;
+  const z = view.z * dpr, X0 = view.ox * dpr, Y0 = view.oy * dpr;
+  if ($("ffChk").checked){ // checkerboard under the texture
+    cx.save(); cx.beginPath(); cx.rect(X0, Y0, pic.w * z, pic.h * z); cx.clip();
+    cx.fillStyle = "#888"; cx.fillRect(X0, Y0, pic.w * z, pic.h * z); cx.fillStyle = "#5a5a5a";
+    const s = 8 * dpr; for (let y = Math.max(0, Math.floor(-Y0 / s)); y * s < Math.min(pic.h * z, H - Y0); y++) for (let x = Math.max(0, Math.floor(-X0 / s)); x * s < Math.min(pic.w * z, W - X0); x++) if ((x + y) & 1) cx.fillRect(X0 + x * s, Y0 + y * s, s, s);
+    cx.restore(); }
+  cx.imageSmoothingEnabled = false;
+  cx.drawImage(off, X0, Y0, pic.w * z, pic.h * z);
+  if ($("gridChk").checked && view.z >= 8){
+    cx.strokeStyle = "rgba(0,0,0,.28)"; cx.lineWidth = 1; cx.beginPath();
+    const x0 = Math.max(0, Math.floor(-X0 / z)), x1 = Math.min(pic.w, Math.ceil((W - X0) / z)), y0 = Math.max(0, Math.floor(-Y0 / z)), y1 = Math.min(pic.h, Math.ceil((H - Y0) / z));
+    for (let x = x0; x <= x1; x++){ const sx = Math.round(X0 + x * z) + .5; cx.moveTo(sx, Y0 + y0 * z); cx.lineTo(sx, Y0 + y1 * z); }
+    for (let y = y0; y <= y1; y++){ const sy = Math.round(Y0 + y * z) + .5; cx.moveTo(X0 + x0 * z, sy); cx.lineTo(X0 + x1 * z, sy); }
+    cx.stroke(); }
+  cx.strokeStyle = "#3d4855"; cx.lineWidth = 1; cx.strokeRect(X0 - .5, Y0 - .5, pic.w * z + 1, pic.h * z + 1);
+  const ants = (r, col) => { cx.save(); cx.lineWidth = 1 * dpr; cx.setLineDash([4 * dpr, 4 * dpr]);
+    const a = [X0 + r.x * z + .5, Y0 + r.y * z + .5, r.w * z - 1, r.h * z - 1];
+    cx.strokeStyle = "#000"; cx.strokeRect(...a); cx.lineDashOffset = 4 * dpr; cx.strokeStyle = col; cx.strokeRect(...a); cx.restore(); };
+  if (flt) ants(flt, "#ffd54a"); else if (sel) ants(sel, "#fff");
+  if (preview){ cx.strokeStyle = "rgba(255,255,255,.7)"; cx.lineWidth = 1; cx.strokeRect(X0 + preview.x * z + .5, Y0 + preview.y * z + .5, preview.w * z - 1, preview.h * z - 1); }
+  $("stZ").textContent = (view.z >= 1 ? view.z : view.z.toFixed(2)) + "×";
+}
+function resize(){ const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1; cv.width = Math.max(1, Math.round(r.width * d)); cv.height = Math.max(1, Math.round(r.height * d)); draw(); }
+new ResizeObserver(resize).observe($("stage"));
+function fit(){ if (!pic) return; const r = cv.getBoundingClientRect(), s = Math.min((r.width - 20) / pic.w, (r.height - 20) / pic.h);
+  view.z = s >= 1 ? Math.floor(s) : 1 / Math.ceil(1 / s); view.ox = Math.round((r.width - pic.w * view.z) / 2); view.oy = Math.round((r.height - pic.h * view.z) / 2); draw(); }
+function zoomAt(f, sx, sy){ const ZS = [1/8, 1/4, 1/2, 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];
+  let i = ZS.findIndex(v => v >= view.z - 1e-6); if (i < 0) i = ZS.length - 1; const nz = ZS[Math.max(0, Math.min(ZS.length - 1, i + f))]; if (nz === view.z) return;
+  if (sx == null){ const r = cv.getBoundingClientRect(); sx = r.width / 2; sy = r.height / 2; }
+  view.ox = sx - (sx - view.ox) * nz / view.z; view.oy = sy - (sy - view.oy) * nz / view.z; view.z = nz; draw(); }
+
+// ===================== palette panel =====================
+const cells = [];
+for (let i = 0; i < 256; i++){ const c = document.createElement("div"); c.className = "cell"; c.dataset.i = i; $("pal").append(c); cells.push(c); }
+$("pal").addEventListener("pointerdown", e => { const i = +e.target.dataset.i; if (isNaN(i)) return; e.preventDefault(); if (e.button === 2) sec = i; else prim = i; paintPal(); });
+$("pal").addEventListener("contextmenu", e => e.preventDefault());
+$("pal").addEventListener("pointermove", e => { const i = +e.target.dataset.i; if (isNaN(i)) return; const P = curPal(); $("palInfo").textContent = `${hex(i)} (${i})  rgb ${P[3*i]},${P[3*i+1]},${P[3*i+2]}` + (i === 255 ? L("  transparent", "  透明") : ""); });
+let used = new Uint8Array(256);
+function countUsed(){ used = new Uint8Array(256); if (pic) for (const v of pic.px) used[v] = 1; }
+function paintPal(){
+  const P = curPal(), sw = (el, i) => { el.style.background = ""; el.classList.toggle("ff", i === 255); if (i !== 255) el.style.background = `rgb(${P[3*i]},${P[3*i+1]},${P[3*i+2]})`; };
+  for (let i = 0; i < 256; i++){ const c = cells[i]; sw(c, i); c.classList.toggle("p", i === prim); c.classList.toggle("s", i === sec); c.classList.toggle("u", $("usedChk").checked && !!used[i]); c.title = hex(i); }
+  sw($("swP"), prim); sw($("swS"), sec); $("swPl").textContent = hex(prim); $("swSl").textContent = hex(sec);
+}
+$("swapBtn").onclick = () => { [prim, sec] = [sec, prim]; paintPal(); };
+$("ffBtn").onclick = () => { prim = 255; paintPal(); };
+$("palSel").onchange = () => { paintPal(); queue(); };
+for (const id of ["ffChk", "gridChk", "pasteT"]) $(id).onchange = () => { paintPal(); queue(); };
+$("usedChk").onchange = paintPal;
+$("palIn").onchange = async e => { const f = e.target.files[0]; if (!f) return; const p = palFromBytes(new Uint8Array(await f.arrayBuffer())); e.target.value = "";
+  if (!p) return msg(L("No palette found in ", "找不到調色盤：") + f.name, true);
+  userPal = p; try { localStorage.setItem("fa_palette", btoa(String.fromCharCode(...p))); } catch(e){}
+  $("palSel").value = "game"; msg(L("Palette loaded: ", "已載入調色盤：") + f.name); paintPal(); queue(); };
+
+// ===================== loading / saving =====================
+function setPic(p, n){
+  pic = p; name = n; sel = flt = null; undo.length = redo.length = 0; setDirty(false);
+  $("drop").style.display = "none"; ["saveBtn", "pngBtn"].forEach(i => $(i).disabled = false);
+  if (!pic.pal && $("palSel").value === "emb") $("palSel").value = "game";
+  $("palSel").options[1].disabled = !pic.pal;
+  fileInfo(); document.title = n + " · PIC Editor";
+  countUsed(); paintPal(); rebuild(); fit(); msg(L("Opened ", "已開啟 ") + n);
+}
+function fileInfo(){ if (!pic) return; const n = name;
+  $("fileInfo").innerHTML = `<b>${n}</b><br>${pic.w} × ${pic.h} · ${pic.orig.length.toLocaleString()} ${L("bytes", "位元組")}<br>` +
+    (pic.pal ? L(`Has its own palette (${pic.pal6 ? "6-bit" : "8-bit"}); it is kept as is when saving.`, `內附調色盤（${pic.pal6 ? "6" : "8"} 位元），存檔時原樣保留。`) : L("Uses the game palette (PALETTE.PAL).", "使用遊戲調色盤（PALETTE.PAL）。")) +
+    (pic.short ? `<br><span style="color:var(--bad)">${L(`${pic.short} row(s) run past the end of the file; those pixels show as FF and are not saved.`, `有 ${pic.short} 列超出檔案結尾，那些像素顯示為 FF，存檔時不會寫入。`)}</span>` : "") +
+    `<br>${L("Top of the image = top of the texture (SH UV 0,0). Rows are stored bottom-up in the file.", "畫面上方 = 貼圖上方（SH 的 UV 0,0）。檔案裡的列是由下往上存。")}`;
+}
+function openBytes(u8, n){ try { setPic(parsePIC(u8), n); } catch(e){ msg(e.message, true); } }
+async function openRepo(n){
+  const real = picNames.find(k => k.toUpperCase() === n.toUpperCase()) || n;
+  if (dirty && !confirm(L("Discard unsaved changes?", "放棄還沒存的修改？"))) return;
+  msg(L("Loading ", "載入中 ") + real + "…");
+  const u8 = await fetchAny(["PIC/" + real]); if (!u8) return msg(L("Cannot load ", "無法載入 ") + real, true);
+  openBytes(u8, real); try { history.replaceState(null, "", "?pic=" + encodeURIComponent(real)); } catch(e){}
+}
+let picNames = [];
+(async () => {
+  try { const r = await fetch("pic_index.json"); const j = r.ok ? await r.json() : null;
+    if (j){ picNames = Object.keys(j); $("picList").innerHTML = picNames.map(k => `<option value="${k}">${j[k][0]}×${j[k][1]}${j[k][2] ? " · own palette" : ""}</option>`).join(""); } } catch(e){}
+  const pu8 = await fetchAny(["PIC/PALETTE.PAL"]); if (pu8) gamePal = palFromBytes(pu8);
+  paintPal(); queue();
+  const q = new URLSearchParams(location.search).get("pic"); if (q) openRepo(q);
+})();
+$("picIn").addEventListener("keydown", e => { if (e.key === "Enter" && $("picIn").value.trim()){ let n = $("picIn").value.trim(); if (!/\.pic$/i.test(n)) n += ".PIC"; if (!picNames.some(k => k.toUpperCase() === n.toUpperCase()) && !n.startsWith("_")) n = "_" + n; openRepo(n); $("picIn").blur(); } });
+$("picIn").addEventListener("change", () => { const n = $("picIn").value.trim(); if (picNames.includes(n)) openRepo(n); });
+$("fileIn").onchange = async e => { const f = e.target.files[0]; if (!f) return; if (dirty && !confirm(L("Discard unsaved changes?", "放棄還沒存的修改？"))) return; openBytes(new Uint8Array(await f.arrayBuffer()), f.name); e.target.value = ""; };
+document.addEventListener("dragover", e => e.preventDefault());
+document.addEventListener("drop", async e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (!f) return; const u8 = new Uint8Array(await f.arrayBuffer());
+  if (/\.pic$/i.test(f.name)){ if (dirty && !confirm(L("Discard unsaved changes?", "放棄還沒存的修改？"))) return; openBytes(u8, f.name); }
+  else if (/\.(pal|lib)$/i.test(f.name)){ const p = palFromBytes(u8); if (p){ userPal = p; paintPal(); queue(); msg(L("Palette loaded: ", "已載入調色盤：") + f.name); } }
+  else if (f.type.startsWith("image/")) importImage(f); });
+function download(u8, n, type){ const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([u8], { type })); a.download = n; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
+function save(){ if (!pic) return; commitFloat(); download(buildPIC(pic), name.replace(/^.*[\\/]/, ""), "application/octet-stream"); setDirty(false); msg(L("Saved ", "已存檔 ") + name); }
+$("saveBtn").onclick = save;
+$("pngBtn").onclick = () => { if (!pic) return; commitFloat(); const c = document.createElement("canvas"); c.width = pic.w; c.height = pic.h; const g = c.getContext("2d"), d = g.createImageData(pic.w, pic.h), P = curPal();
+  for (let i = 0; i < pic.px.length; i++){ const v = pic.px[i]; d.data.set([P[3*v], P[3*v+1], P[3*v+2], v === 255 ? 0 : 255], 4 * i); } g.putImageData(d, 0, 0);
+  c.toBlob(b => download(b, name.replace(/\.pic$/i, "") + ".png", "image/png")); };
+$("newBtn").onclick = () => $("newDlg").showModal();
+$("nCancel").onclick = () => $("newDlg").close();
+$("nGo").onclick = () => { const w = Math.max(1, Math.min(4096, +$("nW").value | 0)), h = Math.max(1, Math.min(4096, +$("nH").value | 0)); let n = $("nName").value.trim() || "_NEW.PIC"; if (!/\.pic$/i.test(n)) n += ".PIC";
+  $("newDlg").close(); setPic(newPIC(w, h), n.toUpperCase()); setDirty(true); };
+function setDirty(d){ dirty = d; $("stDirty").textContent = d ? L("● unsaved changes", "● 有未存的修改") : ""; }
+addEventListener("beforeunload", e => { if (dirty){ e.preventDefault(); e.returnValue = ""; } });
+
+// image import: nearest palette colour (never FF), alpha < 128 = FF
+function nearestLUT(){ const P = curPal(), cache = new Map(); return (r, g, b) => { const k = r << 16 | g << 8 | b; let v = cache.get(k); if (v != null) return v;
+  let best = 0, bd = 1e9; for (let i = 0; i < 255; i++){ const dr = P[3*i] - r, dg = P[3*i+1] - g, db = P[3*i+2] - b, d = 2*dr*dr + 4*dg*dg + 3*db*db; if (d < bd){ bd = d; best = i; } } cache.set(k, best); return best; }; }
+function importImage(f){ if (!pic) return msg(L("Open or create a PIC first", "請先開啟或新增 PIC"), true);
+  const im = new Image(); im.onload = () => { const c = document.createElement("canvas"); c.width = im.width; c.height = im.height; const g = c.getContext("2d"); g.drawImage(im, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data, near = nearestLUT(), px = new Uint8Array(c.width * c.height);
+    for (let i = 0; i < px.length; i++) px[i] = d[4*i+3] < 128 ? 255 : near(d[4*i], d[4*i+1], d[4*i+2]);
+    URL.revokeObjectURL(im.src); pasteBlock({ w: c.width, h: c.height, px }); setTool("select"); msg(L(`Imported ${c.width}×${c.height}; drag it into place, then press Esc`, `已匯入 ${c.width}×${c.height}，拖到位置後按 Esc`)); };
+  im.src = URL.createObjectURL(f); }
+$("imgIn").onchange = e => { const f = e.target.files[0]; if (f) importImage(f); e.target.value = ""; };
+
+// ===================== undo =====================
+function pushUndo(snap){ undo.push(snap || pic.px.slice()); if (undo.length > 60) undo.shift(); redo.length = 0; setDirty(true); }
+function doUndo(){ if (!pic) return; if (flt){ if (flt.base) pic.px.set(flt.base); flt = null; countUsed(); paintPal(); queue(); return; }
+  if (!undo.length) return; redo.push(pic.px.slice()); pic.px.set(undo.pop()); setDirty(true); countUsed(); paintPal(); queue(); }
+function doRedo(){ if (!pic || !redo.length) return; commitFloat(); undo.push(pic.px.slice()); pic.px.set(redo.pop()); setDirty(true); countUsed(); paintPal(); queue(); }
+$("undoBtn").onclick = doUndo; $("redoBtn").onclick = doRedo;
+
+// ===================== painting =====================
+const inSel = (x, y) => !sel || (x >= sel.x && y >= sel.y && x < sel.x + sel.w && y < sel.y + sel.h);
+function put(x, y, c){ if (x < 0 || y < 0 || x >= pic.w || y >= pic.h || !inSel(x, y)) return; pic.px[y * pic.w + x] = c; }
+function dab(x, y, c){ const s = Math.max(1, +$("size").value | 0), r = s / 2, round = $("round").checked && s > 2, o = Math.floor((s - 1) / 2);
+  for (let j = 0; j < s; j++) for (let i = 0; i < s; i++){ if (round){ const dx = i - o - (s % 2 ? 0 : .5) , dy = j - o - (s % 2 ? 0 : .5); if (dx*dx + dy*dy > r*r) continue; } put(x - o + i, y - o + j, c); } }
+function lineTo(x0, y0, x1, y1, f){ const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let e = dx + dy;
+  for (;;){ f(x0, y0); if (x0 === x1 && y0 === y1) break; const e2 = 2 * e; if (e2 >= dy){ e += dy; x0 += sx; } if (e2 <= dx){ e += dx; y0 += sy; } } }
+function flood(x, y, c){ const { w, h, px } = pic, t = px[y * w + x]; if (t === c) return;
+  if (!$("contig").checked){ for (let i = 0; i < px.length; i++) if (px[i] === t && inSel(i % w, (i / w) | 0)) px[i] = c; return; }
+  const st = [x, y]; while (st.length){ const yy = st.pop(), xx = st.pop(); let l = xx; while (l > 0 && px[yy*w + l - 1] === t && inSel(l - 1, yy)) l--;
+    let up = false, dn = false; for (let i = l; i < w && px[yy*w + i] === t && inSel(i, yy); i++){ px[yy*w + i] = c;
+      if (yy > 0){ const m = px[(yy-1)*w + i] === t && inSel(i, yy - 1); if (m && !up) st.push(i, yy - 1); up = m; }
+      if (yy < h - 1){ const m = px[(yy+1)*w + i] === t && inSel(i, yy + 1); if (m && !dn) st.push(i, yy + 1); dn = m; } } } }
+function rectShape(x0, y0, x1, y1, c){ const a = Math.min(x0, x1), b = Math.max(x0, x1), d = Math.min(y0, y1), e = Math.max(y0, y1);
+  for (let y = d; y <= e; y++) for (let x = a; x <= b; x++) if ($("rectFill").checked || x === a || x === b || y === d || y === e) put(x, y, c); }
+
+// ===================== selection / clipboard =====================
+const norm = (x0, y0, x1, y1) => { const x = Math.max(0, Math.min(x0, x1)), y = Math.max(0, Math.min(y0, y1)), X = Math.min(pic.w - 1, Math.max(x0, x1)), Y = Math.min(pic.h - 1, Math.max(y0, y1)); return X < x || Y < y ? null : { x, y, w: X - x + 1, h: Y - y + 1 }; };
+function grab(r){ const px = new Uint8Array(r.w * r.h); for (let y = 0; y < r.h; y++) px.set(pic.px.subarray((r.y + y) * pic.w + r.x, (r.y + y) * pic.w + r.x + r.w), y * r.w); return px; }
+function clearRect(r, c = 0xFF){ for (let y = 0; y < r.h; y++) pic.px.fill(c, (r.y + y) * pic.w + r.x, (r.y + y) * pic.w + r.x + r.w); }
+function lift(){ if (!sel || flt) return; const base = pic.px.slice(); flt = { ...sel, px: grab(sel), base }; clearRect(sel); sel = null; }
+function commitFloat(){ if (!flt) return; const f = flt; flt = null; pushUndo(f.base || pic.px.slice()); const T = $("pasteT").checked;
+  for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++){ const X = f.x + x, Y = f.y + y; if (X < 0 || Y < 0 || X >= pic.w || Y >= pic.h) continue; const c = f.px[y * f.w + x]; if (c === 0xFF && T) continue; pic.px[Y * pic.w + X] = c; }
+  sel = norm(f.x, f.y, f.x + f.w - 1, f.y + f.h - 1); countUsed(); paintPal(); queue(); }
+function copySel(){ if (flt){ clip = { w: flt.w, h: flt.h, px: flt.px.slice() }; return true; } if (!sel) return false; clip = { ...sel, px: grab(sel) }; return true; }
+function pasteBlock(b){ commitFloat(); const r = cv.getBoundingClientRect();
+  const vx = Math.max(0, Math.floor(-view.ox / view.z)), vy = Math.max(0, Math.floor(-view.oy / view.z));
+  const x = sel ? sel.x : Math.min(vx, Math.max(0, pic.w - b.w)), y = sel ? sel.y : Math.min(vy, Math.max(0, pic.h - b.h));
+  flt = { x, y, w: b.w, h: b.h, px: b.px.slice(), base: null }; sel = null; queue(); }
+$("copyBtn").onclick = () => { if (copySel()) msg(L("Copied", "已複製")); };
+$("cutBtn").onclick = () => { if (!pic) return; if (flt){ copySel(); doUndo(); return; } if (copySel()){ pushUndo(); clearRect(sel); countUsed(); paintPal(); queue(); } };
+$("pasteBtn").onclick = () => { if (pic && clip){ pasteBlock(clip); setTool("select"); } };
+$("delBtn").onclick = () => { if (!pic) return; if (flt){ doUndo(); return; } if (sel){ pushUndo(); clearRect(sel); countUsed(); paintPal(); queue(); } };
+function flip(hz){ if (!pic) return; if (!flt){ if (!sel) sel = { x: 0, y: 0, w: pic.w, h: pic.h }; lift(); }
+  const { w, h, px } = flt, n = new Uint8Array(px.length); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) n[y * w + x] = hz ? px[y * w + w - 1 - x] : px[(h - 1 - y) * w + x]; flt.px = n; queue(); }
+$("flipH").onclick = () => flip(true); $("flipV").onclick = () => flip(false);
+$("allBtn").onclick = () => { if (!pic) return; commitFloat(); sel = { x: 0, y: 0, w: pic.w, h: pic.h }; setTool("select"); queue(); };
+$("noneBtn").onclick = () => { if (!pic) return; if (flt) commitFloat(); else sel = null; queue(); };
+$("repBtn").onclick = () => { if (!pic) return; const a = parseInt($("repA").value, 16), b = parseInt($("repB").value, 16);
+  if (!(a >= 0 && a < 256 && b >= 0 && b < 256)) return msg(L("Type two hex indices, e.g. 98 and 97", "請輸入兩個 16 進位色號，例如 98 和 97"), true);
+  commitFloat(); pushUndo(); let n = 0; for (let i = 0; i < pic.px.length; i++) if (pic.px[i] === a && inSel(i % pic.w, (i / pic.w) | 0)){ pic.px[i] = b; n++; }
+  msg(L(`Replaced ${n} pixels`, `已取代 ${n} 個像素`)); countUsed(); paintPal(); queue(); };
+// pasting an image from the system clipboard (screenshots, other editors)
+document.addEventListener("paste", e => { if (!pic || /INPUT|TEXTAREA/.test(document.activeElement?.tagName)) return; const it = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith("image/"));
+  if (it){ e.preventDefault(); importImage(it.getAsFile()); } else if (clip){ e.preventDefault(); pasteBlock(clip); setTool("select"); } });
+
+// ===================== pointer =====================
+function setTool(t){ tool = t; for (const b of document.querySelectorAll("#tools [data-tool]")) b.classList.toggle("on", b.dataset.tool === t); cursor(); }
+document.querySelectorAll("#tools [data-tool]").forEach(b => b.onclick = () => setTool(b.dataset.tool));
+const cursor = () => { cv.style.cursor = spaceDown || tool === "hand" ? "grab" : tool === "picker" || altDown ? "crosshair" : tool === "select" ? "default" : "crosshair"; };
+const toPix = e => { const r = cv.getBoundingClientRect(); return [Math.floor((e.clientX - r.left - view.ox) / view.z), Math.floor((e.clientY - r.top - view.oy) / view.z)]; };
+let drag = null, spaceDown = false, altDown = false;
+cv.addEventListener("contextmenu", e => e.preventDefault());
+cv.addEventListener("pointerdown", e => {
+  if (!pic) return; cv.setPointerCapture(e.pointerId); const [x, y] = toPix(e), r = cv.getBoundingClientRect();
+  const c = e.button === 2 ? sec : prim;
+  if (e.button === 1 || spaceDown || tool === "hand"){ drag = { k: "pan", sx: e.clientX, sy: e.clientY, ox: view.ox, oy: view.oy }; cv.style.cursor = "grabbing"; return; }
+  if (tool === "picker" || e.altKey){ pick(x, y, e.button === 2); drag = { k: "pick", right: e.button === 2 }; return; }
+  if (tool === "select"){
+    const inside = r2 => r2 && x >= r2.x && y >= r2.y && x < r2.x + r2.w && y < r2.y + r2.h;
+    if (inside(flt) || inside(sel)){ if (!flt) lift(); drag = { k: "move", x, y, fx: flt.x, fy: flt.y }; return; }
+    commitFloat(); sel = null; drag = { k: "sel", x, y }; queue(); return; }
+  commitFloat();
+  if (tool === "fill"){ if (x >= 0 && y >= 0 && x < pic.w && y < pic.h && inSel(x, y)){ pushUndo(); flood(x, y, c); countUsed(); paintPal(); queue(); } return; }
+  pushUndo();
+  const cc = tool === "eraser" ? 0xFF : c;
+  if (tool === "pencil" || tool === "eraser"){ dab(x, y, cc); drag = { k: "paint", x, y, c: cc }; }
+  else { drag = { k: tool, x, y, c: cc, base: pic.px.slice() }; if (tool === "line") dab(x, y, cc); else rectShape(x, y, x, y, cc); }
+  queue();
+});
+cv.addEventListener("pointermove", e => {
+  if (!pic) return; const [x, y] = toPix(e), ins = x >= 0 && y >= 0 && x < pic.w && y < pic.h;
+  $("stXY").textContent = ins ? `${x}, ${y}` : "–"; $("stIdx").textContent = ins ? (() => { const v = pic.px[y * pic.w + x]; return `${hex(v)} (${v})`; })() : "–";
+  if ((tool === "pencil" || tool === "eraser") && !drag && ins && view.z >= 4){ const s = Math.max(1, +$("size").value | 0), o = Math.floor((s - 1) / 2); preview = { x: x - o, y: y - o, w: s, h: s }; draw(); } else if (preview){ preview = null; draw(); }
+  if (!drag) return;
+  if (drag.k === "pan"){ view.ox = drag.ox + e.clientX - drag.sx; view.oy = drag.oy + e.clientY - drag.sy; draw(); return; }
+  if (drag.k === "pick"){ pick(x, y, drag.right); return; }
+  if (drag.k === "sel"){ sel = norm(drag.x, drag.y, x, y); $("stSel").textContent = sel ? `${L("selection", "選取")} ${sel.x},${sel.y} ${sel.w}×${sel.h}` : ""; draw(); return; }
+  if (drag.k === "move"){ flt.x = drag.fx + x - drag.x; flt.y = drag.fy + y - drag.y; $("stSel").textContent = `${L("moving", "移動")} ${flt.x},${flt.y} ${flt.w}×${flt.h}`; queue(); return; }
+  if (drag.k === "paint"){ if (x === drag.x && y === drag.y) return; lineTo(drag.x, drag.y, x, y, (a, b) => dab(a, b, drag.c)); drag.x = x; drag.y = y; queue(); return; }
+  pic.px.set(drag.base);
+  if (drag.k === "line"){ let X = x, Y = y; if (e.shiftKey){ const dx = x - drag.x, dy = y - drag.y, a = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * Math.PI / 4, l = Math.max(Math.abs(dx), Math.abs(dy)); X = drag.x + Math.round(Math.cos(a) * l); Y = drag.y + Math.round(Math.sin(a) * l); }
+    lineTo(drag.x, drag.y, X, Y, (a, b) => dab(a, b, drag.c)); }
+  else rectShape(drag.x, drag.y, x, y, drag.c);
+  queue();
+});
+const endDrag = () => { if (!drag) return; const k = drag.k; drag = null; cursor(); if (/paint|line|rect/.test(k)){ countUsed(); paintPal(); } draw(); };
+cv.addEventListener("pointerup", endDrag); cv.addEventListener("pointercancel", endDrag);
+cv.addEventListener("pointerleave", () => { if (preview){ preview = null; draw(); } });
+function pick(x, y, right){ if (x < 0 || y < 0 || x >= pic.w || y >= pic.h) return; const v = pic.px[y * pic.w + x]; if (right) sec = v; else prim = v; paintPal(); }
+cv.addEventListener("wheel", e => { if (!pic) return; e.preventDefault(); const r = cv.getBoundingClientRect();
+  if (e.ctrlKey || Math.abs(e.deltaY) >= Math.abs(e.deltaX) && !e.shiftKey) zoomAt(e.deltaY < 0 ? 1 : -1, e.clientX - r.left, e.clientY - r.top);
+  else { view.ox -= e.deltaX || e.deltaY; draw(); } }, { passive: false });
+$("zIn").onclick = () => zoomAt(1); $("zOut").onclick = () => zoomAt(-1); $("zFit").onclick = fit; $("z1").onclick = () => { if (!pic) return; const r = cv.getBoundingClientRect(); view.z = 1; view.ox = Math.round((r.width - pic.w) / 2); view.oy = 10; draw(); };
+
+// ===================== keyboard =====================
+addEventListener("keydown", e => {
+  if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName) && document.activeElement.type !== "checkbox") return;
+  const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
+  if (mod){ if (k === "z" && !e.shiftKey) doUndo(); else if (k === "y" || k === "z") doRedo(); else if (k === "s") save(); else if (k === "c") $("copyBtn").onclick(); else if (k === "x") $("cutBtn").onclick(); else if (k === "a") $("allBtn").onclick(); else if (k === "v") return; else return; e.preventDefault(); return; }
+  if (e.key === " "){ spaceDown = true; cursor(); e.preventDefault(); return; }
+  if (e.key === "Alt"){ altDown = true; cursor(); e.preventDefault(); return; }
+  const T = { b: "pencil", p: "pencil", e: "eraser", i: "picker", g: "fill", l: "line", r: "rect", m: "select", h: "hand" };
+  if (T[k]){ setTool(T[k]); return; }
+  if (k === "x"){ $("swapBtn").onclick(); return; }
+  if (k === "escape" || k === "enter"){ $("noneBtn").onclick(); return; }
+  if (k === "delete" || k === "backspace"){ $("delBtn").onclick(); e.preventDefault(); return; }
+  if (k === "+" || k === "="){ zoomAt(1); return; } if (k === "-"){ zoomAt(-1); return; } if (k === "0"){ fit(); return; } if (k === "1"){ $("z1").onclick(); return; }
+  if (k === "[" || k === "]"){ $("size").value = Math.max(1, Math.min(32, +$("size").value + (k === "]" ? 1 : -1))); return; }
+  const A = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1] }[k];
+  if (A && pic && (sel || flt)){ e.preventDefault(); if (!flt) lift(); const s = e.shiftKey ? 10 : 1; flt.x += A[0] * s; flt.y += A[1] * s; queue(); }
+});
+addEventListener("keyup", e => { if (e.key === " "){ spaceDown = false; cursor(); } if (e.key === "Alt"){ altDown = false; cursor(); } });
+addEventListener("blur", () => { spaceDown = altDown = false; });
+
+// scripting / tests
+window.picEditor = { parsePIC, buildPIC, newPIC, get pic(){ return pic; }, open: openBytes, save: () => buildPIC(pic) };
+
+$("langSlot").append(FAI18N.picker()); FAI18N.apply(); FAI18N.onChange(() => { fileInfo(); setDirty(dirty); });
+setTool("pencil"); paintPal();
+</script>
+</body>
+</html>
