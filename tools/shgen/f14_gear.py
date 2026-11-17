@@ -177,7 +177,7 @@ def build(side):
         fwd = (0, 0, -3)
         wp = wheel_part(WBASE, 5, HUB_MAIN, -1, 1)
     else:
-        g_s = box(st, (-3, 3), (5, 6), (-13, -12), BRACE)                           # 輪軸：1×1（座標是整數，這是最細的）
+        g_s = prism(st, (-3, 5, -13), (3, 5, -13), 1.0, 4, BRACE)                  # 輪軸：菱形（角離軸心 1），中心對準輪心；座標是整數，置中又最細就是這樣
         g_s += prism(st, (0, 5, 0), (0, 5, -13), 1.0, 4, STRUT)                     # 垂直支柱
         g_b = prism(st, (0, 5, -7), (0, 15, -2), 0.71, 4, BRACE, rot=math.pi/4)
         wheels = [((x, -13, 5), tread(st, (x, 5, -13), 3, 0, 1)) for x in (-4, 3)]   # 前輪厚 1：-4..-3、3..4
