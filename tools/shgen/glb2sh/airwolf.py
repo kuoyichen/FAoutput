@@ -182,6 +182,7 @@ def build(g):
     tail = M.add((0, TAIL_END, float(np.mean([M.V[i][2] for i in boom[-1]]))))
     loft(M, boom, None, close_back=tail)
     M.cabin = sec                                      # for the interior plates
+    M.nbody = len(M.F)
 
     # 2. sponsons (right group, mirrored)
     Ts, _ = g.grp([55, 56])
@@ -197,6 +198,7 @@ def build(g):
         ctr_f = np.mean([M.V[i] for i in rs[0]], 0); ctr_b = np.mean([M.V[i] for i in rs[-1]], 0)
         f = M.add((ctr_f[0], SPON_STA[0] + 2.5, ctr_f[2])); bk = M.add((ctr_b[0], SPON_STA[-1] - 3, ctr_b[2]))
         loft(M, rs, None, close_front=f, close_back=bk)
+    M.nspon = len(M.F)
     # 3. wingtip gun pods (black top / white bottom), pylons, 3 barrels each side (2 thin above, 1 thick below)
     topbot = lambda n: BLACK if n[2] > -0.2 else WHITE
     for side in (1, -1):
@@ -277,6 +279,33 @@ def colours(g, M):
             col = int(col)
         out.append((ids, col, smooth, nrm))
     M.F = out
+    repaint(M)
+
+
+def repaint(M):
+    """Kuoyi v3 notes: windows symmetric like the real one (wrap-around windscreen, a black post, one big side
+    window per side, no small upper window), no black stripe in the white belly.  Fuselage and sponson faces on the
+    left take the colour of their mirror face on the right; the windows and the belly are then painted by rule."""
+    cen = [np.array([M.V[i] for i in ids]).mean(0) for ids, *_ in M.F[:M.nspon]]
+    C = np.array(cen); right = np.where(C[:, 0] >= 0)[0]
+    tree = cKDTree(C[right] * [1, 1, 1])
+    F = list(M.F)
+    for k, (ids, col, smooth, nrm) in enumerate(M.F[:M.nspon]):
+        x, y, z = C[k]
+        if x < -0.3:
+            d, j = tree.query((-x, y, z)); col = M.F[right[j]][1]
+        ax = abs(x)
+        if col == GLASS: col = BLACK
+        if k < M.nbody:
+            if 27.5 < y < 32 and z > 0.5: col = GLASS                       # windscreen, lower front
+            elif 22.5 < y < 27.5 and z > 3 and ax < 8: col = GLASS          # windscreen, upper
+            elif 11 < y < 22.5 and ax > 6 and 1.5 < z < 9.5: col = GLASS    # side (door) window
+            elif -38 < y < 22 and z < -1: col = WHITE                       # belly
+        else:                                                               # sponson undersides white
+            P = np.array([M.V[i] for i in ids]); fn = -sum(np.cross(P[i], P[(i+1) % len(P)]) for i in range(len(P)))
+            if fn[2] < -0.2 * np.linalg.norm(fn): col = WHITE
+        F[k] = (ids, col, smooth, nrm)
+    M.F = F
 
 
 # ------------------------------------------------------------------ parts
@@ -284,7 +313,7 @@ def gear_part(r_wheel, w_wheel, strut, n_wheel, x_off=0.0):
     """part in its own frame: pivot at origin, strut down to the axle (0, 0, -strut)"""
     M = Mesh()
     iprism(M, DIAMOND, 2, 0, -strut + 1, GEAR_W)                                                   # white strut
-    iprism(M, [(f, -strut + u) for f, u in OCTAGON], 0, -w_wheel, w_wheel, TYRE, cap_col=GEAR_W)   # black tyre, white hub
+    iprism(M, [(f, -strut + u) for f, u in OCTAGON], 0, -w_wheel, w_wheel, TYRE)                   # black tyre, black sides (Kuoyi)
     return M
 
 
@@ -422,9 +451,9 @@ def main(glb_path, src, dst, preview=None):
 
     # gear parts (own buffers, slots after the main buffer; filled in later)
     gears = {
-        'nose':  dict(piv=(0, 34, -6), strut=6, r=2, w=1, n=8, xo=0.0),      # axle at -12, tyre bottom at -14
-        'right': dict(piv=(16, -5, -5), strut=7, r=2, w=1, n=8, xo=0.0),
-        'left':  dict(piv=(-16, -5, -5), strut=7, r=2, w=1, n=8, xo=0.0),
+        'nose':  dict(piv=(0, 34, -6), strut=2, r=2, w=1, n=8, xo=0.0),      # axle at -8, tyre bottom at -10
+        'right': dict(piv=(16, -5, -5), strut=2, r=2, w=1, n=8, xo=0.0),
+        'left':  dict(piv=(-16, -5, -5), strut=2, r=2, w=1, n=8, xo=0.0),
     }
     objs = []
     def gear_obj(name, G):
