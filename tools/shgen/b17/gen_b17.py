@@ -28,7 +28,8 @@ import b17_geom as G
 PIC_NAME = b'_B17.PIC'
 PB = 668                     # vertex-table slot of the part buffers (parts are drawn one at a time)
 MAXV = PB                    # main LOD must stay below the part slots
-EXT = (500, 140, 360)        # model extents in the part headers (A47: 442, 124, 357)
+EXT = (500, 140, 420)        # header words CODE+8 (copied before each C4 part): stock SHs have ~2.2-2.4x the
+                             # model's |x|, |up|, |fwd| extents (A47: 442, 124, 357); B-17 |fwd| reaches 184
 # A47 offsets
 A47_GEAR = {'gearL': 0x2a92, 'gearR': 0x2b53, 'tail': 0x2c14}     # 6-byte extents header before each 82
 A47_TRAILER = 0x4184
@@ -266,6 +267,14 @@ def obj_from(name, pts, emit, pad=1.0):
     return Obj(name, P.min(0) - pad, P.max(0) + pad, emit)
 
 
+# test switches (bisecting in-game problems): B17_STATIC=1 -> no x86 blocks and no C4 parts (no props,
+# gear, flaps; rudder neutral, bay closed); B17_NOBAY=1 -> bay always closed (no x86 object read);
+# B17_NODECAL=1 -> no insignia
+STATIC = os.environ.get('B17_STATIC') == '1'
+NOBAY = STATIC or os.environ.get('B17_NOBAY') == '1'
+NODECAL = os.environ.get('B17_NODECAL') == '1'
+
+
 def prop_obj(pos):
     x, up, fwd = pos
     return Obj('prop', (x - 24, fwd - 1, up - 24), (x + 24, fwd + 7, up + 24), lambda a: a.c4(pos, (0, 0, 0), 'p_prop'))
@@ -294,6 +303,7 @@ def rudder_obj():
         a.cond_eq('RUDDER', 1, lambda: a.call('p_rudP'))
         a.cond_eq('RUDDER', 0, lambda: a.call('p_rud0'))
         a.cond_eq('RUDDER', -1, lambda: a.call('p_rudM'))
+    if STATIC: rud = lambda a: a.call('p_rud0')
     return obj_from('rudder', G.rudder(1).V + G.rudder(-1).V + G.rudder(0).V, rud)
 
 
@@ -304,6 +314,7 @@ def flap_obj(side):
 
 def bay_obj(fus, fm):
     bc, bo = G.bay_parts(fus, fm)
+    if NOBAY: return obj_from('bay', bc.V + bo.V, lambda a: a.call('p_bayC'), pad=0.5)
     return obj_from('bay', bc.V + bo.V, lambda a: a.bay_if(lambda: a.call('p_bayO'), lambda: a.call('p_bayC')), pad=0.5)
 
 
@@ -371,7 +382,7 @@ def build_lod(detail):
     body = G.Mesh('fusb'); body.V = fm.V
     body.F = [f for f in fm.F if not (detail >= 1 and f['tag'] in ('bayL', 'bayR'))]
     tur = G.turrets(fus, detail == 2)
-    dec = G.decals(fus) if detail == 2 else []
+    dec = G.decals(fus) if detail == 2 and not NODECAL else []
     V = []; stats = [0, 0]
     def comp(meshes, objs=(), decals=()):
         _, faces = collect(meshes, decals, V)
@@ -384,7 +395,7 @@ def build_lod(detail):
     bottom = [(3.0, comp([tur['chin']]))] if detail else []
     if detail: bottom.append((31.0, comp([], [bay_obj(fus, fm)])))
     if detail: bottom.append((42.5, comp([tur['ball']])))
-    if detail: bottom.append((67.5, comp([], [tailwheel_obj()])))
+    if detail and not STATIC: bottom.append((67.5, comp([], [tailwheel_obj()])))
     fin = comp([G.fin(fus, detail >= 1)] + ([] if detail else [G.rudder(0)]), [rudder_obj()] if detail else [])
     top = plane_node((0, -1, 0), (0, 0, 0), comp([tur['top']]), fin) if detail else fin   # eye behind s=32: turret, then fin
     centre = attach(T_fus, T_tail, (0, -1, 0), G.P(G.TAILGUN[0], 0, 0))
@@ -400,6 +411,8 @@ def build_lod(detail):
         wd = [q for q in dec[:2] if (q[0][0][0] > 0) == (sg > 0)]
         if not detail:
             wing_t = comp([wm] + nacs, (), wd)
+        elif STATIC:
+            wing_t = wing_side(sg, wm, nacs, wd, comp)
         else:
             wing_t = wing_side(sg, wm, nacs, wd, comp)
             # the moving parts are boxes that overlap much of the wing, so the face compiler can't order
@@ -435,7 +448,7 @@ def build_code(c, sig, lods):
     trailer = bytearray(c[A47_TRAILER:sig])
     hdr = bytearray(c[:0x80])
     fus, fm, props = lods[2][2]
-    phdr = b'\xff\xff\x00\x00\xe8\x00\x08\x00' + struct.pack('<3H', *EXT)
+    phdr = b'\xff\xff\x00\x00\xe8\x00\x08\x00' + struct.pack('<3H', *EXT)     # (first 8 bytes: A47's part prefix)
 
     def assemble(base_sig):
         a = BAsm(0)
@@ -472,6 +485,12 @@ def build_code(c, sig, lods):
     for off, lab in ((0x10, 'trailer'), (0x60, 'low'), (0x68, 'med'), (0x6c, 'noshow')):
         struct.pack_into('<h', nc, off, a.labels[lab] - (off + 2))
     struct.pack_into('<3H', nc, 8, *EXT)
+    # CODE+4: bounding radius (stock: ~0.9-1x the farthest vertex; A47 232). Too small and FA treats the
+    # plane as fully on screen in close views and skips clipping -> crash. Use the farthest vertex + margin.
+    allV = np.array(lods[2][0], float)
+    R = max(232, int(np.ceil(1.2 * np.linalg.norm(allV, axis=1).max())))     # stock ratio ~1.1-1.2
+    struct.pack_into('<H', nc, 4, R)
+    print('radius', R, 'EXT', EXT)
     # CE wingtip points (x, up, fwd) * 256 : left tip stored with negative x like A47
     tip = G.P(G.wing_te(51.9), 51.9, G.wing_z(51.9))
     for off, sx in ((0x14 + 0x0E, -1), (0x14 + 0x1A, 1)):
