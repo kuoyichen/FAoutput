@@ -28,10 +28,11 @@ from f14_nose import face_bytes
 SIG = bytes([1, 2, 3, 2, 1, 2, 3, 2, 1])
 AB_F0 = 0x395C                     # 後燃器 F0（拿它的 push do_start_interp）
 OLD = {'L': 0x4499, 'R': 0x43D8, 'N': 0x4670}
+LBAR = 0x4605                      # 牽引桿零件的 82
 SPAN_END = {'R': 0x4499, 'L': 0x455A, 'N': 0x4766}   # 舊零件的結尾（下一段：L、前輪艙門、後燃器）
 FLAT, TEX = 0x661, 0x75C           # 平面色面；貼圖面（色號 0、u8 UV、0xFF 透明）
 STRUT, BRACE, TIRE = 146, 148, 158
-BASE, WBASE = 594, 652             # 頂點編號：支柱零件（含胎面，最多 58 點）、輪子子零件（v1 左輪用到 664 也正常）
+BASE, WBASE = 594, 668             # 頂點編號：支柱零件（含胎面，最多 74 點）、輪子子零件（v1 左輪用到 664 也正常）
 # 輪框貼圖：中心 (u, v)、半徑（格）
 HUB_MAIN, HUB_NOSE = (152, 173, 16), (152, 211, 11)
 HUB_AREA = (134, 155, 170, 229)
@@ -173,16 +174,24 @@ def build(side):
         g_s += prism(st, (3*sx, 1, -19), (-1*sx, 1, -19), 0.71, 4, BRACE, rot=math.pi/4)   # 輪軸
         g_b = prism(st, (3*sx, 1, -11), (6*sx, 8, 0), 0.75, 4, BRACE, rot=math.pi/4)
         wheels = [((-1*sx, -19, 1), tread(st, (-1*sx, 1, -19), 5, -1, 1))]     # 主輪厚 2
-        split = ((16384*sx, 0, 0), (-1*sx, 0, 0))         # 眼睛在 x=1 的支柱那一側 → 先畫輪子
+        split = ((16384*sx, 0, 0), (-1*sx, 0, 0), None)         # 眼睛在 x=1 的支柱那一側 → 先畫輪子
         fwd = (0, 0, -3)
         wp = wheel_part(WBASE, 5, HUB_MAIN, -1, 1)
     else:
-        g_s = prism(st, (-3, 5, -13), (3, 5, -13), 1.0, 4, BRACE)                  # 輪軸：菱形（角離軸心 1），中心對準輪心；座標是整數，置中又最細就是這樣
-        g_s += prism(st, (0, 5, 0), (0, 5, -13), 1.0, 4, STRUT)                     # 垂直支柱
-        g_b = prism(st, (0, 5, -7), (0, 15, -2), 0.71, 4, BRACE, rot=math.pi/4)
+        # 照 F-18 的結構（Kuoyi 2026-11-17）：上段粗筒身、細活塞、套環、下端輪叉座（兩輪中間）、往前上的斜撐（1×1 斜桿）
+        # 頂端 z=0 = 機身底（機身在這裡約 up -6～-7）。後面的斜桿是原本的牽引桿零件 0x4605，前端拉到支柱（main() 裡改）
+        g = {}
+        g['housing'] = prism(st, (0, 5, 0), (0, 5, -5), 2.0, 4, STRUT, caps=(False, True))   # 菱形，角離中心 2
+        g['piston'] = prism(st, (0, 5, -5), (0, 5, -12), 1.0, 4, BRACE, caps=(False, False))
+        g['piston'] += prism(st, (0, 5, -8), (0, 5, -9), 2.0, 4, STRUT)                       # 套環
+        g['block'] = box(st, (-3, 3), (4, 6), (-14, -12), STRUT)                               # 輪叉座 = 輪軸
+        A = [st.v(p) for p in ((0, 6, -9), (1, 6, -9), (1, 6, -8), (0, 6, -8))]
+        B = [st.v(p) for p in ((0, 15, -3), (1, 15, -3), (1, 15, -2), (0, 15, -2))]
+        g['bar'] = [st.face([A[i], A[(i+1) % 4], B[(i+1) % 4], B[i]], BRACE, (0.5, 10.5, -5.5)) for i in range(4)] + [st.face(B, BRACE, (0.5, 10.5, -5.5))]
+        g_s, g_b = g, None
         wheels = [((x, -13, 5), tread(st, (x, 5, -13), 3, 0, 1)) for x in (-4, 3)]   # 前輪厚 1：-4..-3、3..4
-        split = ((16384, 0, 0), (0, 0, 0))
-        fwd = (0, 0, -8)
+        split = ((16384, 0, 0), (3, 0, 0), (-3, 0, 0))                               # x=-3 分左輪，x=3 分右輪
+        fwd = None
         wp = wheel_part(WBASE, 3, HUB_NOSE, 0, 1)
     assert BASE + len(st.V) <= WBASE, len(st.V)
     return st, g_s, g_b, wheels, split, fwd, wp
@@ -191,24 +200,29 @@ def build(side):
 def part_block(side, at, header):
     """回傳 (bytes, 輪子 C4 位置列表)。輪子零件前面放 6 位元組範圍標頭（C4 會讀它，沒有的話零件畫不出來）
     每個輪子 = 胎面（支柱零件的面）＋ C4 輪框子零件 ＋ 1E"""
-    st, g_s, g_b, wheels, (n, d), fwd, wp = build(side)
+    st, g_s, g_b, wheels, (n, d, d2), fwd, wp = build(side)
     out = bytearray(st.bytes())
-    S, _ = st.group(g_s); B, _ = st.group(g_b)
     T = [st.group(t)[0][:-1] for _, t in wheels]
     WB = header + wp.bytes() + wp.group(range(len(wp.F)))[0]
     c4s = []
     if side in 'LR':
+        S, _ = st.group(g_s); B, _ = st.group(g_b)
         N1 = at + len(out); WC = N1 + 20; SG = WC + len(T[0]) + 17; s = SG + 20; b = s + len(S); wpos = b + len(B) + 6
         C = WC + len(T[0])
         out += node(N1, n, d, WC, SG) + T[0] + c4(C, wheels[0][0], wpos) + b'\x1e' + node(SG, (0, 0, 16384), fwd, s, b) + S + B + WB
         c4s.append(C)
     else:
-        N1 = at + len(out); WL = N1 + 20; N2 = WL + len(T[0]) + 17; WR = N2 + 20; SG = WR + len(T[1]) + 17
-        s = SG + 20; b = s + len(S); wpos = b + len(B) + 6
+        G_ = {k: st.group(v)[0] for k, v in g_s.items()}
+        slen = 3 * 20 + sum(len(v) for v in G_.values())
+        N1 = at + len(out); WL = N1 + 20; N2 = WL + len(T[0]) + 17; WR = N2 + 20; s = WR + len(T[1]) + 17; wpos = s + slen + 6
         CL, CR = WL + len(T[0]), WR + len(T[1])
+        # 結構：node(前後 y=7：其餘 → 斜撐) → node(z=-5：下段 → 筒身) → node(z=-12：輪叉座 → 活塞＋套環)
+        R1 = s + 20; R2 = R1 + 20; PC = R2 + 20; BK = PC + len(G_['piston']); HS = BK + len(G_['block']); BR = HS + len(G_['housing'])
+        S = (node(s, (0, 0, 16384), (0, 0, -7), R1, BR) + node(R1, (0, 16384, 0), (0, 5, 0), R2, HS)
+             + node(R2, (0, 16384, 0), (0, 12, 0), BK, PC) + G_['piston'] + G_['block'] + G_['housing'] + G_['bar'])
+        assert len(S) == slen
         out += node(N1, n, d, WL, N2) + T[0] + c4(CL, wheels[0][0], wpos) + b'\x1e'
-        out += node(N2, n, d, SG, WR) + T[1] + c4(CR, wheels[1][0], wpos) + b'\x1e'
-        out += node(SG, (0, 0, 16384), fwd, s, b) + S + B + WB
+        out += node(N2, n, d2, s, WR) + T[1] + c4(CR, wheels[1][0], wpos) + b'\x1e' + S + WB
         c4s += [CL, CR]
     assert out[wpos - at] == 0x82 and all(out[c - at] == 0xC4 for c in c4s)
     return bytes(out), c4s
@@ -278,6 +292,9 @@ def main():
     assert all(bytes(c[o - 6:o]) == header for o in OLD.values()), '零件範圍標頭不一樣'
     assert c[AB_F0:AB_F0+2] == b'\xf0\x00' and c[AB_F0 + 17] == 0x68 and c[AB_F0 + 22] == 0xC3
     thunk = struct.unpack_from('<I', c, AB_F0 + 18)[0]
+    # 原本的牽引桿零件（C4 0x1DAC (0,-5,50)）：前端兩點 y 23/22 → 24/23，拉到前輪支柱上
+    assert c[LBAR] == 0x82 and struct.unpack_from('<6h', c, LBAR + 6) == (0, 23, -5, 0, 22, -6)
+    struct.pack_into('<6h', c, LBAR + 6, 0, 24, -5, 0, 23, -6)
     tail = bytes(c).find(SIG)
     blk = bytearray(); starts = {}; c4s = {}
     for side in 'LRN':
@@ -303,7 +320,8 @@ def main():
         assert old + len(tr) <= SPAN_END[side], (side, len(tr))     # 只蓋到舊零件自己的面（舊零件只從 C4 進來）
         c[old:old + len(tr)] = tr
         relocs += [pp + 1 - tail, pp + 6 - tail]
-    out = insert_blocks(d, pe, secs, code, c, tail, bytes(blk), extra_relocs=relocs)
+    from f18_gear import shrink_reloc               # .reloc 0x800 → 0x200（資料只有約 230 位元組），檔案才放得下
+    out = shrink_reloc(insert_blocks(d, pe, secs, code, c, tail, bytes(blk), extra_relocs=relocs))
     assert len(out) < 65536, f'SH 檔 {len(out)} 位元組，FA 只接受 < 65536'
     open(dst, 'wb').write(out); open(pdst, 'wb').write(pb)
     print(f'{dst}: 起落架 {len(blk)} 位元組（空間 {room}）在 CODE+{tail:#x}，CODE 長 {len(c) + L:#x}；零件 {[hex(v) for v in starts.values()]}；輪子 C4 {c4s}')
