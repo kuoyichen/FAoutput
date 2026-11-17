@@ -102,13 +102,12 @@ def wheel_part(base, r, hub, x0, x1):
     return p
 
 
-def tread(st, c, r, h, x0, x1):
-    """胎面（不轉，放在支柱零件）：輪子的前、後、上、下各一小片黑色平面，寬 = 胎寬，長 2h。c = 輪心 (x, 前, 上)"""
-    cx, cy, cz = c; f = []
-    for s_ in (1, -1):
-        f.append(st.face([st.v((cx+x0, cy + s_*r, cz - h)), st.v((cx+x1, cy + s_*r, cz - h)), st.v((cx+x1, cy + s_*r, cz + h)), st.v((cx+x0, cy + s_*r, cz + h))], TIRE, c))
-        f.append(st.face([st.v((cx+x0, cy - h, cz + s_*r)), st.v((cx+x1, cy - h, cz + s_*r)), st.v((cx+x1, cy + h, cz + s_*r)), st.v((cx+x0, cy + h, cz + s_*r))], TIRE, c))
-    return f
+def tread(st, c, r, x0, x1):
+    """胎面（不轉，放在支柱零件）：八角柱的 8 個側面，黑色，從 x0 到 x1（相對輪心）。c = 輪心 (x, 前, 上)"""
+    cx, cy, cz = c; R0 = r / math.cos(math.pi / 8)
+    ring = lambda x: [st.v((cx + x, cy + R0*math.cos(math.pi/8 + i*math.pi/4), cz + R0*math.sin(math.pi/8 + i*math.pi/4))) for i in range(8)]
+    A, B = ring(x0), ring(x1)
+    return [st.face([A[i], A[(i+1) % 8], B[(i+1) % 8], B[i]], TIRE, (cx + (x0+x1)/2, cy, cz)) for i in range(8)]
 
 
 def read_pic(b):
@@ -161,18 +160,18 @@ def build(side):
         g_s += prism(st, (3*sx, 1, -6), (3*sx, 1, -9), 1.9, 4, BRACE, rot=math.pi/4)
         g_s += prism(st, (3*sx, 1, -19), (-1*sx, 1, -19), 0.71, 4, BRACE, rot=math.pi/4)   # 輪軸
         g_b = prism(st, (3*sx, 1, -11), (6*sx, 8, 0), 0.75, 4, BRACE, rot=math.pi/4)
-        wheels = [((-1*sx, -19, 1), tread(st, (-1*sx, 1, -19), 5, 2, -2, 2))]
+        wheels = [((-1*sx, -19, 1), tread(st, (-1*sx, 1, -19), 5, -1, 1))]     # 主輪厚 2
         split = ((16384*sx, 0, 0), (-1*sx, 0, 0))         # 眼睛在 x=1 的支柱那一側 → 先畫輪子
         fwd = (0, 0, -3)
-        wp = wheel_part(WBASE, 5, HUB_MAIN, -2, 2)
+        wp = wheel_part(WBASE, 5, HUB_MAIN, -1, 1)
     else:
         g_s = prism(st, (-3, 5, -13), (3, 5, -13), 0.71, 4, BRACE, rot=math.pi/4)   # 輪軸
         g_s += prism(st, (0, 5, 0), (0, 5, -13), 1.0, 4, STRUT)                     # 垂直支柱
         g_b = prism(st, (0, 5, -7), (0, 15, -2), 0.71, 4, BRACE, rot=math.pi/4)
-        wheels = [((x, -13, 5), tread(st, (x, 5, -13), 3, 1, -1, 1)) for x in (-3, 3)]
+        wheels = [((x, -13, 5), tread(st, (x, 5, -13), 3, 0, 1)) for x in (-4, 3)]   # 前輪厚 1：-4..-3、3..4
         split = ((16384, 0, 0), (0, 0, 0))
         fwd = (0, 0, -8)
-        wp = wheel_part(WBASE, 3, HUB_NOSE, -1, 1)
+        wp = wheel_part(WBASE, 3, HUB_NOSE, 0, 1)
     assert BASE + len(st.V) <= WBASE, len(st.V)
     return st, g_s, g_b, wheels, split, fwd, wp
 
