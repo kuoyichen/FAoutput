@@ -85,6 +85,7 @@ def run(c, start, eye):
                 exe(a, tf, eye, depth+1); exe(b, tf, eye, depth+1); p += 10
             elif op == 0x12 and c[p+1] == 0:
                 exe(p+4+h(p+2), tf, eye, depth+1); p += 4
+            elif op == 0x40 and c[p+1] == 0: p = p+4+h(p+4)     # frame switch: draw frame 0
             elif op == 0x38: p = p+3+h(p+1)
             elif op == 0x48 and c[p+1] == 0: p = p+4+h(p+2)
             elif op == 0xC4 and c[p+1] == 0:
@@ -139,7 +140,8 @@ def render(path, views, size=520, scale=None, out_png=None):
                 k = 0.55 + 0.45 * abs(sum(nrm[j] * light[j] for j in range(3)) / L)
             rgb = tuple(int(min(255, ch * k)) for ch in base)
             pts = [proj(v) for v in P]
-            if len(pts) >= 3: dr.polygon(pts, fill=rgb, outline=tuple(int(ch * .7) for ch in rgb))
+            if tex and col == 0 and len(pts) >= 3: dr.polygon(pts, outline=(90, 90, 90))   # rotor disc etc.
+            elif len(pts) >= 3: dr.polygon(pts, fill=rgb, outline=tuple(int(ch * .7) for ch in rgb))
             elif len(pts) == 2: dr.line(pts, fill=rgb)
         imgs.append(im)
     W = Image.new('RGB', (size * len(imgs), size), (255, 255, 255))
