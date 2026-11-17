@@ -5,6 +5,8 @@ Elements: faces (int vertex coords) and objects (axis boxes drawn by callbacks).
 Node 06: value = n.(eye - p) >= 0 (eye in front) -> A (back side) then B (front side)."""
 import numpy as np
 EPS = 0.35
+OBJ_SIDE = False     # True: an object on/across a candidate plane counts as moved to one side (avoids
+                     # re-picking a plane that only touches a flat object box, which loops to depth 40)
 
 
 class Face:
@@ -129,6 +131,9 @@ class Order(Builder):
             ost = sum(o.side(n, d) == 'S' for o in objs)
             # progress: plane must split the component
             cs = [els[v].side(n, d) for v in comp]
+            # an object on or across the plane is sent whole to one side (by its centre): it is not removed
+            if OBJ_SIDE: cs = [k if isinstance(els[v], Face) or k in 'FB' else
+                  ('F' if np.dot((els[v].lo + els[v].hi) / 2, n) - d >= 0 else 'B') for k, v in zip(cs, comp)]
             if not (any(k in 'FS' for k in cs) and any(k in 'BS' for k in cs)) and not any(k == 'C' for k in cs): continue
             score = sp * 10 + ost * 30 + abs(fr - bk) * 0.05
             if best is None or score < best[0]: best = (score, n, d)
