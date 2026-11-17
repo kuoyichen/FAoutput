@@ -267,11 +267,10 @@ def obj_from(name, pts, emit, pad=1.0):
     return Obj(name, P.min(0) - pad, P.max(0) + pad, emit)
 
 
-# test switches (bisecting in-game problems): B17_STATIC=1 -> no x86 blocks and no C4 parts (no props,
-# gear, flaps; rudder neutral, bay closed); B17_NOBAY=1 -> bay always closed (no x86 object read);
-# B17_NODECAL=1 -> no insignia
-STATIC = os.environ.get('B17_STATIC') == '1'
-NOBAY = STATIC or os.environ.get('B17_NOBAY') == '1'
+# test switches (bisecting in-game problems): B17_FEAT = comma list of the moving parts to include
+# (props, gear, flaps, rudder, bay; default all). Left out: no x86 block / C4 for it (rudder neutral,
+# bay closed). B17_NODECAL=1 -> no insignia.
+FEAT = set(os.environ.get('B17_FEAT', 'props,gear,flaps,rudder,bay').split(','))
 NODECAL = os.environ.get('B17_NODECAL') == '1'
 
 
@@ -303,7 +302,7 @@ def rudder_obj():
         a.cond_eq('RUDDER', 1, lambda: a.call('p_rudP'))
         a.cond_eq('RUDDER', 0, lambda: a.call('p_rud0'))
         a.cond_eq('RUDDER', -1, lambda: a.call('p_rudM'))
-    if STATIC: rud = lambda a: a.call('p_rud0')
+    if 'rudder' not in FEAT: rud = lambda a: a.call('p_rud0')
     return obj_from('rudder', G.rudder(1).V + G.rudder(-1).V + G.rudder(0).V, rud)
 
 
@@ -314,7 +313,7 @@ def flap_obj(side):
 
 def bay_obj(fus, fm):
     bc, bo = G.bay_parts(fus, fm)
-    if NOBAY: return obj_from('bay', bc.V + bo.V, lambda a: a.call('p_bayC'), pad=0.5)
+    if 'bay' not in FEAT: return obj_from('bay', bc.V + bo.V, lambda a: a.call('p_bayC'), pad=0.5)
     return obj_from('bay', bc.V + bo.V, lambda a: a.bay_if(lambda: a.call('p_bayO'), lambda: a.call('p_bayC')), pad=0.5)
 
 
@@ -395,7 +394,7 @@ def build_lod(detail):
     bottom = [(3.0, comp([tur['chin']]))] if detail else []
     if detail: bottom.append((31.0, comp([], [bay_obj(fus, fm)])))
     if detail: bottom.append((42.5, comp([tur['ball']])))
-    if detail and not STATIC: bottom.append((67.5, comp([], [tailwheel_obj()])))
+    if detail and 'gear' in FEAT: bottom.append((67.5, comp([], [tailwheel_obj()])))
     fin = comp([G.fin(fus, detail >= 1)] + ([] if detail else [G.rudder(0)]), [rudder_obj()] if detail else [])
     top = plane_node((0, -1, 0), (0, 0, 0), comp([tur['top']]), fin) if detail else fin   # eye behind s=32: turret, then fin
     centre = attach(T_fus, T_tail, (0, -1, 0), G.P(G.TAILGUN[0], 0, 0))
@@ -411,16 +410,17 @@ def build_lod(detail):
         wd = [q for q in dec[:2] if (q[0][0][0] > 0) == (sg > 0)]
         if not detail:
             wing_t = comp([wm] + nacs, (), wd)
-        elif STATIC:
-            wing_t = wing_side(sg, wm, nacs, wd, comp)
         else:
             wing_t = wing_side(sg, wm, nacs, wd, comp)
             # the moving parts are boxes that overlap much of the wing, so the face compiler can't order
             # them: they go around the wing with hand planes (gear and flap below it, props ahead of it)
-            lower = plane_node((0, -1, 0), G.P(34.0, 0, 0), ('list', [gear_obj(sg)]), ('list', [flap_obj(sg)]))
-            dh = math.radians(G.DIHEDRAL)
-            wing_t = attach(wing_t, lower, (sg * math.sin(dh), 0, -math.cos(dh)), G.P(40.0, sg * 3.8, G.wing_z(3.8)))
-            for pr in prs:
+            gl = [gear_obj(sg)] if 'gear' in FEAT else []
+            fl = [flap_obj(sg)] if 'flaps' in FEAT else []
+            if gl or fl:
+                lower = plane_node((0, -1, 0), G.P(34.0, 0, 0), ('list', gl), ('list', fl))
+                dh = math.radians(G.DIHEDRAL)
+                wing_t = attach(wing_t, lower, (sg * math.sin(dh), 0, -math.cos(dh)), G.P(40.0, sg * 3.8, G.wing_z(3.8)))
+            for pr in (prs if 'props' in FEAT else []):
                 x, up, fw = pr
                 wing_t = attach(wing_t, ('list', [prop_obj(pr)]), (0, 1, 0), (x, fw - 1.5, up))
         stab_t = comp([G.stab(sg, fus, detail == 2)])

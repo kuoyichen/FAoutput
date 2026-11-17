@@ -438,13 +438,13 @@ def turrets(fus, detail=True):
     """separate meshes: top (Sperry), chin (Bendix), ball (Sperry), tail (Cheyenne)"""
     T, C, B, H = Mesh('top'), Mesh('chin'), Mesh('ball'), Mesh('tail')
     z = dome(T, fus, 20.5, 2.0, 2.2, GLASS, base_col=OLIVE_D)
-    if detail: gun_pair(T, 15.5, 19.6, 0, z + 1.2)
+    if detail: gun_pair(T, 17.6, 19.6, 0, z + 1.2)
     zb = chin_box(C, fus, 1.6, 4.4, 1.3, 1.6)
-    if detail: gun_pair(C, -1.8, 1.6, 0, zb + 0.7, 0.9)
+    if detail: gun_pair(C, -0.2, 1.6, 0, zb + 0.7, 0.9)
     z = dome(B, fus, 42.5, 2.1, 2.6, OLIVE_D, up=-1)
-    if detail: gun_pair(B, 37.0, 41.0, 0, z - 1.9, 0.6)
+    if detail: gun_pair(B, 39.0, 41.0, 0, z - 1.9, 0.6)
     zc = tail_housing(H, fus)
-    if detail: gun_pair(H, TAILGUN[1], TAILGUN[1] + 3.0, 0, zc, 0.8)
+    if detail: gun_pair(H, TAILGUN[1], TAILGUN[1] + 1.6, 0, zc, 0.8)
     return dict(top=T, chin=C, ball=B, tail=H)
 
 
