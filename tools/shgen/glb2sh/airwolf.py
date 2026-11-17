@@ -51,7 +51,7 @@ GLASS_UV = (150, 86, 32)              # stipple glass patch in _AIRWOLF.PIC (u, 
 MR_UV = [(0, 0, 84), (86, 0, 84), (172, 0, 84)]
 TR_UV = [(0, 86, 48), (50, 86, 48), (100, 86, 48)]
 ROTOR_Z, ROTOR_R = 22, 57
-TR_C, TR_R, TR_X = (-82, 10), 12, 8   # tail rotor centre (fwd, up), radius, plane x (right side)
+TR_C, TR_R, TR_X = (-82, 10), 12, -8  # tail rotor centre (fwd, up), radius, plane x (left side, Kuoyi; fin on the right)
 
 BODY_STA = [41, 39, 36, 32, 27.5, 22.5, 17, 11, 5, -1, -8, -15, -22, -30, -38]
 BOOM_STA = [-47, -54, -62, -70, -77, -83]
@@ -216,8 +216,13 @@ def build(g):
         iprism(M, [(x + dx, -7 + dz) for dx, dz in DIAMOND], 1, 0, 13, BLACK, cap_col=TYRE)
     # 5. tail: stabiliser up to the end plates, end plates touching its tips, fin down to the boom
     P = g.points([250])
-    fin = P[(np.abs(P[:, 0]) < 2.5) & ((P[:, 1] < -57) | (P[:, 2] > 12))]
-    plate(M, fin, (1, 0, 0), 6, BLACK)
+    # fin on the right (the GLB has it on the left, x -1.75): black above the boom line, white below, the lower
+    # trailing edge cut at an angle (Kuoyi's photo)
+    FX = 1.75
+    up_fin = [(-76.6, 10), (-86.2, 25.3), (-91.8, 25.9), (-91.6, 10)]
+    lo_fin = [(-76.6, 10), (-91.6, 10), (-91.3, 6), (-88.0, 2.9), (-85.9, 2.9), (-76.2, 9.3)]
+    for pts, col in ((up_fin, BLACK), (lo_fin, WHITE)):
+        plate(M, np.array([(FX, y, z) for y, z in pts]), (1, 0, 0), len(pts), col)
     stab = P[(np.abs(P[:, 0]) < 16.5) & (P[:, 1] > -57) & (P[:, 2] < 10)].copy()
     stab[:, 0] = np.clip(stab[:, 0], -EP_X, EP_X)
     plate(M, stab, (0, 0, 1), 6, (BLACK, WHITE))
@@ -226,7 +231,7 @@ def build(g):
         plate(M, ep, (side, 0, 0), 5, BLACK)
     # 6. rotor mast and tail rotor hub
     prism(M, (0, 0, 20), (0, 0, 1), 1.5, 5, 4, BLACK, rot0=np.pi/4)
-    prism(M, (TR_X - 1.2, TR_C[0], TR_C[1]), (1, 0, 0), 1.0, 2.4, 4, BLACK, rot0=np.pi/4)
+    prism(M, (TR_X - np.sign(TR_X) * 1.2, TR_C[0], TR_C[1]), (1, 0, 0), 1.0, 2.4, 4, BLACK, rot0=np.pi/4)
     # 7. dark cockpit interior seen through the glass: bulkhead behind the seats and a floor
     h = sec.half_ring(BULKHEAD_Y, 3, 2, 1) * 0.92
     bh = np.array([(x, BULKHEAD_Y, z) for x, z in h] + [(-x, BULKHEAD_Y, z) for x, z in h[-2:0:-1]])
