@@ -34,27 +34,31 @@ from shasm import Asm
 from sh_subdivide import pe_sections
 import f14_glb as F
 from f18g_growler import grow_vas
-GROW = 0x1000
+GROW = 0x3000      # file stays far below FA's 64 KB SH limit
 
 # ---- HOKUT.SH layout (CODE offsets) ----
 R0, R1 = 0x5A, 0x478E                 # high LOD: main 82 .. old gear parts end (0x478E = '1E 1E' before LOD2)
-HDR_RELS = [0x10, 0x46]               # header rel16 fields that point past the region (trailer, A6 target)
+# header rel16s: 0x10 (F2 trailer, from 0x12) and 0x46 (A6 detail skip, from 0x48) -> copies inside the new block
 LOD_RELS = [0x3A, 0x42]               # C8 LOD switches -> point them at the texture op (0x4A) + high LOD
 TEX_OP = 0x4A                         # E2 00 '_hokut.PIC' (renamed to _AIRWOLF.PIC)
 PART_HDR = bytes.fromhex('ffff00006a0008008900 3300b500'.replace(' ', ''))
 VARS = {'GEARDOWN': 0x6350, 'GEARPOS': 0x6356, 'RESUME': 0x635C}
 
-BLACK, WHITE, GLASS, TYRE, METAL, HUB = 0x44, 0x91, 0x9D, 0x3A, 0x34, 0x37
+BLACK, WHITE, GLASS, TYRE, METAL, HUB, INTERIOR = 0x44, 0x91, 0x9D, 0x3A, 0x34, 0x37, 0x9F
+GLASS_UV = (150, 86, 32)              # stipple glass patch in _AIRWOLF.PIC (u, v, size)
 # PIC layout (see make_pic): 3 main-rotor frames 84x84 at u = 0/86/172, v 0..83; 3 tail-rotor frames 48x48 at v 86
 MR_UV = [(0, 0, 84), (86, 0, 84), (172, 0, 84)]
 TR_UV = [(0, 86, 48), (50, 86, 48), (100, 86, 48)]
 ROTOR_Z, ROTOR_R = 22, 57
 TR_C, TR_R, TR_X = (-82, 10), 12, 8   # tail rotor centre (fwd, up), radius, plane x (right side)
 
-BODY_STA = [40, 38, 35, 31, 27, 22, 17, 11, 5, 0, -6, -12, -18, -24, -30, -36, -41]
+BODY_STA = [41, 39, 36, 32.5, 29, 25, 21, 16.5, 12, 7, 2, -3, -9, -15, -21, -28, -35, -41]
 BOOM_STA = [-47, -54, -62, -70, -77, -83]
+RING = (6, 4, 2)                      # half ring segments: top->widest, widest->lowest, lowest->bottom (24 points)
+EP_X = 16.3                           # tail end plates (stabiliser tips)
+BULKHEAD_Y, FLOOR_Z = 15, -4.0
 TAIL_END = -86.5
-SPON_STA = [14, 10, 5, 0, -5, -10, -15, -19]
+SPON_STA = [14, 8, 2, -4, -10, -15, -19]
 
 
 # ------------------------------------------------------------------ geometry
@@ -106,51 +110,55 @@ def plate(M, P3, n_out, verts, col=None):
     return ids
 
 
-def prism(M, centre, axis, r, length, n, col, cap_col=None, rot0=0.0):
-    """n-gon prism along axis (unit, one of the coordinate axes) centred at centre"""
+def prism(M, centre, axis, r, length, n, col, cap_col=None, rot0=0.0, rz=None, col_fn=None):
+    """n-gon prism along a coordinate axis; r (and rz for an elliptic section, along the second section axis)"""
     axis = np.asarray(axis, float); c = np.asarray(centre, float)
     u = np.array([0, 0, 1.0]) if abs(axis[2]) < 0.9 else np.array([1.0, 0, 0])
     u = u - axis * np.dot(u, axis); u /= np.linalg.norm(u); v = np.cross(axis, u)
+    rz = r if rz is None else rz
     rings = []
     for s in (-0.5, 0.5):
-        rings.append([M.add(c + axis*s*length + r*(np.cos(a)*u + np.sin(a)*v))
+        rings.append([M.add(c + axis*s*length + r*np.cos(a)*u + rz*np.sin(a)*v)
                       for a in rot0 + np.arange(n) * 2*np.pi/n])
     a, b = rings
     for k in range(n):
         ang = rot0 + (k + 0.5) * 2*np.pi/n
-        M.F.append(([a[k], a[(k+1) % n], b[(k+1) % n], b[k]], col, False, tuple(np.cos(ang)*u + np.sin(ang)*v)))
+        nrm = np.cos(ang)*u/r + np.sin(ang)*v/rz; nrm /= np.linalg.norm(nrm)
+        cc = col_fn(nrm) if col_fn else col
+        M.F.append(([a[k], a[(k+1) % n], b[(k+1) % n], b[k]], cc, False, tuple(nrm)))
     M.F.append((a[::-1], cap_col or col, False, tuple(-axis)))
     M.F.append((b, cap_col or col, False, tuple(axis)))
-    # fix winding by geometry
     return rings
+
+
+def body_rings(M, sec, stations, every=1):
+    out = []
+    for y in stations:
+        h = sec.half_ring(y, *RING)
+        full = [(x, y, z) for x, z in h] + [(-x, y, z) for x, z in h[-2:0:-1]]
+        out.append([M.add(p) for p in full[::every]])
+    return out
 
 
 def build(g):
     M = Mesh()
-    # 1. fuselage
+    # 1. fuselage: 24-point rings on the cabin, every second point (12) on the boom
     T, _ = g.grp(BODY, BODY_SKIP)
     S, lo, vox = voxel_solid(T, vox=0.5, lo=(-14, -100, -12), hi=(14, 46, 22))
     sec = Sections(S, lo, vox)
-    rings = []
-    for y in BODY_STA:
-        h = sec.half_ring(y, 5, 3, 2)
-        full = [(x, y, z) for x, z in h] + [(-x, y, z) for x, z in h[-2:0:-1]]
-        rings.append([M.add(p) for p in full])
-    boom = []
-    for y in BOOM_STA:
-        h = sec.half_ring(y, 5, 3, 2)
-        full = [(x, y, z) for x, z in h] + [(-x, y, z) for x, z in h[-2:0:-1]]
-        boom.append([M.add(p) for p in full[::2]])
+    rings = body_rings(M, sec, BODY_STA)
+    boom = body_rings(M, sec, BOOM_STA, 2)
+    K = len(rings[0]); KB = len(boom[0])
     nose = M.add((0, 42.3, float(np.mean([M.V[i][2] for i in rings[0]]))))
     loft(M, rings, None, close_front=nose)
-    # transition 20 -> 10
     a, b = rings[-1], boom[0]
-    for j in range(10):
+    for j in range(KB):
         M.F.append(([a[2*j], a[2*j+1], b[j]], None, True, None))
-        M.F.append(([a[2*j+1], a[(2*j+2) % 20], b[(j+1) % 10]], None, True, None))
-        M.F.append(([a[2*j+1], b[(j+1) % 10], b[j]], None, True, None))
+        M.F.append(([a[2*j+1], a[(2*j+2) % K], b[(j+1) % KB]], None, True, None))
+        M.F.append(([a[2*j+1], b[(j+1) % KB], b[j]], None, True, None))
     tail = M.add((0, TAIL_END, float(np.mean([M.V[i][2] for i in boom[-1]]))))
     loft(M, boom, None, close_back=tail)
+    M.cabin = sec                                      # for the interior plates
 
     # 2. sponsons (right group, mirrored)
     Ts, _ = g.grp([55, 56])
@@ -165,25 +173,38 @@ def build(g):
             rs.append([M.add((x, y, z)) for x, z in R])
         ctr_f = np.mean([M.V[i] for i in rs[0]], 0); ctr_b = np.mean([M.V[i] for i in rs[-1]], 0)
         f = M.add((ctr_f[0], SPON_STA[0] + 2.5, ctr_f[2])); bk = M.add((ctr_b[0], SPON_STA[-1] - 3, ctr_b[2]))
-        if side > 0: loft(M, rs, None, close_front=f, close_back=bk)
-        else: loft(M, rs, None, close_front=f, close_back=bk)
-    # 3. gun pods + pylons
+        loft(M, rs, None, close_front=f, close_back=bk)
+    # 3. wingtip gun pods (black top / white bottom), pylons, 3 barrels each side (2 thin above, 1 thick below)
+    topbot = lambda n: BLACK if n[2] > -0.2 else WHITE
     for side in (1, -1):
-        prism(M, (side*23.3, -1.6, -1.6), (0, 1, 0), 1.6, 24, 6, BLACK, rot0=np.pi/6)
-        Pp = g.points([59]); Pp = Pp * np.array([side, 1, 1])
-        plate(M, Pp, (0, 0, 1), 4, BLACK)
-    # 4. tail surfaces
+        prism(M, (side*24.2, -8.0, -1.6), (0, 1, 0), 0.9, 11.3, 6, BLACK, cap_col=BLACK, rot0=0, rz=2.8, col_fn=topbot)
+        Pp = g.points([59]) * np.array([side, 1, 1])
+        plate(M, Pp, (0, 0, 1), 4, (BLACK, WHITE))
+        prism(M, (side*22.45, 4.4, -1.95), (0, 1, 0), 0.55, 12.0, 4, METAL, rot0=np.pi/4)      # thick, lower
+        for x in (22.9, 21.95):
+            prism(M, (side*x, 2.6, -0.15), (0, 1, 0), 0.35, 9.4, 3, METAL, rot0=np.pi/2)      # thin, upper
+    # 4. three rocket tubes under the belly
+    for x in (-2.6, 0.0, 2.6):
+        prism(M, (x, 6.6, -7.1), (0, 1, 0), 0.9, 12.8, 6, BLACK, cap_col=TYRE, rot0=0)
+    # 5. tail: stabiliser up to the end plates, end plates touching its tips, fin down to the boom
     P = g.points([250])
     fin = P[(np.abs(P[:, 0]) < 2.5) & ((P[:, 1] < -57) | (P[:, 2] > 12))]
     plate(M, fin, (1, 0, 0), 6, BLACK)
-    stab = P[(np.abs(P[:, 0]) < 14) & (P[:, 1] > -57) & (P[:, 2] < 10)]
-    plate(M, stab, (0, 0, 1), 6, (BLACK, WHITE))     # black on top, white below
+    stab = P[(np.abs(P[:, 0]) < 16.5) & (P[:, 1] > -57) & (P[:, 2] < 10)].copy()
+    stab[:, 0] = np.clip(stab[:, 0], -EP_X, EP_X)
+    plate(M, stab, (0, 0, 1), 6, (BLACK, WHITE))
     for side in (1, -1):
-        ep = P[P[:, 0] * side > 14]
-        plate(M, ep, (side, 0, 0), 4, BLACK)
-    # 5. rotor mast
+        ep = P[P[:, 0] * side > 14].copy(); ep[:, 0] = side * EP_X
+        plate(M, ep, (side, 0, 0), 5, BLACK)
+    # 6. rotor mast and tail rotor hub
     prism(M, (0, 0, 20), (0, 0, 1), 1.5, 5, 4, BLACK, rot0=np.pi/4)
     prism(M, (TR_X - 1.2, TR_C[0], TR_C[1]), (1, 0, 0), 1.0, 2.4, 4, BLACK, rot0=np.pi/4)
+    # 7. dark cockpit interior seen through the glass: bulkhead behind the seats and a floor
+    h = sec.half_ring(BULKHEAD_Y, 3, 2, 1) * 0.92
+    bh = np.array([(x, BULKHEAD_Y, z) for x, z in h] + [(-x, BULKHEAD_Y, z) for x, z in h[-2:0:-1]])
+    plate(M, bh, (0, 1, 0), 8, INTERIOR)
+    fl = np.array([(x, y, FLOOR_Z) for x in (-4.5, 4.5) for y in (BULKHEAD_Y, 36)])
+    plate(M, fl, (0, 0, 1), 4, INTERIOR)
     return M
 
 
@@ -191,28 +212,45 @@ COLOUR_GROUPS = [187, 192, 205, 3, 197, 198, 199, 202, 216, 217, 232, 17, 55, 56
 
 
 def colours(g, M):
-    """per face: colour of the nearby GLB skin triangles that face the same way (area / distance weighted).
-    GLB grey and black -> BLACK (Kuoyi: the grey is black), white -> WHITE, glass -> GLASS."""
+    """per face: material of the GLB skin hit by a ray through the face centre along its normal (the outermost
+    hit, looking both ways), falling back to nearby triangles. GLB grey and black -> BLACK (Kuoyi: the grey is
+    black), white -> WHITE, glass -> GLASS."""
     T, Mt = g.grp(COLOUR_GROUPS, BODY_SKIP)
-    C = T.mean(1); N = np.cross(T[:, 1] - T[:, 0], T[:, 2] - T[:, 0]); A = np.linalg.norm(N, axis=1)
-    N = N / (A[:, None] + 1e-12); tree = cKDTree(C)
     lum = {}
     for m in set(Mt.tolist()):
         mt = g.J['materials'][m] if m is not None else {}
         c = mt.get('pbrMetallicRoughness', {}).get('baseColorFactor', [0.5, 0.5, 0.5, 1])
         lum[m] = GLASS if (c[3] < 0.5 or 'Glass' in mt.get('name', '')) else (WHITE if np.mean(c[:3]) > 0.45 else BLACK)
+    L = np.array([lum[m] for m in Mt])
+    A0, E1, E2 = T[:, 0], T[:, 1] - T[:, 0], T[:, 2] - T[:, 0]
+    C = T.mean(1); tree = cKDTree(C)
+    def cast(o, d):
+        P = np.cross(d, E2); det = (E1 * P).sum(1); ok = np.abs(det) > 1e-9
+        inv = np.where(ok, 1 / np.where(ok, det, 1), 0); S = o - A0
+        u = (S * P).sum(1) * inv; Q = np.cross(S, E1); v = (Q @ d) * inv; t = (E2 * Q).sum(1) * inv
+        hit = ok & (u >= 0) & (v >= 0) & (u + v <= 1)
+        return t, hit
     out = []
     for ids, col, smooth, nrm in M.F:
         if col is None:
             P = np.array([M.V[i] for i in ids]); cen = P.mean(0)
             fn = -sum(np.cross(P[k], P[(k+1) % len(P)]) for k in range(len(P))); fn /= np.linalg.norm(fn) + 1e-12
-            d, ix = tree.query(cen, k=200, distance_upper_bound=6)
-            votes = {}
-            for dd, i in zip(d, ix):
-                if not np.isfinite(dd): break
-                if abs(np.dot(N[i], fn)) < 0.4: continue
-                k = lum[Mt[i]]; votes[k] = votes.get(k, 0) + A[i] / (dd + 1.0)
-            col = max(votes, key=votes.get) if votes else BLACK
+            near = tree.query_ball_point(cen, 8.0)
+            col = None
+            if near:
+                idx = np.array(near)
+                sub = (A0[idx], E1[idx], E2[idx])
+                Pc = np.cross(fn, sub[2]); det = (sub[1] * Pc).sum(1); ok = np.abs(det) > 1e-9
+                inv = np.where(ok, 1 / np.where(ok, det, 1), 0); S = cen - sub[0]
+                u = (S * Pc).sum(1) * inv; Q = np.cross(S, sub[1]); v = (Q @ fn) * inv; t = (sub[2] * Q).sum(1) * inv
+                hit = ok & (u >= -0.02) & (v >= -0.02) & (u + v <= 1.04) & (np.abs(t) < 6)
+                if hit.any():
+                    k = np.argmax(np.where(hit, t, -1e9))          # outermost along the outward normal
+                    col = L[idx[k]]
+            if col is None:
+                d, ix = tree.query(cen, k=12)
+                vals, cnt = np.unique(L[ix], return_counts=True); col = vals[np.argmax(cnt)]
+            col = int(col)
         out.append((ids, col, smooth, nrm))
     M.F = out
 
@@ -288,7 +326,21 @@ class Tree:
 
     def face(s, a, f):
         col, flat = f.col
-        a.emit(fbytes(f.ids, s.V, col, f.n, flat))
+        if col == GLASS: a.emit(glass_face(f.ids, s.V, f.n))
+        else: a.emit(fbytes(f.ids, s.V, col, f.n, flat))
+
+
+def glass_face(ids, V, n):
+    """see-through window: textured with the stipple glass patch (0xFF texels are transparent)"""
+    P = np.array([V[i] for i in ids], float); n = np.asarray(n, float)
+    e1 = np.cross(n, [0, 0, 1.0])
+    if np.linalg.norm(e1) < 0.3: e1 = np.cross(n, [0, 1.0, 0])
+    e1 /= np.linalg.norm(e1); e2 = np.cross(n, e1)
+    q = np.c_[P @ e1, P @ e2] * 2.0; q -= q.min(0)
+    m = q.max()
+    if m > GLASS_UV[2] - 1: q *= (GLASS_UV[2] - 1) / m
+    uv = [(GLASS_UV[0] + int(round(x)), GLASS_UV[1] + int(round(y))) for x, y in q]
+    return tex_face(ids, V, n, uv)
 
 
 def mesh_faces(M, V, add_vertex=None):
@@ -399,7 +451,7 @@ def main(glb_path, src, dst, preview=None):
     base += max(len(v[1]) for v in part_data.values())
     for k, (pb, PV, pvn, pt) in part_data.items(): shift_tree(pt, pb)
     print(f'vertex slots used: {base} (gear parts {len(V)}..{base-1})')
-    if base > 700: sys.exit('too many vertex slots')
+    if base > 860: sys.exit('too many vertex slots')     # vertex table holds 900
 
     def assemble(delta):
         a = Asm(R0)
@@ -409,6 +461,12 @@ def main(glb_path, src, dst, preview=None):
         for i, n in enumerate(VNl):
             n = np.array([n[0], n[2], n[1]]); L = np.linalg.norm(n) or 1
             a.emit(struct.pack('<BHBbbb', 0xF6, i, vcolour.get(i, BLACK), *[int(round(x * 127 / L)) for x in n]))
+        # CODE is now longer than a rel16 can span: keep copies of the 18-byte F2 trailer and a '1E 1E'
+        # (A6 detail-skip target) here, near the header, and point the header at them
+        L_tree = a.new('T'); a.jmp(L_tree)
+        a.label('TRAILER'); a.emit(trailer)
+        a.label('RET1E'); a.emit(b'\x1e\x1e')
+        a.label(L_tree)
         Tree(V, None).emit(a, tree)
         a.ret()
         for k, (pb, PV, pvn, pt) in part_data.items():
@@ -423,14 +481,19 @@ def main(glb_path, src, dst, preview=None):
             GV = {i + pb: v for i, v in enumerate(PV)}
             Tree(GV, None).emit(a, pt)
             a.ret()
-        return a.link()
+        out = a.link(); labels.update(a.labels)
+        return out
 
+    labels = {}
+    t0 = 0x12 + struct.unpack_from('<h', c, 0x10)[0]
+    trailer = bytes(c[t0:t0 + 18])
+    assert c[t0 + 18:t0 + 27] == bytes([1, 2, 3, 2, 1, 2, 3, 2, 1]), 'trailer not before the signature'
     blob, _ = assemble(0)
     delta = len(blob) - (R1 - R0)
     blob, relocs = assemble(delta)
     nc = bytearray(c[:R0] + blob + c[R1:])
-    for p in HDR_RELS:
-        struct.pack_into('<h', nc, p, struct.unpack_from('<h', nc, p)[0] + delta)
+    struct.pack_into('<h', nc, 0x10, labels['TRAILER'] - 0x12)
+    struct.pack_into('<h', nc, 0x46, labels['RET1E'] - 0x48)
     for p in LOD_RELS:
         struct.pack_into('<h', nc, p, TEX_OP - (p + 2))
     nc[TEX_OP+2:TEX_OP+16] = b'_AIRWOLF.PIC\0\0'

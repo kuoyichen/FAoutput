@@ -3,10 +3,12 @@
 row table and palette; every pixel cleared to 0xFF = transparent first).
   main rotor: 3 frames 84x84 at u 0/86/172, v 0   (2 blades, 0/60/120 deg, trailing stipple blur, orange tips)
   tail rotor: 3 frames 48x48 at u 0/50/100, v 86
+  window glass: 32x32 stipple at u 150, v 86
 Usage: python3 airwolf_pic.py PIC/_HOKUT.PIC out/_AIRWOLF.PIC [preview.png]"""
 import math, struct, sys
 
-BLADE, BLUR, HUB, TIP = 0x9F, 0x9C, 0x3B, None
+BLADE, BLUR, BLUR_DARK, HUB = 0x9F, 0x99, 0x9C, 0x3B
+GLASS_T, GLASS_HI = 0x49, 0x4E
 
 
 def nearest(pal, rgb):
@@ -14,6 +16,8 @@ def nearest(pal, rgb):
 
 
 def frames(put, u0, v0, size, rot, tip_col, width):
+    """one blur frame of a 2-blade rotor: solid blades, a dense light-grey blur fan trailing each blade
+    (stipple that thins out with angle) and a faint full-disc haze, so the disc reads from far away"""
     R = size / 2 - 1; cx = cy = (size - 1) / 2
     for v in range(size):
         for u in range(size):
@@ -25,11 +29,25 @@ def frames(put, u0, v0, size, rot, tip_col, width):
                 da = (a - b + 540) % 360 - 180          # angle from the blade
                 d = abs(r * math.sin(math.radians(da))) if abs(da) < 90 else 1e9
                 if d <= width / 2 and r > R * 0.06:
-                    px = tip_col if r > R * 0.88 else BLADE
-                elif -28 < da < 0 and r > R * 0.15 and (u + v) % 2 == 0:
-                    if px is None: px = BLUR
+                    px = tip_col if r > R * 0.86 else BLADE
+                    break
+                if -75 < da < 0 and r > R * 0.12:
+                    t = -da / 75                        # 0 at the blade .. 1 at the end of the fan
+                    k = (u * 3 + v * 5) % 4
+                    if (t < 0.35 and k != 3) or (t < 0.7 and k < 2) or k == 0:
+                        px = BLUR_DARK if t < 0.3 else BLUR
+            if px is None and r > R * 0.15 and (u + 2 * v) % 6 == 0: px = BLUR          # haze
+            if r > R * 0.97 and (u + v) % 2 == 0: px = BLUR                                # rim
             if r < R * 0.10: px = HUB
             if px is not None: put(u0 + u, v0 + v, px)
+
+
+def glass(put, u0, v0, size):
+    """see-through glass: half the texels transparent (0xFF, left untouched), the rest dark blue-grey tint
+    with a sparse highlight"""
+    for v in range(size):
+        for u in range(size):
+            if (u + v) % 2 == 0: put(u0 + u, v0 + v, GLASS_HI if (u + 3 * v) % 14 == 0 else GLASS_T)
 
 
 def main(src, dst, preview=None):
@@ -42,8 +60,9 @@ def main(src, dst, preview=None):
     tip = 0xA3                                   # yellow-orange blade tips (GLB Color_D01)
     for r in range(h): b[rows[r]:rows[r] + w] = b'\xff' * w
     def put(u, v, k): b[rows[h - 1 - v] + u] = k        # rows are stored bottom-up
-    for i, (u0, rot) in enumerate(((0, 0), (86, 60), (172, 120))): frames(put, u0, 0, 84, rot, tip, 3.2)
-    for i, (u0, rot) in enumerate(((0, 0), (50, 60), (100, 120))): frames(put, u0, 86, 48, rot, tip, 2.2)
+    for i, (u0, rot) in enumerate(((0, 0), (86, 60), (172, 120))): frames(put, u0, 0, 84, rot, tip, 4.0)
+    for i, (u0, rot) in enumerate(((0, 0), (50, 60), (100, 120))): frames(put, u0, 86, 48, rot, tip, 2.6)
+    glass(put, 150, 86, 32)
     open(dst, 'wb').write(b)
     print(f'{dst}: {len(b)} bytes, tip colour {tip:#x}')
     if preview:
