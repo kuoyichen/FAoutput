@@ -45,6 +45,7 @@ PART_HDR = bytes.fromhex('ffff00006a0008008900 3300b500'.replace(' ', ''))
 VARS = {'GEARDOWN': 0x6350, 'GEARPOS': 0x6356, 'RESUME': 0x635C}
 
 BLACK, WHITE, GLASS, TYRE, METAL, HUB, INTERIOR = 0x44, 0x91, 0x9D, 0x3A, 0x34, 0x37, 0x9F
+GEAR_W = 0x91                         # white gear struts and hubs
 GLASS_UV = (150, 86, 32)              # stipple glass patch in _AIRWOLF.PIC (u, v, size)
 # PIC layout (see make_pic): 3 main-rotor frames 84x84 at u = 0/86/172, v 0..83; 3 tail-rotor frames 48x48 at v 86
 MR_UV = [(0, 0, 84), (86, 0, 84), (172, 0, 84)]
@@ -52,7 +53,7 @@ TR_UV = [(0, 86, 48), (50, 86, 48), (100, 86, 48)]
 ROTOR_Z, ROTOR_R = 22, 57
 TR_C, TR_R, TR_X = (-82, 10), 12, 8   # tail rotor centre (fwd, up), radius, plane x (right side)
 
-BODY_STA = [41, 39, 36, 32.5, 29, 25, 21, 16.5, 12, 7, 2, -3, -9, -15, -21, -28, -35, -41]
+BODY_STA = [41, 39, 36, 32, 27.5, 22.5, 17, 11, 5, -1, -8, -15, -22, -30, -38]
 BOOM_STA = [-47, -54, -62, -70, -77, -83]
 RING = (6, 4, 2)                      # half ring segments: top->widest, widest->lowest, lowest->bottom (24 points)
 EP_X = 16.3                           # tail end plates (stabiliser tips)
@@ -131,6 +132,28 @@ def prism(M, centre, axis, r, length, n, col, cap_col=None, rot0=0.0, rz=None, c
     return rings
 
 
+def iprism(M, pts, axis, a0, a1, col, cap_col=None):
+    """prism with an integer cross-section (vertices are whole feet in the SH, so anything thinner than a few
+    feet must be laid out on the integer grid or it collapses when rounded).  pts: (s, t) polygon in the
+    plane across `axis` (0 = x: (fwd, up), 1 = fwd: (x, up), 2 = up: (x, fwd)); runs from a0 to a1."""
+    def P3(st, a):
+        s_, t_ = st
+        return {0: (a, s_, t_), 1: (s_, a, t_), 2: (s_, t_, a)}[axis]
+    pts = [np.array(p, float) for p in pts]
+    c = np.mean(pts, 0)
+    r0 = [M.add(P3(p, a0)) for p in pts]; r1 = [M.add(P3(p, a1)) for p in pts]
+    n = len(pts)
+    for k in range(n):
+        m = (pts[k] + pts[(k+1) % n]) / 2 - c
+        M.F.append(([r0[k], r0[(k+1) % n], r1[(k+1) % n], r1[k]], col, False, P3(m, 0.0)))
+    ax = np.zeros(3); ax[axis] = 1 if a1 > a0 else -1
+    M.F.append((r0, cap_col or col, False, tuple(-ax))); M.F.append((r1, cap_col or col, False, tuple(ax)))
+
+
+DIAMOND = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+OCTAGON = [(2, 1), (1, 2), (-1, 2), (-2, 1), (-2, -1), (-1, -2), (1, -2), (2, -1)]     # radius ~2.2, whole feet
+
+
 def body_rings(M, sec, stations, every=1):
     out = []
     for y in stations:
@@ -177,15 +200,16 @@ def build(g):
     # 3. wingtip gun pods (black top / white bottom), pylons, 3 barrels each side (2 thin above, 1 thick below)
     topbot = lambda n: BLACK if n[2] > -0.2 else WHITE
     for side in (1, -1):
-        prism(M, (side*24.2, -8.0, -1.6), (0, 1, 0), 0.9, 11.3, 6, BLACK, cap_col=BLACK, rot0=0, rz=2.8, col_fn=topbot)
         Pp = g.points([59]) * np.array([side, 1, 1])
         plate(M, Pp, (0, 0, 1), 4, (BLACK, WHITE))
-        prism(M, (side*22.45, 4.4, -1.95), (0, 1, 0), 0.55, 12.0, 4, METAL, rot0=np.pi/4)      # thick, lower
-        for x in (22.9, 21.95):
-            prism(M, (side*x, 2.6, -0.15), (0, 1, 0), 0.35, 9.4, 3, METAL, rot0=np.pi/2)      # thin, upper
+        xc = side * 22
+        iprism(M, [(xc + dx, -2 + dz) for dx, dz in DIAMOND], 1, -2, 11, METAL)                  # thick, lower
+        for xo in (-1, 1):                                                                        # thin, upper
+            x0 = xc + xo
+            iprism(M, [(x0, 0), (x0 + side, 0), (x0, 1)], 1, -3, 7, METAL)
     # 4. three rocket tubes under the belly
-    for x in (-2.6, 0.0, 2.6):
-        prism(M, (x, 6.6, -7.1), (0, 1, 0), 0.9, 12.8, 6, BLACK, cap_col=TYRE, rot0=0)
+    for x in (-2, 0, 2):
+        iprism(M, [(x + dx, -7 + dz) for dx, dz in DIAMOND], 1, 0, 13, BLACK, cap_col=TYRE)
     # 5. tail: stabiliser up to the end plates, end plates touching its tips, fin down to the boom
     P = g.points([250])
     fin = P[(np.abs(P[:, 0]) < 2.5) & ((P[:, 1] < -57) | (P[:, 2] > 12))]
@@ -259,8 +283,8 @@ def colours(g, M):
 def gear_part(r_wheel, w_wheel, strut, n_wheel, x_off=0.0):
     """part in its own frame: pivot at origin, strut down to the axle (0, 0, -strut)"""
     M = Mesh()
-    prism(M, (0, 0, -strut/2), (0, 0, 1), 0.6, strut, 4, METAL, rot0=np.pi/4)
-    prism(M, (x_off, 0, -strut), (1, 0, 0), r_wheel, w_wheel, n_wheel, TYRE, cap_col=HUB, rot0=np.pi/n_wheel)
+    iprism(M, DIAMOND, 2, 0, -strut + 1, GEAR_W)                                                   # white strut
+    iprism(M, [(f, -strut + u) for f, u in OCTAGON], 0, -w_wheel, w_wheel, TYRE, cap_col=GEAR_W)   # black tyre, white hub
     return M
 
 
@@ -354,7 +378,9 @@ def mesh_faces(M, V, add_vertex=None):
         keep = [k for k in range(len(ids)) if P[k] != P[k-1]]
         ids = [ids[k] for k in keep]
         if len(set(V[i] for i in ids)) < 3: continue
-        flat = (not smooth) or any(len(vcol[i]) > 1 for i in ids)
+        # Gouraud only on white: black 0x44 sits in a short palette ramp and smooth shading ran into the
+        # neighbouring colours (rainbow bands in game, v2)
+        flat = (not smooth) or col != WHITE or any(len(vcol[i]) > 1 for i in ids)
         f = Face(ids, [V[i] for i in ids], (col, flat), nrm)
         if nrm is not None and np.dot(f.n, nrm) < 0:      # winding against the intended normal: flip
             ids = ids[::-1]; f = Face(ids, [V[i] for i in ids], (col, flat), nrm)
@@ -396,9 +422,9 @@ def main(glb_path, src, dst, preview=None):
 
     # gear parts (own buffers, slots after the main buffer; filled in later)
     gears = {
-        'nose':  dict(piv=(0, 34, -6), strut=6.5, r=2.2, w=1.6, n=8, xo=0.0),
-        'right': dict(piv=(16, -5, -5), strut=6.5, r=2.6, w=2.0, n=8, xo=0.0),
-        'left':  dict(piv=(-16, -5, -5), strut=6.5, r=2.6, w=2.0, n=8, xo=0.0),
+        'nose':  dict(piv=(0, 34, -6), strut=6, r=2, w=1, n=8, xo=0.0),      # axle at -12, tyre bottom at -14
+        'right': dict(piv=(16, -5, -5), strut=7, r=2, w=1, n=8, xo=0.0),
+        'left':  dict(piv=(-16, -5, -5), strut=7, r=2, w=1, n=8, xo=0.0),
     }
     objs = []
     def gear_obj(name, G):
@@ -413,8 +439,11 @@ def main(glb_path, src, dst, preview=None):
         def e(a):
             L_end = a.new('R')
             for sgn in (1, -1):
-                q = ids if sgn > 0 else ids[::-1]
                 n = np.array(nrm_up, float) * sgn
+                # FA's polygon fill only draws a face whose winding agrees with its normal (as for the body
+                # and the glass); v1/v2 had the rotor winding reversed, so neither side was ever drawn
+                q = list(ids); flip = np.dot(Face(q, [V[i] for i in q], 0).n, n) < 0
+                if flip: q = q[::-1]
                 labs = [a.new('F') for _ in frames]
                 a.emit(struct.pack('<BBH', 0x40, 0, len(frames)))
                 for L in labs: a.rel16(L, -2)
@@ -422,7 +451,7 @@ def main(glb_path, src, dst, preview=None):
                 for L, (u0, v0, sz) in zip(labs, frames):
                     a.label(L)
                     uv = [(u0 + sz - 1, v0), (u0, v0), (u0, v0 + sz - 1), (u0 + sz - 1, v0 + sz - 1)]
-                    if sgn < 0: uv = uv[::-1]
+                    if flip: uv = uv[::-1]
                     a.emit(tex_face(q, V, n, uv))
                     a.emit(b'\x48\x00'); a.rel16(L_next)
                 a.label(L_next)
