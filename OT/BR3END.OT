@@ -1,0 +1,89 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 1
+    word 166
+    word 0
+	ptr ot_names
+    dword $901
+    word $100
+	ptr shape
+    dword 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 1956
+    word 391
+    word 0
+    word 100
+    word 100
+    word 100
+    word 100
+    word 0
+    word 500
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    byte 35
+    byte 0
+    dword 0
+    word 0
+
+;---------------- movement info ----------------
+
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    dword ^0
+    dword ^0
+    dword ^0
+    dword ^0
+	symbol _OBJProc	; utilProc
+
+;---------------- sound info ----------------
+
+    dword 0
+    dword 0
+    dword 0
+    dword 0
+    byte 1
+    word 7000
+    word 25
+    word 20
+    word 20
+    word 1000
+    word 0
+    word 0
+    word 0
+    dword 0
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+:ot_names
+	string "Temp Bridge"
+	string "Temporary Bridge end"
+	string "BR3END.OT"
+:shape
+	string "br3end.SH"
+	end

@@ -1,0 +1,89 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 1
+    word 166
+    word 0
+	ptr ot_names
+    dword $400125
+    word $40
+	ptr shape
+    dword 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 1956
+    word 400
+    word 0
+    word 100
+    word 100
+    word 100
+    word 100
+    word 0
+    word 1100
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    byte 35
+    byte 31
+    dword 0
+    word 0
+
+;---------------- movement info ----------------
+
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    dword ^0
+    dword ^0
+    dword ^0
+    dword ^0
+	symbol _OBJProc	; utilProc
+
+;---------------- sound info ----------------
+
+    dword 0
+    dword 0
+    dword 0
+    dword 0
+    byte 1
+    word 7000
+    word 25
+    word 20
+    word 20
+    word 1000
+    word 0
+    word 0
+    word 0
+    dword 0
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+:ot_names
+	string "City Blk 5"
+	string "City Block 5"
+	string "CTYBKE.OT"
+:shape
+	string "ctybke.SH"
+	end
