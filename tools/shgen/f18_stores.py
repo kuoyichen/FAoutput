@@ -129,7 +129,7 @@ def pylon(h, bot, top):
 
 
 import fa_weapons
-_W = lambda name, length, roll=0, fins_only=False: (lambda: fa_weapons.load(name, None if NATIVE else length, roll=roll, fins_only=fins_only))
+_W = lambda name, length, roll=0, balance=False: (lambda: fa_weapons.load(name, None if NATIVE else length, roll=roll, balance=balance))
 # FA's own weapon models (with their colour bands); lengths are the real ones in F18 units (~9.5 units per metre),
 # used only when NATIVE is off
 SHAPES = {TANK: tank480, AIM9: _W('SIDEM.SH', 29), AAM: _W('AMRAM.SH', 37), ARM: _W('HARM.SH', 42),

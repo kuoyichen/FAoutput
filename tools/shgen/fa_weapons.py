@@ -50,10 +50,11 @@ TOPS = {}
 LAST_TOP = None
 
 
-def load(name, length=None, white=150, roll=0, fins_only=False):
+def load(name, length=None, white=150, roll=0, balance=False):
     """roll (degrees) turns the store about its axis, e.g. 45 so + fins become X fins clear of the pylon.
-    fins_only: turn only the fins/canards and keep the body as FA drew it.  FA's bodies are a 4-point diamond
-    with its corners on the axes; turned 45 deg it lies on a flat side (PAVE: 6 x 8 became 6 x 6, looked flat)."""
+    balance: make the body as deep as it is wide at every station before turning.  FA's bodies are a 4-point
+    diamond (PAVE 6 wide x 8 deep); turned 45 deg an unequal diamond becomes a tilted, lopsided rhombus.
+    With equal corners it turns into an even square whose corners line up with the X fins."""
     d = open(os.path.join(SHDIR, name), 'rb').read()
     pe, opt, secs = pe_sections(d); code = next(s for s in secs if s['name'] == 'CODE')
     c = d[code['ro']:code['ro']+code['vs']]
@@ -67,24 +68,22 @@ def load(name, length=None, white=150, roll=0, fins_only=False):
     s = length / (f1 - f0) if length else 1        # length None: FA's own size, so it matches the launched weapon
     import math
     ca, sa = math.cos(math.radians(roll)), math.sin(math.radians(roll))
-    rot = lambda x, f, u: (round((x * ca - u * sa) * s), round(f * s), round((x * sa + u * ca) * s))
-    V = [rot(*v) for v in V0]
-    if fins_only and roll:
-        # fin / canard faces lie in the x = 0 or up = 0 plane and reach out at least 3 from the axis;
-        # their vertices are turned (a vertex shared with the body gets a turned copy), the body is not
-        flat = lambda q: all(V0[i][0] == 0 for i in q) or all(V0[i][2] == 0 for i in q)
-        fin = lambda q: flat(q) and max(abs(V0[i][0]) + abs(V0[i][2]) for i in q) >= 3
-        finv = {i for f in FF if fin(f[3]) for i in f[3]}
-        bodyv = {i for f in FF if not fin(f[3]) for i in f[3]}
-        V = [(round(x * s), round(f * s), round(u * s)) for x, f, u in V0]
-        V0 = list(V0); cp = {}
-        for i in sorted(finv):
-            if i in bodyv: cp[i] = len(V); V0.append(V0[i]); V.append(rot(*V0[i]))
-            else: V[i] = rot(*V0[i])
-        FF = [(p, fl, col, [cp.get(i, i) for i in idx] if fin(idx) else idx) for p, fl, col, idx in FF]
+    finq = lambda q: (all(V0[i][0] == 0 for i in q) or all(V0[i][2] == 0 for i in q)) and \
+        max(abs(V0[i][0]) + abs(V0[i][2]) for i in q) >= 3        # fin / canard: in the x = 0 or up = 0 plane
+    finv = {i for f in FF if finq(f[3]) for i in f[3]}
+    bodyv = {i for f in FF if not finq(f[3]) for i in f[3]}
+    if balance:
+        V0 = list(V0)
+        for i in bodyv - finv:
+            x, f, u = V0[i]
+            xr = max([abs(V0[j][0]) for j in bodyv if V0[j][1] == f and V0[j][2] == 0] or [0])
+            ur = max([abs(V0[j][2]) for j in bodyv if V0[j][1] == f and V0[j][0] == 0] or [0])
+            if xr and ur: R = max(xr, ur); V0[i] = (x * R / xr, f, u * R / ur)
+    V = [(round((x * ca - u * sa) * s), round(f * s), round((x * sa + u * ca) * s)) for x, f, u in V0]
     # attach at the top of the body, not of the fins: fin faces lie in the x = 0 or up = 0 plane, body faces do not
     body = [f[3] for f in FF if any(V0[i][0] for i in f[3]) and any(V0[i][2] for i in f[3])]
     top = max(V[i][2] for q in body for i in q if abs(V[i][0]) <= 1)   # body top on the centreline (X fins are off it)
+    if balance: top = max(V[i][2] for i in bodyv - finv)          # the square's flat top hangs on the pylon
     global LAST_TOP; LAST_TOP = top
     TOPS[(name, length, roll)] = top                              # body top above the model origin (weapon centre)
     V = [(x, f, u - top) for x, f, u in V]                       # top of the store at local up 0 (pylon attach)
@@ -101,8 +100,6 @@ def load(name, length=None, white=150, roll=0, fins_only=False):
     G = orient(V, [f for f in F if f[0] == FLAT], cen)
     for fl, col, q in F:
         if fl != FLAT: G += [(FLAT, col, q), (FLAT, col, q[::-1])]   # thin fins: one face per side
-    seen = set()                                                 # the same face twice (same side) draws nothing new
-    G = [g for g in G if not ((g[0], g[1], tuple(g[2])) in seen or seen.add((g[0], g[1], tuple(g[2]))))]
     used = sorted({i for _, _, q in G for i in q}); m = {v: k for k, v in enumerate(used)}
     return [V[i] for i in used], [(fl, col, [m[i] for i in q]) for fl, col, q in G]
 
