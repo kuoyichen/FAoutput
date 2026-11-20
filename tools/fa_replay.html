@@ -136,6 +136,7 @@ button.mdl{padding:2px 7px;font-size:12px;margin:1px 2px 1px 0}
 @media (max-width:560px){ #mbox th:nth-child(4),#mbox td:nth-child(4){display:none} #mbox td.mn{max-width:140px} }
 </style>
 <script src="fashion_i18n.js"></script>
+<script src="sh_editor_core.js"></script>
 </head>
 <body>
 <div id="app">
@@ -193,6 +194,7 @@ button.mdl{padding:2px 7px;font-size:12px;margin:1px 2px 1px 0}
     <label><input type="checkbox" id="o_drop"> 高度垂線</label>
     <label><input type="checkbox" id="o_label" checked> 編號標籤</label>
     <label><input type="checkbox" id="o_tgt" checked> 目標連線（誰在注視誰）</label>
+    <label title="跟隨視角時，鏡頭移到飛機後方，讓它和它注視的目標同時留在畫面裡"><input type="checkbox" id="o_zlock" checked> 鎖定視角：跟隨時把目標也框進畫面（Z 鍵）</label>
     <label><input type="checkbox" id="o_static" checked> 靜止物件（跑道、建築…）</label>
     <label><input type="checkbox" id="o_vel" checked> 用移動方向決定機頭朝向</label>
     <label><input type="checkbox" id="o_flip"> 鏡像 Z 軸（方向左右相反時勾選）</label>
@@ -226,6 +228,9 @@ button.mdl{padding:2px 7px;font-size:12px;margin:1px 2px 1px 0}
 
 <script>
 "use strict";
+// shapes our generators extended (new F-14 nose, loadout stores on F14 / F18) are read with SHCore (sh_editor_core.js), which
+// follows the jumps into the appended blocks; parseSH alone would miss them. Baked with the default loadout, gear up.
+{ const parseOld = parseSH; parseSH = u8 => { try { const M = SHCore.parseModel(u8); if (SHCore.needsCore(M)) return SHCore.legacyModel(M, { on: { _PLgearDown: 0 } }); } catch(e){ console.warn(e); } return parseOld(u8); }; }
 // ================= 解析錄製檔 =================
 const STATIONS = 8, STN_STRIDE = 0x11;
 const str = (u8,a,b) => { let s=""; for (let i=a;i<b;i++) s += String.fromCharCode(u8[i]); return s; };
@@ -394,7 +399,7 @@ const natName = v => NATIONS[v & 0x7F] ?? `國別 ${v & 0x7F}`, natNameL = v => 
 const FRIEND_COL = ["#2f8cff","#22c3d6","#5b6cff","#36d39a"], ENEMY_COL = ["#ff3b2f","#ff8a1c","#e0408a","#b8321a"];
 const PALETTE = ["#ffc21a","#36c3f2","#ff4a2a","#2f9b3a","#a35bd8","#ff7aa8","#f07c1a","#e8e8e8","#1c6fd1","#93c83e"];
 const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
-FAI18N.register({"FA Mission Replay": "FA 任務重播", "Speed: ": "播放：", "Follow view": "跟隨視角", "Free view": "自由視角", "Group view": "群組視角", "ID": "編號", "Altitude": "高度", "Speed": "速度", "Pitch": "俯仰", "Heading": "航向", "Nation": "國別", "Damage": "損傷", "SH shape": "SH 外型", "Colour key": "顏色代碼", "Drop flight_*.bin here, or press “Open .bin” below": "把 flight_*.bin 拖進來，或按下方「開啟 .bin」", "Player": "玩家", "Type": "機型", "Pitch / roll": "俯仰 / 滾轉", "Throttle / thrust": "油門 / 推力", "Controls": "操縱面", "Gear": "起落架", "Flaps": "襟翼", "Hook": "捕捉勾", "Brake": "煞車", "Weapon stations": "武器掛點", "Display": "顯示", "Ribbon trails": "緞帶軌跡", "Altitude drop lines": "高度垂線", "ID labels": "編號標籤", "Target lines (who is watching whom)": "目標連線（誰在注視誰）", "Target": "目標", "Chaff / flares": "干擾絲 / 熱焰彈", "Static objects (runways, buildings…)": "靜止物件（跑道、建築…）", "Point the nose along the direction of travel": "用移動方向決定機頭朝向", "Mirror Z axis (tick if left and right are swapped)": "鏡像 Z 軸（方向左右相反時勾選）", "Shape": "外型", "Flat (SH face colours)": "平面（SH 面的顏色）", "Textured (PIC)": "貼圖（PIC）", "SH 3D, coloured by nation": "SH 3D，依國別上色", "2D silhouette icons": "2D 剪影圖示", "Choose SH folder": "選擇 SH 資料夾", "Load .SH files": "載入 .SH 檔", "Colour by": "顏色依", "Nation (friend / foe)": "國別（敵我）", "Class code": "類別代碼", "Icon size": "圖示大小", "Trail length": "軌跡長度", "Events": "事件", "(shown after a file is loaded)": "（載入檔案後顯示）", "Open .bin": "開啟 .bin", "Nothing loaded": "尚未載入", "Reset": "重設", "Panel": "面板", "Rename this aircraft type": "改這個機型的名稱", "Throttle (light) / thrust (line)": "油門（淡）/ 推力（線）", "Play / pause": "播放 / 暫停", "Playback speed": "播放速度", "This file holds several missions; pick the one to play": "這個檔案裡錄到好幾次任務，選擇要播放哪一次", "Reset view": "重設視角", "Show / hide the side panel": "顯示 / 隱藏右側面板", "FAshion home": "FAshion 首頁"});
+FAI18N.register({"FA Mission Replay": "FA 任務重播", "Speed: ": "播放：", "Follow view": "跟隨視角", "Free view": "自由視角", "Group view": "群組視角", "ID": "編號", "Altitude": "高度", "Speed": "速度", "Pitch": "俯仰", "Heading": "航向", "Nation": "國別", "Damage": "損傷", "SH shape": "SH 外型", "Colour key": "顏色代碼", "Drop flight_*.bin here, or press “Open .bin” below": "把 flight_*.bin 拖進來，或按下方「開啟 .bin」", "Player": "玩家", "Type": "機型", "Pitch / roll": "俯仰 / 滾轉", "Throttle / thrust": "油門 / 推力", "Controls": "操縱面", "Gear": "起落架", "Flaps": "襟翼", "Hook": "捕捉勾", "Brake": "煞車", "Weapon stations": "武器掛點", "Display": "顯示", "Ribbon trails": "緞帶軌跡", "Altitude drop lines": "高度垂線", "ID labels": "編號標籤", "Target lines (who is watching whom)": "目標連線（誰在注視誰）", "Target": "目標", "Chaff / flares": "干擾絲 / 熱焰彈", "Static objects (runways, buildings…)": "靜止物件（跑道、建築…）", "Point the nose along the direction of travel": "用移動方向決定機頭朝向", "Mirror Z axis (tick if left and right are swapped)": "鏡像 Z 軸（方向左右相反時勾選）", "Shape": "外型", "Flat (SH face colours)": "平面（SH 面的顏色）", "Textured (PIC)": "貼圖（PIC）", "SH 3D, coloured by nation": "SH 3D，依國別上色", "2D silhouette icons": "2D 剪影圖示", "Choose SH folder": "選擇 SH 資料夾", "Load .SH files": "載入 .SH 檔", "Colour by": "顏色依", "Nation (friend / foe)": "國別（敵我）", "Class code": "類別代碼", "Icon size": "圖示大小", "Trail length": "軌跡長度", "Events": "事件", "(shown after a file is loaded)": "（載入檔案後顯示）", "Open .bin": "開啟 .bin", "Nothing loaded": "尚未載入", "Reset": "重設", "Panel": "面板", "Rename this aircraft type": "改這個機型的名稱", "Throttle (light) / thrust (line)": "油門（淡）/ 推力（線）", "Play / pause": "播放 / 暫停", "Playback speed": "播放速度", "This file holds several missions; pick the one to play": "這個檔案裡錄到好幾次任務，選擇要播放哪一次", "Reset view": "重設視角", "Show / hide the side panel": "顯示 / 隱藏右側面板", "FAshion home": "FAshion 首頁", "Lock-on camera: keep the target in frame in Follow view (Z key)": "鎖定視角：跟隨時把目標也框進畫面（Z 鍵）", "In Follow view the camera moves behind the aircraft so it and the aircraft it is watching stay on screen together": "跟隨視角時，鏡頭移到飛機後方，讓它和它注視的目標同時留在畫面裡"});
 const NATIONS_EN = ["USA", "UK", "China", "France", "Germany", "Belgium", "Jordan", "Israel", "Japan", "North Korea", "Russia", "South Korea", "Syria", "Egypt (Arab)", "Egypt (Islamic)", "Estonia", "Latvia", "Lithuania", "Poland", "Belarus", "North Vietnam", "South Vietnam", "Ukraine", "Iraq", "Iran", "Kuwait", "Saudi Arabia", "Oman", "UAE", "Qatar", "Bahrain", "Libya", "Sudan", "Cuba", "Panama", "Colombia", "Pakistan", "India", "Afghanistan", "Taiwan", "Greece", "Turkey", "Italy", "Sweden", "Finland", "Norway", "Spain", "Portugal", "Austria", "Denmark", "Netherlands", "Canada", "Bulgaria", "Hungary", "Romania", "Australia", "Philippines", "Argentina", "Bosnia", "Serbia"];
 // group names stay Chinese inside (colour table, friend / foe test); G() shows them in the current language
 const GROUP_EN = { "飛彈":"Missiles", "機砲彈":"Gun rounds", "殘骸":"Debris", "跳傘飛行員":"Ejected pilots", "建築 / 跑道":"Buildings / runways", "地面單位":"Ground units" };
@@ -981,7 +986,7 @@ const shKey = s => String(s).toUpperCase().replace(/^.*[\\/]/, "").replace(/\.SH
 let idbP = null;
 function idb(){ return idbP ??= new Promise((res, rej) => { try { const r = indexedDB.open("fa_replay", 1);
   r.onupgradeneeded = () => r.result.createObjectStore("sh"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); } catch(e){ rej(e); } }); }
-const IDB_VER = "2026-11-14/";   // bump when the SH set on the site changes, so stale cached copies are not used
+const IDB_VER = "2026-11-16c/";   // bump when the SH set on the site changes, so stale cached copies are not used
 async function idbGet(k){ try { const db = await idb(); return await new Promise(res => { const q = db.transaction("sh").objectStore("sh").get(IDB_VER + k); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); } catch(e){ return null; } }
 async function idbPut(k, u8){ try { const db = await idb(); db.transaction("sh", "readwrite").objectStore("sh").put(u8, IDB_VER + k); } catch(e){} }
 // 舊版把使用者載入的 SH 存在 localStorage（base64），搬到 IndexedDB
@@ -1508,8 +1513,81 @@ function drawHalf(tr, s, c, size, labelOn){
   if (tr.key === selKey){ const q = proj(c), k = Math.max(26, L*F/c[2]*1.6); ctx.strokeStyle = "rgba(255,250,240,.95)"; ctx.lineWidth = 2; ctx.strokeRect(q[0]-k/2, q[1]-k/2, k, k); }
 }
 
+// ================= 鎖定視角（類似 Z-Targeting） =================
+// 跟隨視角時：選取的飛機有目標（+0xEE），就把鏡頭轉到「飛機後方、朝向目標」並拉遠到兩者都在畫面裡。
+// 沒有自己的目標時，改用最近一個正在注視它的物件。所有變化都以「相對使用者視角的差值」平滑過渡，
+// 目標切換或消失時不會跳動；解除鎖定時保留目前的方位角，只把俯仰和距離慢慢還原。
+const ZL_SIDE = 0.35, ZL_MAXZ = 8, ZL_RATE = 2.6;
+const zl = { dYaw:0, dPitch:0, lDist:0, ox:0, oy:0, oz:0, w:0, yawOff:ZL_SIDE, key:null, locked:false, applied:false, moving:false, last:0, base:null, tgt:null };
+const wrapA = a => Math.atan2(Math.sin(a), Math.cos(a));
+function zlTarget(sel){
+  const live = k => { if (k == null || k === sel.tr.key) return null; const tr = tracks.get(k);
+    if (!tr || tr.kind === "bullet" || hidden.has(groupOf(tr)) || (tr.killT != null && now > tr.killT)) return null;
+    const s = sampleTrack(tr, now); return s ? { tr, s } : null; };
+  const own = live(sel.s.tg); if (own) return own;
+  // 自己沒有鎖定：找最近一個正在注視它的物件（上一個鎖定的優先，避免來回切換）
+  let best = null, bd = Infinity;
+  for (const tr of tracks.values()){ if (tr.key === sel.tr.key || (tr.kind !== "aircraft" && tr.cls !== 2)) continue;
+    const s = sampleTrack(tr, now); if (!s || s.tg !== sel.tr.key) continue; const o = live(tr.key); if (!o) continue;
+    const d = Math.hypot(s.x - sel.s.x, s.y - sel.s.y, s.z - sel.s.z) * (tr.key === zl.key ? 0.6 : 1);
+    if (d < bd){ bd = d; best = o; } }
+  return best;
+}
+// 以任意方位／俯仰換算相機座標（不含距離），算出要拉多遠才能把點放進畫面
+function zlCam(dx, dy, dz, yaw, pitch){
+  dz *= flip(); const cy = Math.cos(yaw), sy = Math.sin(yaw), x1 = dx*cy - dz*sy, z1 = dx*sy + dz*cy, cp = Math.cos(pitch), sp = Math.sin(pitch);
+  return [x1, dy*cp + z1*sp, -dy*sp + z1*cp];
+}
+function zlBegin(){
+  zl.applied = false; zl.tgt = null;
+  const t = performance.now(), dt = Math.min(0.1, Math.max(0, (t - zl.last) / 1000)); zl.last = t;
+  const rebase = () => { cam.yaw += zl.dYaw; zl.dYaw = zl.dPitch = zl.lDist = zl.ox = zl.oy = zl.oz = zl.w = 0; zl.locked = false; zl.key = null; zl.moving = false; };
+  if (!data || cineHook || viewMode !== "follow"){ rebase(); return; }
+  const str = tracks.get(selKey), ss = str && sampleTrack(str, now); if (!ss){ rebase(); return; }
+  const sel = { tr: str, s: ss }, tg = $("o_zlock").checked ? zlTarget(sel) : null;
+  let gYaw = 0, gPitch = 0, gDist = 0, gx = 0, gy = 0, gz = 0;
+  if (tg){
+    const vx = tg.s.x - ss.x, vy = tg.s.y - ss.y, vz = tg.s.z - ss.z, h = Math.hypot(vx, vz);
+    const ay = Math.atan2(vx, vz*flip());
+    if (zl.key == null) zl.yawOff = (wrapA(cam.yaw + zl.dYaw - ay) >= 0 ? 1 : -1) * ZL_SIDE;   // 新鎖定：從離目前視角近的那一側看
+    const yaw = h > 1 ? ay + zl.yawOff : cam.yaw;
+    const elev = Math.atan2(vy, Math.max(h, 1)), pitch = Math.max(0.05, Math.min(1.45, cam.pitch - elev*0.8));
+    // 中心放在兩者之間，距離取「兩點都在畫面 80% 以內」所需的最小值
+    let f = 0.5; const mx = W*0.36, my = H*0.3, need = f0 => { let d = 0;
+      for (const [px, py, pz] of [[-vx*f0, -vy*f0, -vz*f0], [vx*(1-f0), vy*(1-f0), vz*(1-f0)]]){ const c = zlCam(px, py, pz, yaw, pitch);
+        d = Math.max(d, Math.abs(c[0])*F/mx - c[2], Math.abs(c[1])*F/my - c[2]); } return d; };
+    let d = need(f); const cap = cam.dist * ZL_MAXZ;
+    if (d > cap){ f = 0.5 * cap / d; d = cap; }   // 目標太遠：飛機留在畫面裡，只把鏡頭朝向目標
+    gYaw = wrapA(yaw - cam.yaw); gPitch = pitch - cam.pitch; gDist = Math.log(Math.max(cam.dist, d) / cam.dist);
+    gx = vx*f; gy = vy*f; gz = vz*f;
+    zl.locked = true; zl.key = tg.tr.key; zl.tgt = tg;
+  } else if (zl.locked){ cam.yaw += zl.dYaw; zl.dYaw = 0; zl.locked = false; zl.key = null; }   // 解除鎖定：留在目前方位
+  const k = 1 - Math.exp(-dt * ZL_RATE);
+  const dy0 = wrapA(gYaw - zl.dYaw); zl.dYaw += dy0*k; zl.dPitch += (gPitch - zl.dPitch)*k; zl.lDist += (gDist - zl.lDist)*k;
+  zl.ox += (gx - zl.ox)*k; zl.oy += (gy - zl.oy)*k; zl.oz += (gz - zl.oz)*k; zl.w += ((tg ? 1 : 0) - zl.w)*k;
+  const off = Math.hypot(gx - zl.ox, gy - zl.oy, gz - zl.oz) / Math.max(cam.dist, 1);
+  zl.moving = Math.abs(dy0) + Math.abs(gPitch - zl.dPitch) + Math.abs(gDist - zl.lDist) + off + Math.abs((tg ? 1 : 0) - zl.w) > 0.002;
+  if (!(zl.w > 0.001 || Math.abs(zl.dYaw) + Math.abs(zl.dPitch) + Math.abs(zl.lDist) > 1e-4)) return;
+  zl.base = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist };
+  cam.cx = ss.x + zl.ox; cam.cy = ss.y + zl.oy; cam.cz = ss.z + zl.oz;
+  cam.yaw += zl.dYaw; cam.pitch = Math.max(0.03, Math.min(1.55, cam.pitch + zl.dPitch)); cam.dist *= Math.exp(zl.lDist);
+  zl.applied = true;
+}
+function zlEnd(){
+  if (zl.tgt && zl.w > 0.05){   // 鎖定框（四個角）
+    const c = toCam(zl.tgt.s.x, zl.tgt.s.y, zl.tgt.s.z);
+    if (c[2] > nearZ()){ const [x, y] = proj(c), r = 16, q = 7, a = Math.min(1, zl.w);
+      ctx.save(); ctx.strokeStyle = `rgba(255,215,60,${0.9*a})`; ctx.lineWidth = 2; ctx.beginPath();
+      for (const [sx, sy] of [[-1,-1],[1,-1],[1,1],[-1,1]]){ ctx.moveTo(x+sx*r, y+sy*(r-q)); ctx.lineTo(x+sx*r, y+sy*r); ctx.lineTo(x+sx*(r-q), y+sy*r); }
+      ctx.stroke(); ctx.restore(); } }
+  if (!zl.applied) return;
+  const s = sampleTrack(tracks.get(selKey), now);
+  if (s){ cam.cx = s.x; cam.cy = s.y; cam.cz = s.z; }
+  Object.assign(cam, zl.base); zl.applied = false;
+}
 let lastDrawn = [];
-function draw(){
+function draw(){ zlBegin(); try { drawScene(); } finally { zlEnd(); } }
+function drawScene(){
   ctx.clearRect(0,0,W,H);
   if (!data) return;
   const live = [];
@@ -1519,7 +1597,7 @@ function draw(){
     const s = sampleTrack(tr, now); if (s) live.push({ tr, s });
   }
   const sel = live.find(l=>l.tr.key===selKey);
-  if (viewMode === "follow" && sel){ cam.cx = sel.s.x; cam.cy = sel.s.y; cam.cz = sel.s.z; }
+  if (viewMode === "follow" && sel && !zl.applied){ cam.cx = sel.s.x; cam.cy = sel.s.y; cam.cz = sel.s.z; }
   if (viewMode === "group"){ const mv = live.filter(l=>l.tr.kind==="aircraft"); if (mv.length){
     let x0=Infinity,x1=-Infinity,z0=Infinity,z1=-Infinity,y=0; for (const {s} of mv){ x0=Math.min(x0,s.x); x1=Math.max(x1,s.x); z0=Math.min(z0,s.z); z1=Math.max(z1,s.z); y+=s.y; }
     cam.cx=(x0+x1)/2; cam.cz=(z0+z1)/2; cam.cy=y/mv.length*0.5; cam.dist = Math.max(6000, Math.hypot(x1-x0, z1-z0)*1.1); } }
@@ -1767,7 +1845,7 @@ function setPlaying(v){ playing = v; $("play").textContent = v ? "❚❚" : "▶
 $("play").onclick = () => { if (!data) return; if (now >= T1) now = T0; setPlaying(!playing); last = performance.now(); };
 $("speed").onchange = e => $("spdlbl").textContent = e.target.value + "×";
 $("seek").oninput = e => { if (!data) return; now = T0 + (T1-T0)*e.target.value/1000; update(); };
-$("reset").onclick = () => { resetView(); setView("follow"); selKey = playerKey; update(); };
+$("reset").onclick = () => { resetView(); zl.yawOff = ZL_SIDE; setView("follow"); selKey = playerKey; update(); };
 $("viewmode").onclick = () => setView(viewMode==="follow" ? "group" : viewMode==="group" ? "free" : "follow");
 $("sidebtn").onclick = () => { $("side").classList.toggle("hide"); $("sidebtn").classList.toggle("on"); setTimeout(resize, 0); };
 $("o_tlen").oninput = e => { $("o_tlen_v").textContent = e.target.value + "s"; draw(); };
@@ -1775,6 +1853,7 @@ $("o_color").onchange = () => { buildLegend(); draw(); };
 document.querySelectorAll(".opts input").forEach(i => i.addEventListener("input", () => update()));
 window.addEventListener("keydown", e => {
   if (e.target.tagName === "SELECT") return;
+  if (e.code === "KeyZ" && !e.ctrlKey && !e.metaKey){ $("o_zlock").checked = !$("o_zlock").checked; draw(); }
   if (e.code === "Space"){ e.preventDefault(); $("play").click(); }
   if (e.code === "ArrowRight" && data){ now = Math.min(T1, now+5); update(); }
   if (e.code === "ArrowLeft" && data){ now = Math.max(T0, now-5); update(); }
@@ -1789,7 +1868,7 @@ cv.addEventListener("pointermove", e => {
     if (viewMode !== "free") setView("free");
     const s = cam.dist / F, cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw), fz = flip();
     cam.cx -= (dx*cy + dy*sy) * s; cam.cz -= (-dx*sy + dy*cy) * s * fz;
-  } else { cam.yaw += dx*0.006; cam.pitch = Math.max(0.03, Math.min(1.55, cam.pitch + dy*0.006)); }
+  } else { if (zl.locked) zl.yawOff += dx*0.006; else cam.yaw += dx*0.006; cam.pitch = Math.max(0.03, Math.min(1.55, cam.pitch + dy*0.006)); }
   draw();
 });
 cv.addEventListener("pointerup", e => {
@@ -1807,7 +1886,7 @@ function tick(t){
   const dt = (t-last)/1000; last = t;
   if (cineHook){ requestAnimationFrame(tick); return; }
   if (playing && data){ now += dt * +$("speed").value; if (now >= T1){ now = T1; setPlaying(false); } update(); }
-  else if (data && (kills.some(k=>now>=k.t && now-k.t<6) || hits.some(h=>now>=h.t && now-h.t<1.5))) draw();
+  else if (data && (zl.moving || kills.some(k=>now>=k.t && now-k.t<6) || hits.some(h=>now>=h.t && now-h.t<1.5))) draw();
   requestAnimationFrame(tick);
 }
 resize(); requestAnimationFrame(tick);

@@ -52,8 +52,23 @@ button.on{border-color:var(--accent);color:var(--accent)}
 #load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0e1216;color:var(--text);z-index:10;font-size:15px;flex-direction:column;gap:10px}
 #load small{color:var(--muted)}
 #rot{display:none}
+#loBox .lorow{display:grid;grid-template-columns:86px 1fr 44px 10px;gap:4px;align-items:center;margin:4px 0;font-size:12px;color:var(--muted)}
+#loBox .lorow select{width:100%;padding:4px}
+#loBox em{color:#ffd54a;font-style:normal}
+#loBox .lonote{font-size:11px}
+#joyBox{margin-top:10px;font-size:12px;color:var(--muted)}
+#joyBox summary{font-size:13px;font-weight:700;margin:6px 0;color:#fff;cursor:pointer}
+#joyBox .jrow{display:grid;grid-template-columns:minmax(110px,1.4fr) 1fr 58px 36px;gap:4px;align-items:center;margin:3px 0}
+#joyBox .jbar{height:8px;background:#0006;border-radius:4px;position:relative;overflow:hidden}
+#joyBox .jbar i{position:absolute;top:0;bottom:0;left:50%;width:0;background:#ffd54a}
+#joyBox button{padding:3px 4px;font-size:11px}
+#joyBox button.on{color:#ffd54a;border-color:#ffd54a}
+#joyBox .jst{margin:4px 0;color:#e2e8ee}
 </style>
 <script src="fashion_i18n.js"></script>
+<script src="sh_editor_core.js"></script>
+<script src="pt_core.js"></script>
+<script src="fa_flight_model.js"></script>
 </head>
 <body>
 <canvas id="cv"></canvas>
@@ -67,14 +82,15 @@ button.on{border-color:var(--accent);color:var(--accent)}
   <div>SPD<b id="hSpd">0</b>kt</div>
   <div>ALT<b id="hAlt">0</b>ft</div>
   <div>HDG<b id="hHdg">000</b>°</div>
+  <div id="hGD">G<b id="hG">1.0</b><span id="hM"></span></div>
   <div id="hKillD">KILL<b id="hKill">0</b>&nbsp;</div>
   <div id="hTimeD">TIME<b id="hTime">0:00</b>&nbsp;</div>
 </div>
 <div id="thr"><i id="thrBar"></i></div>
 <div id="sub"></div>
 <div id="msg"></div>
-<div class="stick" id="stL"><span id="stLt">Throttle / Rudder</span><i></i></div>
-<div class="stick" id="stR"><span id="stRt">Pitch / Roll</span><i></i></div>
+<div class="stick" id="stL"><span id="stLt">Throttle / Roll</span><i></i></div>
+<div class="stick" id="stR"><span id="stRt">Pitch / Rudder</span><i></i></div>
 <canvas id="ov"></canvas>
 <div id="wpn"><button id="bWpn">GUN</button><button id="bFire">FIRE</button></div>
 <div id="btns" class="btns">
@@ -97,14 +113,18 @@ button.on{border-color:var(--accent);color:var(--accent)}
   <select id="selMode"><option value="auto">Auto (by model)</option><option value="fly">Fly (aircraft)</option><option value="drive">Drive (ground vehicle)</option><option value="sail">Sail (ship)</option></select>
   <label for="selSpawn">Start position</label>
   <select id="selSpawn"><option value="runway">Airfield runway</option><option value="carrier">Carrier deck</option><option value="air">In the air</option><option value="sea">At sea (ships)</option></select>
+  <label for="selFM">Flight model</label>
+  <select id="selFM"><option value="fa">FA (from the aircraft's PT file)</option><option value="arcade">Arcade (old)</option></select>
+  <div id="loBox"></div>
   <label for="selMission">Mission</label>
   <select id="selMission"><option value="free">Free flight</option><option value="canyon">Canyon strike</option></select>
   <div class="row"><button id="bGo">▶ Start</button></div>
   <label class="ck"><input type="checkbox" id="inv"> Invert pitch (push stick up = nose up)</label>
   <label class="ck"><input type="checkbox" id="tex" checked> Textures</label>
-  <p id="help1">Right stick: pitch and roll. Left stick: up/down changes the throttle (it stays where you leave it), left/right is rudder. The sticks only answer touches inside their circles: drag anywhere else to look around (the view stays where you leave it; Front brings it back, RC view watches from the runway end like an RC model pilot), pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult. The weapon button on the right picks gun, AIM-9, AIM-120 (air targets), AGM-65 (ground and ships) or MK-82 bombs; missiles lock the target nearest your nose. To land, slow down, lower the gear and raise the nose: the jet settles gently nose-high, and the throttle sets how fast it sinks.</p>
+  <p id="help1">Right stick: up/down is pitch, left/right is rudder. Left stick: up/down changes the throttle (it stays where you leave it), left/right is roll. The sticks only answer touches inside their circles: drag anywhere else to look around (the view stays where you leave it; Front brings it back, RC view watches from the runway end like an RC model pilot), pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult. The weapon button on the right picks gun, AIM-9, AIM-120 (air targets), AGM-65 (ground and ships) or MK-82 bombs; missiles lock the target nearest your nose. To land, slow down, lower the gear and raise the nose: the jet settles gently nose-high, and the throttle sets how fast it sinks.</p>
   <p id="help3">Canyon strike: fly the winding canyon at low level. Above the rim the SAM radar sees you and the sites launch. At the end of the canyon pull up over the ridge, dive into the crater and bomb the reactor (MK-82 is selected; the yellow circle shows where the bomb falls), then climb out: the SAMs on the crater rim fire at you, so turn hard and drop flares (FLARE button or C). Get 3 nm clear to finish.</p>
-  <p id="help2">Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, R restart, mouse drag to look, wheel to zoom.</p>
+  <p id="help2">Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, C or Delete flares, Insert chaff, F1 front view, F9 fly-by view, R restart, mouse drag to look, wheel to zoom.</p>
+  <div id="joyBox"></div>
 </div>
 <div id="load"><div id="loadT">Loading…</div><small id="loadS"></small></div>
 <script>
@@ -598,25 +618,48 @@ async function loadShape(name){
   const pn = shTexName(u8) || "_" + name + ".PIC";
   let pic = null; const pu8 = await fetchAny(["PIC/" + pn, "PIC/" + pn.toLowerCase()]); if (pu8) try { pic = parsePIC(pu8); } catch(e){}
   const s = { name, m, pic, picTex: pic ? mkTex(pic.w, pic.h, gl.LUMINANCE, pic.px) : blankTex, meshes: {} };
+  // shapes our generators extended (new F-14 nose, loadout stores on F14 / F18) are read with SHCore (tools/sh_editor_core.js),
+  // which follows the jumps into the appended blocks; the small parser above would miss them
+  try { const M = SHCore.parseModel(u8); if (SHCore.needsCore(M)) s.M = M; } catch(e){ console.warn(name, e); }
   s.isPlane = !!(m.imp && (m.imp._PLgearDown || m.imp._PLafterBurner || m.imp._PLleftFlap)) || /^(F\d|A\d|B\d|C\d|E\d|J\d|KC|MIG|SU\d|TU\d|IL\d|AN\d|AV8|AH1|UH|CH4|V22|P3C|S3|E2C|AWACS|RAF|MIR|M2|F1|JAG|TOR|HAWK|HIND|HIP|HOKU|KA|MI2)/.test(name) && !SHIPS.has(name);
   s.isShip = SHIPS.has(name);
   shapes[name] = s; return s;
 }
+// swing wing: sweep in degrees (20 = fully forward, 68 = fully back) -> the _PLswingWing value FA feeds the SH (as on the release page)
+const swingVal = deg => clamp(Math.round(((deg || 20) - 20) * 65536 / 360 / 0.2656), 0, 32767);
 function ctlVars(m, st){ const vars = {}, nm = Object.fromEntries(Object.entries(m.imp || {}).map(([n, a]) => [a, n]));
-  const on = { _PLgearDown: st.gear ? 1 : 0, _PLgearPos: st.gear ? 0 : 32767, _PLleftFlap: st.flaps ? -1 : 0, _PLrightFlap: st.flaps ? -1 : 0, _PLhook: 0, _PLbrake: st.brake ? 1 : 0, _PLafterBurner: st.ab ? 1 : 0 };
+  const on = { _PLgearDown: st.gear ? 1 : 0, _PLgearPos: st.gear ? 0 : 32767, _PLleftFlap: st.flaps ? -1 : 0, _PLrightFlap: st.flaps ? -1 : 0, _PLhook: 0, _PLbrake: st.brake ? 1 : 0, _PLafterBurner: st.ab ? 1 : 0, _PLswingWing: swingVal(st.sweep) };
   for (const x of m.ctl.vars) vars[x.v] = nm[x.v] ? (on[nm[x.v]] ?? 0) : x.vals.length ? x.vals[0] : 0;
   return vars; }
+// afterburner flames: textured faces with no base colour whose texture is mostly fire-coloured (SHCore cannot see FA's burner test)
+let PALRGB = null;
+function isFlame(f, pic){
+  if (!f.uv || f.col || !pic || !PALRGB) return false;
+  const us = f.uv.map(q => q[0]), vs = f.uv.map(q => q[1]);
+  const u0 = Math.max(0, Math.min(...us) | 0), u1 = Math.min(pic.w - 1, Math.max(...us) | 0), v0 = Math.max(0, Math.min(...vs) | 0), v1 = Math.min(pic.h - 1, Math.max(...vs) | 0);
+  let n = 0, hot = 0;
+  for (let y = v0; y <= v1; y++) for (let x = u0; x <= u1; x++){ const c = pic.px[y * pic.w + x]; if (c === 255) continue; n++;
+    const r = PALRGB[3*c], g = PALRGB[3*c+1], b = PALRGB[3*c+2]; if (r > 150 && r > g + 40 && b < 120 || r + g + b < 40) hot++; }
+  return n > 0 && hot / n > 0.45;
+}
 function getMesh(s, st = {}){
-  const key = `${+!!st.gear}${+!!st.ab}${+!!st.brake}${+!!st.flaps}`;
+  const key = `${+!!st.gear}${+!!st.ab}${+!!st.brake}${+!!st.flaps}${st.sweep || 20}|${st.lo || ""}|${st.ab ? (st.abf || 0) + "g" + (st.abg ?? 1) : 0}`;
   if (s.meshes[key]) return s.meshes[key];
-  const m = s.m, k = m.scale, polys = [];
+  const m = s.m, k = m.scale; let polys = [];
   const add = (idx, tf) => polys.push({ pts: idx.map(i => vmul(tf(m.v[i]), k)), uv: idx.uv, col: idx.col });
-  for (const idx of m.f) add(idx, v => v);
-  try { const drawn = new Set();
+  if (s.M){ const fl = st.flaps ? -1 : 0;
+    polys = SHCore.polys(s.M, { scale: true, storeShown: st.lo && s === P.s && P.lo ? loShown : undefined, on: { _PLgearDown: st.gear ? 1 : 0, _PLleftFlap: fl, _PLrightFlap: fl, _PLbrake: st.brake ? 1 : 0, _PLafterBurner: st.ab ? 1 : 0, _PLswingWing: swingVal(st.sweep) }, abFrame: st.abf || 0, abGrow: st.ab ? st.abg ?? 1 : undefined })
+      .filter(f => st.ab || !isFlame(f, s.pic)); }
+  else for (const idx of m.f) add(idx, v => v);
+  if (!s.M) try { const drawn = new Set();
     for (const e of evalCtl(m, ctlVars(m, st))){ if (drawn.has(e.part)) continue; drawn.add(e.part);
       const tf = partTf(e); for (const idx of m.subs[e.part].f) add(idx, v => { const g = tf(v); return [g[0], g[2], g[1]]; }); }
   } catch(e){ console.warn(s.name, e); }
   const data = [], faces = []; let lo = [1e9,1e9,1e9], hi = [-1e9,-1e9,-1e9];
+  const storeAt = {};   // "station:round" -> centre of that store's faces (model coords): where a fired round leaves from
+  for (const f of polys){ const t = f.face && f.face.store; if (!t || t.type !== "store") continue; const k = t.st + ":" + t.rank, a = storeAt[k] || (storeAt[k] = [0, 0, 0, 0]);
+    for (const q of f.pts){ a[0] += q[0]; a[1] += q[1]; a[2] += q[2]; a[3]++; } }
+  for (const k in storeAt){ const a = storeAt[k]; storeAt[k] = [a[0] / a[3], a[1] / a[3], a[2] / a[3]]; }
   const flat = [];   // near-horizontal faces facing up: surfaces you can stand on (runway, deck, roofs)
   for (const f of polys){
     const p = f.pts; let n = [0, 0, 0];
@@ -629,7 +672,7 @@ function getMesh(s, st = {}){
     faces.push(first, data.length / 10 - first);
   }
   const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
-  const mesh = { buf, faces, n: data.length / 10, lo, hi, flat, radius: Math.max(20, Math.hypot(hi[0]-lo[0], hi[1]-lo[1], hi[2]-lo[2]) / 2) };
+  const mesh = { buf, faces, storeAt, n: data.length / 10, lo, hi, flat, radius: Math.max(20, Math.hypot(hi[0]-lo[0], hi[1]-lo[1], hi[2]-lo[2]) / 2) };
   s.meshes[key] = mesh; return mesh;
 }
 
@@ -686,7 +729,8 @@ function spawn(){
   { const sp = where === "air" ? RUNWAY_SPAWN : { x: P.pos[0], y: P.pos[1], hdg: P.hdg }, r = getMesh(P.s, {}).radius;
     const f = [-Math.sin(sp.hdg), Math.cos(sp.hdg)], lf = [-Math.cos(sp.hdg), -Math.sin(sp.hdg)], x = sp.x + lf[0] * r * 3 + f[0] * r, y = sp.y + lf[1] * r * 3 + f[1] * r;
     cam.rcEye = [x, y, groundAt(x, y).h + 6]; }
-  W.ammo = WEAPONS.map(w => w.ammo); W.lock = null; W.shots = []; W.bullets = []; EM.length = 0; FL.length = 0; flares = 24;
+  resetLoadoutCounts(); setWeapons(); if (P.s.fm) initFA();
+  W.lock = null; W.shots = []; W.bullets = []; EM.length = 0; FL.length = 0; flares = 24; chaff = 24;
   if (mis){ W.ammo = [600, 2, 0, 2, 4]; W.sel = 4;
     for (const t of targets){ t.dead = 0; t.hp = t.maxHp; t.cd = 0; }
     Object.assign(MS, { phase: "canyon", c0: MS.clock, exp: 0, killT: 0, doneT: 0, time: 0, reactor: targets.find(t => t.objective) }); }
@@ -699,11 +743,17 @@ function spawn(){
     "峽谷轟炸任務：在峽谷裡低飛，不要高過峽谷邊緣（太高會被防空雷達發現）。峽谷盡頭拉起越過山脊，俯衝進凹谷炸掉核子反應爐，再拉出來，用熱焰彈躲避飛彈。"));
 }
 let subT = null; function sub(t){ $("sub").textContent = t; clearTimeout(subT); subT = setTimeout(() => $("sub").textContent = "", 9000); }
-function curMesh(){ return getMesh(P.s, { gear: P.mode === "fly" ? P.gear : true, ab: P.mode === "fly" && P.thr > 0.9, brake: P.mode === "fly" && P.brake && !P.onGround, flaps: P.mode === "fly" && P.gear }); }
+// afterburner flame growth (SH built with sh_ab_flame.py --grow 3000): 15% to full length over 3 s after lighting;
+// like the SH's own x86, a burner not seen for over 1 s counts as freshly lit. In 8 steps so the meshes cache well
+const AB = { t0: 0, last: 0 };
+function abGrowNow(on){ const now = performance.now(); if (!on) return 1;
+  if (now - AB.last > 1000) AB.t0 = now; AB.last = now; return Math.round(Math.min(1, (now - AB.t0) / 3000) * 8) / 8; }
+function curMesh(noAB){ return getMesh(P.s, { lo: P.mode === "fly" ? loKey() : "", sweep: P.mode === "fly" ? P.sweep : 20, gear: P.mode === "fly" ? P.gear : true, ab: !noAB && P.mode === "fly" && P.thr > 0.9, abf: Math.floor(performance.now() / 70) % 3 /* animated flame (SH op 40) */, abg: noAB ? 1 : abGrowNow(P.mode === "fly" && P.thr > 0.9), brake: P.mode === "fly" && P.brake && !P.onGround, flaps: P.mode === "fly" && P.gear }); }
 function gearH(){ return Math.max(0, -getMesh(P.s, { gear: P.gear, flaps: P.gear }).lo[2]); }
 function crash(why){ P.crashed = true; P.speed = 0; P.boom = performance.now(); $("msg").textContent = why + "\n" + L("Tap Restart", "按「重來」"); }
 
 function stepFly(dt){
+  if (useFA()) return stepFlyFA(dt);
   const fwd = qRot(P.q, [0,1,0]), right = qRot(P.q, [1,0,0]);
   const ab = P.thr > 0.9, thrust = (P.thr / 0.9 > 1 ? AC.mil + (AC.ab - AC.mil) * (P.thr - 0.9) / 0.1 : AC.mil * P.thr / 0.9) * (ab ? 1 : 1);
   const drag = AC.drag + (P.gear ? 3.5e-5 : 0) + (P.brake ? 2.2e-5 : 0);
@@ -798,6 +848,10 @@ function stepDrive(dt){
 }
 function step(dt){
   P.thr = clamp(P.thr + input.thrRate * dt * 0.7, P.mode === "drive" ? -0.3 : 0, 1);
+  // swing wings (F-14 and others with _PLswingWing) follow airspeed like the F-14's wing-sweep computer: 20° up to 250 kt, fully
+  // back (68°) by 550 kt, moving about 7°/s; the mesh is rebuilt in 2° steps
+  if (P.s && P.s.m.imp && P.s.m.imp._PLswingWing){ const kt = P.onGround ? 0 : P.speed * FT_KT, want = 20 + 48 * clamp((kt - 250) / 300, 0, 1);
+    P.sweepF = (P.sweepF ?? 20) + clamp(want - (P.sweepF ?? 20), -7 * dt, 7 * dt); P.sweep = Math.round(P.sweepF / 2) * 2; } else P.sweep = 20;
   if (!P.crashed){ if (P.mode === "fly") stepFly(dt); else stepDrive(dt); }
   stepCombat(dt);
   stepMission(dt);
@@ -815,14 +869,162 @@ function stepWake(dt){
   WAKE.push({ pos: [P.pos[0] + f[0] * m.hi[1] * 0.85, P.pos[1] + f[1] * m.hi[1] * 0.85, -1], r: beam * 0.5, age: 0, bow: true });
 }
 
+// ===== FA flight model and real loadout =====
+// The aircraft's own .PT drives the flight model (tools/fa_flight_model.js, rebuilt from FA.EXE; see skill/FA_flight_model.MD).
+// Its hardpoints give the stations, and repo JT files the weapons each one may carry. A fired round disappears from the SH,
+// because SHCore tags every store face with its station, kind and round (same rule as the SH editor's loadout panel).
+const D2R = Math.PI / 180;
+let JTI = {};
+async function loadJTIndex(){ try { const u8 = await fetchAny(["tools/jt_index.json"]); if (u8) JTI = JSON.parse(new TextDecoder().decode(u8)); } catch(e){ console.warn(e); } }
+async function loadPT(s){
+  if (s.ptTried) return s.pt; s.ptTried = true;
+  const u8 = await fetchAny(["PT/" + s.name + ".PT"]); if (!u8) return null;
+  try { const pt = PTCore.parse(new TextDecoder("latin1").decode(u8)); if (!pt.fields.PLANE || pt.fields.PLANE.length < 140) return null;
+    s.pt = pt; s.fm = FAFM.params(PTCore, pt); } catch(e){ console.warn(e); }
+  return s.pt;
+}
+const useFA = () => !!(P.s && P.s.fm && $("selFM").value === "fa" && P.mode === "fly");
+// SH store kinds (tools/shgen *_stores.py): 1 tank, 2 AIM-9, 3 AIM-120, 4 HARM, 5 GBU, 6 Mk-82, 7 AIM-7, 8 AIM-54, 9 JDAM
+function kindOf(key){
+  if (key === "TANK") return 1; const j = JTI[key]; if (!j) return 0;
+  if (j.type === 12){ if (/PHENX/.test(j.sh) || /54/.test(j.name)) return 8; if (j.guid === 2) return 2; if (j.guid === 3) return j.flags & 0x200 ? 7 : 3; return 3; }
+  if (j.type === 0 || j.type === 8) return 6;
+  if (j.guid === 1) return 5; if (j.guid === 4) return 4; if (j.guid === 2 && j.flags & 0x10) return 9; return 4;
+}
+// can this hardpoint carry this JT (Edit Hardpoint "Allow load" boxes, bit 4..12)?
+function allowed(h, key){
+  const f = h.flags; if (key === "TANK") return !!(f & 0x200);
+  const j = JTI[key]; if (!j || !(j.flags & 2) || j.type === 4) return false;   // loadable to a hardpoint, not a gun
+  if (j.wt > h.wt * 100 && h.wt) return false;
+  if (j.type === 12){ if (f & 0x1000) return false; const k = kindOf(key);
+    return k === 8 ? !!(f & 0x10) : j.guid === 2 ? !!(f & 0x80) : j.guid === 3 ? !!(f & (j.flags & 0x200 ? 0x40 : 0x20)) || !!(f & 0x10) && k === 8 : !!(f & 0x100); }
+  if (j.type === 0 || j.type === 8 || j.guid === 1 && j.spd <= 600) return !!(f & 0x400);
+  return !!(f & 0x100) || !!(f & 0x400);
+}
+const TANK_WT = 2000;   // a 250-300 gal drop tank, full (the .GAS files are not in the repo: assumed)
+function maxCount(h, key){ if (key === "TANK") return h.qty; const w = (JTI[key] || {}).wt || 1; return Math.max(0, Math.min(h.qty, h.wt ? Math.floor(h.wt * 100 / w) : h.qty)); }
+// stations of the current aircraft, with the loadout picked in the panel (kept per aircraft in localStorage)
+function buildLoadout(s){
+  if (!s.pt) return null; const H = s.pt.hp, sts = [];
+  let gun = null;
+  H.forEach((h, i) => {
+    const def = (h.type || "").toUpperCase();
+    if (h.loc === 2 && /\.JT$/.test(def)){ gun = { hp: i, key: def, count: h.qty, name: (JTI[def] || {}).name || def.replace(/\.JT$/, "") }; return; }
+    if (!(h.flags & 0x7f0)) return;   // sensors / ECM: no "allow load" box
+    const opts = Object.keys(JTI).filter(k => allowed(h, k)); if (h.flags & 0x200) opts.unshift("TANK");
+    if (/\.GAS$/.test(def) && !opts.includes("TANK")) opts.unshift("TANK");
+    if (/\.JT$/.test(def) && !opts.includes(def) && JTI[def]) opts.unshift(def);
+    const dk = /\.GAS$/.test(def) ? "TANK" : def;
+    sts.push({ hp: i, h, opts, def: dk, sel: dk, count: maxCount(h, dk), kinds: (s.M && s.M.stations && s.M.stations.get(i) || {}).kinds || new Set() });
+  });
+  const lo = { gun, sts };
+  try { const sv = JSON.parse(localStorage.getItem("fa_flight_lo_" + s.name) || "null"); if (sv) for (const S of sts){ const v = sv[S.hp]; if (v && (v.sel === "" || S.opts.includes(v.sel))){ S.sel = v.sel; S.count = Math.min(v.count, S.sel ? maxCount(S.h, S.sel) : 0); } } } catch(e){}
+  return lo;
+}
+function saveLoadout(){ if (!P.lo) return; const o = {}; for (const S of P.lo.sts) o[S.hp] = { sel: S.sel, count: S.full ?? S.count }; try { localStorage.setItem("fa_flight_lo_" + P.s.name, JSON.stringify(o)); } catch(e){} }
+const loKey = () => P.lo && !MS.on ? P.lo.sts.map(S => kindOf(S.sel) + "x" + S.count).join(",") : "";
+function loShown(t){
+  const S = P.lo.sts.find(x => x.hp === t.st); if (!S) return false;
+  if (t.type === "pylon") return !!S.sel; return S.sel && kindOf(S.sel) === t.kind && S.count >= t.rank;
+}
+function storesWeight(){ if (!P.lo) return 0; let w = 0; for (const S of P.lo.sts) if (S.sel) w += S.count * (S.sel === "TANK" ? TANK_WT : (JTI[S.sel] || {}).wt || 0);
+  if (P.lo.gun) w += P.lo.gun.count * ((JTI[P.lo.gun.key] || {}).wt || 0); return w; }
+// weapon list for the fire button: the gun, then every loaded station (as FA steps through them)
+function weaponFromJT(S){
+  const j = JTI[S.sel] || {}, nm = j.name || S.sel.replace(/\.JT$/, "");
+  const w = { id: "st" + S.hp, st: S.hp, name: nm, sh: j.sh, ammo: S.count, dmg: 10 };
+  const spd = Math.max(800, j.spd || 1500), turn = Math.max(12, Math.min(90, j.turn || 30));
+  if (j.type === 12) Object.assign(w, { air: true, range: Math.max(3, j.rMax || 10) * 6076, cone: 0.5, spd, g: turn * spd / 57.3 / G, dmg: 10 });
+  else if (j.type === 0 || j.type === 8 || (j.spd || 0) <= 900 && j.guid !== 3 && j.guid !== 4) Object.assign(w, { bomb: true, guided: j.guid > 0, dmg: 14, blast: j.wt > 1500 ? 800 : 500 });
+  else Object.assign(w, { gnd: true, range: Math.max(3, j.rMax || 8) * 6076, cone: 0.45, spd, g: Math.max(8, turn * spd / 57.3 / G * 0.5), dmg: 14 });
+  return w;
+}
+function setWeapons(){
+  if (P.lo && !MS.on){
+    const g = P.lo.gun;
+    WEAPONS = [{ id: "gun", name: g ? g.name : "GUN", ammo: g ? g.count : 0 }, ...P.lo.sts.filter(S => S.sel && S.sel !== "TANK" && S.count > 0).map(weaponFromJT)];
+    for (const w of WEAPONS) if (w.sh) loadShape(w.sh).catch(() => null);
+  } else WEAPONS = BASE_WEAPONS;
+  W.ammo = WEAPONS.map(w => w.ammo); W.sel = Math.min(W.sel, WEAPONS.length - 1);
+}
+// the store a station fires next: its highest round still drawn
+function firedFrom(w){
+  const S = P.lo && P.lo.sts.find(x => x.hp === w.st); if (!S || S.count <= 0) return null;
+  const m = curMesh(), c = m.storeAt[S.hp + ":" + S.count];
+  const pos = c ? vadd(P.pos, qRot(P.q, c)) : launchFrom();
+  S.full = S.full ?? S.count; S.count--; return pos;
+}
+// loadout panel (menu): one row per station
+function renderLoadout(){
+  const box = $("loBox"); if (!box) return;
+  if (!P.lo || !P.s.fm){ box.innerHTML = ""; return; }
+  const LOC = [L("Centerline", "中線"), L("Fuselage", "機身"), L("Gun", "機砲"), L("Bay", "彈艙"), L("Wing", "機翼"), L("Wingtip", "翼尖")];
+  const name = k => k === "TANK" ? L("Fuel tank", "副油箱") : (JTI[k] || {}).name || k.replace(/\.JT$/, "");
+  box.innerHTML = `<label>${L("Loadout (from ", "掛載（來自 ")}${P.s.name}.PT)</label>` + P.lo.sts.map(S => {
+    const mx = S.sel ? maxCount(S.h, S.sel) : 0, drawn = !S.sel || S.kinds.has(kindOf(S.sel));
+    return `<div class="lorow" data-hp="${S.hp}"><span>#${S.hp} ${LOC[S.h.loc] || ""}</span><select>${['<option value="">' + L("— empty —", "— 不掛 —") + "</option>", ...S.opts.map(k => `<option value="${k}"${k === S.sel ? " selected" : ""}>${name(k)}${k === S.def ? " ★" : ""}</option>`)].join("")}</select>`
+      + `<select class="cnt">${Array.from({ length: mx + 1 }, (_, i) => `<option${i === (S.full ?? S.count) ? " selected" : ""}>${i}</option>`).join("")}</select>${drawn ? "" : `<em title="${L("This SH has no model for this store kind", "這個 SH 沒有這種外掛的模型")}">*</em>`}</div>`; }).join("")
+    + `<p class="lonote">${L("★ = PT default. Fired rounds disappear from the model; the pylon stays. * = drawn as pylon only. Applies on Start / Restart.", "★ = PT 預設。射出的武器會從模型上消失，派龍架保留。* = 只畫派龍架。按「開始」或「重來」生效。")}</p>`;
+  box.querySelectorAll(".lorow").forEach(row => { const S = P.lo.sts.find(x => x.hp === +row.dataset.hp), [a, b] = row.querySelectorAll("select");
+    a.onchange = () => { S.sel = a.value; S.full = undefined; S.count = S.sel ? maxCount(S.h, S.sel) : 0; saveLoadout(); renderLoadout(); };
+    b.onchange = () => { S.full = undefined; S.count = +b.value; saveLoadout(); }; });
+}
+function resetLoadoutCounts(){ if (!P.lo) return; for (const S of P.lo.sts){ if (S.full != null) S.count = S.full; S.full = undefined; } if (P.lo.gun) P.lo.gun.count = P.s.pt.hp[P.lo.gun.hp].qty; }
+function initFA(){
+  const fm = P.s.fm; if (!fm) return;
+  const st = P.fs = FAFM.create(fm, { V: Math.abs(P.speed), psi: ((-P.hdg / D2R) % 360 + 360) % 360, thr: P.thr <= 0.9 ? P.thr / 0.9 : 1, onGround: P.onGround });
+  st.stores = storesWeight(); st.fuel = fm.fuel;
+  if (!P.onGround){ st.gT = 0; }
+}
+// one step of the FA model; the page keeps ground contact, landing and crashes
+function stepFlyFA(dt){
+  const fm = P.s.fm, s = P.fs; s.onGround = P.onGround; s.stores = storesWeight();
+  const g0 = P.onGround ? groundAt(P.pos[0], P.pos[1]) : null;
+  const inp = { pitch: input.pitch, roll: input.roll, yaw: input.yaw, thr: P.thr <= 0.9 ? P.thr / 0.9 : 1, ab: P.thr > 0.93, gear: P.gear, flaps: P.gear, brake: P.brake };
+  FAFM.step(fm, s, inp, dt, P.pos[2]);
+  if (P.onGround){
+    if (g0.kind === "deck" && P.thr > 0.95 && s.V < 260 && P.cat < 3){ s.V += 70 * dt; P.cat += dt; }   // catapult
+    s.V = Math.max(0, s.V);
+  }
+  let v = FAFM.velocity(s);
+  const q = qMul(qFromHP(-s.psi * D2R, s.theta * D2R), qAxis([0,1,0], s.phi * D2R));
+  P.q = qNorm(qMul(q, qMul(qAxis([1,0,0], (s.aoaVis + (P.onGround ? 0 : 0)) * D2R), qAxis([0,0,1], -s.slip * D2R))));
+  P.hdg = -s.psi * D2R; P.pitch = s.theta * D2R; P.speed = s.V; P.gN = s.n;
+  if (P.onGround){
+    const up = v[2] > 0.5 && s.V > 0.85 * s.vS;
+    if (!up) v[2] = 0;
+    P.pos = vadd(P.pos, vmul(v, dt));
+    const g2 = groundAt(P.pos[0], P.pos[1]);
+    if (g2.kind === "water" || g2.h < g0.h - 25){ if (s.V > s.vS * 0.8){ P.onGround = false; s.onGround = false; } else if (g2.kind === "water"){ crash(L("Into the water!", "掉進海裡了！")); return; } }
+    else if (g2.h > g0.h + 25){ crash(L("Hit an obstacle!", "撞到障礙物！")); return; }
+    else if (up){ P.onGround = false; s.onGround = false; P.pos[2] = Math.max(P.pos[2], g2.h + gearH() + 1); }
+    else P.pos[2] = g2.h + gearH();
+    P.vel = v; P.vz = v[2]; return;
+  }
+  P.vel = v; P.vz = v[2]; P.alpha = 0;
+  P.pos = vadd(P.pos, vmul(v, dt));
+  const g = groundAt(P.pos[0], P.pos[1]), hh = P.gear ? gearH() : Math.max(0, -getMesh(P.s, {}).lo[2]);
+  if (P.pos[2] - hh <= g.h){
+    const flatOk = g.kind === "runway" || g.kind === "deck" || g.kind === "terrain" && Math.abs(terrainH(P.pos[0] + 60, P.pos[1]) - terrainH(P.pos[0] - 60, P.pos[1])) < 15 && Math.abs(terrainH(P.pos[0], P.pos[1] + 60) - terrainH(P.pos[0], P.pos[1] - 60)) < 15;
+    const deep = g.h - (P.pos[2] - hh), roll = s.phi * D2R, pitch = s.theta * D2R;
+    if (g.kind === "water") crash(L("Splash! You hit the sea.", "撲通！掉進海裡了。"));
+    else if (!P.gear) crash(MS.on ? L("Crashed into the rocks!", "撞上岩壁了！") : L("Crashed: the gear was up.", "墜毀：起落架沒放下。"));
+    else if (deep > 40) crash(L("Crashed into the side!", "撞上側面了！"));
+    else if (v[2] < -32 || Math.abs(roll) > 0.4 || pitch < -0.12 || pitch > 0.55 || !flatOk) crash(v[2] < -32 ? L("Crashed: touched down too hard.", "墜毀：落地太重。") : L("Crashed!", "墜毀！"));
+    else { P.onGround = true; s.onGround = true; s.theta = Math.max(0, s.theta); s.phi = 0; s.p = 0; s.vz = 0; s.vy = 0; s.n = 1; P.pos[2] = g.h + hh; s.V = Math.hypot(v[0], v[1]);
+      sub(L(`Touchdown at ${Math.round(-v[2] * 60)} ft/min. Brake to stop.`, `落地，下降率 ${Math.round(-v[2] * 60)} 呎/分。按煞車停下。`)); }
+  }
+}
+
 // ===== weapons and targets =====
-const WEAPONS = [
+const BASE_WEAPONS = [
   { id: "gun", name: "GUN", ammo: 600 },
   { id: "aim9", name: "AIM-9", sh: "SIDEM", ammo: 4, air: true, range: 16000, cone: 0.55, spd: 2600, g: 30, dmg: 10 },
   { id: "aim120", name: "AIM-120", sh: "AMRAM", ammo: 4, air: true, range: 50000, cone: 0.45, spd: 3200, g: 22, dmg: 10 },
   { id: "agm65", name: "AGM-65", sh: "MAVRK", ammo: 4, gnd: true, range: 32000, cone: 0.45, spd: 1500, g: 12, dmg: 14 },
   { id: "mk82", name: "MK-82", sh: "MK82", ammo: 6, bomb: true, dmg: 14, blast: 500 },
 ];
+let WEAPONS = BASE_WEAPONS;
 const W = { sel: 0, ammo: WEAPONS.map(w => w.ammo), bullets: [], shots: [], booms: [], lock: null, fireHeld: false, gunT: 0, kills: 0, side: 1 };
 let targets = [];
 let lastPV = null, lastEye = [0,0,0], sphere = null, COL = {};
@@ -838,7 +1040,7 @@ const lineBuf = gl.createBuffer();
 async function initCombat(rgb){
   COL = { tracer: nearestPal(rgb, 255, 225, 90), smoke: nearestPal(rgb, 210, 210, 205), fire: nearestPal(rgb, 255, 140, 30) };
   sphere = buildSphere(COL.fire);
-  await Promise.all(WEAPONS.filter(w => w.sh).map(w => loadShape(w.sh).catch(() => null)));
+  await Promise.all(BASE_WEAPONS.filter(w => w.sh).map(w => loadShape(w.sh).catch(() => null)));
   const air = (name, cx, cy, alt, R, ph, dir) => ({ name, kind: "air", hp: 8, orbit: { cx, cy, alt, R, ph, dir, w: 620 / R } });
   const list = [
     air("MIG29", -884, 22000, 5500, 9000, 0, 1), air("MIG29", 18000, -8000, 7000, 12000, 2, -1), air("SU27", -26000, 12000, 9000, 9000, 4, 1), air("MIG29", 42000, 26000, 3500, 10000, 1, -1),
@@ -884,8 +1086,8 @@ function launchFrom(){ const r = getMesh(P.s, {}).radius, f = fwdOf(P.q), rt = q
 function fireOnce(){
   if (P.mode !== "fly" || P.crashed) return;
   const w = WEAPONS[W.sel]; if (w.id === "gun" || W.ammo[W.sel] <= 0) return;
-  W.ammo[W.sel]--; updButtons();
-  const v0 = P.vel ? P.vel.slice() : vmul(fwdOf(P.q), P.speed), pos = launchFrom();
+  W.ammo[W.sel]--;
+  const v0 = P.vel ? P.vel.slice() : vmul(fwdOf(P.q), P.speed), pos = (w.st != null && firedFrom(w)) || launchFrom(); updButtons();
   W.shots.push({ w, pos, vel: w.bomb ? vadd(v0, [0, 0, -15]) : vadd(v0, vmul(fwdOf(P.q), 80)), target: w.bomb ? null : W.lock, life: w.bomb ? 90 : 25, trail: [pos.slice()], t: 0 });
 }
 function damage(t, n, at){
@@ -894,7 +1096,7 @@ function damage(t, n, at){
     sub(L(`${t.name} destroyed!`, `擊毀 ${t.name}！`)); if (W.lock === t) W.lock = null; }
   else boom(at || t.pos, 30);
 }
-function boom(pos, size){ W.booms.push({ pos: pos.slice(), size, t0: performance.now() }); }
+function boom(pos, size){ W.booms.push({ pos: pos.slice(), size, t0: performance.now(), seed: (Math.random() * 1e9) | 0, vis: true, visT: 0 }); }
 const tCenter = t => t.kind === "bld" ? vadd(t.pos, [0, 0, (t.mesh.lo[2] + t.mesh.hi[2]) / 2]) : t.pos;
 function hitTarget(p, extra){ for (const t of targets) if (!t.dead && vlen(vsub(p, tCenter(t))) < t.mesh.radius * (t.kind === "bld" ? 0.75 : 0.6) + extra) return t; return null; }
 function stepCombat(dt){
@@ -945,12 +1147,12 @@ function stepCombat(dt){
     }
   }
   W.shots = W.shots.filter(m => m.life > 0);
-  W.booms = W.booms.filter(b => performance.now() - b.t0 < 2500);
+  W.booms = W.booms.filter(b => performance.now() - b.t0 < 6000);
 }
 // ===== canyon strike mission: SAM sites, enemy missiles, flares =====
 const MS = { map: "island", on: false, phase: "", clock: 0, c0: 0, exp: 0, killT: 0, doneT: 0, time: 0, reactor: null };
 const EM = [], FL = [];   // enemy missiles in flight, flares
-let flares = 24, flareT = 0, samScan = 0;
+let flares = 24, flareT = 0, samScan = 0, chaff = 24, chaffT = 0;
 const exposedNow = () => P.pos[1] > -2000 && P.pos[1] < CY.end - 6500 && P.pos[2] > plateauH(P.pos[0], P.pos[1]) - 80;   // above the canyon rim
 function dropFlares(){
   if (P.mode !== "fly" || P.crashed || flares <= 0 || flareT > 0) return;
@@ -961,9 +1163,17 @@ function dropFlares(){
   for (const m of EM) if (m.tgt === "player" && vlen(vsub(m.pos, P.pos)) < 12000 && Math.random() < 0.8) m.tgt = pair[Math.random() < 0.5 ? 0 : 1];
   updButtons();
 }
+// chaff: a cloud of foil that hangs in the air; a missile chasing you may lock onto it instead
+function dropChaff(){
+  if (P.mode !== "fly" || P.crashed || chaff <= 0 || chaffT > 0) return;
+  chaffT = 0.35; chaff -= 1;
+  const v0 = P.vel || vmul(fwdOf(P.q), P.speed), c = { pos: P.pos.slice(), vel: vmul(v0, 0.25), life: 5, chaff: true }; FL.push(c);
+  for (const m of EM) if (m.tgt === "player" && vlen(vsub(m.pos, P.pos)) < 15000 && Math.random() < 0.7) m.tgt = c;
+  sub(L("CHAFF", "干擾絲") + " ×" + chaff);
+}
 function stepMission(dt){
-  flareT -= dt;
-  for (const f of FL){ f.vel = vmul(f.vel, 1 - Math.min(1, 0.8 * dt)); f.vel[2] -= G * 0.5 * dt; f.pos = vadd(f.pos, vmul(f.vel, dt)); f.life -= dt; }
+  flareT -= dt; chaffT -= dt;
+  for (const f of FL){ f.vel = vmul(f.vel, 1 - Math.min(1, 0.8 * dt)); f.vel[2] -= (f.chaff ? 4 : G * 0.5) * dt; f.pos = vadd(f.pos, vmul(f.vel, dt)); f.life -= dt; }
   for (let i = FL.length - 1; i >= 0; i--) if (FL[i].life <= 0) FL.splice(i, 1);
   if (!MS.on) return;
   const alive = P.mode === "fly" && !P.crashed, now = performance.now(); MS.clock += dt;
@@ -1027,24 +1237,65 @@ function renderCombat(eye){
   // fireballs
   if (W.booms.length || FL.length || WAKE.length){
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
-    for (const b of W.booms){ const t = (performance.now() - b.t0) / 2500;
+    for (const b of W.booms){ const t = (performance.now() - b.t0) / 1000; if (t > 1) continue;
       gl.uniform4f(mProg.U("uTint"), 1, 0.55 - 0.35 * t, 0.12, 0.85); gl.uniform1f(mProg.U("uAlpha"), (1 - t) * 0.9);
       drawModel({ picTex: blankTex, pic: null }, sphere, modelMat([0,0,0,1], vsub(b.pos, eye), b.size * (0.4 + 1.2 * Math.sqrt(t))), false); }
     gl.uniform4f(mProg.U("uTint"), 0.95, 0.97, 1, 1);
     for (const w of WAKE){ if (w.bow && w.age > 3) continue; const k = w.age / (w.bow ? 3 : 25), M = modelMat([0,0,0,1], vsub(w.pos, eye), w.r * (1 + w.age * (w.bow ? 0.4 : 0.12))); M[10] *= 0.01;
       gl.uniform1f(mProg.U("uAlpha"), 0.3 * (1 - k) * (1 - k)); drawModel({ picTex: blankTex, pic: null }, sphere, M, false); }
     gl.uniform4f(mProg.U("uTint"), 1, 0.95, 0.75, 1);
-    for (const f of FL){ gl.uniform1f(mProg.U("uAlpha"), Math.min(1, f.life)); drawModel({ picTex: blankTex, pic: null }, sphere, modelMat([0,0,0,1], vsub(f.pos, eye), 14 + 6 * Math.sin(f.life * 30)), false); }
+    for (const f of FL){ if (f.chaff) continue; gl.uniform1f(mProg.U("uAlpha"), Math.min(1, f.life)); drawModel({ picTex: blankTex, pic: null }, sphere, modelMat([0,0,0,1], vsub(f.pos, eye), 14 + 6 * Math.sin(f.life * 30)), false); }
+    gl.uniform4f(mProg.U("uTint"), 0.75, 0.78, 0.82, 1);
+    for (const f of FL){ if (!f.chaff) continue; gl.uniform1f(mProg.U("uAlpha"), 0.25 * Math.min(1, f.life / 2)); drawModel({ picTex: blankTex, pic: null }, sphere, modelMat([0,0,0,1], vsub(f.pos, eye), 20 + (5 - f.life) * 12), false); }
     gl.uniform4f(mProg.U("uTint"), 0, 0, 0, 0); gl.uniform1f(mProg.U("uAlpha"), 1); gl.depthMask(true); gl.disable(gl.BLEND);
   }
 }
 const ov = $("ov"), ox = ov.getContext("2d");
 function project(p){ if (!lastPV) return null; const v = vsub(p, lastEye), M = lastPV;
   const x = M[0]*v[0] + M[4]*v[1] + M[8]*v[2] + M[12], y = M[1]*v[0] + M[5]*v[1] + M[9]*v[2] + M[13], w = M[3]*v[0] + M[7]*v[1] + M[11]*v[2] + M[15];
-  if (w <= 1) return null; return [(x / w * 0.5 + 0.5) * innerWidth, (0.5 - y / w * 0.5) * innerHeight]; }
+  if (w <= 1) return null; return [(x / w * 0.5 + 0.5) * innerWidth, (0.5 - y / w * 0.5) * innerHeight, w]; }
+// screen pixels per foot at depth w
+let lastFov = 1; const pxPerFt = w => innerHeight / 2 / Math.tan(lastFov / 2) / w;
+// explosions on the overlay, as on the replay page: flash and fireball, a smoke cloud, and debris streaks falling under gravity
+function rndSeq(seed){ let s = seed % 2147483647; if (s <= 0) s += 2147483646; return () => (s = s * 16807 % 2147483647) / 2147483647; }
+function drawBooms(){
+  const now = performance.now();
+  for (const b of W.booms){
+    const age = (now - b.t0) / 1000; if (age > 6) continue;
+    if (now > b.visT){ b.visT = now + 250; b.vis = clearLine(lastEye, vadd(b.pos, [0, 0, 20])); }   // hidden behind a hill: skip
+    if (!b.vis) continue;
+    const c = project(b.pos); if (!c) continue;
+    const R = Math.max(6, b.size * 4 * pxPerFt(c[2])), p = c;
+    if (age < 1.6){ const r = R * (0.3 + age * 1.4), a = 1 - age / 1.6;
+      const g = ox.createRadialGradient(p[0], p[1], 0, p[0], p[1], r);
+      g.addColorStop(0, `rgba(255,255,220,${a})`); g.addColorStop(.35, `rgba(255,190,60,${a * .9})`); g.addColorStop(.7, `rgba(230,70,20,${a * .6})`); g.addColorStop(1, "rgba(80,20,0,0)");
+      ox.fillStyle = g; ox.beginPath(); ox.arc(p[0], p[1], r, 0, 7); ox.fill(); }
+    if (age > 0.4){ const a = Math.max(0, 0.45 - (age - 0.4) / 12), r = R * (0.8 + age * 0.6), y = p[1] - age * R * 0.15;
+      const g = ox.createRadialGradient(p[0], y, 0, p[0], y, r);
+      g.addColorStop(0, `rgba(50,40,35,${a})`); g.addColorStop(1, "rgba(50,40,35,0)"); ox.fillStyle = g; ox.beginPath(); ox.arc(p[0], y, r, 0, 7); ox.fill(); }
+    const r = rndSeq(b.seed), k = b.size / 100;   // debris speed scales with the blast
+    ox.lineCap = "round";
+    for (let i = 0; i < 36; i++){
+      const th = r() * Math.PI * 2, ph = (r() - 0.3) * Math.PI * 0.9, v = (150 + r() * 450) * k, life = 1.5 + r() * 3, hot = r() < 0.5;
+      if (age > life) continue;
+      const dv = [Math.cos(th) * Math.cos(ph) * v, Math.sin(th) * Math.cos(ph) * v, Math.sin(ph) * v];
+      const pos = t => { const q = vadd(b.pos, vmul(dv, t)); q[2] -= 16 * t * t; return q; };
+      const A = project(pos(Math.max(0, age - 0.25))), B = project(pos(age)); if (!A || !B) continue;
+      const a = 1 - age / life;
+      ox.strokeStyle = hot ? `rgba(255,${150 + ((a * 100) | 0)},60,${a})` : `rgba(40,30,25,${a})`; ox.lineWidth = hot ? 2 : 2.5;
+      ox.beginPath(); ox.moveTo(A[0], A[1]); ox.lineTo(B[0], B[1]); ox.stroke();
+    }
+    ox.lineCap = "butt";
+  }
+}
+// target names from the PT files (tools/pt_names.json, made by tools/make_pt_names.cjs); types with no PT (ships, ground units) get a tidy name
+let PTN = {}; fetch("pt_names.json").then(r => r.ok ? r.json() : {}).then(j => PTN = j).catch(() => {});
+const OTHER_NAMES = { T72: "T-72", SA6: "SA-6", ZSU23: "ZSU-23-4", KIROV: "Kirov", KRIVAK: "Krivak", REACTR: "Reactor" };
+const tName = t => PTN[t.name] || OTHER_NAMES[t.name] || t.name;
 function drawOverlay(){
   const d = Math.min(2, devicePixelRatio || 1); if (ov.width !== Math.round(innerWidth * d)){ ov.width = Math.round(innerWidth * d); ov.height = Math.round(innerHeight * d); }
   ox.setTransform(d, 0, 0, d, 0, 0); ox.clearRect(0, 0, innerWidth, innerHeight);
+  drawBooms();
   if (P.mode !== "fly" || !P.s) return;
   ox.lineWidth = 1.5; ox.font = "600 11px ui-monospace,Consolas,monospace"; ox.textAlign = "center";
   const w = WEAPONS[W.sel];
@@ -1056,6 +1307,7 @@ function drawOverlay(){
     if (lock){ ox.strokeRect(s[0] - r - 4, s[1] - r - 4, 2*r + 8, 2*r + 8); ox.fillText("LOCK", s[0], s[1] - r - 9); }
     if (t.objective){ ox.strokeStyle = ox.fillStyle = lock ? "#ff4040" : "#ffd54a"; ox.strokeRect(s[0] - 20, s[1] - 20, 40, 40); ox.fillText(L("TARGET", "目標"), s[0], s[1] - 26); }
     else if (t.sam && !lock && dist < 16000) ox.fillText("SAM", s[0], s[1] - r - 5);
+    if (!t.objective && (t.kind !== "bld" || dist < 12000)){ const y = s[1] - r - (lock ? 22 : t.sam && dist < 16000 ? 18 : 5); ox.fillText(tName(t), s[0], y); }
     if (lock || t.objective || t.kind === "air" || t.kind === "sea") ox.fillText(dist > 9000 ? (dist / 6076).toFixed(1) + "nm" : Math.round(dist) + "ft", s[0], s[1] + r + 13);
   }
   ox.strokeStyle = ox.fillStyle = "#ff4040";
@@ -1076,9 +1328,28 @@ function drawOverlay(){
   $("bWpn").onclick = nextWeapon; }
 
 // ===== camera =====
+function placeFlyby(){
+  const v = P.vel && vlen(P.vel) > 30 ? P.vel : vmul(fwdOf(P.q), Math.max(P.speed, 60)), sp = vlen(v), f = vnorm(v), r = getMesh(P.s, {}).radius;
+  const D = clamp(sp * 3.5, 400, 4000);                               // about 3.5 s ahead along the flight path
+  let side = vnorm([f[1], -f[0], 0]); if (!isFinite(side[0]) || vlen(side) < 0.5) side = [1, 0, 0];
+  const eye = vadd(vadd(P.pos, vmul(f, D)), vadd(vmul(side, r * 2.5 + 40), [0, 0, r * 0.6 + 12]));
+  const gh = groundAt(eye[0], eye[1]).h; if (eye[2] < gh + 6) eye[2] = gh + 6;
+  cam.fly = { eye, D, min: 1e9 }; cam.flyFov = 0;
+}
+function toggleFlyby(){ if (cam.fly){ cam.fly = null; sub(L("Chase view", "追蹤視角")); } else { cam.rc = false; placeFlyby(); sub(L("Fly-by view (F9 again to leave)", "飛掠視角（再按 F9 離開）")); } updButtons(); }
 function camera(dt){
   const mesh = getMesh(P.s, {}), r = mesh.radius;   // framed on the clean model, so the afterburner flame, gear or speed brake never change the size; a turned view stays until the Front button (or a double-tap) brings it back
   const center0 = vadd(P.pos, [0, 0, (mesh.hi[2] + mesh.lo[2]) / 2]);
+  if (cam.fly){
+    // fly-by view (F9): a camera parked beside the flight path ahead; the jet comes at it, passes close and flies off. Once it
+    // is well past and going away, a new spot is picked ahead again
+    const F = cam.fly, eye = F.eye, d = vsub(center0, eye), dist = vlen(d), v = P.vel || vmul(fwdOf(P.q), P.speed);
+    if (dist < F.min) F.min = dist;
+    if ((F.min < F.D * 0.6 && dist > F.D * 2.5 && vdot(d, v) > 0) || dist > F.D * 6) placeFlyby();
+    const want = clamp(5 * Math.atan(r / Math.max(dist, 1)), 0.25, 1.0);
+    cam.flyFov = cam.flyFov ? cam.flyFov + (want - cam.flyFov) * (1 - Math.exp(-dt * 3)) : want;
+    return { eye: cam.fly.eye, target: center0, up: [0,0,1], fov: cam.flyFov };
+  }
   if (cam.rc && cam.rcEye){
     // RC view: you stand at the runway end, beside where the jet started, and follow it with your eyes. The zoom follows the
     // distance smoothly so the jet always fills about half the screen (pinch changes that share)
@@ -1170,7 +1441,7 @@ function render(){
   const above = eye[2] - groundAt(eye[0], eye[1]).h;
   // RC view: the eye stands on the ground (near plane would be ~3 ft) while the jet is miles away with a narrow lens, so depth
   // precision ran out and the far side of the jet showed through the near side. Push the near plane out to half the distance.
-  const near = cam.rc && cam.rcEye ? Math.max(3, dist * 0.5) : clamp(Math.min(dist * 0.15, above * 0.5), 2, 60), proj = perspective(c.fov, cv.width / cv.height, near, 260000);
+  const near = cam.fly ? Math.max(3, dist * 0.3) : cam.rc && cam.rcEye ? Math.max(3, dist * 0.5) : clamp(Math.min(dist * 0.15, above * 0.5), 2, 60), proj = perspective(c.fov, cv.width / cv.height, near, 260000);
   const PV = mul4(proj, lookAt0(vsub(c.target, eye), c.up));
   gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
   // terrain + sea
@@ -1189,7 +1460,7 @@ function render(){
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, palTex); gl.uniform1i(mProg.U("uPal"), 1); gl.uniform1i(mProg.U("uPic"), 0);
   for (const o of world.objs){ const dd = vlen(vsub(o.pos, eye)); if (dd > FOG[1] + o.mesh.radius) continue; drawModel(o.s, o.mesh, modelMat(o.q, vsub(o.pos, eye)), false, dd > o.mesh.radius * 25); }
   renderCombat(eye);
-  lastPV = PV; lastEye = eye;
+  lastPV = PV; lastEye = eye; lastFov = c.fov;
   const mesh = curMesh();
   if (!P.crashed || performance.now() - P.boom < 120){
     // shadow on the ground under the player
@@ -1197,7 +1468,7 @@ function render(){
     if (hgt < 3000 && P.mode !== "sail"){
       const M = modelMat(P.q, vsub(P.pos, eye)); for (let i = 0; i < 3; i++) M[i*4+2] = 0; M[14] = g.h + 1.5 - eye[2];
       gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
-      drawModel(P.s, mesh, M, true); gl.depthMask(true); gl.disable(gl.BLEND);
+      drawModel(P.s, curMesh(true), M, true); gl.depthMask(true); gl.disable(gl.BLEND);   // shadow without the afterburner flame (hot gas casts none)
     }
     drawModel(P.s, mesh, modelMat(P.q, vsub(P.pos, eye)), false);
   } else {
@@ -1216,11 +1487,14 @@ function hud(){
   $("hHdg").textContent = String(Math.round(((-P.hdg * 180 / Math.PI) % 360 + 360) % 360)).padStart(3, "0");
   if (P.mode === "fly" && !P.onGround){ const f = qRot(P.q, [0,1,0]); $("hHdg").textContent = String(Math.round(((Math.atan2(f[0], f[1]) * 180 / Math.PI) + 360) % 360)).padStart(3, "0"); }
   $("hTimeD").style.display = MS.on ? "" : "none";
+  $("hGD").style.display = P.mode === "fly" ? "" : "none";
+  if (P.mode === "fly"){ const fa = useFA() && P.fs; $("hG").textContent = (fa ? P.fs.n : 1).toFixed(1); $("hM").textContent = fa ? " M" + (Math.abs(P.speed) / FAFM.sound(P.pos[2])).toFixed(2) : ""; }
   if (MS.on){ const ts = MS.phase === "done" ? MS.time : MS.clock - MS.c0; $("hTime").textContent = Math.floor(ts / 60) + ":" + String(Math.floor(ts % 60)).padStart(2, "0"); }
   const tb = $("thrBar"), t = Math.max(0, P.thr); tb.style.height = (t * 100) + "%"; tb.classList.toggle("ab", P.mode === "fly" && P.thr > 0.9);
   if (P.mode === "fly" && !P.onGround && !P.crashed){
     const agl = P.pos[2] - g.h, now = performance.now();
-    let warn = (P.alpha || 0) > AC.aStall && (P.vz || 0) < -30 ? L("STALL", "失速") : agl < (MS.on ? 150 : 400) && !P.gear && (P.vz || 0) < -20 ? L("PULL UP", "拉起") : "";
+    const fw = useFA() && P.fs ? P.fs.warn : "";
+    let warn = fw === "STALL" ? L("STALL", "失速") : fw === "stall" ? (now % 700 < 420 ? L("stall warning", "失速警告") : "") : fw === "OVERSPEED" ? L("OVERSPEED", "超速") : !useFA() && (P.alpha || 0) > AC.aStall && (P.vz || 0) < -30 ? L("STALL", "失速") : agl < (MS.on ? 150 : 400) && !P.gear && (P.vz || 0) < -20 ? L("PULL UP", "拉起") : "";
     if (MS.on && MS.exp > 0) warn = L("TOO HIGH: SAM RADAR!", "太高了：被防空雷達發現！");
     if (EM.some(m => m.tgt === "player" && vlen(vsub(m.pos, P.pos)) < 16000)) warn = now % 600 < 380 ? L("MISSILE! FLARES!", "飛彈來襲！放熱焰彈！") : "";
     if (MS.on && MS.phase === "done" && now - MS.doneT < 10000) warn = L("MISSION COMPLETE", "任務完成") + "\n" + Math.floor(MS.time / 60) + ":" + String(Math.floor(MS.time % 60)).padStart(2, "0");
@@ -1265,16 +1539,117 @@ cv.addEventListener("pointerup", endPtr); cv.addEventListener("pointercancel", e
 cv.addEventListener("wheel", e => { e.preventDefault(); cam.zoom = clamp(cam.zoom * Math.exp(e.deltaY * 0.0012), 0.35, 6); }, { passive: false });
 addEventListener("resize", placeSticks);
 const keys = new Set();
-addEventListener("keydown", e => { if (e.target.tagName === "SELECT") return; keys.add(e.code);
+addEventListener("keydown", e => { if (e.code === "F1"){ e.preventDefault(); frontView(); return; }   // F1: front view (and no browser help page)
+  if (e.target.tagName === "SELECT") return; keys.add(e.code);
   if (e.code === "KeyG") toggleGear(); if (e.code === "KeyB") toggleBrake(); if (e.code === "KeyR") spawn(); if (e.code === "KeyV") $("bView").click();
-  if (e.code === "KeyF" || e.code === "KeyX") nextWeapon(); if (e.code === "KeyC") dropFlares(); if (e.code === "Space" && !e.repeat){ e.preventDefault(); W.fireHeld = true; fireOnce(); } });
+  if (e.code === "KeyF" || e.code === "KeyX") nextWeapon(); if (e.code === "KeyC" || e.code === "Delete") dropFlares(); if (e.code === "Insert") dropChaff(); if (e.code === "F9"){ e.preventDefault(); toggleFlyby(); } if (e.code === "Space" && !e.repeat){ e.preventDefault(); W.fireHeld = true; fireOnce(); } });
+addEventListener("help", e => e.preventDefault());   // F1 help in some browsers
 addEventListener("keyup", e => { keys.delete(e.code); if (e.code === "Space") W.fireHeld = false; });
 addEventListener("blur", () => keys.clear());
+
+// ===== flight joystick / gamepad (Gamepad API) =====
+// Browsers only report a stick after a button is pressed (or an axis moved) while the page has focus.
+// Mapping is per page, saved in localStorage "fa_flight_joy": axes { i: axis index or -1, inv } and buttons (index or -1).
+const JOY_AXES = [["roll", "Roll", "滾轉"], ["pitch", "Pitch", "俯仰"], ["yaw", "Rudder", "方向舵"], ["thr", "Throttle", "油門"]];
+const JOY_BTNS = [["fire", "Fire", "開火"], ["gun", "Gun", "機砲"], ["weapon", "Next weapon", "切換武器"], ["flare", "Flares", "熱焰彈"], ["chaff", "Chaff", "干擾絲"], ["gear", "Gear", "起落架"], ["brake", "Brake", "煞車"], ["view", "View", "視角"], ["restart", "Restart", "重來"]];
+// defaults = Kuoyi's HOTAS (2026-11-16): rudder axis 5, throttle axis 2, fire button 4, gun button 0, next weapon button 3, view = hat on axis 9
+// (flares / chaff are on the keyboard: Delete / Insert)
+const JOY_DEF = { axes: { roll: { i: 0, inv: false }, pitch: { i: 1, inv: false }, yaw: { i: 5, inv: false }, thr: { i: 2, inv: false } },
+  btn: { fire: 4, gun: 0, weapon: 3, flare: -1, chaff: -1, gear: -1, brake: -1, view: -1, restart: -1 }, hat: 9, dead: 0.06 };
+let JOY = JSON.parse(JSON.stringify(JOY_DEF));
+try { const sv = JSON.parse(localStorage.getItem("fa_flight_joy2") || "null"); if (sv && sv.axes && sv.btn){ Object.assign(JOY.axes, sv.axes); Object.assign(JOY.btn, sv.btn); if (sv.dead != null) JOY.dead = sv.dead; if (sv.hat != null) JOY.hat = sv.hat; } } catch(e){}
+const joy = { pad: null, prevBtn: [], learn: null, base: null, lastThr: null, ui: false };
+function saveJoy(){ try { localStorage.setItem("fa_flight_joy2", JSON.stringify(JOY)); } catch(e){} }
+// hat switch reported as one axis (Windows / Chrome): -1 = up, then +2/7 per 45° clockwise; ~1.29 (outside -1..1) = centred
+function hatDir(v){ if (v == null || v < -1.05 || v > 1.05) return -1; return ((Math.round((v + 1) * 3.5) % 8) + 8) % 8; }
+function getPad(){ const ps = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+  // a flight stick usually has more axes than a phone-style pad: prefer the device with the most axes
+  return ps.sort((a, b) => b.axes.length - a.axes.length)[0] || null; }
+addEventListener("gamepadconnected", e => { sub(L("Joystick connected: ", "已連接搖桿：") + e.gamepad.id); renderJoy(); });
+addEventListener("gamepaddisconnected", () => { joy.pad = null; renderJoy(); });
+const joyAxis = (pad, a) => { const m = JOY.axes[a]; if (!pad || m.i < 0 || m.i >= pad.axes.length) return null; let v = pad.axes[m.i]; if (m.inv) v = -v; return v; };
+const joyDead = v => Math.abs(v) < JOY.dead ? 0 : Math.sign(v) * (Math.abs(v) - JOY.dead) / (1 - JOY.dead);
+function readJoy(){
+  const pad = getPad(); joy.pad = pad; if (!pad) return { pitch: 0, roll: 0, yaw: 0 };
+  const btn = pad.buttons.map(b => b.pressed || b.value > 0.5);
+  // learning: the first axis that moves well away from where it started, or the first button pressed
+  if (joy.learn){ const [kind, key] = joy.learn;
+    if (!joy.base) joy.base = { axes: pad.axes.slice(), btn: btn.slice() };
+    if (kind === "hat"){ let best = -1; pad.axes.forEach((v, i) => { if (best < 0 && Math.abs(v - (joy.base.axes[i] ?? v)) > 0.1 && hatDir(v) >= 0) best = i; });
+      if (best >= 0){ JOY.hat = best; joy.learn = null; joy.base = null; saveJoy(); renderJoy(); } }
+    else if (kind === "axis"){ let best = -1, d = 0.5; pad.axes.forEach((v, i) => { const dv = Math.abs(v - (joy.base.axes[i] ?? v)); if (dv > d){ d = dv; best = i; } });
+      if (best >= 0){ JOY.axes[key].i = best; joy.learn = null; joy.base = null; saveJoy(); renderJoy(); } }
+    else { const i = btn.findIndex((b, i) => b && !joy.base.btn[i]); if (i >= 0){ for (const k in JOY.btn) if (JOY.btn[k] === i) JOY.btn[k] = -1; JOY.btn[key] = i; joy.learn = null; joy.base = null; joy.prevBtn = btn; saveJoy(); renderJoy(); return { pitch: 0, roll: 0, yaw: 0 }; } }
+    joy.prevBtn = btn; return { pitch: 0, roll: 0, yaw: 0 };
+  }
+  const down = k => JOY.btn[k] >= 0 && btn[JOY.btn[k]], press = k => down(k) && !joy.prevBtn[JOY.btn[k]];
+  if (press("fire")){ W.fireHeld = true; fireOnce(); } if (JOY.btn.fire >= 0 && !down("fire") && joy.prevBtn[JOY.btn.fire]){ W.fireHeld = false; updButtons(); }
+  // gun: fires the cannon whatever weapon is selected, then goes back to that weapon
+  if (press("gun") && P.mode === "fly"){ const gi = WEAPONS.findIndex(w => w.id === "gun"); if (gi >= 0){ joy.gunPrev = W.sel; W.sel = gi; W.lock = null; W.fireHeld = true; fireOnce(); } }
+  if (JOY.btn.gun >= 0 && !down("gun") && joy.prevBtn[JOY.btn.gun] && joy.gunPrev != null){ W.fireHeld = false; W.sel = Math.min(joy.gunPrev, WEAPONS.length - 1); joy.gunPrev = null; updButtons(); }
+  if (press("weapon")) nextWeapon(); if (press("flare")) dropFlares(); if (press("chaff")) dropChaff(); if (press("gear")) toggleGear(); if (press("brake")) toggleBrake();
+  if (press("view")) $("bView").click(); if (press("restart")) spawn();
+  joy.prevBtn = btn;
+  // hat (POV) switch: pans the view smoothly while held (eases in up to 100°/s); the view stays where you leave it (Front button resets)
+  const hd = JOY.hat >= 0 && JOY.hat < pad.axes.length ? hatDir(pad.axes[JOY.hat]) : -1;
+  if (hd >= 0){ const a = hd * Math.PI / 4, dt = lastDt; joy.hatV = Math.min(1, (joy.hatV || 0) + dt / 0.35);
+    const w = joy.hatV * joy.hatV * 100 * Math.PI / 180 * dt;
+    // hat left/right sign per Kuoyi (swapped from the first version)
+    cam.yaw += Math.round(Math.sin(a) * 1e3) / 1e3 * w;
+    cam.pitch = clamp(cam.pitch - Math.round(Math.cos(a) * 1e3) / 1e3 * w, -1.2, 1.4);
+    if (cam.yaw > Math.PI) cam.yaw -= 2 * Math.PI; if (cam.yaw < -Math.PI) cam.yaw += 2 * Math.PI; }
+  else joy.hatV = 0;
+  // throttle lever: absolute (forward = full); it only takes over once it moves, so the keyboard / touch throttle still works
+  const t = joyAxis(pad, "thr");
+  if (t != null){ const want = clamp((1 - t) / 2, 0, 1); if (joy.lastThr == null || Math.abs(want - joy.lastThr) > 0.01){ if (joy.lastThr != null) P.thr = want; joy.lastThr = want; } }
+  const g = a => { const v = joyAxis(pad, a); return v == null ? 0 : joyDead(v); };
+  return { pitch: g("pitch"), roll: g("roll"), yaw: g("yaw") };
+}
+function renderJoy(){
+  const box = $("joyBox"); if (!box) return;
+  const pad = getPad();
+  let h = `<details${joy.open ? " open" : ""}><summary>🕹 ${L("Joystick", "飛行搖桿")}</summary><div class="jst">${pad ? L("Connected: ", "已連接：") + pad.id.replace(/</g, "&lt;") + ` (${pad.axes.length} ${L("axes", "軸")}, ${pad.buttons.length} ${L("buttons", "鍵")})`
+    : L("Not detected. Plug in the stick and press any button on it: browsers only show a joystick to the page after a button press.", "未偵測到。插上搖桿後按一下搖桿上任一按鈕：瀏覽器要等按過按鈕才會讓網頁看到搖桿。")}</div>`;
+  const lrn = (kind, k) => joy.learn && joy.learn[0] === kind && joy.learn[1] === k;
+  for (const [k, en, zh] of JOY_AXES){ const m = JOY.axes[k];
+    h += `<div class="jrow" data-a="${k}"><span>${L(en, zh)}: ${m.i < 0 ? "—" : L("axis ", "軸 ") + m.i}</span><div class="jbar"><i></i></div>`
+      + `<button class="${lrn("axis", k) ? "on" : ""}">${lrn("axis", k) ? L("move it…", "請移動…") : L("Learn", "設定")}</button>`
+      + `<label class="ck" style="margin:0" title="${L("invert", "反向")}"><input type="checkbox" ${m.inv ? "checked" : ""}>⇅</label></div>`; }
+  h += `<div class="jrow" data-h="1"><span>${L("View (hat)", "視角（苦力帽）")}: ${JOY.hat < 0 ? "—" : L("axis ", "軸 ") + JOY.hat}</span><span class="jhat"></span>`
+    + `<button class="${lrn("hat", "hat") ? "on" : ""}">${lrn("hat", "hat") ? L("push it…", "請壓下…") : L("Learn", "設定")}</button><button data-clr>✕</button></div>`;
+  for (const [k, en, zh] of JOY_BTNS){ const b = JOY.btn[k];
+    h += `<div class="jrow" data-b="${k}"><span>${L(en, zh)}: ${b < 0 ? "—" : L("button ", "按鈕 ") + b}</span><span></span>`
+      + `<button class="${lrn("btn", k) ? "on" : ""}">${lrn("btn", k) ? L("press it…", "請按下…") : L("Learn", "設定")}</button><button data-clr>✕</button></div>`; }
+  h += `<div class="row"><button id="joyReset">${L("Reset mapping", "還原預設")}</button></div>`
+    + `<p class="lonote">${L("Keyboard: Delete = flares, Insert = chaff. Learn, then move the axis or press the button you want. Pull back = nose up; tick ⇅ if an axis works backwards. The throttle lever takes over once you move it.", "按鍵盤：Delete = 熱焰彈，Insert = 干擾絲。按「設定」後移動想要的軸或按下想要的按鈕。往後拉 = 抬頭；方向相反就勾 ⇅。油門桿移動後才會接管油門。")}</p></details>`;
+  box.innerHTML = h; box.querySelector("details").ontoggle = e => { joy.open = e.target.open; };
+  box.querySelectorAll("[data-a]").forEach(r => { const k = r.dataset.a;
+    r.querySelector("button").onclick = () => { joy.learn = lrn("axis", k) ? null : ["axis", k]; joy.base = null; renderJoy(); };
+    r.querySelector("input").onchange = e => { JOY.axes[k].inv = e.target.checked; saveJoy(); }; });
+  { const r = box.querySelector("[data-h]"), [a, c] = r.querySelectorAll("button");
+    a.onclick = () => { joy.learn = lrn("hat", "hat") ? null : ["hat", "hat"]; joy.base = null; renderJoy(); };
+    c.onclick = () => { JOY.hat = -1; saveJoy(); renderJoy(); }; }
+  box.querySelectorAll("[data-b]").forEach(r => { const k = r.dataset.b, [a, c] = r.querySelectorAll("button");
+    a.onclick = () => { joy.learn = lrn("btn", k) ? null : ["btn", k]; joy.base = null; renderJoy(); };
+    c.onclick = () => { JOY.btn[k] = -1; saveJoy(); renderJoy(); }; });
+  $("joyReset").onclick = () => { JOY = JSON.parse(JSON.stringify(JOY_DEF)); saveJoy(); joy.learn = null; renderJoy(); };
+}
+// live axis bars while the setup panel is open
+function joyBars(){
+  if (!$("panel").classList.contains("open")) return;
+  if (!!joy.pad !== !!joy.shown){ joy.shown = !!joy.pad; renderJoy(); }
+  const hs = $("joyBox").querySelector(".jhat"); if (hs){ const d = JOY.hat >= 0 && joy.pad ? hatDir(joy.pad.axes[JOY.hat]) : -1; hs.textContent = d < 0 ? "·" : "↑↗→↘↓↙←↖"[d]; }
+  $("joyBox").querySelectorAll("[data-a]").forEach(r => { const v = joyAxis(joy.pad, r.dataset.a), i = r.querySelector("i");
+    if (v == null){ i.style.width = "0"; return; } i.style.left = (v < 0 ? 50 + v * 50 : 50) + "%"; i.style.width = Math.abs(v) * 50 + "%"; });
+}
 function readInput(){
   const k = c => keys.has(c) ? 1 : 0, inv = $("inv").checked ? -1 : 1;
-  input.pitch = clamp(sticks.R.y * inv + (k("KeyS") + k("ArrowDown") - k("KeyW") - k("ArrowUp")), -1, 1);
-  input.roll = clamp(sticks.R.x + (k("KeyD") + k("ArrowRight") - k("KeyA") - k("ArrowLeft")), -1, 1);
-  input.yaw = clamp(sticks.L.x + (k("KeyE") - k("KeyQ")), -1, 1);
+  const j = readJoy(); joyBars();
+  input.pitch = clamp(sticks.R.y * inv + j.pitch + (k("KeyS") + k("ArrowDown") - k("KeyW") - k("ArrowUp")), -1, 1);
+  // fly: left stick X = roll, right stick X = rudder (Kuoyi 2026-11-16); drive / sail keep steering on the right stick
+  const fly = P.mode === "fly", sRoll = fly ? sticks.L.x : sticks.R.x, sYaw = fly ? sticks.R.x : sticks.L.x;
+  input.roll = clamp(sRoll + j.roll + (k("KeyD") + k("ArrowRight") - k("KeyA") - k("ArrowLeft")), -1, 1);
+  input.yaw = clamp(sYaw + j.yaw + (k("KeyE") - k("KeyQ")), -1, 1);
   const ry = -sticks.L.y; input.thrRate = clamp((Math.abs(ry) > 0.15 ? ry : 0) + (k("ShiftLeft") + k("ShiftRight") - k("ControlLeft") - k("ControlRight")), -1, 1);
   // smoother response near the centre
   input.pitch = Math.sign(input.pitch) * input.pitch ** 2 * 0.6 + input.pitch * 0.4; input.roll = Math.sign(input.roll) * input.roll ** 2 * 0.5 + input.roll * 0.5;
@@ -1288,25 +1663,27 @@ function updButtons(){
   $("wpn").style.display = $("hKillD").style.display = $("bFlare").style.display = P.mode === "fly" ? "" : "none";
   $("bFlare").textContent = L("FLARE", "熱焰彈") + " ×" + flares;
   const w = WEAPONS[W.sel]; $("bWpn").textContent = (w.id === "gun" ? L("GUN", "機砲") : w.name) + " ×" + W.ammo[W.sel];
-  $("stRt").textContent = P.mode === "fly" ? L("Pitch / Roll", "俯仰 / 滾轉") : L("Steer", "轉向");
-  $("stLt").textContent = P.mode === "fly" ? L("Throttle / Rudder", "油門 / 方向舵") : L("Throttle", "油門");
+  $("stRt").textContent = P.mode === "fly" ? L("Pitch / Rudder", "俯仰 / 方向舵") : L("Steer", "轉向");
+  $("stLt").textContent = P.mode === "fly" ? L("Throttle / Roll", "油門 / 滾轉") : L("Throttle", "油門");
 }
 function toggleGear(){ if (P.mode !== "fly" || P.onGround || P.crashed) return; P.gear = !P.gear; updButtons(); }
 function toggleBrake(){ P.brake = !P.brake; updButtons(); }
-function frontView(){ cam.yaw = cam.pitch = 0; cam.zoom = 1; cam.rc = false; updButtons(); }
+function frontView(){ cam.yaw = cam.pitch = 0; cam.zoom = 1; cam.rc = false; cam.fly = null; updButtons(); }
 $("bFront").onclick = frontView;
-$("bRC").onclick = () => { cam.rc = !cam.rc; cam.zoom = 1; cam.rcFov = 0; updButtons(); sub(cam.rc ? L("RC view: watching from the runway end, like flying a model plane. Pinch to zoom.", "遙控視角：站在跑道頭看飛機，像在飛遙控飛機。兩指可縮放。") : L("Chase view", "追蹤視角")); };
+$("bRC").onclick = () => { cam.rc = !cam.rc; cam.fly = null; cam.zoom = 1; cam.rcFov = 0; updButtons(); sub(cam.rc ? L("RC view: watching from the runway end, like flying a model plane. Pinch to zoom.", "遙控視角：站在跑道頭看飛機，像在飛遙控飛機。兩指可縮放。") : L("Chase view", "追蹤視角")); };
 $("bFlare").addEventListener("pointerdown", e => { e.preventDefault(); dropFlares(); });
 $("bGear").onclick = toggleGear; $("bBrake").onclick = toggleBrake; $("bReset").onclick = () => spawn();
-$("bView").onclick = () => { cam.mode = (cam.mode + 1) % 3; cam.yaw = cam.pitch = 0; cam.rc = false; updButtons(); sub([L("Chase view", "追蹤視角"), L("Far chase view", "遠距追蹤"), L("Close view", "近距視角")][cam.mode]); };
-$("menuBtn").onclick = () => $("panel").classList.toggle("open");
+$("bView").onclick = () => { cam.mode = (cam.mode + 1) % 3; cam.yaw = cam.pitch = 0; cam.rc = false; cam.fly = null; updButtons(); sub([L("Chase view", "追蹤視角"), L("Far chase view", "遠距追蹤"), L("Close view", "近距視角")][cam.mode]); };
+$("menuBtn").onclick = () => { $("panel").classList.toggle("open"); renderLoadout(); renderJoy(); };
+$("selFM").onchange = () => { try { localStorage.setItem("fa_flight_fm", $("selFM").value); } catch(e){} spawn(); };
+try { const v = localStorage.getItem("fa_flight_fm"); if (v) $("selFM").value = v; } catch(e){}
 { const sel = $("selShape"), grp = (label, names) => { const g = document.createElement("optgroup"); g.label = label; for (const n of names){ const o = document.createElement("option"); o.value = n; o.textContent = n; g.appendChild(o); } sel.appendChild(g); };
-  grp("F/A-18", F18S); grp("Ships", [...SHIPS].filter(n => SH_NAMES.includes(n))); grp("All SH", SH_NAMES); sel.value = "F18"; }
+  grp("F-14 / F/A-18", ["F14", ...F18S]); grp("Ships", [...SHIPS].filter(n => SH_NAMES.includes(n))); grp("All SH", SH_NAMES); sel.value = "F14"; }
 $("bMission").onclick = async () => { $("panel").classList.remove("open"); $("selMission").value = "canyon"; await buildCanyon(); await choose($("selShape").value); };
 $("bGo").onclick = async () => { $("panel").classList.remove("open"); if ($("selMission").value === "canyon") await buildCanyon(); await choose($("selShape").value); };
 async function choose(name){
   $("load").style.display = "flex"; $("loadT").textContent = L("Loading ", "載入 ") + name + ".SH…";
-  try { P.s = await loadShape(name); getMesh(P.s, {}); spawn(); try { localStorage.setItem("fa_flight_shape", name); } catch(e){} }
+  try { P.s = await loadShape(name); getMesh(P.s, {}); await loadPT(P.s); P.lo = buildLoadout(P.s); renderLoadout(); spawn(); try { localStorage.setItem("fa_flight_shape2", name); } catch(e){} }
   catch(e){ sub(e.message); if (!P.s){ P.s = await loadShape("F18"); spawn(); } }
   $("load").style.display = "none";
 }
@@ -1325,16 +1702,16 @@ FAI18N.register({
   "Auto (by model)": "自動（依模型判斷）", "Fly (aircraft)": "飛行（飛機）", "Drive (ground vehicle)": "駕駛（地面車輛）", "Sail (ship)": "航行（船艦）",
   "Start position": "起始位置", "Airfield runway": "機場跑道", "Carrier deck": "航艦甲板", "In the air": "空中", "At sea (ships)": "海上（船艦）",
   "▶ Start": "▶ 開始", "Invert pitch (push stick up = nose up)": "反轉俯仰（搖桿往上推 = 機頭抬起）", "Textures": "貼圖",
-  "Right stick: pitch and roll. Left stick: up/down changes the throttle (it stays where you leave it), left/right is rudder. The sticks only answer touches inside their circles: drag anywhere else to look around (the view stays where you leave it; Front brings it back, RC view watches from the runway end like an RC model pilot), pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult. The weapon button on the right picks gun, AIM-9, AIM-120 (air targets), AGM-65 (ground and ships) or MK-82 bombs; missiles lock the target nearest your nose. To land, slow down, lower the gear and raise the nose: the jet settles gently nose-high, and the throttle sets how fast it sinks.":
-    "右搖桿：俯仰和滾轉。左搖桿：上下調整油門（放開後會停在那個位置），左右是方向舵。搖桿只在圓圈內有效；在畫面其他地方拖曳都是轉動視角（視角會停在你轉到的地方，按「前向」回到正後方；「遙控視角」會站在跑道頭看飛機，像飛遙控飛機一樣），兩指縮放，點兩下讓鏡頭立刻回到後方。油門推到底會開後燃器；在航艦上也會啟動彈射器。右側的武器按鈕可切換機砲、AIM-9、AIM-120（打空中目標）、AGM-65（打地面和船艦）或 MK-82 炸彈；飛彈會鎖定最靠近機頭的目標。降落時減速、放下起落架、抬起機頭：飛機會以機頭朝上的姿態緩緩下降，用油門控制下降速度。",
-  "Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, R restart, mouse drag to look, wheel to zoom.":
-    "鍵盤：W/S 俯仰、A/D 滾轉、Q/E 方向舵、Shift/Ctrl 油門、G 起落架、B 煞車、空白鍵 發射、F 換武器、R 重來，滑鼠拖曳轉視角、滾輪縮放。",
+  "Right stick: up/down is pitch, left/right is rudder. Left stick: up/down changes the throttle (it stays where you leave it), left/right is roll. The sticks only answer touches inside their circles: drag anywhere else to look around (the view stays where you leave it; Front brings it back, RC view watches from the runway end like an RC model pilot), pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult. The weapon button on the right picks gun, AIM-9, AIM-120 (air targets), AGM-65 (ground and ships) or MK-82 bombs; missiles lock the target nearest your nose. To land, slow down, lower the gear and raise the nose: the jet settles gently nose-high, and the throttle sets how fast it sinks.":
+    "右搖桿：上下是俯仰，左右是方向舵。左搖桿：上下調整油門（放開後會停在那個位置），左右是滾轉。搖桿只在圓圈內有效；在畫面其他地方拖曳都是轉動視角（視角會停在你轉到的地方，按「前向」回到正後方；「遙控視角」會站在跑道頭看飛機，像飛遙控飛機一樣），兩指縮放，點兩下讓鏡頭立刻回到後方。油門推到底會開後燃器；在航艦上也會啟動彈射器。右側的武器按鈕可切換機砲、AIM-9、AIM-120（打空中目標）、AGM-65（打地面和船艦）或 MK-82 炸彈；飛彈會鎖定最靠近機頭的目標。降落時減速、放下起落架、抬起機頭：飛機會以機頭朝上的姿態緩緩下降，用油門控制下降速度。",
+  "Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, C or Delete flares, Insert chaff, F1 front view, F9 fly-by view, R restart, mouse drag to look, wheel to zoom.":
+    "鍵盤：W/S 俯仰、A/D 滾轉、Q/E 方向舵、Shift/Ctrl 油門、G 起落架、B 煞車、空白鍵 發射、F 換武器、C 或 Delete 熱焰彈、Insert 干擾絲、F1 前向視角、F9 飛掠視角、R 重來，滑鼠拖曳轉視角、滾輪縮放。",
   "Mission": "任務", "⛰ Canyon strike mission": "⛰ 峽谷轟炸任務", "Free flight": "自由飛行", "Canyon strike": "峽谷轟炸任務",
   "Canyon strike: fly the winding canyon at low level. Above the rim the SAM radar sees you and the sites launch. At the end of the canyon pull up over the ridge, dive into the crater and bomb the reactor (MK-82 is selected; the yellow circle shows where the bomb falls), then climb out: the SAMs on the crater rim fire at you, so turn hard and drop flares (FLARE button or C). Get 3 nm clear to finish.":
     "峽谷轟炸任務：沿著蜿蜒的峽谷低空飛行。高過峽谷邊緣就會被防空雷達看到，飛彈陣地會發射。到峽谷盡頭拉起越過山脊，俯衝進入內凹的山谷，轟炸核子反應爐（已選好 MK-82，黃色圓圈是炸彈落點），然後拉出來：山谷上緣的防空飛彈會對你發射，要急轉並放熱焰彈（熱焰彈按鈕或 C 鍵）。飛離 3 浬即完成任務。",
-  "Pitch / Roll": "俯仰 / 滾轉", "FIRE": "發射", "Front": "前向", "RC view": "遙控視角", "Throttle / Rudder": "油門 / 方向舵", "Loading…": "載入中…"
+  "Pitch / Rudder": "俯仰 / 方向舵", "FIRE": "發射", "Front": "前向", "RC view": "遙控視角", "Throttle / Roll": "油門 / 滾轉", "Loading…": "載入中…"
 });
-$("langSlot").append(FAI18N.picker()); FAI18N.apply(); FAI18N.onChange(updButtons);
+$("langSlot").append(FAI18N.picker()); FAI18N.apply(); FAI18N.onChange(updButtons); FAI18N.onChange(renderJoy); renderJoy();
 
 (async () => {
   try {
@@ -1344,8 +1721,8 @@ $("langSlot").append(FAI18N.picker()); FAI18N.apply(); FAI18N.onChange(updButton
     const pu8 = await fetchAny(["PIC/PALETTE.PAL"]); const pal = pu8 && palFromBytes(pu8);
     const rgb = new Uint8Array(768); if (pal){ rgb.set(pal); for (let i = 0; i < 256; i++) if (rgb[3*i] > 240 && rgb[3*i+1] < 10 && rgb[3*i+2] > 240) rgb.set([196, 196, 188], 3*i); }   // magenta = slots FA fills per theatre at run time
     else for (let i = 0; i < 768; i++) rgb[i] = Math.floor(i / 3);
-    palTex = mkTex(256, 1, gl.RGB, rgb);
-    await initCombat(rgb);
+    palTex = mkTex(256, 1, gl.RGB, rgb); PALRGB = rgb;
+    await initCombat(rgb); await loadJTIndex();
     // airfield: runway shape at the origin (strip along north), tower and hangars; carrier group at sea to the east
     await Promise.all([
       addObj("RNWY1", 0, 0, AIR_Z, 0, null, "runway"),
@@ -1358,7 +1735,7 @@ $("langSlot").append(FAI18N.picker()); FAI18N.apply(); FAI18N.onChange(updButton
     ]);
     // parked jets stand on their wheels
     for (const o of world.objs) if (/^F18/.test(o.s.name)) o.pos[2] = groundAt(o.pos[0], o.pos[1]).h - o.mesh.lo[2];
-    let start = "F18"; try { const s = localStorage.getItem("fa_flight_shape"); if (s && SH_NAMES.includes(s)) start = s; } catch(e){}
+    let start = "F14"; try { const s = localStorage.getItem("fa_flight_shape2"); if (s && SH_NAMES.includes(s)) start = s; } catch(e){}
     $("selShape").value = start;
     if (new URLSearchParams(location.search).get("mission") === "canyon"){ $("selMission").value = "canyon"; await buildCanyon(); }
     await choose(start);

@@ -135,21 +135,23 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
       </div>
       <div class="card" id="dl">
         <h3>Download</h3>
-        <div class="dlrow"><div><div class="f">F14.SH</div><div class="d" data-lang="en">F-14 shape · 58,880 bytes</div><div class="d" data-lang="zh">F-14 外形 · 58,880 bytes</div></div><a class="b" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/F14.SH" download>⬇ SH</a></div>
+        <div class="dlrow"><div><div class="f">F14.SH</div><div class="d" data-lang="en">F-14 shape · 64,000 bytes</div><div class="d" data-lang="zh">F-14 外形 · 64,000 bytes</div></div><a class="b" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/F14.SH" download>⬇ SH</a></div>
         <div class="dlrow"><div><div class="f">F14.PT</div><div class="d" data-lang="en">matching F-14 stations (required)</div><div class="d" data-lang="zh">對應的 F-14 掛點（必要）</div></div><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PT/F14.PT" download>⬇ PT</a></div>
-        <div class="dlrow"><div><div class="f">F18.SH</div><div class="d" data-lang="en">F/A-18 shape · 61,440 bytes</div><div class="d" data-lang="zh">F/A-18 外形 · 61,440 bytes</div></div><a class="b" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/F18.SH" download>⬇ SH</a></div>
+        <div class="dlrow"><div><div class="f">_F14.PIC</div><div class="d" data-lang="en">F-14 texture with the afterburner flame (required) · 121,484 bytes</div><div class="d" data-lang="zh">含後燃器火焰的 F-14 貼圖（必要） · 121,484 bytes</div></div><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PIC/_F14.PIC" download>⬇ PIC</a></div>
+        <div class="dlrow"><div><div class="f">F18.SH</div><div class="d" data-lang="en">F/A-18 shape · 63,488 bytes</div><div class="d" data-lang="zh">F/A-18 外形 · 63,488 bytes</div></div><a class="b" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/F18.SH" download>⬇ SH</a></div>
         <div class="dlrow"><div><div class="f">F18.PT</div><div class="d" data-lang="en">matching F/A-18 stations (required)</div><div class="d" data-lang="zh">對應的 F/A-18 掛點（必要）</div></div><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PT/F18.PT" download>⬇ PT</a></div>
-        <div style="margin-top:10px"><button class="btn" id="zip">⬇ All four files (.zip)</button></div>
-        <p class="note" data-lang="en">Files come straight from <a href="https://github.com/kuoyichen/FAoutput">GitHub</a>. The textures (<code>_F14.PIC</code>, <code>_F18.PIC</code>) are the game's own and are not changed. <a href="#install">How to install</a></p>
-        <p class="note" data-lang="zh">檔案直接從 <a href="https://github.com/kuoyichen/FAoutput">GitHub</a> 下載。貼圖（<code>_F14.PIC</code>、<code>_F18.PIC</code>）用遊戲原本的，沒有改。<a href="#install">安裝方式</a></p>
+        <div class="dlrow"><div><div class="f">_F18.PIC</div><div class="d" data-lang="en">F/A-18 texture with the afterburner flame (required) · 167,504 bytes</div><div class="d" data-lang="zh">含後燃器火焰的 F/A-18 貼圖（必要） · 167,504 bytes</div></div><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PIC/_F18.PIC" download>⬇ PIC</a></div>
+        <div style="margin-top:10px"><button class="btn" id="zip">⬇ All six files (.zip)</button></div>
+        <p class="note" data-lang="en">Files come straight from <a href="https://github.com/kuoyichen/FAoutput">GitHub</a>. The textures (<code>_F14.PIC</code>, <code>_F18.PIC</code>) now hold the animated afterburner flame frames, so install them with the SH files. <a href="#install">How to install</a></p>
+        <p class="note" data-lang="zh">檔案直接從 <a href="https://github.com/kuoyichen/FAoutput">GitHub</a> 下載。貼圖（<code>_F14.PIC</code>、<code>_F18.PIC</code>）加入了動態後燃器火焰的畫格，要和 SH 一起安裝。<a href="#install">安裝方式</a></p>
         <div id="zipMsg" class="note"></div>
       </div>
     </div>
   </section>
 
   <h2 id="changes">What changed from the factory SH</h2>
-  <p class="muted" data-lang="en">Both files are edits of the original FA shapes, not new models. The textures, the low-detail models and the moving parts (gear, flaps, hook, swing wings) are the factory ones.</p>
-  <p class="muted" data-lang="zh">兩個檔案都是改自 FA 原廠外形，不是全新的模型。貼圖、遠距離低細節模型和會動的零件（起落架、襟翼、尾鉤、可變翼）都是原廠的。</p>
+  <p class="muted" data-lang="en">Both files are edits of the original FA shapes, not new models. The low-detail models and the moving parts (gear, flaps, hook, swing wings) are the factory ones. The textures are the factory ones plus three afterburner flame frames in unused space.</p>
+  <p class="muted" data-lang="zh">兩個檔案都是改自 FA 原廠外形，不是全新的模型。遠距離低細節模型和會動的零件（起落架、襟翼、尾鉤、可變翼）都是原廠的。貼圖是原廠的，只在空白處加了三格後燃器火焰。</p>
   <div class="two">
     <div class="card chg">
       <h3>F-14 Tomcat <span>F14.SH</span></h3>
@@ -160,6 +162,7 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <li><b>Its own AIM-54</b> (octagonal body, straight cone nose, Phoenix fins). The other weapons are FA's own weapon models at their real size. AIM-7s have a blue band, and the tanks sit slightly nose-up to fit under the nacelles.</li>
         <li><b>Glove pylons</b> with a raked leading edge. Pylons stay after firing and disappear when the station is empty.</li>
         <li><b>Jettisoned or empty tanks fall away</b> for 2 seconds, nose dropping about the tail.</li>
+        <li><b>3D landing gear:</b> struts, a nose-gear housing, piston and launch bar, and round wheels with an octagonal tyre. The wheels spin in flight-sim style: still at 0 kt, faster with speed, and stopped again above 180 kt.</li>
       </ul>
       <ul data-lang="zh">
         <li><b>新機鼻。</b>雷達罩用平滑的環重做，鼻尖從側面看落在機身中線上，跟真機一樣，不再往下垂。拿掉了黑色雷達罩塗裝和空速管，上下輪廓線平順地接回機身。共 57 點、94 面，並計算了光影法向量，在遊戲裡看起來是圓的。</li>
@@ -168,6 +171,7 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <li><b>自己做的 AIM-54</b>（八角形彈身、直錐形彈頭、鳳凰飛彈的尾翼）。其他武器用 FA 原本的武器模型，維持實際大小。AIM-7 有藍色色帶，副油箱略為抬頭，好貼合發動機艙下方。</li>
         <li><b>翼套派龍</b>前緣做成斜的。武器射完派龍架還在，掛點清空才會消失。</li>
         <li><b>拋棄或用完的副油箱會往下掉</b> 2 秒，以尾端為軸低頭落下。</li>
+        <li><b>立體起落架：</b>輪柱、前輪筒身、活塞和彈射桿，輪子是圓形貼圖加八角形輪胎。輪子會轉：0 節不轉、愈快轉愈快、超過 180 節又停下。</li>
       </ul>
     </div>
     <div class="card chg">
@@ -179,6 +183,7 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <li><b>FA's own weapon models</b> at their own size, hung on the hardpoints of the new F18.PT. The 480-gallon tank has a pointed nose and tail cone.</li>
         <li><b>Wing stores moved 4 units back</b> so their tails clear the lowered flaps. Wing pylons hide when a station is empty.</li>
         <li><b>Jettisoned or empty tanks fall away</b> from the centreline and both wing stations. Only fuel tanks fall; fired missiles just disappear.</li>
+        <li><b>3D landing gear:</b> the nose strut now reaches the fuselage, with a housing, piston, collar, fork block and launch bar, and the wheels spin with speed (still at 0 kt, stopped above 180 kt).</li>
       </ul>
       <ul data-lang="zh">
         <li><b>照 FAshion F/A-18C 修整外形：</b>機身變窄變低、座艙罩降低、機鼻和機尾加長、垂直和水平尾翼縮小。保留雙座座艙。整個家族請看 <a href="f18_showcase.html">F/A-18 展示</a>。</li>
@@ -187,6 +192,7 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <li><b>用 FA 原本的武器模型</b>，維持原本大小，掛在新 F18.PT 的掛點上。480 加侖副油箱有尖頭和尾錐。</li>
         <li><b>翼下外掛往後移 4 單位</b>，尾端不會碰到放下的襟翼。掛點清空時翼下派龍會隱藏。</li>
         <li><b>拋棄或用完的副油箱會往下掉</b>，機腹中線和兩組翼下掛點都有。只有副油箱會掉，飛彈射出就直接消失。</li>
+        <li><b>立體起落架：</b>前輪柱接到機身，加了筒身、活塞、套環、叉座和彈射桿，輪子會隨速度轉（0 節不轉、超過 180 節停下）。</li>
       </ul>
     </div>
   </div>
@@ -198,20 +204,20 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
   <div class="card" style="overflow-x:auto">
     <table class="num">
       <tr><th></th><th data-lang="en">Factory</th><th data-lang="zh">原廠</th><th data-lang="en">New</th><th data-lang="zh">新版</th><th data-lang="en">What was added</th><th data-lang="zh">新增內容</th></tr>
-      <tr><td><b>F14.SH</b></td><td class="n">33,280 B · CODE 0x8000</td><td class="n">58,880 B · CODE 0xE000</td><td><span data-lang="en">new nose, own AIM-54, 9 store kinds × 10 slots, pylons, falling-tank timers, BSP nodes</span><span data-lang="zh">新機鼻、自製 AIM-54、9 種外掛 × 10 個位置、派龍架、油箱掉落計時、BSP 節點</span></td></tr>
-      <tr><td><b>F18.SH</b></td><td class="n">33,280 B · CODE 0x7000</td><td class="n">61,440 B · CODE 0xE000</td><td><span data-lang="en">reshaped body, 9 store kinds × 9 slots, pylons, falling-tank tables for 5 tank slots, BSP nodes</span><span data-lang="zh">修整機身、9 種外掛 × 9 個位置、派龍架、5 個油箱位置的掉落表、BSP 節點</span></td></tr>
+      <tr><td><b>F14.SH</b></td><td class="n">33,280 B · CODE 0x8000</td><td class="n">64,000 B</td><td><span data-lang="en">new nose, own AIM-54, 9 store kinds × 10 slots, pylons, falling-tank timers, BSP nodes, animated afterburner flame that grows over 3 s</span><span data-lang="zh">新機鼻、自製 AIM-54、9 種外掛 × 10 個位置、派龍架、油箱掉落計時、BSP 節點、3 秒內變長的動態後燃器火焰</span></td></tr>
+      <tr><td><b>F18.SH</b></td><td class="n">33,280 B · CODE 0x7000</td><td class="n">63,488 B</td><td><span data-lang="en">reshaped body, 9 store kinds × 9 slots, pylons, falling-tank tables for 5 tank slots, BSP nodes, animated afterburner flame that grows over 3 s</span><span data-lang="zh">修整機身、9 種外掛 × 9 個位置、派龍架、5 個油箱位置的掉落表、BSP 節點、3 秒內變長的動態後燃器火焰</span></td></tr>
     </table>
   </div>
 
   <h2 id="install">How to install</h2>
   <ol class="steps" data-lang="en">
-    <li>Download <code>F14.SH</code> + <code>F14.PT</code> and/or <code>F18.SH</code> + <code>F18.PT</code> (or the zip with all four).</li>
-    <li>Back up any files with the same names, then copy the new ones to where your FA install loads add-on SH and PT files.</li>
+    <li>Download <code>F14.SH</code> + <code>F14.PT</code> + <code>_F14.PIC</code> and/or <code>F18.SH</code> + <code>F18.PT</code> + <code>_F18.PIC</code> (or the zip with all six).</li>
+    <li>Back up any files with the same names, then copy the new ones to where your FA install loads add-on SH, PT and PIC files.</li>
     <li>Start a mission in the F-14 or F/A-18, pick a loadout in the arming screen, and look at your jet in an outside view.</li>
   </ol>
   <ol class="steps" data-lang="zh">
-    <li>下載 <code>F14.SH</code> + <code>F14.PT</code>，以及／或 <code>F18.SH</code> + <code>F18.PT</code>（或一次下載四個檔案的 zip）。</li>
-    <li>先備份同名的舊檔，再把新檔放到你的 FA 讀取外加 SH、PT 檔的地方。</li>
+    <li>下載 <code>F14.SH</code> + <code>F14.PT</code> + <code>_F14.PIC</code>，以及／或 <code>F18.SH</code> + <code>F18.PT</code> + <code>_F18.PIC</code>（或一次下載六個檔案的 zip）。</li>
+    <li>先備份同名的舊檔，再把新檔放到你的 FA 讀取外加 SH、PT、PIC 檔的地方。</li>
     <li>開一場 F-14 或 F/A-18 的任務，在掛載畫面選武器，再切到外部視角看你的飛機。</li>
   </ol>
   <div class="warnbox" data-lang="en"><b>Use the matching PT.</b> The SH draws a store by station number, so it needs the station layout of the new PT. With the stock F14.PT the F-14 shows two AIM-54s on one side and none on the other, and no AIM-9s. Other aircraft that borrow these shapes (for example F14D.PT uses F14.SH, and F18F.PT / F18G.PT use F18.SH) draw stores according to their own stations, which may not line up. The PT hardpoints are also where FA launches the weapons, and some are set a little away from where the SH draws them on purpose, so missiles leave clear of the airframe.</div>
@@ -231,7 +237,7 @@ FAI18N.register({
   "Below": "下方", "Side": "側視", "Top": "上視", "Front": "前視", "Auto-rotate": "自動旋轉", "Wireframe": "線框", "Loading…": "載入中…",
   "Configuration": "狀態", "Landing gear down": "起落架放下", "Flaps down": "襟翼放下", "Tailhook down": "尾鉤放下", "Speed brake open": "減速板打開", "Afterburner": "後燃器",
   "Wing sweep": "後掠角", "Clean": "乾淨外形", "Carrier landing": "航艦降落", "Combat": "空戰",
-  "Loadout": "掛載", "Default": "預設", "All fired": "全部射完", "Empty": "全空", "Download": "下載", "⬇ All four files (.zip)": "⬇ 四個檔案一起下載（.zip）",
+  "Loadout": "掛載", "Default": "預設", "All fired": "全部射完", "Empty": "全空", "Download": "下載", "⬇ All six files (.zip)": "⬇ 六個檔案一起下載（.zip）",
   "What changed from the factory SH": "跟原廠 SH 相比改了什麼", "How to install": "安裝方式"
 });
 document.getElementById("langSlot").append(FAI18N.picker());
@@ -311,15 +317,32 @@ function isFlame(idx, C){
     const r = pal[3*k], g = pal[3*k+1], b = pal[3*k+2]; if (r > 150 && r > g + 40 && b < 120 || r + g + b < 40) hot++; }
   return n > 0 && hot / n > 0.45;
 }
+// afterburner animation: frame every 70 ms (FA flips per game frame), flame grows over 3 s from the moment it is switched on
+const AB = { frame: 0, grow: 1, t0: 0 };
+function abTick(t){
+  if ($("ab").checked && cur && curName && cache[curName]){
+    const M = cache[curName].M, fr = Math.floor(t / 70) % 6, g = Math.min(1, (t - AB.t0) / 3000);
+    const anim = M.faces.some(f => f.ab), grow = !!M.abGrow && AB.grow < 1;
+    if ((anim && fr !== AB.frame) || grow){ AB.frame = fr; AB.grow = M.abGrow ? Math.floor(g * 8) / 8 : 1; if (g >= 1) AB.grow = 1; build(); }
+  }
+  requestAnimationFrame(abTick);
+}
+requestAnimationFrame(abTick);
 function build(){
   const C = cache[curName], M = C.M, ab = $("ab").checked;
   M.place({ vars: ctlState(M) });
-  const faces = [];
-  for (const f of M.faces){
-    if (f.lod !== 0 || f.del || (f.store && (f.store.type === "fall" || !storeShown(C.loadout, f.store))) || (!ab && isFlame(f, C))) continue;
-    if (!f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed)) continue;
-    faces.push({ pts: f.refs.map(r => { const w = SHCore.worldOf(M, r[0], r[1]); return [w[0], w[2], w[1]]; }), uv: f.uv, col: f.col });
-  }
+  const faces = [], gr = ab && M.abGrow ? M.abGrow : null, g = Math.min(1, AB.grow);
+  // growing flame (F0 x86 in the SH): FA moves the tail points from 15 % to full length over 3 s after the burner lights
+  if (gr) for (const G of gr) for (const id of G.vids) M.verts[id].p[1] = Math.round(G.noz - (G.noz - G.tail) * (0.15 + 0.85 * g));
+  try {
+    for (const f of M.faces){
+      if (f.lod !== 0 || f.del || (f.store && (f.store.type === "fall" || !storeShown(C.loadout, f.store))) || (!ab && isFlame(f, C))) continue;
+      if (f.ab && (!ab || f.ab.frame !== AB.frame % f.ab.frames)) continue;   // animated flame (SH op 40): one frame at a time
+      if (f.grp && !f.grp.placed) continue;
+      if (!f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed)) continue;
+      faces.push({ pts: f.refs.map(r => { const w = SHCore.worldOf(M, r[0], r[1]); return [w[0], w[2], w[1]]; }), uv: f.uv, col: f.col });
+    }
+  } finally { if (gr) for (const G of gr) for (const id of G.vids) M.verts[id].p[1] = G.tail; }
   const data = [], ed = [];
   faces.forEach(f => { const p = f.pts; let nx = 0, ny = 0, nz = 0;
     for (let k = 0; k < p.length; k++){ const q = p[k], r = p[(k+1) % p.length]; nx += (q[1]-r[1])*(q[2]+r[2]); ny += (q[2]-r[2])*(q[0]+r[0]); nz += (q[0]-r[0])*(q[1]+r[1]); }
@@ -402,7 +425,8 @@ $("ldFired").onclick = () => { preset("fired"); loadUI(); build(); };
 $("ldEmpty").onclick = () => { preset("empty"); loadUI(); build(); };
 
 // ===== Configuration =====
-for (const id of ["gear", "flaps", "hook", "brake", "ab"]) $(id).onchange = () => cur && build();
+for (const id of ["gear", "flaps", "hook", "brake"]) $(id).onchange = () => cur && build();
+$("ab").onchange = () => { AB.t0 = performance.now(); AB.grow = 0; cur && build(); };
 $("sweep").oninput = () => { $("sweepOut").textContent = $("sweep").value + "°"; cur && build(); };
 $("edges").onchange = () => draw();
 const PRESETS = { clean: [0,0,0,0,0,20], trap: [1,1,1,0,0,20], fight: [0,0,0,1,1,68] };
@@ -432,7 +456,7 @@ async function show(name){
 for (const [n, ac] of Object.entries(AC)){ const b = document.createElement("button"); b.dataset.n = n; b.innerHTML = `<b>${ac.name}</b><span></span>`; b.onclick = () => show(n); $("ac").appendChild(b); }
 function labelAc(){ document.querySelectorAll("#ac button").forEach(b => b.querySelector("span").textContent = L(...AC[b.dataset.n].sub) + " · " + b.dataset.n + ".SH"); }
 
-// ===== Zip of the four files (stored, no compression: no library needed) =====
+// ===== Zip of the six files (stored, no compression: no library needed) =====
 const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++){ let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
 const crc32 = u8 => { let c = 0xFFFFFFFF; for (const b of u8) c = CRC[(c ^ b) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
 function makeZip(files){
@@ -452,7 +476,7 @@ $("zip").onclick = async () => {
   const b = $("zip"), label = b.textContent; b.disabled = true; b.textContent = L("Preparing zip…", "正在打包…"); $("zipMsg").textContent = "";
   try {
     const files = [];
-    for (const p of ["SH/F14.SH", "PT/F14.PT", "SH/F18.SH", "PT/F18.PT"]){ const d = await fetchAny(p); if (!d) throw new Error(L("Could not download ", "無法下載 ") + p); files.push({ name: p.split("/")[1], data: d }); }
+    for (const p of ["SH/F14.SH", "PT/F14.PT", "PIC/_F14.PIC", "SH/F18.SH", "PT/F18.PT", "PIC/_F18.PIC"]){ const d = await fetchAny(p); if (!d) throw new Error(L("Could not download ", "無法下載 ") + p); files.push({ name: p.split("/")[1], data: d }); }
     const url = URL.createObjectURL(makeZip(files)), a = document.createElement("a"); a.href = url; a.download = "FAshion_F14_F18.zip"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
   } catch(e){ $("zipMsg").textContent = e.message; }
   b.disabled = false; b.textContent = label;

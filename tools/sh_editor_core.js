@@ -250,7 +250,7 @@ function parseModel(u8in) {
   };
   const load = (map, rec, inst) => { for (let i = 0; i < rec.n; i++) map[rec.slot + i] = [rec.v0 + i, inst]; };
   const faceKey = new Map();
-  const addFace = (F, map, lod, hooked, strict) => {
+  const addFace = (F, map, lod, hooked, strict, ab) => {
     if (!flagsOk(F.fl) || new Set(F.idx).size < F.n) return false;
     const refs = F.idx.map(s => map[s]); if (refs.some(r => !r)) return false;
     if (strict && F.nrm) {   // reject stray bytes: the stored normal must agree with the vertices
@@ -262,7 +262,7 @@ function parseModel(u8in) {
     if (faceKey.has(k)) return true;
     faceKey.set(k, M.faces.length);
     const store = refs.map(r => M.instMeta[r[1]]).find(x => x) || null;
-    M.faces.push({ ...F, id: M.faces.length, refs, lod, hooked, rec: F.o, del: false, store });
+    M.faces.push({ ...F, id: M.faces.length, refs, lod, hooked, rec: F.o, del: false, store, ...(ab ? { ab } : {}) });
     return true;
   };
   const addF6 = (o, map, lod) => { const s = dv.getUint16(o + 1, true), r = map[s]; if (r) M.f6.push({ o, slot: s, vid: r[0], lod }); };
@@ -314,7 +314,15 @@ function parseModel(u8in) {
       const op = c[t];
       if (op === 0x82 && c[t + 1] === 0) { const b = goodBuf(t, stop); if (!b) return; const rec = addBuf(t, b, lod, true); rec.tf = inst; load(map, rec, inst); t = b.e; }
       else if (op === 0xF6) { addF6(t, map, lod); t += 7; }
-      else if (op === 0xFC) { const F = readFace(c, dv, t, stop); if (!F) return; addFace(F, map, lod, true, false); t = F.end; }
+      else if (op === 0xFC) { const F = readFace(c, dv, t, stop); if (!F) return; addFace(F, map, lod, true, false, meta && meta.type === "ab" ? { frame: meta.frame ?? 0, frames: meta.frames ?? 1 } : null); t = F.end; }
+      // animation switch (tools/shgen/sh_ab_flame.py, the AUR technique): `40 00 N rel16×N`, FA picks branch (frame counter mod N);
+      // each rel16 counts from its own field. Branches end in `48 00 rel16` (jump, from the end of the op) to the next node
+      else if (op === 0x40 && c[t + 1] === 0) {
+        const N = dv.getUint16(t + 2, true); if (!(N >= 1 && N <= 16)) return;
+        for (let k = 0; k < N; k++) { const g2 = t + 4 + 2 * k + dv.getInt16(t + 4 + 2 * k, true); if (g2 >= appendStart && depth < 40) walk(g2, map.slice(), inst, lod, depth + 1, seen, { ...(meta || {}), frame: k, frames: N }); }
+        return;
+      }
+      else if (op === 0x48 && c[t + 1] === 0) { const g2 = t + 4 + dv.getInt16(t + 2, true); if (g2 < appendStart) return; t = g2; }
       else if ((op === 0x06 || op === 0x0C || op === 0x0E || op === 0x10) && c[t + 1] === 0) {
         const k = op === 0x06 ? 14 : 10;
         for (const [r, e] of [[t + k, t + k + 2], [t + k + 2, t + k + 4]]) { const g2 = e + dv.getInt16(r, true); if (g2 >= appendStart && depth < 40) walk(g2, map.slice(), inst, lod, depth + 1, seen, meta); }
@@ -389,8 +397,45 @@ function parseModel(u8in) {
     if (op === 0xFC && lod >= 0) { const F = readFace(c, dv, o, appendStart); if (F && addFace(F, map, lod, false, true)) { o = F.end; continue; } }
     o++;
   }
+  // F0 trampolines (sh_ab_flame.py): a `12 00 rel16` call in the main LOD lands on `F0 00 68 <block VA> 68 <ret> C3`, which jumps
+  // to an appended block (too far for rel16). The block is the afterburner flame: its faces are tagged ab and drawn only with AB on
+  M.abBlocks = [];
+  for (let o = start; o < appendStart - 4; o++) {
+    if (c[o] !== 0x12 || c[o + 1] !== 0) continue;
+    const T = o + 4 + dv.getInt16(o + 2, true);
+    if (T < start || T > stop - 13 || c[T] !== 0xF0 || c[T + 1] !== 0) continue;
+    // with --grow the trampoline first runs x86 that stretches the flame, then `68 <block> 68 <ret> C3`
+    let q = -1; for (let k = T + 2; k < Math.min(T + 400, stop - 11); k++) if (c[k] === 0x68 && c[k + 5] === 0x68 && c[k + 10] === 0xC3) { q = k; break; }
+    if (q < 0) continue;
+    const grow = q > T + 2, N = dv.getUint32(q + 1, true) - SH_VA;
+    if (N < appendStart || N >= stop - 6 || c[N] !== 0x82 || c[N + 1] !== 0 || M.abBlocks.includes(N)) continue;
+    M.abBlocks.push(N); const v0 = M.verts.length; walk(N, [], 0, 0, 0, new Set(), { type: "ab" });
+    // growing flame (sh_ab_flame.py --grow): the x86 rewrites the y of the tail vertices (the lowest y of the block's 82 table)
+    // to nozzle - length × (0.15 + 0.85 × t/GROW); polys(opts.abGrow 0..1) does the same here
+    if (grow) { const vs = M.verts.slice(v0); if (vs.length) { const ys = vs.map(v => v.p[1]), noz = Math.max(...ys), tail = Math.min(...ys);
+      if (tail < noz) (M.abGrow = M.abGrow || []).push({ vids: vs.filter(v => v.p[1] === tail).map(v => v.id), noz, tail }); } }
+  }
+  // F0 gear trampolines (tools/shgen/f14_gear.py, f18_gear.py): the old gear part now starts with `F0 00 <spin x86> 68 <new part> 68 <ret> C3`.
+  // The new part (struts, wheels in nested C4 sub-parts) is walked once under its own instance; placeParts moves the whole group
+  // (and its nested placements) to wherever the control code puts the old part, and shows it only while that part is drawn.
+  M.gearGroups = [];
+  for (let T = start; T < appendStart - 12; T++) {
+    if (c[T] !== 0xF0 || c[T + 1] !== 0 || c[T + 2] === 0x68 && c[T + 7] === 0xE8) continue;
+    let q = -1; for (let k = T + 2; k < Math.min(T + 400, stop - 11); k++) if (c[k] === 0x68 && c[k + 5] === 0x68 && c[k + 10] === 0xC3) { q = k; break; }
+    if (q < 0) continue;
+    const N = dv.getUint32(q + 1, true) - SH_VA;
+    if (N < appendStart || N >= stop - 6 || M.abBlocks.includes(N) || c[N] !== 0x82 || c[N + 1] !== 0) continue;
+    const i0 = M.insts.length, f0 = M.faces.length; M.insts.push(I3()); M.instMeta.push(null);
+    walk(N, [], i0, 0, 0, new Set());
+    const grp = { o: T, f: [], insts: [], local: [], shown: false };
+    for (let i = i0; i < M.insts.length; i++) { grp.insts.push(i); grp.local.push(M.insts[i]); }
+    for (let i = f0; i < M.faces.length; i++) { M.faces[i].grp = grp; grp.f.push(M.faces[i]); }
+    M.gearGroups.push(grp);
+  }
   // original sub-parts of the main LOD: place them like FA does for the default state (gear down)
   const subs = M.bufs.filter(b => b.lod === 0 && !b.hooked).slice(1);
+  for (const g of M.gearGroups || []) subs.push(g);
+  subs.sort((x, y) => x.o - y.o);
   M.subs = subs;
   try {
     M.imp = shImports(u8, c); M.ctl = parseCtl(c, dv, subs);
@@ -409,7 +454,9 @@ function placeParts(M, state) {
   for (const b of M.bufs) { b.base = I3(); b.placed = !M.subs.includes(b); }
   if (!M.ctl) { for (const b of M.subs) b.placed = true; return; }
   const ev = evalCtl(M.c, M.ctl, M.subs, state.vars || defaultVars(M, state.gear));   // state.vars: full control-variable set (release page)
-  for (const e of ev) { const b = M.subs[e.part]; if (!b || b.placed) continue; b.placed = true; b.base = fromFn(partFn(e)); }
+  for (const g of M.gearGroups || []) g.placed = false;
+  for (const e of ev) { const b = M.subs[e.part]; if (!b || b.placed) continue; b.placed = true; b.base = fromFn(partFn(e));
+    if (b.insts) b.insts.forEach((i, k) => { M.insts[i] = compose(b.base, b.local[k]); }); }
   // parts drawn by plain code (no F0 / C4) keep identity: a sub whose faces are not reached by any control code
   const reached = new Set(ev.map(e => e.part));
   if (!M.ctl.blocks.length && !M.ctl.statics.length) for (const b of M.subs) b.placed = true;
@@ -492,6 +539,48 @@ function palFromBytes(u8){
   return p;
 }
 
-const API = { parseModel, buildFile, placeParts, worldOf, linOf, apply, applyLin, invLin, faNormal, parsePIC, palFromBytes, readFace, peInfo, findSig };
+// For viewers (flight sim, gallery, replay, PT/JT editors, showcase): the placed model as plain polygons in SH axes
+// (x right, y forward, z up). opts.on: control values by import name (_PLgearDown, _PLleftFlap, _PLafterBurner, _PLswingWing…);
+// opts.scale: multiply by the file's scale (feet). Stores show the default loadout; drop tanks that fall away are left out.
+function varsFor(M, on = {}) {
+  const vars = {}, nm = Object.fromEntries(Object.entries(M.imp || {}).map(([n, a]) => [a, n]));
+  const g = on._PLgearDown ? 1 : 0, all = Object.assign({ _PLgearPos: g ? 0 : 32767 }, on);
+  for (const x of M.ctl ? M.ctl.vars : []) vars[x.v] = nm[x.v] ? (all[nm[x.v]] ?? 0) : x.vals.length ? x.vals[0] : 0;
+  return vars;
+}
+function polys(M, opts = {}) {
+  const gr = opts.abGrow != null && M.abGrow ? M.abGrow : null;   // growing AB flame: stretch the tail vertices, put them back after
+  if (gr) for (const G of gr) for (const id of G.vids) M.verts[id].p[1] = Math.round(G.noz - (G.noz - G.tail) * (0.15 + 0.85 * Math.max(0, Math.min(1, opts.abGrow))));
+  try { return polysAt(M, opts); } finally { if (gr) for (const G of gr) for (const id of G.vids) M.verts[id].p[1] = G.tail; }
+}
+function polysAt(M, opts) {
+  placeParts(M, { vars: M.ctl ? varsFor(M, opts.on || {}) : undefined, gear: !!(opts.on && opts.on._PLgearDown) });
+  const st = M.stations || new Map(), k = opts.scale ? M.scale : 1, out = [];
+  const shown = opts.storeShown || (t => { const S0 = st.get(t.st); if (!S0) return true; return t.type === "pylon" ? S0.def !== 0 : S0.def === t.kind && S0.maxRank >= t.rank; });
+  for (const f of M.faces) {
+    if (f.lod !== 0 || f.del || (f.store && (f.store.type === "fall" || !shown(f.store)))) continue;
+    if (f.ab && (!(opts.on && opts.on._PLafterBurner) || f.ab.frame !== (opts.abFrame || 0) % f.ab.frames)) continue;   // flame: AB on, one animation frame
+    if (f.grp && !f.grp.placed) continue;
+    if (!f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed)) continue;
+    out.push({ pts: f.refs.map(r => { const w = worldOf(M, r[0], r[1]); return [w[0] * k, w[1] * k, w[2] * k]; }), uv: f.uv, col: f.col, face: f });
+  }
+  return out;
+}
+// The same baked into the plain { v, f, subs, parts, ctl, scale } layout the older viewers' parseSH returns (one fixed state:
+// opts.on as in polys, default gear down), so a page can swap parsers without touching its renderer. Moving parts are baked in.
+function legacyModel(M, opts = {}) {
+  const on = opts.on || { _PLgearDown: 1 }, v = [], key = new Map(), f = [];
+  for (const p of polys(M, { on, storeShown: opts.storeShown })) {
+    const idx = p.pts.map(q => { const k = q.map(x => Math.round(x * 64)).join(); let i = key.get(k); if (i === undefined) { i = v.length; key.set(k, i); v.push(q); } return i; });
+    if (new Set(idx).size < 3) continue;
+    if (p.uv) idx.uv = p.uv; idx.col = p.col; f.push(idx);
+  }
+  return { v, f, subs: [], parts: [], scale: M.scale, code: M.c, imp: M.imp || {}, stations: M.stations,
+    ctl: { blocks: [], statics: [], vars: [], idxOf: new Map() }, core: M };
+}
+// true for shapes built by our generators (stores / appended blocks such as the F-14N nose): viewers should draw these with SHCore
+const needsCore = M => !!(M && M.faces.length && M.stations && M.stations.size);
+
+const API = { parseModel, polys, varsFor, needsCore, legacyModel, buildFile, placeParts, worldOf, linOf, apply, applyLin, invLin, faNormal, parsePIC, palFromBytes, readFace, peInfo, findSig };
 if (typeof module !== "undefined" && module.exports) module.exports = API; else root.SHCore = API;
 })(typeof self !== "undefined" ? self : this);

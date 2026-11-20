@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modding FA shapes with Claude</title>
+<meta name="description" content="How hawke rebuilt the F-14 and F/A-18 shapes of Fighters Anthology together with Claude Code: new vertices and faces, recomputed normals, an animated afterburner and spinning landing gear written as x86 inside the SH files.">
+<style>
+:root{ --bg:#0e1216; --card:#161c22; --card2:#1b232b; --line:#26303a; --text:#e2e8ee; --muted:#8a96a4; --accent:#ffd54a; --cyan:#6fd3ff; --ok:#5fd38a; --warn:#ffb347; --bad:#ff7a6b; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:var(--cyan)}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+header{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:12px 16px;background:#0e1216ee;border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+header .crumb{color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#langSlot{margin-left:auto}
+.fa-lang{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font:inherit;font-size:13px}
+main{max-width:980px;margin:0 auto;padding:24px 16px 60px}
+.kicker{color:var(--muted);font-size:13px;letter-spacing:.5px;text-transform:uppercase}
+.kicker b{color:var(--accent)}
+h1{font-size:clamp(30px,6vw,46px);line-height:1.1;margin:8px 0 10px}
+h1 b{color:var(--accent)}
+h2{font-size:24px;margin:52px 0 6px;scroll-margin-top:70px}
+h3{font-size:17px;margin:22px 0 6px}
+.lead{font-size:17px;color:#c4ccd5;max-width:760px}
+.muted{color:var(--muted)}
+code,kbd{font:13px/1.4 ui-monospace,Consolas,monospace;background:#0b0f13;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+figure{margin:18px 0}
+figure img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line);background:#181d24}
+figcaption{color:var(--muted);font-size:13px;margin-top:6px}
+.hero{margin:22px 0 4px}
+.quote{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:start;margin-top:26px;border-left:3px solid var(--accent);background:#ffd54a0d;border-radius:0 12px 12px 0;padding:14px 18px}
+.quote .big{font:800 30px/1 system-ui;color:var(--accent)}
+.quote p{margin:0 0 8px}
+.toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
+.toc a{font-size:13px;border:1px solid var(--line);border-radius:20px;padding:4px 12px;color:var(--text);text-decoration:none}
+.toc a:hover{border-color:var(--accent)}
+.vs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:16px}
+.vs > div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 18px}
+.vs h3{margin:0 0 8px}
+.vs .old h3{color:var(--muted)}
+.vs .new h3{color:var(--accent)}
+.vs ul{margin:0;padding-left:18px}
+.vs li{margin:4px 0}
+.feat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+.feat div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.feat b{display:block;margin-bottom:2px}
+.feat span{color:var(--muted);font-size:14px}
+ol.steps{padding-left:0;list-style:none;counter-reset:s;margin:10px 0}
+ol.steps li{counter-increment:s;position:relative;padding:4px 0 12px 42px}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:2px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#1a1a1a;font-weight:800;display:grid;place-items:center}
+.tl{position:relative;margin:14px 0 0;padding-left:22px;border-left:2px solid var(--line)}
+.tl .ev{position:relative;margin:0 0 16px}
+.tl .ev::before{content:"";position:absolute;left:-29px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--accent);border:2px solid var(--bg)}
+.tl .ev.no::before{background:var(--bad)}
+.tl .ev b{display:block}
+.tl .ev .tag{display:inline-block;font-size:12px;border:1px solid var(--line);border-radius:20px;padding:0 8px;margin-left:6px;color:var(--muted);font-weight:400}
+.tl .ev p{margin:2px 0 0;color:#c4ccd5}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+td:first-child{font-weight:600}
+.scroll{overflow-x:auto}
+.note{border-left:3px solid var(--warn);padding:8px 12px;background:#ffb3470f;border-radius:0 8px 8px 0;margin:12px 0}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.two figure{margin:8px 0}
+.stat{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:22px}
+.stat div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:26px;line-height:1.1;color:var(--accent)}
+.stat span{color:var(--muted);font-size:13px}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#1a1a1a;font-weight:700;text-decoration:none;border-radius:10px;padding:11px 18px}
+.btn.ghost{background:none;color:var(--text);border:1px solid var(--line);font-weight:600}
+.dl{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px}
+footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+@media (max-width:700px){ .feat,.two,.vs{grid-template-columns:1fr} .stat{grid-template-columns:repeat(2,minmax(0,1fr))} .quote{grid-template-columns:1fr} }
+</style>
+<script src="fashion_i18n.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <span class="crumb"><span data-lang="en">Modding FA shapes with Claude</span><span data-lang="zh">和 Claude 一起改 FA 外形</span></span>
+  <span id="langSlot"></span>
+</header>
+<main>
+  <div class="kicker"><b>Release #6</b> · <span data-lang="en">Nov 17, 2026</span><span data-lang="zh">2026 年 11 月 17 日</span></div>
+  <h1 data-lang="en">Modding FA shapes <b>with Claude</b></h1>
+  <h1 data-lang="zh">和 <b>Claude</b> 一起改 FA 外形</h1>
+  <p class="lead" data-lang="en">How the new F-14 and F/A-18 on this site were made. I used to rebuild one <em>Fighters Anthology</em> model in about half a year. This time I put every FA file on GitHub and worked with Claude Code, back and forth, and in a few days we had reshaped jets, new weapons on the pylons, an animated afterburner and landing gear with spinning wheels.</p>
+  <p class="lead" data-lang="zh">這個網站上新的 F-14 和 F/A-18 是怎麼做出來的。以前我改一架 <em>Fighters Anthology</em> 的模型大約要半年。這次我把 FA 的所有檔案放上 GitHub，和 Claude Code 一來一往地反覆修改、核對，幾天之內就有了外形修整過的飛機、掛在派龍架上的新武器、會動的後燃器火焰，以及輪子會轉的起落架。</p>
+
+  <figure class="hero">
+    <img src="img/sh_mod/hero_f14.jpg" alt="The rebuilt F-14 on the FAshion homepage" loading="lazy">
+    <figcaption data-lang="en">The rebuilt F14.SH on the FAshion homepage, drawn straight from the game file.</figcaption>
+    <figcaption data-lang="zh">FAshion 首頁上重做的 F14.SH，直接從遊戲檔案畫出來。</figcaption>
+  </figure>
+
+  <div class="quote">
+    <div class="big">hawke</div>
+    <div data-lang="en">
+      <p><b>Where I started.</b> I am the author of the old FAshion tool. For years my way of making a new FA shape was the same: use <code>fash</code> to pull the vertex cloud and the faces out of an .SH file, edit them in SketchUp, and save them back. It works, but it is a lot of manual labour. One model took me about half a year, and some things could not be done at all: the face normals, for one, could not be edited.</p>
+      <p class="muted">When I wanted to make the two-seat F/A-18F, I tried something new: I uploaded all of FA's files (SH shapes, PT aircraft data, PIC textures and FA.EXE itself) to GitHub and asked Claude Code to work on them with me, checking each step in the game. Then I found that Claude could do things my old tools never could: add new vertices and faces, and rewrite or add x86 code, both inside the SH files and in FA.EXE.</p>
+    </div>
+    <div data-lang="zh">
+      <p><b>從哪裡開始。</b>我是舊版 FAshion 工具的作者。這些年來我做新 FA 外形的方法都一樣：用 <code>fash</code> 把 .SH 檔的頂點雲和面解出來，在 SketchUp 裡編輯，再存回去。這樣做可行，但非常費力。一個模型大約要花半年，而且有些東西根本改不了，例如面的法向量。</p>
+      <p class="muted">為了做雙座的 F/A-18F，我試了新的方法：把 FA 的所有檔案（SH 外形、PT 飛機資料、PIC 貼圖，連 FA.EXE 本身）都上傳到 GitHub，請 Claude Code 跟我一起改，每一步都進遊戲核對。結果發現 Claude 能做到我以前的工具做不到的事：增加點雲和面，還能改寫或增加 x86 程式碼，不論是在 SH 檔裡還是在 FA.EXE 裡。</p>
+    </div>
+  </div>
+
+  <div class="stat">
+    <div><b>~½ <span data-lang="en">year</span><span data-lang="zh">年</span></b><span data-lang="en">per model, the old way</span><span data-lang="zh">舊方法，每個模型</span></div>
+    <div><b>6 <span data-lang="en">days</span><span data-lang="zh">天</span></b><span data-lang="en">from the first upload (Nov 12) to this page</span><span data-lang="zh">從第一次上傳（11/12）到這一頁</span></div>
+    <div><b>140+</b><span data-lang="en">pull requests merged in the repo</span><span data-lang="zh">個合併進專案的 PR</span></div>
+    <div><b>1,428</b><span data-lang="en">SH files on GitHub as source</span><span data-lang="zh">個 SH 檔放在 GitHub 當素材</span></div>
+  </div>
+
+  <nav class="toc">
+    <a href="#compare"><span data-lang="en">Old way vs new way</span><span data-lang="zh">舊方法 vs 新方法</span></a>
+    <a href="#loop"><span data-lang="en">How we work</span><span data-lang="zh">合作的流程</span></a>
+    <a href="#can"><span data-lang="en">What Claude can do</span><span data-lang="zh">Claude 做得到的事</span></a>
+    <a href="#f18"><span data-lang="en">The F/A-18</span><span data-lang="zh">F/A-18</span></a>
+    <a href="#f14"><span data-lang="en">The F-14</span><span data-lang="zh">F-14</span></a>
+    <a href="#flame"><span data-lang="en">Afterburner</span><span data-lang="zh">後燃器</span></a>
+    <a href="#gear"><span data-lang="en">Landing gear</span><span data-lang="zh">起落架</span></a>
+    <a href="#limits"><span data-lang="en">Hidden limits</span><span data-lang="zh">隱藏的上限</span></a>
+    <a href="#tools"><span data-lang="en">Tools and notes</span><span data-lang="zh">工具與筆記</span></a>
+  </nav>
+
+  <!-- ============ compare ============ -->
+  <h2 id="compare"><span data-lang="en">The old way and the new way</span><span data-lang="zh">舊方法與新方法</span></h2>
+  <div class="vs" data-lang="en">
+    <div class="old"><h3>Before: fash + SketchUp</h3><ul>
+      <li>Extract vertices and faces with <code>fash</code>.</li>
+      <li>Move points by hand in SketchUp, then save back.</li>
+      <li>Normals cannot be edited, so lighting goes wrong where the shape changed.</li>
+      <li>No way to add moving parts or new behaviour.</li>
+      <li>About half a year per model.</li>
+    </ul></div>
+    <div class="new"><h3>Now: GitHub + Claude Code</h3><ul>
+      <li>All SH, PT, PIC files and FA.EXE in one repository.</li>
+      <li>Claude reads the bytecode, writes a Python generator for each change, and renders previews from several angles.</li>
+      <li>Normals, Gouraud vertex shades and draw order are recomputed for every edit.</li>
+      <li>New vertices, faces, parts, textures and x86 code can be added.</li>
+      <li>A test file in my SH folder within minutes; I fly it and report back.</li>
+    </ul></div>
+  </div>
+  <div class="vs" data-lang="zh">
+    <div class="old"><h3>以前：fash + SketchUp</h3><ul>
+      <li>用 <code>fash</code> 解出頂點和面。</li>
+      <li>在 SketchUp 裡手動移點，再存回去。</li>
+      <li>法向量改不了，外形一改，那裡的光影就不對。</li>
+      <li>沒辦法加會動的零件或新的行為。</li>
+      <li>一個模型大約半年。</li>
+    </ul></div>
+    <div class="new"><h3>現在：GitHub + Claude Code</h3><ul>
+      <li>所有 SH、PT、PIC 檔和 FA.EXE 都在同一個專案裡。</li>
+      <li>Claude 讀懂位元組碼，每個修改都寫成一支 Python 產生器，並從好幾個角度算出預覽圖。</li>
+      <li>每次修改都會重算法向量、Gouraud 頂點明暗和繪製順序。</li>
+      <li>可以加新的頂點、面、零件、貼圖和 x86 程式碼。</li>
+      <li>幾分鐘內測試檔就出現在我的 SH 資料夾；我進遊戲飛，再回報。</li>
+    </ul></div>
+  </div>
+
+  <!-- ============ loop ============ -->
+  <h2 id="loop"><span data-lang="en">How we work together</span><span data-lang="zh">我們怎麼合作</span></h2>
+  <p class="muted" data-lang="en">Every feature on this page went around this loop several times. Nothing went into a release until I had flown it in the real game.</p>
+  <p class="muted" data-lang="zh">這一頁上的每個功能都跑過這個循環好幾次。沒有在真正的遊戲裡飛過，就不會放進發布。</p>
+  <ol class="steps" data-lang="en">
+    <li><b>I describe what I want</b>, in plain words, with in-game screenshots or a side-view drawing of the real jet: “the nose tip should sit on the centreline”, “the wheels should spin faster with speed and stop above 190 knots”.</li>
+    <li><b>Claude finds out how FA does it.</b> It reads the SH bytecode and disassembles FA.EXE to learn the rules: which opcode draws a face, where the gear position is stored, how fast the aircraft is moving.</li>
+    <li><b>Claude writes a generator script</b> (in <code>tools/shgen/</code>) that starts from the original file and applies the change, so every version can be rebuilt and compared.</li>
+    <li><b>Claude renders previews</b> from the top, side, below and three-quarter views, and tests x86 code in an emulator (Unicorn) before it ever reaches the game.</li>
+    <li><b>The test file goes straight to my computer</b>, numbered in order (<code>F14-36.SH</code>, <code>F14-37.SH</code>, …) so I always know which one I am flying.</li>
+    <li><b>I fly it in FA and report back.</b> “Really good, it spins.” Or: “the right wheel is missing”, “the game says Not enough memory”. Then we go round again.</li>
+    <li><b>When I approve it,</b> it is merged to GitHub and this website updates by itself.</li>
+  </ol>
+  <ol class="steps" data-lang="zh">
+    <li><b>我說明想要什麼</b>，用一般的話，加上遊戲截圖或真機的側視圖：「機鼻尖端要在機身中心線上」、「輪子要隨速度轉得越快，超過 190 節就停」。</li>
+    <li><b>Claude 去找 FA 是怎麼做的。</b>它讀 SH 位元組碼，反組譯 FA.EXE，弄清楚規則：哪個指令畫一個面、起落架的位置存在哪裡、飛機現在飛多快。</li>
+    <li><b>Claude 寫一支產生器</b>（在 <code>tools/shgen/</code>），從原始檔開始套用修改，所以每個版本都能重建、比較。</li>
+    <li><b>Claude 算出預覽圖</b>：上、側、下和斜四分之三視角；x86 程式先在模擬器（Unicorn）裡測過，才會進遊戲。</li>
+    <li><b>測試檔直接送到我的電腦</b>，依序編號（<code>F14-36.SH</code>、<code>F14-37.SH</code>…），我永遠知道自己在飛哪一版。</li>
+    <li><b>我進 FA 飛，然後回報。</b>「很好，會轉了。」或者：「右邊的輪子不見了」、「遊戲跳出 Not enough memory」。然後再跑一輪。</li>
+    <li><b>我說可以了</b>，就合併到 GitHub，這個網站會自動更新。</li>
+  </ol>
+
+  <!-- ============ can ============ -->
+  <h2 id="can"><span data-lang="en">What Claude can do that my old tools could not</span><span data-lang="zh">Claude 做得到、我以前的工具做不到的事</span></h2>
+  <div class="feat" data-lang="en">
+    <div><b>Read the SH bytecode</b><span>An .SH is a small program that FA.EXE runs. Claude decoded the interpreter's opcode table: faces, vertex loads, calls, jumps, draw-order tests and moving parts.</span></div>
+    <div><b>Fix normals</b><span>After vertices move, <code>sh_renormal.py</code> recomputes each face's normal and plane point. On the F/A-18E alone, 380 faces were fixed.</span></div>
+    <div><b>Add vertices and faces</b><span>New geometry is inserted before the SH signature; when the code section is full, the later sections are moved back 0x1000 bytes and the relocations are fixed.</span></div>
+    <div><b>Write x86 inside a shape</b><span>An SH can hold real machine code. We used it to grow the afterburner flame over 3 seconds and to spin the wheels with airspeed.</span></div>
+    <div><b>Patch FA.EXE</b><span><a href="fa_big.html">FA_BIG</a> raises the LIB, file and cache limits of FA 1.02f and still matches its CRC, so launchers accept it.</span></div>
+    <div><b>Paint textures</b><span>Hub, flame and stripe textures are drawn into the PIC files in FA's own palette, on texels no other face uses.</span></div>
+  </div>
+  <div class="feat" data-lang="zh">
+    <div><b>讀懂 SH 位元組碼</b><span>.SH 其實是一段由 FA.EXE 執行的小程式。Claude 解出了直譯器的指令表：面、載入頂點、呼叫、跳躍、繪製順序判斷和會動的零件。</span></div>
+    <div><b>修正法向量</b><span>頂點移動後，<code>sh_renormal.py</code> 會重算每個面的法向量和平面上的點。光是 F/A-18E 就修了 380 個面。</span></div>
+    <div><b>增加頂點和面</b><span>新的幾何插在 SH 簽章之前；程式區段滿了，就把後面的區段整體往後移 0x1000 位元組，並修正重定位表。</span></div>
+    <div><b>在外形裡寫 x86</b><span>SH 裡可以放真正的機器碼。我們用它讓後燃器火焰在 3 秒內長出來，並讓輪子隨空速轉動。</span></div>
+    <div><b>修改 FA.EXE</b><span><a href="fa_big.html">FA_BIG</a> 放大 FA 1.02f 的 LIB、檔案和快取上限，CRC 仍然相符，啟動器照樣接受。</span></div>
+    <div><b>畫貼圖</b><span>輪轂、火焰和條紋貼圖用 FA 自己的調色盤畫進 PIC 檔，而且只用沒有其他面用到的像素。</span></div>
+  </div>
+
+  <!-- ============ F/A-18 ============ -->
+  <h2 id="f18"><span data-lang="en">The F/A-18: where it started</span><span data-lang="zh">F/A-18：一切的開始</span></h2>
+  <p data-lang="en">The F/A-18F was the reason for all of this. I started the way I always had, moving vertices of the factory F18C by hand to make a Super Hornet (F18E). The difference was what happened next.</p>
+  <p data-lang="zh">F/A-18F 是這一切的起因。我一開始還是用老方法，手動移動原廠 F18C 的頂點，做出 Super Hornet（F18E）。不同的是接下來發生的事。</p>
+  <div class="tl" data-lang="en">
+    <div class="ev"><b>Normals that follow the shape <span class="tag">sh_renormal.py</span></b><p>The hand-moved F18E had 380 faces whose normals no longer matched. They were recomputed and written back in place. For the first time, an edited shape lit correctly in the game.</p></div>
+    <div class="ev"><b>One edit, carried to the two-seater <span class="tag">sh_morph.py</span></b><p>Instead of redoing the work on the two-seat F18.SH, the single-seat edit was carried across: matching vertices move exactly, the rest are interpolated with symmetry, then renormalled.</p></div>
+    <div class="ev"><b>Gaps and T-junctions <span class="tag">sh_tjfix.py</span></b><p>I saw gaps at the wing root, the LEX and the flaps. The cause was broken T-junctions and flap parts that no longer met the wing. A tool restores them against the original file.</p></div>
+    <div class="ev no"><b>Not everything worked</b><p>I asked for a straight flap inner edge. Two versions later I asked to go back: the fuselage narrows there, so a straight edge leaves a fixed piece of wing next to the moving flap. We rolled back to the version I liked and kept only the fixes that helped. Every step had a backup, so going back was easy.</p></div>
+    <div class="ev"><b>All the LODs</b><p>The medium and low detail models were morphed from the same edit, so the wingtips match at every distance.</p></div>
+    <div class="ev"><b>Blue Angels and the EA-18G Growler</b><p>Tapered yellow stripes painted texel by texel, the Growler's jamming pods and tanks as new parts, all in the first release on Nov 14.</p></div>
+  </div>
+  <div class="tl" data-lang="zh">
+    <div class="ev"><b>跟著外形走的法向量 <span class="tag">sh_renormal.py</span></b><p>手動移過點的 F18E 有 380 個面的法向量對不上。全部重算後寫回原位。改過的外形第一次在遊戲裡光影正確。</p></div>
+    <div class="ev"><b>改一次，帶到雙座機 <span class="tag">sh_morph.py</span></b><p>不必在雙座的 F18.SH 上重做一遍，而是把單座的修改搬過去：對得上的頂點照搬，其他的依對稱內插，再重算法向量。</p></div>
+    <div class="ev"><b>縫隙與 T 型接點 <span class="tag">sh_tjfix.py</span></b><p>我在翼根、邊條和襟翼看到縫隙。原因是 T 型接點斷開，以及襟翼零件和機翼不再貼合。工具會對照原始檔把它們修回來。</p></div>
+    <div class="ev no"><b>不是每次都成功</b><p>我要襟翼內緣是一直線。改了兩版後我要求改回來：那裡機身變窄，直的內緣會在會動的襟翼旁邊留下一塊固定的機翼。我們退回我喜歡的那一版，只保留有用的修正。每一步都有備份，所以退回很容易。</p></div>
+    <div class="ev"><b>每一個 LOD</b><p>中、低細節模型也用同一份修改變形，所以不論多遠，翼尖都對得上。</p></div>
+    <div class="ev"><b>藍天使與 EA-18G Growler</b><p>逐像素畫出漸尖的黃色條紋、Growler 的干擾莢艙和副油箱都是新零件，全都在 11 月 14 日的第一次發布裡。</p></div>
+  </div>
+  <div class="two">
+    <figure><img src="img/sh_mod/f18d_new.jpg" alt="Reshaped F/A-18 from several angles" loading="lazy">
+      <figcaption data-lang="en">Reshaped Hornet previews, rendered from several angles before each test in the game.</figcaption>
+      <figcaption data-lang="zh">修整後的 Hornet 預覽圖，每次進遊戲測試前都會從好幾個角度算出來。</figcaption></figure>
+    <figure><img src="img/sh_mod/f18f_morph.jpg" alt="F/A-18 morph comparison" loading="lazy">
+      <figcaption data-lang="en">Comparing versions side by side while carrying the single-seat edit to the two-seater.</figcaption>
+      <figcaption data-lang="zh">把單座修改搬到雙座機時，並排比較各個版本。</figcaption></figure>
+  </div>
+  <div class="two">
+    <figure><img src="img/sh_mod/f18_gapfix.jpg" alt="Gap check from above and below" loading="lazy">
+      <figcaption data-lang="en">Gap check from above and below.</figcaption>
+      <figcaption data-lang="zh">從上方和下方檢查縫隙。</figcaption></figure>
+    <figure><img src="img/sh_mod/f18u_blue_angels.jpg" alt="Blue Angels stripe tapering to the windscreen" loading="lazy" style="max-height:420px;object-fit:contain">
+      <figcaption data-lang="en">Blue Angels: the yellow stripe now tapers to a point at the windscreen.</figcaption>
+      <figcaption data-lang="zh">藍天使：黃色條紋現在一路漸尖到風擋。</figcaption></figure>
+  </div>
+  <p class="muted"><span data-lang="en">See them all in the</span><span data-lang="zh">全部都在</span> <a href="f18_showcase.html"><span data-lang="en">F/A-18 Showcase</span><span data-lang="zh">F/A-18 展示</span></a>.</p>
+
+  <!-- ============ F-14 ============ -->
+  <h2 id="f14"><span data-lang="en">The F-14: nose, weapons and more</span><span data-lang="zh">F-14：機鼻、武器和更多</span></h2>
+  <h3 data-lang="en">First try: a whole new F-14 from a 3D model</h3>
+  <h3 data-lang="zh">第一次嘗試：從 3D 模型做一架全新的 F-14</h3>
+  <p data-lang="en">I gave Claude a SketchUp F-14 with 77,000 triangles. It lofted a new 369-vertex body, kept the original moving parts and LODs, and built the draw order itself. The first build crashed; the second one flew. But it looked too far from the F-14 we know in FA, so we paused it and went back to refining the existing shape.</p>
+  <p data-lang="zh">我給 Claude 一個 77,000 個三角形的 SketchUp F-14。它放樣出 369 個頂點的新機身，保留原本會動的零件和 LOD，自己建立繪製順序。第一版當掉，第二版能飛。但它跟大家熟悉的 FA F-14 差太多，所以先暫停，回頭修整原本的外形。</p>
+  <figure><img src="img/sh_mod/f14g_from_glb.jpg" alt="F-14 body built from a 3D model" loading="lazy" style="max-width:640px">
+    <figcaption data-lang="en">The F-14 body built from the 3D model (paused).</figcaption>
+    <figcaption data-lang="zh">從 3D 模型做出的 F-14 機身（已暫停）。</figcaption></figure>
+
+  <h3 data-lang="en">A new nose, five versions</h3>
+  <h3 data-lang="zh">新機鼻，五個版本</h3>
+  <p data-lang="en">The factory nose looked droopy and lumpy. The nose is now generated from curves: the tip sits on the fuselage centreline, the top and bottom lines blend smoothly, and the normals are calculated from the curve. One lesson: FA shades these faces smoothly (Gouraud) from per-vertex shades, so only the outline and the normals show. A flat preview made it look faceted, so Claude wrote a Gouraud preview to match the game. Version 4 had too many small faces and looked pitted; version 5 followed my side-view drawings with 57 vertices and 94 faces.</p>
+  <p data-lang="zh">原廠機鼻看起來下垂又凹凸不平。現在機鼻用曲線產生：尖端在機身中心線上，上下輪廓平順銜接，法向量由曲線算出。學到的一課：FA 用每個頂點的明暗把這些面平滑上色（Gouraud），所以只看得出輪廓和法向量。平面上色的預覽看起來一格一格的，所以 Claude 另寫了一個 Gouraud 預覽，跟遊戲一致。第 4 版小面太多，看起來坑坑洞洞；第 5 版照我的側視圖，用 57 個頂點、94 個面。</p>
+  <div class="two">
+    <figure><img src="img/sh_mod/f14n_compare.jpg" alt="F-14 nose comparison" loading="lazy">
+      <figcaption data-lang="en">Comparing nose versions from above and from the side.</figcaption>
+      <figcaption data-lang="zh">從上方和側面比較機鼻版本。</figcaption></figure>
+    <figure><img src="img/sh_mod/f14n_v5.jpg" alt="F-14 nose v5 Gouraud preview" loading="lazy">
+      <figcaption data-lang="en">Nose v5 in the Gouraud preview that matches the game's shading.</figcaption>
+      <figcaption data-lang="zh">第 5 版機鼻，用跟遊戲一致的 Gouraud 預覽。</figcaption></figure>
+  </div>
+
+  <h3 data-lang="en">Weapons that come and go</h3>
+  <h3 data-lang="zh">會出現也會消失的武器</h3>
+  <p data-lang="en">FA never draws the stores on a jet. Claude found where each station's weapon type and count live in memory, and added x86 to the SH that reads them every frame. Now the Phoenixes, Sparrows, Sidewinders, bombs and tanks you load are drawn on the pylons, vanish as you fire them, and dropped tanks fall away.</p>
+  <p data-lang="zh">FA 從來不會在飛機上畫出掛載。Claude 找到每個掛點的武器種類和數量存在記憶體的哪裡，並在 SH 裡加上每一幀讀取它們的 x86。現在你掛的鳳凰、麻雀、響尾蛇、炸彈和副油箱都會畫在派龍架上，射出就消失，拋掉的油箱會往下掉。</p>
+  <div class="two">
+    <figure><img src="img/sh_mod/f14_stores.jpg" alt="F-14 with Phoenix missiles" loading="lazy">
+      <figcaption data-lang="en">F-14 stores preview.</figcaption>
+      <figcaption data-lang="zh">F-14 掛載預覽。</figcaption></figure>
+    <figure><img src="img/sh_mod/f18_loadout.jpg" alt="Loadout panel on the release page" loading="lazy">
+      <figcaption data-lang="en">Try any loadout on the <a href="f14_f18.html">F-14 &amp; F/A-18 page</a>.</figcaption>
+      <figcaption data-lang="zh">在 <a href="f14_f18.html">F-14 與 F/A-18 頁面</a>試試各種掛載。</figcaption></figure>
+  </div>
+
+  <!-- ============ flame ============ -->
+  <h2 id="flame"><span data-lang="en">An afterburner that burns</span><span data-lang="zh">真的在燒的後燃器</span></h2>
+  <p data-lang="en">The factory F-14 and F/A-18 flames are static. AUR.SH already had a much better one, and Claude worked out how it is done: it uses an opcode that switches between three texture frames every game frame, like a flipbook. We ported that idea to the F-14, then to the F/A-18 and all its variants.</p>
+  <p data-lang="zh">原廠 F-14 和 F/A-18 的火焰是靜止的。AUR.SH 的火焰好得多，Claude 弄清楚了它的做法：它用一個指令在每一幀切換三張貼圖，就像翻頁動畫。我們把這個做法搬到 F-14，再到 F/A-18 和它的所有衍生型。</p>
+  <figure><img src="img/sh_mod/aur_vs_f14_flame.jpg" alt="AUR flame frames compared with the static F-14 flame" loading="lazy">
+    <figcaption data-lang="en">AUR.SH's three animated flame frames (left) next to the factory F-14 flame (right).</figcaption>
+    <figcaption data-lang="zh">AUR.SH 的三張動畫火焰（左）和原廠 F-14 火焰（右）。</figcaption></figure>
+  <ol class="steps" data-lang="en">
+    <li><b>v1:</b> I liked it in the game, but asked for a flame 4/5 as long, no stray whiskers at the tail, and colours like real photos.</li>
+    <li><b>v2:</b> the frames are now drawn by a script: orange and yellow at the nozzle, then white, then bluish white, with bright shock rings that move between frames. Approved: “very successful”.</li>
+    <li><b>Grow:</b> I wanted the flame to light up over about 3 seconds, not pop on. x86 inside the SH reads the game clock, remembers when each aircraft lit its burner, and stretches the flame from 15% to 100%.</li>
+  </ol>
+  <ol class="steps" data-lang="zh">
+    <li><b>v1：</b>進遊戲我很喜歡，但希望長度變成 4/5、尾端不要有雜鬚、顏色像真實照片。</li>
+    <li><b>v2：</b>火焰貼圖改用程式畫：噴嘴處橘黃，接著白色，再到帶藍的白色，明亮的震波環在每一幀之間移動。通過：「非常成功」。</li>
+    <li><b>漸長：</b>我希望火焰在大約 3 秒內點燃，而不是一下子出現。SH 裡的 x86 讀取遊戲時鐘，記住每架飛機何時點燃後燃器，把火焰從 15% 拉長到 100%。</li>
+  </ol>
+  <figure><img src="img/sh_mod/f14_ab_v2.jpg" alt="F-14 afterburner v2" loading="lazy">
+    <figcaption data-lang="en">F-14 afterburner v2, three frames from several angles.</figcaption>
+    <figcaption data-lang="zh">F-14 後燃器第 2 版，三張畫格從不同角度看。</figcaption></figure>
+  <figure><img src="img/sh_mod/ab_grow.jpg" alt="Afterburner growing over 3 seconds" loading="lazy">
+    <figcaption data-lang="en">The flame growing over 3 seconds.</figcaption>
+    <figcaption data-lang="zh">火焰在 3 秒內長出來。</figcaption></figure>
+
+  <!-- ============ gear ============ -->
+  <h2 id="gear"><span data-lang="en">Landing gear with spinning wheels</span><span data-lang="zh">輪子會轉的起落架</span></h2>
+  <p data-lang="en">The factory gear is a few flat pictures crossed together. I asked for real 3D gear: small twin nose wheels, big single main wheels, spinning faster with speed and stopping when the jet is still or fast. Claude found the aircraft's speed in memory and wrote the spin into the SH as x86. It took twelve F-14 versions; this is the part of the story with the most dead ends, and the most learned.</p>
+  <p data-lang="zh">原廠起落架只是幾張交叉的平面圖。我要真正的 3D 起落架：前面是小的雙輪，主輪是大的單輪，速度越快轉得越快，停著或飛快時就不轉。Claude 在記憶體裡找到飛機的速度，用 x86 把轉動寫進 SH。F-14 一共做了十二版；這是整個故事裡走過最多死路、也學到最多的部分。</p>
+  <div class="tl" data-lang="en">
+    <div class="ev no"><b>v1: polygon wheels</b><p>The left wheel worked; the nose and right wheels were missing in the game. I also did not like the polygon wheels: I wanted a round texture that rotates. Later we found the cause: a nested part needs a 6-byte header that v1 left out.</p></div>
+    <div class="ev no"><b>v2: no spin, and the afterburner broke</b><p>This led to the biggest discovery: FA reads an SH's file size as a 16-bit number. This file was 68,096 bytes, so the end of it was cut off.</p></div>
+    <div class="ev"><b>v3: “really good, it spins”</b><p>One round, double-sided hub face per wheel, rotated by x86, and the file back under 64 KB.</p></div>
+    <div class="ev"><b>v4 to v8: struts, tyres, axles</b><p>Vertical nose strut, black tyre bands, centred axles, one shared spin table to save 512 bytes. v8: “very successful”.</p></div>
+    <div class="ev"><b>v9 to v12: details</b><p>Longer main struts, stop above 180 knots, a nose leg with housing, piston, collar, fork and launch bar, and the original strut texture on the new struts.</p></div>
+    <div class="ev"><b>Then the F/A-18</b><p>The same method, written up in the notes, was applied to F18.SH in a few versions.</p></div>
+  </div>
+  <div class="tl" data-lang="zh">
+    <div class="ev no"><b>v1：多邊形輪子</b><p>左輪正常；前輪和右輪在遊戲裡不見了。我也不喜歡多邊形輪子：我要的是會旋轉的圓形貼圖。後來找到原因：巢狀零件需要一個 6 位元組的標頭，v1 漏了。</p></div>
+    <div class="ev no"><b>v2：不會轉，後燃器還壞了</b><p>這帶出最大的發現：FA 用 16 位元讀 SH 的檔案大小。這個檔有 68,096 位元組，所以尾巴被截掉了。</p></div>
+    <div class="ev"><b>v3：「很好，會轉了」</b><p>每個輪子一個圓形、雙面的輪轂面，由 x86 轉動，檔案也回到 64 KB 以下。</p></div>
+    <div class="ev"><b>v4 到 v8：支柱、輪胎、輪軸</b><p>垂直的前起落架支柱、黑色胎面、置中的輪軸、三組共用一張轉動表省下 512 位元組。v8：「很成功」。</p></div>
+    <div class="ev"><b>v9 到 v12：細節</b><p>加長主支柱、超過 180 節停轉、有外筒、活塞、套環、叉架和彈射桿的前起落架，新支柱貼上原本的支柱貼圖。</p></div>
+    <div class="ev"><b>接著是 F/A-18</b><p>同一套方法寫進筆記後，用幾個版本套到 F18.SH 上。</p></div>
+  </div>
+  <div class="two">
+    <figure><img src="img/sh_mod/gear_v3.jpg" alt="F-14 gear v3" loading="lazy">
+      <figcaption data-lang="en">F-14 gear v3: the first one that spun in the game.</figcaption>
+      <figcaption data-lang="zh">F-14 起落架 v3：第一個在遊戲裡會轉的版本。</figcaption></figure>
+    <figure><img src="img/sh_mod/gear_v10.jpg" alt="F-14 gear v10" loading="lazy">
+      <figcaption data-lang="en">v10: a full nose leg with housing, piston, fork and launch bar.</figcaption>
+      <figcaption data-lang="zh">v10：完整的前起落架，有外筒、活塞、叉架和彈射桿。</figcaption></figure>
+  </div>
+  <div class="two">
+    <figure><img src="img/sh_mod/f14_gear_tex.jpg" alt="F-14 textured gear close-up" loading="lazy">
+      <figcaption data-lang="en">F-14: textured struts and hubs among the stores.</figcaption>
+      <figcaption data-lang="zh">F-14：有貼圖的支柱和輪轂，旁邊是掛載。</figcaption></figure>
+    <figure><img src="img/sh_mod/f18_gear_tex.jpg" alt="F/A-18 textured gear close-up" loading="lazy">
+      <figcaption data-lang="en">F/A-18 with the same gear method.</figcaption>
+      <figcaption data-lang="zh">用同一套方法做的 F/A-18 起落架。</figcaption></figure>
+  </div>
+
+  <!-- ============ limits ============ -->
+  <h2 id="limits"><span data-lang="en">Hidden limits we found on the way</span><span data-lang="zh">一路上找到的隱藏上限</span></h2>
+  <p class="muted" data-lang="en">Each of these cost us a crash or a broken build first. They are useful to anyone modding FA, with or without Claude.</p>
+  <p class="muted" data-lang="zh">每一條都是先當機或壞掉一次才找到的。不管有沒有用 Claude，改 FA 的人都用得上。</p>
+  <div class="scroll"><table data-lang="en">
+    <tr><th>Limit</th><th>What happens</th></tr>
+    <tr><td>SH file must be under 65,536 bytes</td><td>FA reads the size as 16-bit. Exactly 65,536 gives “Not enough memory.”; larger files are silently cut short.</td></tr>
+    <tr><td>900 vertices per shape</td><td>FA's vertex table holds 900 entries. Slots near the top looked unsafe in testing; the factory shapes stay under about 640.</td></tr>
+    <tr><td>New data goes before the signature</td><td>FA only loads the code section up to the <code>01 02 03 02 01 02 03 02 01</code> signature. Our first F-14 test put data after it and crashed as soon as the outside view was shown.</td></tr>
+    <tr><td>No z-buffer</td><td>FA draws in painter's order through plane tests in the SH. Every new part needs its place in that tree, or it shows through.</td></tr>
+    <tr><td>Smooth faces ignore their colour</td><td>Faces flagged for Gouraud shading take their light from per-vertex records, so new vertices need those records too, or they show colour noise.</td></tr>
+    <tr><td>A patched EXE must be named FA.EXE</td><td>FA loads <code>RELEASE\&lt;exe name&gt;.SMS</code>; renamed builds fail with “Not enough memory.”</td></tr>
+  </table>
+  <table data-lang="zh">
+    <tr><th>上限</th><th>會發生什麼</th></tr>
+    <tr><td>SH 檔要小於 65,536 位元組</td><td>FA 用 16 位元讀檔案大小。剛好 65,536 會出現「Not enough memory.」；更大的檔會被默默截斷。</td></tr>
+    <tr><td>每個外形 900 個頂點</td><td>FA 的頂點表只有 900 格。測試時靠近上面的格子看起來不安全；原廠外形都在大約 640 以下。</td></tr>
+    <tr><td>新資料要放在簽章之前</td><td>FA 只載入程式區段到 <code>01 02 03 02 01 02 03 02 01</code> 簽章為止。我們第一個 F-14 測試把資料放在後面，一切到外部視角就當掉。</td></tr>
+    <tr><td>沒有 z-buffer</td><td>FA 依 SH 裡的平面判斷用畫家演算法的順序來畫。每個新零件都要在這棵樹裡有位置，不然會穿透。</td></tr>
+    <tr><td>平滑面不看自己的顏色</td><td>標記為 Gouraud 的面，光影來自每個頂點的紀錄，所以新頂點也要有這些紀錄，否則會出現雜色。</td></tr>
+    <tr><td>修改過的 EXE 必須叫 FA.EXE</td><td>FA 會載入 <code>RELEASE\&lt;exe 名稱&gt;.SMS</code>；改了名的版本會出現「Not enough memory.」</td></tr>
+  </table></div>
+
+  <!-- ============ tools ============ -->
+  <h2 id="tools"><span data-lang="en">The tools and notes, for other modders</span><span data-lang="zh">給其他改模型玩家的工具與筆記</span></h2>
+  <p data-lang="en">Everything is on GitHub. The generator scripts live in <a href="https://github.com/kuoyichen/FAoutput/tree/main/tools/shgen"><code>tools/shgen/</code></a>, and everything we learned about the SH format is written down in <a href="https://github.com/kuoyichen/FAoutput/blob/main/skill/SH_edit_note.MD"><code>skill/SH_edit_note.MD</code></a> (in Traditional Chinese), so the next model starts from what we already know.</p>
+  <p data-lang="zh">全部都在 GitHub 上。產生器腳本在 <a href="https://github.com/kuoyichen/FAoutput/tree/main/tools/shgen"><code>tools/shgen/</code></a>，關於 SH 格式學到的一切都寫在 <a href="https://github.com/kuoyichen/FAoutput/blob/main/skill/SH_edit_note.MD"><code>skill/SH_edit_note.MD</code></a>，下一個模型可以從我們已經知道的地方開始。</p>
+  <div class="scroll"><table data-lang="en">
+    <tr><th>Script</th><th>What it does</th></tr>
+    <tr><td>sh_renormal.py</td><td>Recompute face normals and plane points after vertices move.</td></tr>
+    <tr><td>sh_morph.py</td><td>Carry a vertex edit from one SH to a sibling SH.</td></tr>
+    <tr><td>sh_tjfix.py</td><td>Close gaps from broken T-junctions and moved part buffers.</td></tr>
+    <tr><td>sh_subdivide.py</td><td>Split faces into smaller ones by adding new vertices.</td></tr>
+    <tr><td>f14_nose.py</td><td>Generate the F-14 nose from curves.</td></tr>
+    <tr><td>f14_stores.py, f18_stores.py</td><td>Draw the loaded weapons and tanks on the pylons.</td></tr>
+    <tr><td>sh_ab_flame.py, ab_flame_tex.py</td><td>Animated, growing afterburner and its texture frames.</td></tr>
+    <tr><td>f14_gear.py, f18_gear.py</td><td>3D landing gear with spinning wheels.</td></tr>
+    <tr><td>f18g_growler.py</td><td>EA-18G Growler pods and tanks.</td></tr>
+    <tr><td>glb2sh/</td><td>Build a new SH body from a 3D model (.glb).</td></tr>
+  </table>
+  <table data-lang="zh">
+    <tr><th>腳本</th><th>用途</th></tr>
+    <tr><td>sh_renormal.py</td><td>頂點移動後重算面的法向量和平面點。</td></tr>
+    <tr><td>sh_morph.py</td><td>把一個 SH 的頂點修改搬到同系列的另一個 SH。</td></tr>
+    <tr><td>sh_tjfix.py</td><td>補上 T 型接點斷開和零件位移造成的縫隙。</td></tr>
+    <tr><td>sh_subdivide.py</td><td>加入新頂點，把面切成更小的面。</td></tr>
+    <tr><td>f14_nose.py</td><td>用曲線產生 F-14 機鼻。</td></tr>
+    <tr><td>f14_stores.py、f18_stores.py</td><td>把掛載的武器和副油箱畫在派龍架上。</td></tr>
+    <tr><td>sh_ab_flame.py、ab_flame_tex.py</td><td>會動、會漸長的後燃器和它的貼圖畫格。</td></tr>
+    <tr><td>f14_gear.py、f18_gear.py</td><td>輪子會轉的 3D 起落架。</td></tr>
+    <tr><td>f18g_growler.py</td><td>EA-18G Growler 的莢艙和副油箱。</td></tr>
+    <tr><td>glb2sh/</td><td>從 3D 模型（.glb）做出新的 SH 機身。</td></tr>
+  </table></div>
+  <p class="note" data-lang="en">The web <a href="sh_editor.html">SH Editor</a> and <a href="sh_gallery.html">SH Gallery</a> came out of the same work: they read and draw the same files right in the browser.</p>
+  <p class="note" data-lang="zh">網頁版 <a href="sh_editor.html">SH 編輯器</a>和 <a href="sh_gallery.html">SH 圖庫</a>也是同一段工作的產物：直接在瀏覽器裡讀取並畫出同樣的檔案。</p>
+
+  <div class="dl">
+    <a class="btn" href="f14_f18.html">✈ <span data-lang="en">Get the new F-14 and F/A-18</span><span data-lang="zh">下載新的 F-14 和 F/A-18</span></a>
+    <a class="btn ghost" href="f18_showcase.html"><span data-lang="en">F/A-18 Showcase</span><span data-lang="zh">F/A-18 展示</span></a>
+    <a class="btn ghost" href="https://github.com/kuoyichen/FAoutput"><span data-lang="en">Source on GitHub</span><span data-lang="zh">GitHub 原始碼</span></a>
+  </div>
+</main>
+<footer data-lang="en">Part of FAshion by <b>hawke</b> (kuoyichen), made together with Claude Code. Source on <a href="https://github.com/kuoyichen/FAoutput">GitHub</a>.</footer>
+<footer data-lang="zh">hawke（kuoyichen）的 FAshion 專案的一部分，和 Claude Code 一起完成。原始碼在 <a href="https://github.com/kuoyichen/FAoutput">GitHub</a>。</footer>
+<script>
+"use strict";
+FAI18N.register({ "FAshion home": "FAshion 首頁" });
+document.getElementById("langSlot").append(FAI18N.picker());
+FAI18N.apply();
+</script>
+</body>
+</html>
