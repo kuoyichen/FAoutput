@@ -11,6 +11,7 @@
   * 子程式在簽章前的新區塊：每架飛機一格（32 格，物件編號 & 31，存 編號、進度 0..1024、上次時間），
     進度以 FOLD_MS 走完；新出現或超過 1 秒沒畫就直接跳到目標（任務開始就停在甲板上的飛機會直接是收好的）。
     航向 = 正常 + (OVER − 正常) × 進度 / 1024
+後燃器（0x16F 位元 0x20）全開時不論速度，目標是 0（照遊戲原本的後掠），3 秒內全展。
 用法：python3 f14_park_sweep.py 輸入.SH 輸出.SH
 """
 import os, struct, sys
@@ -21,7 +22,8 @@ SIG = bytes([1, 2, 3, 2, 1, 2, 3, 2, 1])
 NORMAL = bytes.fromhex('668bc866c1f80266c1f9066603c1')   # mov cx,ax; sar ax,2; sar cx,6; add ax,cx
 OVER = 55 * 182          # 正常 20° + 55° = 75°（swing 32767 時是 68°）
 AGL_MAX = 25 * 256       # 碰撞盒 ymin -22 ft + 3 ft
-FOLD_MS = 4000
+FOLD_MS = 4000             # 停機後掠：4 秒
+UNF_MS = 3000              # 全油門（後燃器，彈射）：3 秒全展
 
 def sub_x86(tbl_rel):
     return f"""
@@ -50,6 +52,10 @@ def sub_x86(tbl_rel):
         jg notp
         mov edi, 1024
     notp:
+        test byte ptr [esi + 0x16f], 0x20
+        jz noab
+        xor edi, edi
+    noab:
         mov eax, ecx
         and eax, 31
         lea edx, [ebx + eax*8 + {tbl_rel}]
@@ -65,17 +71,19 @@ def sub_x86(tbl_rel):
         cmp esi, 1000
         ja snap
         mov dword ptr [edx + 4], eax
-        imul esi, esi, {round(1024 * 1024 / FOLD_MS)}
-        shr esi, 10
         movzx eax, word ptr [edx + 2]
         cmp eax, edi
         jl up
+        imul esi, esi, {round(1024 * 1024 / UNF_MS)}
+        shr esi, 10
         sub eax, esi
         cmp eax, edi
         jge done
         mov eax, edi
         jmp done
     up:
+        imul esi, esi, {round(1024 * 1024 / FOLD_MS)}
+        shr esi, 10
         add eax, esi
         cmp eax, edi
         jle done
