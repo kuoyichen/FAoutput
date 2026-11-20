@@ -44,6 +44,8 @@ AGL_MAX = 24 * 256       # F-18 bbox ymin -21 ft + 3 ft
 FOLD_MS = 4000
 UNF_MS = 3000
 HSLOT = 463              # hinge vertices: 463..479 are free in F18 (parts: 337-462, stores 480+, gear 594+)
+OVERLAP = 1              # panel faces start this far inboard of the hinge: FA places C4 parts to whole units
+                         # (eye fraction dropped), so an exact joint shows a 1-unit seam on one side (F18-21)
 PSLOT = 700              # panel part vertices
 MAIN_END = 0x39e5        # end of the main LOD body bytecode (first part buffer)
 ROOT_HOOK = 0xe15        # `12 00 rel -> BODY; 38 -> 0xe27; 1E..` (f18_stores.py hook of the main root)
@@ -71,7 +73,7 @@ def main_faces(c):
     return V, faces
 
 
-def clip(P, s):
+def clip(P, s, H=H):
     """P: [(xyz, uv, idx)], s = +1 / -1 side.  Returns (inner, outer) polygons; cut points are on x = s*H, rounded
     (idx None)."""
     inner, outer = [], []
@@ -223,11 +225,13 @@ def build(d, folded=False, grown=False):
         P = [(V[i], f['uv'][k] if f['uv'] else (0, 0), i) for k, i in enumerate(f['idx'])]
         xs = [p[0][0] for p in P]
         for s in (+1, -1):
-            if max(s * x for x in xs) <= H: continue
+            if max(s * x for x in xs) <= H - OVERLAP: continue
             assert min(s * x for x in xs) > -H, 'face crosses both hinges'
             assert f['uv'] is not None and not f['fl'] & 0x100, 'expects u16 UVs'
-            inn, out = clip(P, s)
+            inn = clip(P, s)[0]
+            out = clip(P, s, H - OVERLAP)[1]           # panel reaches OVERLAP inboard of the hinge (no seam)
             if len(out) >= 3: parts[s].append((f, out))
+            if max(s * x for x in xs) <= H: continue
             if len(inn) >= 3:
                 idx = [i if i is not None else hinge.setdefault(q, HSLOT + len(hinge)) for q, uv, i in inn]
                 inner_new[f['o']] = (s, idx, [t[1] for t in inn])
