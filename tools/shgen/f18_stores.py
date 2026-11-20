@@ -624,6 +624,12 @@ def build(d, static=False, debug=False):
     assert all(v > 0 for v in struct.unpack('<3h', HDR)), HDR
     shapes = {k: aft(f()) for k, f in SHAPES.items()}
     parts = {('K', k): part_bytes(*v) for k, v in shapes.items()}
+    SHAPES[LGB](); xg, xt = fa_weapons.LAST_GROUPS, fa_weapons.LAST_TOP      # GBU: X fins with their own draw order
+    if xg:
+        V, F = shapes[LGB]
+        b = struct.pack('<BBHH', 0x82, 0, len(V), BASE*8) + b''.join(struct.pack('<hhh', *v) for v in V)
+        b += fa_weapons.xfin_code(V, F, xg, xt, faces_bytes)
+        parts[('K', LGB)] = HDR + b + b'\0' * (len(b) % 2)
     parts.update({('P', k): part_bytes(*v) for k, v in PYLONS.items()})
     nv = max(len(v[0]) for v in list(shapes.values()) + list(PYLONS.values()))
     if BASE + nv > 900: sys.exit('vertex table over 900')
