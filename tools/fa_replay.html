@@ -539,6 +539,8 @@ function buildMission(k){
     else if (tr.cls === 2 && tr.t0 > T0 + 2) tr.kind = "debris";
     else if (vmax > 1100*6076/3600) tr.kind = "missile";
     else tr.kind = "ground";
+    // 飛機有錄到真實姿態（俯仰）時，機頭用錄到的俯仰：進場時機頭抬起、路徑往下（攻角）才看得出來
+    tr.att = tr.kind === "aircraft" && tr.pts.some(p => Math.abs(p.pitch) > 0.5);
   }
   const aircraft = [...tracks.values()].filter(t=>t.kind==="aircraft");
   const posAt = (tr,t) => sampleTrack(tr,t);
@@ -1620,7 +1622,7 @@ function drawScene(){
       for (let j=j0;j<=j1+1 && j<pts.length;j++){
         let p = pts[j]; if (j === j1+1){ const s = sampleTrack(tr, tn); if (!s) break; p = { ...s, t: tn }; }
         if (p.t > tn + 1e-6) break;
-        const h = useVel && p.vh!=null ? p.vh : p.hdg, pi = useVel && p.vp!=null ? p.vp : p.pitch;
+        const h = useVel && p.vh!=null ? p.vh : p.hdg, pi = useVel && p.vp!=null && !tr.att ? p.vp : p.pitch;
         const r = rotate([w,0,0], h, pi, p.roll);
         const cur = { L: toCam(p.x-r[0], p.y-r[1], p.z-r[2]), R: toCam(p.x+r[0], p.y+r[1], p.z+r[2]), C: toCam(p.x,p.y,p.z), t: p.t, dead: tr.killT!=null && p.t > tr.killT };
         if (prev && cur.t - prev.t < 2 && prev.C[2] > n0 && cur.C[2] > n0){
@@ -1657,7 +1659,7 @@ function drawScene(){
     if (dropOn && tr.kind==="aircraft" && s.y > 1) line3([s.x,s.y,s.z],[s.x,0,s.z],"rgba(60,35,10,.35)");
     const shp = shapeFor(tr.name), pm = use3d ? modelFor(tr.name) : null, struct = isStructure(tr);
     const ps = proj(c);
-    const h = useVel && s.vh!=null ? s.vh : s.hdg, pi = useVel && s.vp!=null ? s.vp : s.pitch;
+    const h = useVel && s.vh!=null ? s.vh : s.hdg, pi = useVel && s.vp!=null && !tr.att ? s.vp : s.pitch;
     // 尺寸：L = 畫出來的半長（呎）。SH 有真實尺寸；離相機遠時放大成圖示，免得看不到
     let L;
     if (tr.kind==="aircraft") L = pm ? Math.max(pm.half, c[2]*0.03*Math.min(1.8, Math.max(0.75, Math.sqrt(pm.half/110)))) * size * (tr.key===playerKey ? 1.1 : 1)
@@ -1783,7 +1785,7 @@ function update(){
     $("i_id").textContent = String(tr.idx).padStart(4,"0");
     $("i_alt").textContent = `${Math.round(s.y).toLocaleString()} ft`;
     $("i_spd").textContent = `${Math.round(s.spd*3600/6076)} kts`;
-    $("i_pit").textContent = `${(s.vp ?? s.pitch).toFixed(1)}°`;
+    $("i_pit").textContent = tr.att ? `${s.pitch.toFixed(1)}°` + (s.vp != null && Math.abs(s.vp - s.pitch) > 3 ? L(` (path ${s.vp.toFixed(0)}°)`, `（路徑 ${s.vp.toFixed(0)}°）`) : "") : `${(s.vp ?? s.pitch).toFixed(1)}°`;
     $("i_hdg").textContent = `${((s.vh ?? s.hdg)+360)%360 | 0}°`;
     fillModelSelect();
     $("i_nat").textContent = tr.nat != null ? L(`${natNameL(tr.nat)} (${tr.nat & 0x80 ? "enemy" : "friendly"})`, `${natName(tr.nat)}（${tr.nat & 0x80 ? "敵方" : "友方"}）`) : "—";
