@@ -221,22 +221,66 @@ def build(d, folded=False, grown=False):
     V, faces = main_faces(c)
     hinge = {}                                   # (x, fwd, up) -> slot
     inner_new, parts = {}, {+1: [], -1: []}
+    canon = {}                                   # (side, top surface) -> cut points already used
+    def snap(poly, s, top):
+        """Cut points of neighbouring faces on the same surface that round to within 1 unit become one vertex:
+        the rounded cut of two non-collinear edges otherwise leaves a sliver crack (F18-21/22, x>0 underside)."""
+        L = canon.setdefault((s, top), [])
+        out = []
+        for q, uv, i in poly:
+            if i is None:
+                m = next((p for p in L if p[0] == q[0] and abs(p[1] - q[1]) <= 1 and abs(p[2] - q[2]) <= 1), None)
+                if m is None: L.append(q)
+                else: q = m
+            out.append((q, uv, i))
+        return out
     for f in faces:
         P = [(V[i], f['uv'][k] if f['uv'] else (0, 0), i) for k, i in enumerate(f['idx'])]
         xs = [p[0][0] for p in P]
+        top = struct.unpack_from('<3h', f['head'], 4)[1] > 0
         for s in (+1, -1):
             if max(s * x for x in xs) <= H - OVERLAP: continue
             assert min(s * x for x in xs) > -H, 'face crosses both hinges'
             assert f['uv'] is not None and not f['fl'] & 0x100, 'expects u16 UVs'
-            inn = clip(P, s)[0]
-            out = clip(P, s, H - OVERLAP)[1]           # panel reaches OVERLAP inboard of the hinge (no seam)
-            if len(out) >= 3: parts[s].append((f, out))
+            inn = snap(clip(P, s)[0], s, top)
+            out = snap(clip(P, s, H - OVERLAP)[1], s, top)   # panel reaches OVERLAP inboard of the hinge (no seam)
+            if len(out) >= 3: parts[s].append((f, out, top))
             if max(s * x for x in xs) <= H: continue
             if len(inn) >= 3:
                 idx = [i if i is not None else hinge.setdefault(q, HSLOT + len(hinge)) for q, uv, i in inn]
                 inner_new[f['o']] = (s, idx, [t[1] for t in inn])
             else:
                 inner_new[f['o']] = (s, None, None)
+    # T-vertices: a vertex of a neighbouring panel face lying just outside an edge (within 1 unit) is added to
+    # that edge, so the two faces meet instead of leaving a sliver (original F18 has one at (39,-10)-(46,-7)-(52,-3)
+    # on the x>0 underside; folded it shows as a light crack).
+    import numpy as np
+    for s in (+1, -1):
+        for n_, (f, poly, top) in enumerate(parts[s]):
+            others = {q for g, pp, t in parts[s] if t == top and g is not f for q, _, _ in pp}
+            A = np.array([[q[0], q[1], 1] for q, _, _ in poly], float)
+            U = np.array([uv for _, uv, _ in poly], float)
+            coef = np.linalg.lstsq(A, U, rcond=None)[0]
+            k = 0
+            while k < len(poly):
+                a, b = poly[k][0], poly[(k + 1) % len(poly)][0]
+                ex, ef = b[0] - a[0], b[1] - a[1]; L2 = ex * ex + ef * ef
+                best = None
+                for q in others:
+                    t = ((q[0] - a[0]) * ex + (q[1] - a[1]) * ef) / L2 if L2 else -1
+                    dist = abs((q[0] - a[0]) * ef - (q[1] - a[1]) * ex) / L2 ** 0.5 if L2 else 9
+                    if 0.05 < t < 0.95 and 0 < dist < 1.0 and q not in (a, b):
+                        new = poly[:k + 1] + [(q, None, None)] + poly[k + 1:]
+                        P2 = [p[0] for p in new]
+                        cr = [(P2[(j+1) % len(P2)][0] - P2[j][0]) * (P2[(j+2) % len(P2)][1] - P2[(j+1) % len(P2)][1]) -
+                              (P2[(j+1) % len(P2)][1] - P2[j][1]) * (P2[(j+2) % len(P2)][0] - P2[(j+1) % len(P2)][0]) for j in range(len(P2))]
+                        if all(x >= 0 for x in cr) or all(x <= 0 for x in cr): best = q; break
+                if best is not None:
+                    uv = tuple(int(round(v)) for v in np.array([best[0], best[1], 1.0]) @ coef)
+                    poly.insert(k + 1, (best, uv, None))
+                    print(f'  panel face {f["o"]:#x}: T-vertex {best} added')
+                k += 1
+        parts[s] = [(f, poly) for f, poly, top in parts[s]]
     assert HSLOT + len(hinge) <= 480, len(hinge)
     print(f'hinge |x|={H}: {len(hinge)} new hinge vertices, {len(inner_new)} faces clipped, '
           f'panel faces R {len(parts[1])} L {len(parts[-1])}')
