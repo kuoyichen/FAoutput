@@ -132,6 +132,7 @@ def main():
         from f18g_growler import grow_vas
         d = bytearray(grow_vas(d, 0x1000)); pe, opt, secs = pe_sections(d)
         code = next(s for s in secs if s['name'] == 'CODE')
+        c = bytearray(d[code['ro']:code['ro'] + code['vs']])     # grow_vas also rewrites relocated dwords inside CODE: re-read it
     for s in sites:
         rel = tail - (s + 5)
         c[s:s + 14] = b'\xe8' + struct.pack('<i', rel) + b'\x90' * 9
