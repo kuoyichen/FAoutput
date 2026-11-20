@@ -216,12 +216,13 @@ def part_block(side, at, header):
         c4s.append(C)
     else:
         G_ = {k: st.group(v)[0] for k, v in g_s.items()}
-        slen = 3 * 20 + sum(len(v) for v in G_.values())
+        slen = 2 * 20 + sum(len(v) for v in G_.values())
         N1 = at + len(out); WL = N1 + 20; N2 = WL + len(T[0]) + 17; WR = N2 + 20; s = WR + len(T[1]) + 17; wpos = s + slen + 6
         CL, CR = WL + len(T[0]), WR + len(T[1])
         # 結構：node(前後 y=7：其餘 → 斜撐) → node(z=-5：下段 → 筒身) → node(z=-12：輪叉座 → 活塞＋套環)
-        R1 = s + 20; R2 = R1 + 20; PC = R2 + 20; BK = PC + len(G_['piston']); HS = BK + len(G_['block']); BR = HS + len(G_['housing'])
-        S = (node(s, (0, 0, 16384), (0, 0, -7), R1, BR) + node(R1, (0, 16384, 0), (0, 5, 0), R2, HS)
+        # v13：斜撐拿掉後，最上層「其餘 → 斜撐」那個 node 也拿掉（否則它的背面分支會跳到輪子零件的範圍標頭 → 外部視角當掉）
+        R1 = s; R2 = R1 + 20; PC = R2 + 20; BK = PC + len(G_['piston']); HS = BK + len(G_['block'])
+        S = (node(R1, (0, 16384, 0), (0, 5, 0), R2, HS)
              + node(R2, (0, 16384, 0), (0, 12, 0), BK, PC) + G_['piston'] + G_['block'] + G_['housing'])
         assert len(S) == slen
         out += node(N1, n, d, WL, N2) + T[0] + c4(CL, wheels[0][0], wpos) + b'\x1e'
