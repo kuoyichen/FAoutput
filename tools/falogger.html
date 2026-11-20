@@ -231,10 +231,10 @@ falogger.exe --help                     <span class="muted"># all options</span>
     <div class="card" data-lang="zh"><b>時間框（左上）</b><br>任務時間、播放速度，以及視角按鈕。點它可以輪流切換「<b>跟隨視角</b>」（鏡頭跟著選取的飛機；開啟「<b>鎖定視角</b>」時，鏡頭會轉到飛機後方，讓它注視的那架飛機也留在畫面裡，類似 Z-Targeting）、「<b>群組視角</b>」（把所有飛機一起框進畫面，最適合看全局）和「<b>自由視角</b>」（鏡頭停在你放的位置）。</div>
     <div class="card" data-lang="en"><b>Info box (top right)</b><br>The selected aircraft: ID, altitude, speed, pitch, heading, nation (friend or enemy), damage, its current target, chaff / flares left, and which SH shape is drawn. Click ✎ to rename an unnamed type.</div>
     <div class="card" data-lang="zh"><b>資訊框（右上）</b><br>選取的飛機：編號、高度、速度、俯仰、航向、國別（敵我）、損傷、目前的目標、剩餘干擾絲 / 熱焰彈，以及畫的是哪一個 SH 外型。按 ✎ 可以幫沒有名稱的機型改名。</div>
-    <div class="card" data-lang="en"><b>Colour key (bottom left)</b><br>Every group in the mission with its colour and count. Click a group to hide or show it, for example to hide gun rounds or buildings.</div>
-    <div class="card" data-lang="zh"><b>顏色代碼（左下）</b><br>任務中每一組物件的顏色和數量。點一組可以隱藏或顯示，例如把機砲彈或建築藏起來。</div>
-    <div class="card" data-lang="en"><b>Right-hand panel</b><br><b>Player</b>: your type, altitude, speed, heading, pitch / roll, throttle / thrust and damage. <b>Controls</b>: gear, flaps, hook and brake light up when used. <b>Weapon stations</b>: rounds left on the gun and each station, the selected one highlighted, plus chaff and flares. <b>Events</b>: the mission log; click a line to jump there.</div>
-    <div class="card" data-lang="zh"><b>右側面板</b><br>「<b>玩家</b>」：機型、高度、速度、航向、俯仰 / 滾轉、油門 / 推力和損傷。「<b>操縱面</b>」：起落架、襟翼、尾鉤和煞車使用時會亮起。「<b>武器掛點</b>」：機砲和每個掛點剩下的數量，選中的會標亮，還有干擾絲和熱焰彈。「<b>事件</b>」：任務紀錄，點一行就跳到那個時間。</div>
+    <div class="card" data-lang="en"><b>Colour key (bottom left)</b><br>Every group in the mission with its colour and count. Click a group to hide or show it, for example to hide gun rounds or buildings. The – button in its top-left corner shrinks it to one line (it starts shrunk on phones).</div>
+    <div class="card" data-lang="zh"><b>顏色代碼（左下）</b><br>任務中每一組物件的顏色和數量。點一組可以隱藏或顯示，例如把機砲彈或建築藏起來。左上角的 – 按鈕可以把它縮成一行（手機上預設是縮小的）。</div>
+    <div class="card" data-lang="en"><b>Right-hand panel</b><br>Close it with ✕ at its top or the Panel button (it starts closed on phones). <b>Player</b>: your type, altitude, speed, heading, pitch / roll, throttle / thrust and damage. <b>Controls</b>: gear, flaps, hook and brake light up when used. <b>Weapon stations</b>: rounds left on the gun and each station, the selected one highlighted, plus chaff and flares. <b>Events</b>: the mission log; click a line to jump there.</div>
+    <div class="card" data-lang="zh"><b>右側面板</b><br>用最上方的 ✕ 或「面板」按鈕關閉（手機上預設是關閉的）。「<b>玩家</b>」：機型、高度、速度、航向、俯仰 / 滾轉、油門 / 推力和損傷。「<b>操縱面</b>」：起落架、襟翼、尾鉤和煞車使用時會亮起。「<b>武器掛點</b>」：機砲和每個掛點剩下的數量，選中的會標亮，還有干擾絲和熱焰彈。「<b>事件</b>」：任務紀錄，點一行就跳到那個時間。</div>
   </div>
   <h3 data-lang="en">The event log</h3>
   <h3 data-lang="zh">事件紀錄</h3>
@@ -253,6 +253,7 @@ falogger.exe --help                     <span class="muted"># all options</span>
     <tr><td>Target lines</td><td>Dashed arrows from each aircraft or SAM to what it is watching. Red = aimed at you, yellow = your own lock.</td></tr>
     <tr><td>Lock-on camera</td><td>In Follow view the camera glides behind the selected aircraft and pulls back as needed so it and the aircraft it is watching (or, with no target, the nearest one watching it) stay on screen together; the target gets a yellow bracket. Left-drag to look from the other side, <kbd>Z</kbd> to toggle.</td></tr>
     <tr><td>Static objects</td><td>Show runways, buildings and other things that never move.</td></tr>
+    <tr><td>Show moving parts</td><td>Gear, flaps, hook, speed brake, afterburner and swing wings move as recorded. Untick to draw each shape in its fixed form.</td></tr>
     <tr><td>Point the nose along the direction of travel</td><td>Uses the flight path for the nose heading, which is smoother. Aircraft keep the pitch recorded from the game, so the nose rises on final approach while the path still descends. Turn it off to see the raw heading from the game.</td></tr>
     <tr><td>Mirror Z axis</td><td>Only if a mission looks left-right swapped.</td></tr>
     <tr><td>Shape</td><td><b>SH 3D, coloured by nation</b> (default), <b>Flat</b> (the SH face colours), <b>Textured</b> (the PIC textures, like in the game) or <b>2D silhouette icons</b> (fastest).</td></tr>
@@ -268,6 +269,7 @@ falogger.exe --help                     <span class="muted"># all options</span>
     <tr><td>目標連線</td><td>從每架飛機或防空單位畫虛線箭頭指向它注視的目標。紅色是瞄準你，黃色是你自己的鎖定。</td></tr>
     <tr><td>鎖定視角</td><td>跟隨視角時，鏡頭平順地轉到選取的飛機後方並視需要拉遠，讓它和它注視的目標（沒有目標時是正在注視它的最近敵機）一起留在畫面裡，目標有黃色框。左鍵拖曳可以換邊看，按 <kbd>Z</kbd> 開關。</td></tr>
     <tr><td>靜止物件</td><td>顯示跑道、建築等不會動的東西。</td></tr>
+    <tr><td>顯示活動部件</td><td>起落架、襟翼、尾鉤、減速板、後燃器和可變翼照錄到的狀態動作。取消就用固定的外型。</td></tr>
     <tr><td>用移動方向決定機頭朝向</td><td>用飛行路徑決定機頭的航向，看起來比較順；飛機的俯仰仍用遊戲錄到的真實姿態，所以最後進場時機頭會抬起、路徑仍往下。關掉就是遊戲原始的航向。</td></tr>
     <tr><td>鏡像 Z 軸</td><td>只有任務看起來左右顛倒時才需要勾。</td></tr>
     <tr><td>外型</td><td>「<b>SH 3D，依國別上色</b>」（預設）、「<b>平面</b>」（SH 面的原色）、「<b>貼圖</b>」（PIC 貼圖，像遊戲裡一樣）或「<b>2D 剪影圖示</b>」（最快）。</td></tr>

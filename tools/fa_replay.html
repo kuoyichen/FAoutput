@@ -58,6 +58,12 @@ button.on{border-color:var(--accent);color:var(--accent)}
 /* 右側抽屜 */
 aside{width:290px;background:var(--dark);border-left:1px solid var(--line);overflow:auto;padding:10px 12px}
 aside.hide{display:none}
+#sideclose{position:sticky;top:0;float:right;z-index:2;margin:-4px -6px 0 6px;width:28px;height:28px;border-radius:4px;border:1px solid var(--line);background:var(--dark);color:var(--muted);font-size:16px;line-height:1;cursor:pointer}
+#sideclose:hover{color:#fff}
+#legmin{position:absolute;left:4px;top:3px;width:20px;height:18px;padding:0;border:1px solid var(--panel-line);border-radius:3px;background:transparent;color:var(--ink2);font-size:13px;line-height:1;cursor:pointer}
+#legend.min{min-width:0;padding:3px 6px}
+#legend.min #legitems{display:none}
+#legend.min .t{margin:0 0 0 24px}
 aside h2{font-size:12px;letter-spacing:.08em;color:var(--muted);margin:14px 0 6px;font-weight:600}
 aside h2:first-child{margin-top:2px}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px}
@@ -85,7 +91,8 @@ aside h2:first-child{margin-top:2px}
 #events li time{font-variant-numeric:tabular-nums;color:var(--muted);min-width:46px}
 .opts label{display:flex;align-items:center;gap:6px;margin:3px 0;cursor:pointer}
 .opts input[type=range]{flex:1}
-@media (max-width:820px){ aside{position:absolute;right:0;top:0;bottom:46px;z-index:5} #legend{display:none} }
+@media (max-width:820px){ #app{grid-template-columns:1fr} #view{grid-area:1/1} aside{grid-area:1/1;justify-self:end;width:min(290px,86vw);z-index:5}
+  footer{grid-column:1/-1;flex-wrap:wrap;gap:6px 8px;padding:6px 8px} footer #tl{order:-1;flex:1 1 100%} #fname,#mfiles{display:none} #time{min-width:0;margin-left:auto} #legend{left:6px;bottom:6px} #hint{display:none} }
 aside .shrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 aside .btn.sm{padding:2px 8px;font-size:12px;cursor:pointer}
 #shlist{font-size:11px;color:var(--muted)}
@@ -163,13 +170,14 @@ button.mdl{padding:2px 7px;font-size:12px;margin:1px 2px 1px 0}
       <span>SH 外型</span><span><select id="i_model" style="font:inherit;font-size:12px;max-width:120px"></select></span>
     </div>
   </div>
-  <div class="ov" id="legend"><div class="t">顏色代碼</div><div id="legitems"></div></div>
+  <div class="ov" id="legend"><button id="legmin" title="縮小 / 展開顏色代碼">–</button><div class="t">顏色代碼</div><div id="legitems"></div></div>
   <div id="drop"><b>把 flight_*.bin 拖進來，或按下方「開啟 .bin」</b>
     <span data-lang="zh">支援 <code>falogger.py flight</code>（所有物件）與 <code>falogger.py record</code>（只有玩家）的錄製檔</span><span data-lang="en">Reads recordings from <code>falogger.py flight</code> (all objects) and <code>falogger.py record</code> (player only)</span></div>
   <div id="hint"><span data-lang="zh">左鍵拖曳：旋轉　右鍵 / Shift 拖曳：平移　滾輪：縮放<br>點飛機：選取　空白鍵：播放 / 暫停　← →：前後 5 秒</span><span data-lang="en">Left-drag: rotate · right / Shift-drag: pan · wheel: zoom<br>Click an aircraft: select · Space: play / pause · ← →: back / forward 5 s</span></div>
 </div>
 
 <aside id="side">
+  <button id="sideclose" title="關閉面板">✕</button>
   <h2>玩家</h2>
   <div class="kv">
     <span>機型</span><span id="p_name">—</span>
@@ -196,6 +204,7 @@ button.mdl{padding:2px 7px;font-size:12px;margin:1px 2px 1px 0}
     <label><input type="checkbox" id="o_tgt" checked> 目標連線（誰在注視誰）</label>
     <label title="跟隨視角時，鏡頭移到飛機後方，讓它和它注視的目標同時留在畫面裡"><input type="checkbox" id="o_zlock" checked> 鎖定視角：跟隨時把目標也框進畫面（Z 鍵）</label>
     <label><input type="checkbox" id="o_static" checked> 靜止物件（跑道、建築…）</label>
+    <label title="依錄到的狀態畫出起落架、襟翼、尾鉤、減速板、後燃器和可變翼；取消就用固定的外型"><input type="checkbox" id="o_anim" checked> 顯示活動部件（起落架、襟翼、尾鉤…）</label>
     <label><input type="checkbox" id="o_vel" checked> 用移動方向決定機頭朝向</label>
     <label><input type="checkbox" id="o_flip"> 鏡像 Z 軸（方向左右相反時勾選）</label>
     <label>外型 <select id="o_model"><option value="flat">平面（SH 面的顏色）</option><option value="tex">貼圖（PIC）</option><option value="team" selected>SH 3D，依國別上色</option><option value="sil">2D 剪影圖示</option></select></label>
@@ -399,7 +408,7 @@ const natName = v => NATIONS[v & 0x7F] ?? `國別 ${v & 0x7F}`, natNameL = v => 
 const FRIEND_COL = ["#2f8cff","#22c3d6","#5b6cff","#36d39a"], ENEMY_COL = ["#ff3b2f","#ff8a1c","#e0408a","#b8321a"];
 const PALETTE = ["#ffc21a","#36c3f2","#ff4a2a","#2f9b3a","#a35bd8","#ff7aa8","#f07c1a","#e8e8e8","#1c6fd1","#93c83e"];
 const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
-FAI18N.register({"FA Mission Replay": "FA 任務重播", "Speed: ": "播放：", "Follow view": "跟隨視角", "Free view": "自由視角", "Group view": "群組視角", "ID": "編號", "Altitude": "高度", "Speed": "速度", "Pitch": "俯仰", "Heading": "航向", "Nation": "國別", "Damage": "損傷", "SH shape": "SH 外型", "Colour key": "顏色代碼", "Drop flight_*.bin here, or press “Open .bin” below": "把 flight_*.bin 拖進來，或按下方「開啟 .bin」", "Player": "玩家", "Type": "機型", "Pitch / roll": "俯仰 / 滾轉", "Throttle / thrust": "油門 / 推力", "Controls": "操縱面", "Gear": "起落架", "Flaps": "襟翼", "Hook": "捕捉勾", "Brake": "煞車", "Weapon stations": "武器掛點", "Display": "顯示", "Ribbon trails": "緞帶軌跡", "Altitude drop lines": "高度垂線", "ID labels": "編號標籤", "Target lines (who is watching whom)": "目標連線（誰在注視誰）", "Target": "目標", "Chaff / flares": "干擾絲 / 熱焰彈", "Static objects (runways, buildings…)": "靜止物件（跑道、建築…）", "Point the nose along the direction of travel": "用移動方向決定機頭朝向", "Mirror Z axis (tick if left and right are swapped)": "鏡像 Z 軸（方向左右相反時勾選）", "Shape": "外型", "Flat (SH face colours)": "平面（SH 面的顏色）", "Textured (PIC)": "貼圖（PIC）", "SH 3D, coloured by nation": "SH 3D，依國別上色", "2D silhouette icons": "2D 剪影圖示", "Choose SH folder": "選擇 SH 資料夾", "Load .SH files": "載入 .SH 檔", "Colour by": "顏色依", "Nation (friend / foe)": "國別（敵我）", "Class code": "類別代碼", "Icon size": "圖示大小", "Trail length": "軌跡長度", "Events": "事件", "(shown after a file is loaded)": "（載入檔案後顯示）", "Open .bin": "開啟 .bin", "Nothing loaded": "尚未載入", "Reset": "重設", "Panel": "面板", "Rename this aircraft type": "改這個機型的名稱", "Throttle (light) / thrust (line)": "油門（淡）/ 推力（線）", "Play / pause": "播放 / 暫停", "Playback speed": "播放速度", "This file holds several missions; pick the one to play": "這個檔案裡錄到好幾次任務，選擇要播放哪一次", "Reset view": "重設視角", "Show / hide the side panel": "顯示 / 隱藏右側面板", "FAshion home": "FAshion 首頁", "Lock-on camera: keep the target in frame in Follow view (Z key)": "鎖定視角：跟隨時把目標也框進畫面（Z 鍵）", "In Follow view the camera moves behind the aircraft so it and the aircraft it is watching stay on screen together": "跟隨視角時，鏡頭移到飛機後方，讓它和它注視的目標同時留在畫面裡"});
+FAI18N.register({"FA Mission Replay": "FA 任務重播", "Speed: ": "播放：", "Follow view": "跟隨視角", "Free view": "自由視角", "Group view": "群組視角", "ID": "編號", "Altitude": "高度", "Speed": "速度", "Pitch": "俯仰", "Heading": "航向", "Nation": "國別", "Damage": "損傷", "SH shape": "SH 外型", "Colour key": "顏色代碼", "Drop flight_*.bin here, or press “Open .bin” below": "把 flight_*.bin 拖進來，或按下方「開啟 .bin」", "Player": "玩家", "Type": "機型", "Pitch / roll": "俯仰 / 滾轉", "Throttle / thrust": "油門 / 推力", "Controls": "操縱面", "Gear": "起落架", "Flaps": "襟翼", "Hook": "捕捉勾", "Brake": "煞車", "Weapon stations": "武器掛點", "Display": "顯示", "Ribbon trails": "緞帶軌跡", "Altitude drop lines": "高度垂線", "ID labels": "編號標籤", "Target lines (who is watching whom)": "目標連線（誰在注視誰）", "Target": "目標", "Chaff / flares": "干擾絲 / 熱焰彈", "Static objects (runways, buildings…)": "靜止物件（跑道、建築…）", "Point the nose along the direction of travel": "用移動方向決定機頭朝向", "Mirror Z axis (tick if left and right are swapped)": "鏡像 Z 軸（方向左右相反時勾選）", "Shape": "外型", "Flat (SH face colours)": "平面（SH 面的顏色）", "Textured (PIC)": "貼圖（PIC）", "SH 3D, coloured by nation": "SH 3D，依國別上色", "2D silhouette icons": "2D 剪影圖示", "Choose SH folder": "選擇 SH 資料夾", "Load .SH files": "載入 .SH 檔", "Colour by": "顏色依", "Nation (friend / foe)": "國別（敵我）", "Class code": "類別代碼", "Icon size": "圖示大小", "Trail length": "軌跡長度", "Events": "事件", "(shown after a file is loaded)": "（載入檔案後顯示）", "Open .bin": "開啟 .bin", "Nothing loaded": "尚未載入", "Reset": "重設", "Panel": "面板", "Rename this aircraft type": "改這個機型的名稱", "Throttle (light) / thrust (line)": "油門（淡）/ 推力（線）", "Play / pause": "播放 / 暫停", "Playback speed": "播放速度", "This file holds several missions; pick the one to play": "這個檔案裡錄到好幾次任務，選擇要播放哪一次", "Reset view": "重設視角", "Show / hide the side panel": "顯示 / 隱藏右側面板", "FAshion home": "FAshion 首頁", "Show moving parts (gear, flaps, hook…)": "顯示活動部件（起落架、襟翼、尾鉤…）", "Draws gear, flaps, hook, speed brake, afterburner and swing wings as recorded; untick for the fixed shape": "依錄到的狀態畫出起落架、襟翼、尾鉤、減速板、後燃器和可變翼；取消就用固定的外型", "Minimise / expand the colour key": "縮小 / 展開顏色代碼", "Close the panel": "關閉面板", "Lock-on camera: keep the target in frame in Follow view (Z key)": "鎖定視角：跟隨時把目標也框進畫面（Z 鍵）", "In Follow view the camera moves behind the aircraft so it and the aircraft it is watching stay on screen together": "跟隨視角時，鏡頭移到飛機後方，讓它和它注視的目標同時留在畫面裡"});
 const NATIONS_EN = ["USA", "UK", "China", "France", "Germany", "Belgium", "Jordan", "Israel", "Japan", "North Korea", "Russia", "South Korea", "Syria", "Egypt (Arab)", "Egypt (Islamic)", "Estonia", "Latvia", "Lithuania", "Poland", "Belarus", "North Vietnam", "South Vietnam", "Ukraine", "Iraq", "Iran", "Kuwait", "Saudi Arabia", "Oman", "UAE", "Qatar", "Bahrain", "Libya", "Sudan", "Cuba", "Panama", "Colombia", "Pakistan", "India", "Afghanistan", "Taiwan", "Greece", "Turkey", "Italy", "Sweden", "Finland", "Norway", "Spain", "Portugal", "Austria", "Denmark", "Netherlands", "Canada", "Bulgaria", "Hungary", "Romania", "Australia", "Philippines", "Argentina", "Bosnia", "Serbia"];
 // group names stay Chinese inside (colour table, friend / foe test); G() shows them in the current language
 const GROUP_EN = { "飛彈":"Missiles", "機砲彈":"Gun rounds", "殘骸":"Debris", "跳傘飛行員":"Ejected pilots", "建築 / 跑道":"Buildings / runways", "地面單位":"Ground units" };
@@ -1200,7 +1209,7 @@ function drawModel(pm, s, c, L, h, pi, col, dead, opt = {}){
   const pxSize = L * F / c[2];
   const up = rotate([0,L,0], h, pi, roll), cu = toCam(s.x+up[0], s.y+up[1], s.z+up[2]);
   const below = belly0 && (cu[0]-c[0])*-c[0] + (cu[1]-c[1])*-c[1] + (cu[2]-c[2])*-c[2] < 0;
-  const faces = pm.src.core && opt.st ? coreFaces(pm, opt.st) : pm.ctl && opt.st ? pm.faces.concat(partFaces(pm, opt.st)) : pm.faces;
+  const anim = $("o_anim").checked, faces = pm.src.core && opt.st && anim ? coreFaces(pm, opt.st) : pm.ctl && opt.st ? pm.faces.concat(partFaces(pm, opt.st)) : pm.faces;
   for (const f of faces){
     let P = f.P; if (f.part){ if (!useWings) continue; P = f.Lc.map(w => sweepPt(w, f.part, sw, f.part.pv0)); }
     const pc = P.map(v => { const r = rotate([(v[0]+org[0])*L, (v[1]+org[1])*L, (v[2]+org[2])*L], h, pi, roll); return toCam(s.x+r[0], s.y+r[1], s.z+r[2]); });
@@ -1862,7 +1871,12 @@ $("speed").onchange = e => $("spdlbl").textContent = e.target.value + "×";
 $("seek").oninput = e => { if (!data) return; now = T0 + (T1-T0)*e.target.value/1000; update(); };
 $("reset").onclick = () => { resetView(); zl.yawOff = ZL_SIDE; setView("follow"); selKey = playerKey; update(); };
 $("viewmode").onclick = () => setView(viewMode==="follow" ? "group" : viewMode==="group" ? "free" : "follow");
+$("sideclose").onclick = () => $("sidebtn").click();
+$("legmin").onclick = () => { const m = $("legend").classList.toggle("min"); $("legmin").textContent = m ? "+" : "–"; try { localStorage.setItem("fa_replay_legmin", m ? "1" : "0"); } catch(e){} };
+{ let m = null; try { m = localStorage.getItem("fa_replay_legmin"); } catch(e){}
+  if (m === "1" || (m == null && matchMedia("(max-width:820px)").matches)){ $("legend").classList.add("min"); $("legmin").textContent = "+"; } }
 $("sidebtn").onclick = () => { $("side").classList.toggle("hide"); $("sidebtn").classList.toggle("on"); setTimeout(resize, 0); };
+if (matchMedia("(max-width:820px)").matches){ $("side").classList.add("hide"); $("sidebtn").classList.remove("on"); }   // phones: start with the panel closed
 $("o_tlen").oninput = e => { $("o_tlen_v").textContent = e.target.value + "s"; draw(); };
 $("o_color").onchange = () => { buildLegend(); draw(); };
 document.querySelectorAll(".opts input").forEach(i => i.addEventListener("input", () => update()));
