@@ -1155,8 +1155,7 @@ function partTf(e){
   return v => { const d = tf(v); return up([d[0], d[2], d[1]]); };
 }
 // 依錄到的狀態算出 SH 控制變數的值（名稱來自 SH 的匯入表）
-function partVars(m, s, kind){
-  const imp = m.imp || {}, out = {};
+function partOn(s){
   const onGround = s.y < 30 && s.spd < 250;
   const gp = s.gp != null ? s.gp : onGround ? 0 : 32767;                  // 沒有原始資料：在地上就放下
   const flaps = s.c2 != null ? s.c2 & 1 : 0;
@@ -1164,8 +1163,24 @@ function partVars(m, s, kind){
   const val = { _PLgearDown: gp < 32767 ? 1 : 0, _PLgearPos: gp > 32767 ? 32767 : gp, _PLleftFlap: flaps ? -1 : 0, _PLrightFlap: flaps ? -1 : 0,
     _PLbrake: s.c1 != null && s.c1 & 0x80 ? 1 : 0, _PLhook: s.c2 != null && s.c2 & 4 ? 1 : 0, _PLswingWing: Math.min(32767, swing),
     _PLafterBurner: s.c1 != null && s.c1 & 0x20 ? 1 : 0, _PLrudder: 0, _PLbayOpen: 0, _PLbayDoorPos: 0, _PLslats: 0, _PLcanardPos: 0, _PLvtOn: 0, _PLvtAngle: 0 };
+  return val;
+}
+function partVars(m, s){
+  const imp = m.imp || {}, out = {}, val = partOn(s);
   for (const [n, va] of Object.entries(imp)) if (n in val) out[va] = val[n];
   return out;
+}
+// shapes read with SHCore (our modified F14 / F18): rebuild the whole placed model for the recorded state (gear, flaps, brake, hook, AB)
+function coreFaces(pm, s){
+  const on = partOn(s), abFrame = on._PLafterBurner ? Math.floor(now * 12) : 0;
+  on._PLswingWing = Math.round(on._PLswingWing / 1024) * 1024;   // F-14 sweep in 32 steps keeps the cache small
+  const key = [on._PLswingWing, on._PLgearDown, Math.round(on._PLgearPos / 2048), on._PLleftFlap, on._PLbrake, on._PLhook, on._PLafterBurner, abFrame % 6].join(",");
+  let fs = pm.cache.get(key); if (fs) return fs;
+  fs = [];
+  for (const p of SHCore.polys(pm.src.core, { on, abFrame }))
+    fs.push(pm.mk(p.pts.map(q => pm.norm([q[0], q[2], q[1]])), { uv: p.uv || null, col: p.col }));
+  if (pm.cache.size > 64) pm.cache.clear();
+  pm.cache.set(key, fs); return fs;
 }
 function partFaces(pm, s){
   const vars = partVars(pm.src, s), key = Object.values(vars).join(",");
@@ -1185,7 +1200,7 @@ function drawModel(pm, s, c, L, h, pi, col, dead, opt = {}){
   const pxSize = L * F / c[2];
   const up = rotate([0,L,0], h, pi, roll), cu = toCam(s.x+up[0], s.y+up[1], s.z+up[2]);
   const below = belly0 && (cu[0]-c[0])*-c[0] + (cu[1]-c[1])*-c[1] + (cu[2]-c[2])*-c[2] < 0;
-  const faces = pm.ctl && opt.st ? pm.faces.concat(partFaces(pm, opt.st)) : pm.faces;
+  const faces = pm.src.core && opt.st ? coreFaces(pm, opt.st) : pm.ctl && opt.st ? pm.faces.concat(partFaces(pm, opt.st)) : pm.faces;
   for (const f of faces){
     let P = f.P; if (f.part){ if (!useWings) continue; P = f.Lc.map(w => sweepPt(w, f.part, sw, f.part.pv0)); }
     const pc = P.map(v => { const r = rotate([(v[0]+org[0])*L, (v[1]+org[1])*L, (v[2]+org[2])*L], h, pi, roll); return toCam(s.x+r[0], s.y+r[1], s.z+r[2]); });
