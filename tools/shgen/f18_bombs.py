@@ -86,8 +86,12 @@ def part(V, F, HDR):
     return HDR + bytes(b) + b'\0' * (len(b) % 2)
 
 
-def bomb(name):
-    V, F = FW.load(name)
+def bomb(name, length=None, centre=False):
+    """length: scale to this many units (fwd extent); centre: put the middle of that extent on the attach point."""
+    V, F = FW.load(name, length)
+    if centre:
+        m = round((min(v[1] for v in V) + max(v[1] for v in V)) / 2)
+        V = [(x, f - m, u) for x, f, u in V]
     return dedup(V, F, FW.LAST_TOP)
 
 

@@ -38,6 +38,9 @@ import f18_stores as S
 F14_AGM65_NAMES = (b'AIM-9\x02AIM-7\x07AIM-5\x08GBU-3\x09AIM-\x00\x03AGM-\x00\x06GBU-\x00\x05MK-8\x00\x04CBU-\x00\x04')
 
 
+HQ_LEN = 43        # Kuoyi: HQ2J drawn 1.2 x the AIM-7 (SPAR.SH, 36 units), centred on the station (FA's model is 105)
+
+
 def slots(c):
     st = [(m.start(), m.start() + 12 + struct.unpack_from('<i', c, m.start() + 8)[0])
           for m in re.finditer(rb'\xf0\x00\x68....\xe8', bytes(c), re.S)]
@@ -94,7 +97,7 @@ def main(src, dst, mode, agm65=False, asroc=False):
         free = state + size // 2
         free += free % 2
         blob = mk82 + mk84
-        if asroc: hq = B.part(*B.bomb('HQ2J.SH'), HDR); blob += hq
+        if asroc: hq = B.part(*B.bomb('HQ2J.SH', HQ_LEN, centre=True), HDR); blob += hq
         assert len(blob) <= size // 2, (len(blob), size // 2)
         c[free:free + len(blob)] = blob
         new82, new84 = free + 6, free + len(mk82) + 6
