@@ -345,15 +345,15 @@
     word 0
     word 0
     word 0
-	ptr defaultTypeName7
+    dword 0
     byte 40
-    word 2
+    word 0
     byte 4
 ;-------- hardpoint 8
     word $85
-    word 58
+    word 67
     word 1
-    word -9
+    word -14
     word 0
     word 0
     word 0
@@ -1020,7 +1020,7 @@
 
 :ot_names
 	string "F/A-18 BlueAng"
-	string "F/A- 18E Blue Angle"
+	string "F/A-18E Blue Angle"
 	string "F18T.PT"
 :shape
 	string "f18t.SH"
@@ -1046,8 +1046,6 @@
 	string "F18.ECM"
 :defaultTypeName3
 	string "M61.JT"
-:defaultTypeName7
-	string "AIM120.JT"
 :defaultTypeName8
 	string "AIM9X.JT"
 	end
