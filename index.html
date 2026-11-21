@@ -123,6 +123,15 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
 <main id="releases">
   <h2>Releases</h2>
   <p class="sub">New shapes and new features for FA, newest first.</p>
+  <a class="rel" href="tools/gun_hitbox.html">
+    <div><time datetime="2026-11-21">Nov 21, 2026</time><span class="no">#7</span></div>
+    <div>
+      <h3>Gun hit boxes fixed</h3>
+      <p>Cannon rounds often “hit” an aircraft while the tracer is still far from it. FA.EXE tests bullets against a box 70 units larger than the plane on every side. This page shows where that is defined and gives you an FA.EXE, with the FA_BIG limits included, whose bullet box fits the shape.</p>
+      <div class="chips"><span>FA.EXE patch</span><span>Bullet hit box</span><span>F-14 / F/A-18 numbers</span><span>Includes FA_BIG</span></div>
+      <span class="go">See the fix and download →</span>
+    </div>
+  </a>
   <a class="rel" href="tools/sh_modding.html">
     <div><time datetime="2026-11-17">Nov 17, 2026</time><span class="no">#6</span></div>
     <div>
@@ -197,7 +206,7 @@ FAI18N.register({
   "Next up: a rebuilt F-14 Tomcat. Watch this space.": "下一個：重建的 F-14 Tomcat，敬請期待。", "Nov 14, 2026": "2026 年 11 月 14 日", "Nov 15, 2026": "2026 年 11 月 15 日",
   "Flight Sim (mobile)": "飛行模擬（手機）", "Canyon Strike mission": "峽谷轟炸任務", "Message Board": "留言板", "Say hello, ask questions, or reply to other pilots.": "打個招呼、問問題，或回覆其他飛行員。", "Open →": "開啟 →", "FA Flight: play on your phone": "FA Flight：在手機上飛",
   "Fly the F/A-18 over an island with hills, mountains and open sea. Take off from the FA airfield or launch from the Nimitz, with two on-screen sticks and a chase camera you can swing around. Any FA shape can be driven: pick a ship to sail or a tank to drive.": "駕駛 F/A-18 飛越有丘陵、高山和大海的島嶼。從 FA 的機場起飛，或從尼米茲號航艦彈射，用螢幕上的兩支搖桿操作，追蹤鏡頭可以自由轉動。任何 FA 外形都能駕駛：選船來航行，或選戰車來開。",
-  "FA_BIG (more LIBs)": "FA_BIG（更多 LIB）", "Nov 16, 2026": "2026 年 11 月 16 日", "FA_BIG: start FA with many more LIBs": "FA_BIG：讓 FA 載入更多 LIB",
+  "FA_BIG (more LIBs)": "FA_BIG（更多 LIB）", "Nov 16, 2026": "2026 年 11 月 16 日", "Nov 21, 2026": "2026 年 11 月 21 日", "Gun hit boxes fixed": "機砲命中判定框修正", "Cannon rounds often “hit” an aircraft while the tracer is still far from it. FA.EXE tests bullets against a box 70 units larger than the plane on every side. This page shows where that is defined and gives you an FA.EXE, with the FA_BIG limits included, whose bullet box fits the shape.": "機砲子彈常在曳光彈離飛機還很遠時就「擊中」。FA.EXE 判定子彈用的框，每一邊都比飛機大 70 單位。這一頁說明它定義在哪裡，並提供一個子彈框貼近外形、同時包含 FA_BIG 上限的 FA.EXE。", "FA.EXE patch": "FA.EXE 修改", "Bullet hit box": "子彈判定框", "F-14 / F/A-18 numbers": "F-14 / F/A-18 數據", "Includes FA_BIG": "包含 FA_BIG", "See the fix and download →": "看修正內容並下載 →", "FA_BIG: start FA with many more LIBs": "FA_BIG：讓 FA 載入更多 LIB",
   "A patched FA.EXE 1.02f for big mod folders. The original game crashes at startup with “Not enough memory.” once it sees more than 20 LIBs or about 10,000 files. FA_BIG raises those limits and keeps the 1.02f CRC, so launchers still work.": "給大型模組目錄用的修改版 FA.EXE 1.02f。原版只要看到超過 20 個 LIB 或大約 10,000 個檔案，啟動時就會跳「Not enough memory.」當掉。FA_BIG 放大這些上限，並保留 1.02f 的 CRC，所以啟動器照樣能用。",
   "256 LIBs": "256 個 LIB", "100,000 files": "100,000 個檔案", "4,096 cached resources": "4,096 個快取資源", "Interactive explainer": "互動說明", "See what changed and download →": "看改了什麼並下載 →",
   "FAlogger: record & replay": "FAlogger：錄製與重播", "FAlogger: ACMI for Fighters Anthology": "FAlogger：Fighters Anthology 的 ACMI",
