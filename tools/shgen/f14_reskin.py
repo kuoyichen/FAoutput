@@ -8,7 +8,9 @@ factory variant (Kuoyi 2026-11-21: FIR.SH / FBC.SH are the F-14 with a different
   * new or moved faces / F6 records use the variant's dominant colour mapping of the factory F-14 colours
     (FIR: 152 -> 91, 155 -> 92; FBC: 152/155/178 -> 159)
   * the texture name `_f14.PIC` in the E2 op becomes `_fir.PIC` / `_fbc.PIC`
-Usage: python3 f14_reskin.py F14.SH factory_variant.SH out.SH
+  * --stores COL (FBC-2, Kuoyi: black tanks and pylons on the FBC): the fuel tank unit (82 with 65 vertices) and
+    the two glove pylon units (82 with 20 vertices) get their white/grey faces (colour 150) painted COL
+Usage: python3 f14_reskin.py F14.SH factory_variant.SH out.SH [--stores COL]
 """
 import os, struct, sys
 from collections import Counter
@@ -60,6 +62,18 @@ def main():
             c[co] = best[col]; nn += 1
     pic = b'_f14.PIC'; k = c.count(pic) + c.count(b'_F14.PIC')
     c = c.replace(pic, ('_%s.PIC' % name).encode()).replace(b'_F14.PIC', ('_%s.PIC' % name.upper()).encode())
+    if '--stores' in sys.argv:
+        col = int(sys.argv[sys.argv.index('--stores') + 1]); tail = c.find(SIG)
+        loads = [o for o in range(tail) if c[o] == 0x82 and c[o + 1] == 0 and 0 < struct.unpack_from('<H', c, o + 2)[0] < 900
+                 and struct.unpack_from('<H', c, o + 4)[0] == 480 * 8]
+        units = [(o, nx) for o, nx in zip(loads, loads[1:] + [tail]) if struct.unpack_from('<H', c, o + 2)[0] in (65, 20)]
+        ns = 0
+        for a, b in units:
+            for o in range(a, b):
+                if c[o] == 0xFC:
+                    f = parse_face(c, o)
+                    if f and f['end'] <= b and f['col'] == 150: c[o + 3] = col; ns += 1
+        print(f'  stores: {len(units)} units {[hex(a) for a, _ in units]}, {ns} faces -> {col}')
     d[code['ro']:code['ro'] + code['vs']] = c
     open(dst, 'wb').write(d)
     print(f'{dst}: {name} matched recoloured {nm}, mapped {nn} new items with {best}, PIC names {k}; pairs {pairs.most_common(8)}')
