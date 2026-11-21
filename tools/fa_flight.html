@@ -101,7 +101,7 @@ button.on{border-color:var(--accent);color:var(--accent)}
 <div id="btnsR" class="btns">
   <button id="bView">View</button>
   <button id="bReset">Restart</button>
-  <button id="bFront">Front</button>
+  <button id="bFly">Fly-by</button>
   <button id="bRC">RC view</button>
 </div>
 <div id="panel">
@@ -121,7 +121,7 @@ button.on{border-color:var(--accent);color:var(--accent)}
   <div class="row"><button id="bGo">▶ Start</button></div>
   <label class="ck"><input type="checkbox" id="inv"> Invert pitch (push stick up = nose up)</label>
   <label class="ck"><input type="checkbox" id="tex" checked> Textures</label>
-  <p id="help1">Right stick: up/down is pitch, left/right is rudder. Left stick: up/down changes the throttle (it stays where you leave it), left/right is roll. The sticks only answer touches inside their circles: drag anywhere else to look around (the view stays where you leave it; Front brings it back, RC view watches from the runway end like an RC model pilot), pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult. The weapon button on the right picks gun, AIM-9, AIM-120 (air targets), AGM-65 (ground and ships) or MK-82 bombs; missiles lock the target nearest your nose. To land, slow down, lower the gear and raise the nose: the jet settles gently nose-high, and the throttle sets how fast it sinks.</p>
+  <p id="help1">Right stick: up/down is pitch, left/right is rudder. Left stick: up/down changes the throttle (it stays where you leave it), left/right is roll. The sticks only answer touches inside their circles: drag anywhere else to look around (the view stays where you leave it; double-tap brings it back. Fly-by parks the camera beside your path ahead and lets the jet pass it, like F9; RC view watches from the runway end like an RC model pilot), pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult. The weapon button on the right picks gun, AIM-9, AIM-120 (air targets), AGM-65 (ground and ships) or MK-82 bombs; missiles lock the target nearest your nose. To land, slow down, lower the gear and raise the nose: the jet settles gently nose-high, and the throttle sets how fast it sinks.</p>
   <p id="help3">Canyon strike: fly the winding canyon at low level. Above the rim the SAM radar sees you and the sites launch. At the end of the canyon pull up over the ridge, dive into the crater and bomb the reactor (MK-82 is selected; the yellow circle shows where the bomb falls), then climb out: the SAMs on the crater rim fire at you, so turn hard and drop flares (FLARE button or C). Get 3 nm clear to finish.</p>
   <p id="help2">Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, C or Delete flares, Insert chaff, F1 front view, F9 fly-by view, R restart, mouse drag to look, wheel to zoom.</p>
   <div id="joyBox"></div>
@@ -1336,7 +1336,7 @@ function placeFlyby(){
   const gh = groundAt(eye[0], eye[1]).h; if (eye[2] < gh + 6) eye[2] = gh + 6;
   cam.fly = { eye, D, min: 1e9 }; cam.flyFov = 0;
 }
-function toggleFlyby(){ if (cam.fly){ cam.fly = null; sub(L("Chase view", "追蹤視角")); } else { cam.rc = false; placeFlyby(); sub(L("Fly-by view (F9 again to leave)", "飛掠視角（再按 F9 離開）")); } updButtons(); }
+function toggleFlyby(){ if (cam.fly){ cam.fly = null; sub(L("Chase view", "追蹤視角")); } else { cam.rc = false; placeFlyby(); sub(L("Fly-by view (press Fly-by or F9 again to leave)", "飛掠視角（再按「飛掠」或 F9 離開）")); } updButtons(); }
 function camera(dt){
   const mesh = getMesh(P.s, {}), r = mesh.radius;   // framed on the clean model, so the afterburner flame, gear or speed brake never change the size; a turned view stays until the Front button (or a double-tap) brings it back
   const center0 = vadd(P.pos, [0, 0, (mesh.hi[2] + mesh.lo[2]) / 2]);
@@ -1657,7 +1657,7 @@ function readInput(){
 
 // ===== buttons and setup panel =====
 function updButtons(){
-  $("bRC").classList.toggle("on", !!cam.rc);
+  $("bRC").classList.toggle("on", !!cam.rc); $("bFly").classList.toggle("on", !!cam.fly);
   $("bGear").classList.toggle("on", P.gear); $("bBrake").classList.toggle("on", P.brake); $("bView").classList.toggle("on", !!cam.lock);
   $("bGear").style.display = P.mode === "fly" ? "" : "none";
   $("wpn").style.display = $("hKillD").style.display = $("bFlare").style.display = P.mode === "fly" ? "" : "none";
@@ -1669,7 +1669,7 @@ function updButtons(){
 function toggleGear(){ if (P.mode !== "fly" || P.onGround || P.crashed) return; P.gear = !P.gear; updButtons(); }
 function toggleBrake(){ P.brake = !P.brake; updButtons(); }
 function frontView(){ cam.yaw = cam.pitch = 0; cam.zoom = 1; cam.rc = false; cam.fly = null; updButtons(); }
-$("bFront").onclick = frontView;
+$("bFly").onclick = toggleFlyby;
 $("bRC").onclick = () => { cam.rc = !cam.rc; cam.fly = null; cam.zoom = 1; cam.rcFov = 0; updButtons(); sub(cam.rc ? L("RC view: watching from the runway end, like flying a model plane. Pinch to zoom.", "遙控視角：站在跑道頭看飛機，像在飛遙控飛機。兩指可縮放。") : L("Chase view", "追蹤視角")); };
 $("bFlare").addEventListener("pointerdown", e => { e.preventDefault(); dropFlares(); });
 $("bGear").onclick = toggleGear; $("bBrake").onclick = toggleBrake; $("bReset").onclick = () => spawn();
@@ -1702,14 +1702,14 @@ FAI18N.register({
   "Auto (by model)": "自動（依模型判斷）", "Fly (aircraft)": "飛行（飛機）", "Drive (ground vehicle)": "駕駛（地面車輛）", "Sail (ship)": "航行（船艦）",
   "Start position": "起始位置", "Airfield runway": "機場跑道", "Carrier deck": "航艦甲板", "In the air": "空中", "At sea (ships)": "海上（船艦）",
   "▶ Start": "▶ 開始", "Invert pitch (push stick up = nose up)": "反轉俯仰（搖桿往上推 = 機頭抬起）", "Textures": "貼圖",
-  "Right stick: up/down is pitch, left/right is rudder. Left stick: up/down changes the throttle (it stays where you leave it), left/right is roll. The sticks only answer touches inside their circles: drag anywhere else to look around (the view stays where you leave it; Front brings it back, RC view watches from the runway end like an RC model pilot), pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult. The weapon button on the right picks gun, AIM-9, AIM-120 (air targets), AGM-65 (ground and ships) or MK-82 bombs; missiles lock the target nearest your nose. To land, slow down, lower the gear and raise the nose: the jet settles gently nose-high, and the throttle sets how fast it sinks.":
-    "右搖桿：上下是俯仰，左右是方向舵。左搖桿：上下調整油門（放開後會停在那個位置），左右是滾轉。搖桿只在圓圈內有效；在畫面其他地方拖曳都是轉動視角（視角會停在你轉到的地方，按「前向」回到正後方；「遙控視角」會站在跑道頭看飛機，像飛遙控飛機一樣），兩指縮放，點兩下讓鏡頭立刻回到後方。油門推到底會開後燃器；在航艦上也會啟動彈射器。右側的武器按鈕可切換機砲、AIM-9、AIM-120（打空中目標）、AGM-65（打地面和船艦）或 MK-82 炸彈；飛彈會鎖定最靠近機頭的目標。降落時減速、放下起落架、抬起機頭：飛機會以機頭朝上的姿態緩緩下降，用油門控制下降速度。",
+  "Right stick: up/down is pitch, left/right is rudder. Left stick: up/down changes the throttle (it stays where you leave it), left/right is roll. The sticks only answer touches inside their circles: drag anywhere else to look around (the view stays where you leave it; double-tap brings it back. Fly-by parks the camera beside your path ahead and lets the jet pass it, like F9; RC view watches from the runway end like an RC model pilot), pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult. The weapon button on the right picks gun, AIM-9, AIM-120 (air targets), AGM-65 (ground and ships) or MK-82 bombs; missiles lock the target nearest your nose. To land, slow down, lower the gear and raise the nose: the jet settles gently nose-high, and the throttle sets how fast it sinks.":
+    "右搖桿：上下是俯仰，左右是方向舵。左搖桿：上下調整油門（放開後會停在那個位置），左右是滾轉。搖桿只在圓圈內有效；在畫面其他地方拖曳都是轉動視角（視角會停在你轉到的地方，點兩下回到正後方；「飛掠」會把鏡頭放在前方航線旁，讓飛機從旁邊掠過，等同 F9；「遙控視角」會站在跑道頭看飛機，像飛遙控飛機一樣），兩指縮放，點兩下讓鏡頭立刻回到後方。油門推到底會開後燃器；在航艦上也會啟動彈射器。右側的武器按鈕可切換機砲、AIM-9、AIM-120（打空中目標）、AGM-65（打地面和船艦）或 MK-82 炸彈；飛彈會鎖定最靠近機頭的目標。降落時減速、放下起落架、抬起機頭：飛機會以機頭朝上的姿態緩緩下降，用油門控制下降速度。",
   "Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, C or Delete flares, Insert chaff, F1 front view, F9 fly-by view, R restart, mouse drag to look, wheel to zoom.":
     "鍵盤：W/S 俯仰、A/D 滾轉、Q/E 方向舵、Shift/Ctrl 油門、G 起落架、B 煞車、空白鍵 發射、F 換武器、C 或 Delete 熱焰彈、Insert 干擾絲、F1 前向視角、F9 飛掠視角、R 重來，滑鼠拖曳轉視角、滾輪縮放。",
   "Mission": "任務", "⛰ Canyon strike mission": "⛰ 峽谷轟炸任務", "Free flight": "自由飛行", "Canyon strike": "峽谷轟炸任務",
   "Canyon strike: fly the winding canyon at low level. Above the rim the SAM radar sees you and the sites launch. At the end of the canyon pull up over the ridge, dive into the crater and bomb the reactor (MK-82 is selected; the yellow circle shows where the bomb falls), then climb out: the SAMs on the crater rim fire at you, so turn hard and drop flares (FLARE button or C). Get 3 nm clear to finish.":
     "峽谷轟炸任務：沿著蜿蜒的峽谷低空飛行。高過峽谷邊緣就會被防空雷達看到，飛彈陣地會發射。到峽谷盡頭拉起越過山脊，俯衝進入內凹的山谷，轟炸核子反應爐（已選好 MK-82，黃色圓圈是炸彈落點），然後拉出來：山谷上緣的防空飛彈會對你發射，要急轉並放熱焰彈（熱焰彈按鈕或 C 鍵）。飛離 3 浬即完成任務。",
-  "Pitch / Rudder": "俯仰 / 方向舵", "FIRE": "發射", "Front": "前向", "RC view": "遙控視角", "Throttle / Roll": "油門 / 滾轉", "Loading…": "載入中…"
+  "Pitch / Rudder": "俯仰 / 方向舵", "FIRE": "發射", "Fly-by": "飛掠", "RC view": "遙控視角", "Throttle / Roll": "油門 / 滾轉", "Loading…": "載入中…"
 });
 $("langSlot").append(FAI18N.picker()); FAI18N.apply(); FAI18N.onChange(updButtons); FAI18N.onChange(renderJoy); renderJoy();
 
