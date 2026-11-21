@@ -300,7 +300,7 @@
 ;-------- hardpoint 4
     word $465
     word 12
-    word -6
+    word -11
     word -16
     word 0
     word 0
@@ -313,7 +313,7 @@
 ;-------- hardpoint 5
     word $7e5
     word 22
-    word -7
+    word -12
     word 6
     word 0
     word 0
@@ -326,7 +326,7 @@
 ;-------- hardpoint 6
     word $7e5
     word 48
-    word -6
+    word -11
     word 3
     word 0
     word 0
@@ -339,7 +339,7 @@
 ;-------- hardpoint 7
     word $1e5
     word 34
-    word -6
+    word -11
     word 3
     word 0
     word 0
@@ -365,7 +365,7 @@
 ;-------- hardpoint 9
     word $8
     word 0
-    word -10
+    word -15
     word -4
     word 0
     word 0

@@ -10,6 +10,8 @@ Same four steps, in the same order as F18.SH was built:
   4. wing fold  f18_wing_fold.py; hinge |x| = max(44, outermost wing station + 2, flap end + 1), so wing stores stay on the
                 fixed wing; the wingtip station folds with the panel
 Usage: python3 f18v_upgrade.py VARIANT in.SH in.PIC in.PT out.SH out.PIC [folded_preview.SH]
+Inputs are the stock shapes: SH/F18x.SH and PIC/_F18x.PIC as of commit d05c48c (the repo copies are the upgraded
+ones since 2026-11-21), e.g. `git show d05c48c:SH/F18C.SH > F18C_orig.SH`.
 Every step keeps the file < 65536 bytes and the vertex table <= 900 (asserted by the steps themselves).
 """
 import os, re, struct, subprocess, sys
@@ -101,6 +103,8 @@ def chord(P, x, above, near):
     return (max(fs), min(fs)) if fs else None
 
 
+PT_DROP = 5                                            # Kuoyi 2026-11-21: PT centre/fuselage/wing stations sit 5 below
+                                                       # the drawn store so a launched weapon clears the airframe
 NOSE_GAP = 2                                           # fuselage AIM-120 nose this far behind the intake lip
 
 
@@ -161,6 +165,7 @@ def configure(d, pt):
     print('hardpoints:')
     for h in hps:
         st, x, u, f = h['i'], h['x'], h['u'], h['f']
+        if h['loc'] in (0, 1, 4): u += PT_DROP         # launch point is PT_DROP below where the store is drawn
         kd = jt_kind(h['default'])
         att_k = kd or S.GENERIC                        # no default store: attach height of a generic missile
         if h['loc'] == 1 and x != 0:                   # fuselage pair: AIM-120 nose just behind the intake lip
