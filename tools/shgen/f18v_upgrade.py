@@ -115,6 +115,16 @@ def flap_span(d):
     return out
 
 
+def placer(c, ROOT, ugeo, ubox, fus):
+    import sh_order, sh_bsp
+    plan, refs = S.place_units(c, ROOT, {u: b for u, b in ubox.items() if u not in fus})
+    big = sorted(fus)
+    sh_bsp.F0_VARS = {}                                # judged in flight: gear up, doors / hook / flaps closed
+    try: p2, r2, M, *_ = sh_order.place(c, ROOT, ugeo, ubox, big, pre=plan)   # the other stores already in place
+    finally: sh_bsp.F0_VARS = None
+    return M.ins, {**refs, **r2}
+
+
 # ---------------------------------------------------------------- configure f18_stores from the PT
 def configure(d, pt):
     P = main_polys(d)
@@ -157,6 +167,11 @@ def configure(d, pt):
     # file size: these jets never carry the AIM-54, so an AIM-54 is drawn with the AIM-120 shape (stored once)
     S.SHAPES[S.AIM54] = S.SHAPES[S.AAM]
     S.PYLON_UNITS = lambda: units
+    # fuselage pairs (loc 1, x != 0) sit against the curved intake / belly: one plane down the BSP descent misorders
+    # them (Kuoyi 2026-11-21, F18C: the far AIM-120 shows through the body, the near one is lost), so they are
+    # placed by sh_order (best branch + plane over ~80 rendered views); every other unit as before
+    fus = {p + str(h['i']) for h in hps if h['loc'] == 1 and h['x'] != 0 for p in 'RL'}
+    S.PLACER = (lambda c, ROOT, ugeo, ubox: placer(c, ROOT, ugeo, ubox, fus)) if fus else None
     W.TIP_ST = tip['i']
     # hinge outboard of the flaps too: the flap faces use their own vertex buffers (flaps up / down), which the
     # fold does not clip, so a flap reaching past the hinge sticks out of the folded wing (F18E/F/T/U flaps reach
