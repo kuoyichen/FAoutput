@@ -101,6 +101,32 @@ def chord(P, x, above, near):
     return (max(fs), min(fs)) if fs else None
 
 
+NOSE_GAP = 2                                           # fuselage AIM-120 nose this far behind the intake lip
+
+
+def intake_lip(d):
+    """Front of the intake mouth: lowest fwd of the forward-facing main-LOD faces at x 3..20 below up 4."""
+    pe, opt, secs = pe_sections(d)
+    code = next(s for s in secs if s['name'] == 'CODE')
+    c = d[code['ro']:code['ro'] + code['vs']]
+    L = main_lod(c); at, n = L[0][0], L[0][1]; end = L[1][0]
+    V = [struct.unpack_from('<3h', c, at + 6 + 6 * k) for k in range(n)]
+    out, p = [], at + 6 + 6 * n
+    while p < end:
+        if c[p] == 0xFC:
+            f = parse_face(c, p)
+            if f and all(i < n for i in f['idx']) and f['end'] <= end:
+                fl = struct.unpack_from('<H', c, p + 1)[0]
+                P = [V[i] for i in f['idx']]
+                if fl & 0x60 and struct.unpack_from('<h', c, p + 9)[0] > 20000 and min(q[0] for q in P) >= 3 \
+                        and max(q[0] for q in P) <= 20 and max(q[2] for q in P) <= 4 and min(q[1] for q in P) > -30:
+                    out.append(min(q[1] for q in P))
+                p = f['end']; continue
+        p += 1
+    assert out, 'intake mouth not found'
+    return min(out)
+
+
 def flap_span(d):
     """Outer |x| of the flap vertex buffers: main-LOD part buffers behind the wing hinge line (fwd < -5) that
     reach |x| >= 30."""
@@ -137,8 +163,12 @@ def configure(d, pt):
         st, x, u, f = h['i'], h['x'], h['u'], h['f']
         kd = jt_kind(h['default'])
         att_k = kd or S.GENERIC                        # no default store: attach height of a generic missile
+        if h['loc'] == 1 and x != 0:                   # fuselage pair: AIM-120 nose just behind the intake lip
+            lip = intake_lip(d)                        # (Kuoyi 2026-11-21, photo of the real jet); drawn position
+            nose = max(v[1] for v in S.SHAPES[S.AAM]()[0])   # only, the PT launch point is left as it is
+            f = min(f, lip - NOSE_GAP - nose)
         a = (x, round(u + S.top_of(att_k)), f)
-        print(f"  hp{st} {h['default']} kind {kd} loc {h['loc']} PT ({x},{u},{f}) attach {a}")
+        print(f"  hp{st} {h['default']} kind {kd} loc {h['loc']} PT ({x},{u},{h['f']}) attach {a}")
         if x == 0: slots['C%d' % st] = (st, 1, kd, a)
         else:
             slots['R%d' % st] = (st, 2, kd, a); slots['L%d' % st] = (st, 1, kd, S.mx(a))
