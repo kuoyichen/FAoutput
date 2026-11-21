@@ -30,6 +30,7 @@ label.ck{display:inline-flex;gap:4px;align-items:center;cursor:pointer;white-spa
 #tools{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:6px 14px;background:var(--card2);border-bottom:1px solid var(--line)}
 #main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 310px;min-height:0}
 #view{position:relative;min-height:0}
+#cv.pick{cursor:crosshair}
 #cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;background:radial-gradient(#2a333e,#151a20)}
 #box{position:absolute;border:1px dashed var(--accent);background:#ffd54a14;pointer-events:none;display:none}
 #hud{position:absolute;left:10px;bottom:8px;color:var(--muted);font-size:12px;pointer-events:none;text-shadow:0 1px 2px #000}
@@ -74,6 +75,7 @@ button.prim{background:var(--accent);color:#14181d;font-weight:600;border-color:
   <button id="openDir" title="Pick a folder with .SH / .PIC / PALETTE.PAL; Save then writes straight back into it (Chrome / Edge)">Open folder…</button>
   <select id="dirList" style="display:none" title="SH files in the opened folder"></select>
   <label class="btn" title="Open .SH (you can also select its .PIC and a palette at the same time)">Open files…<input id="openFiles" type="file" multiple accept=".sh,.SH,.pic,.PIC,.pal,.PAL" hidden></label>
+  <label class="btn" title="Use another .PIC file as the texture of the open SH (view only: the SH and its texture name are not changed)">Load PIC…<input id="openPic" type="file" accept=".pic,.PIC" hidden></label>
   <input type="text" id="repoName" placeholder="F14" title="Load an SH from the FAoutput repository (SH/ folder), e.g. F14, F18G">
   <button id="repoLoad">Load from repo</button>
   <span class="sep"></span>
@@ -123,7 +125,7 @@ button.prim{background:var(--accent);color:#14181d;font-weight:600;border-color:
         <div class="row" style="color:var(--muted);font-size:11px">x = right, y = forward, z = up (vertex units). World coordinates; parts are converted to their own frame.</div>
       </div>
       <div id="faceEdit" style="display:none">
-        <div class="row"><span class="l">Colour</span><input type="number" id="fcol" min="0" max="255" step="1"><span id="fsw" style="width:22px;height:18px;border-radius:4px;border:1px solid var(--line)"></span><button id="fColSet">Set</button></div>
+        <div class="row"><span class="l">Colour</span><input type="number" id="fcol" min="0" max="255" step="1"><span id="fsw" style="width:22px;height:18px;border-radius:4px;border:1px solid var(--line)"></span><button id="fColSet">Set</button><button id="fPick" title="Eyedropper (I, or Alt+click): click another face to take its colour; selected faces get it at once">Pick</button></div>
         <div class="row"><button id="fFlip" title="Reverse the vertex order (turns the face around)">Flip</button><button id="fDel" title="Remove the face (its bytes become a jump; Undo restores it)">Delete</button><button id="fVerts" title="Select the vertices of the selected faces">Select its vertices</button></div>
       </div>
     </div>
@@ -149,7 +151,7 @@ button.prim{background:var(--accent);color:#14181d;font-weight:600;border-color:
       While moving, the guide line shows the axis (X red, Y green, Z blue). Type a number + <kbd>Enter</kbd> for an exact distance, during or right after the move<br>
       <kbd>X</kbd><kbd>Y</kbd><kbd>Z</kbd> lock axis (again = Auto) · arrows nudge in screen plane, <kbd>PgUp</kbd>/<kbd>PgDn</kbd> in depth<br>
       <kbd>1</kbd> front <kbd>3</kbd> side <kbd>7</kbd> top <kbd>5</kbd> 3D · <kbd>O</kbd> ortho · <kbd>F</kbd> frame selection · <kbd>Tab</kbd> vertices/faces<br>
-      <kbd>A</kbd> select all · <kbd>Esc</kbd> clear · <kbd>Del</kbd> delete faces · <kbd>Ctrl+Z</kbd>/<kbd>Ctrl+Y</kbd> undo/redo · <kbd>Ctrl+S</kbd> save</div><div data-lang="zh">
+      <kbd>A</kbd> select all · <kbd>Esc</kbd> clear · <kbd>Del</kbd> delete faces · <kbd>I</kbd> or <b>Alt+click</b> eyedropper (take a face's colour; selected faces get it) · <kbd>Ctrl+Z</kbd>/<kbd>Ctrl+Y</kbd> undo/redo · <kbd>Ctrl+S</kbd> save</div><div data-lang="zh">
       <b>左鍵拖曳</b> 旋轉 · <b>右鍵拖曳</b> 平移 · <b>滾輪</b> 縮放<br>
       <b>點選</b> 選取 · <b>Shift+點</b> 加選 · <b>Ctrl+點</b> 切換 · <b>Shift+拖曳</b> 框選 · <b>Ctrl+拖曳</b> 框選取消<br>
       <b>拖曳已選的點</b> 移動整個選取（對齊格線；一律沿 X、Y 或 Z：鎖定的軸，或在「自動」下取最接近滑鼠方向的軸）<br>
@@ -157,7 +159,7 @@ button.prim{background:var(--accent);color:#14181d;font-weight:600;border-color:
       移動時導引線顯示軸向（X 紅、Y 綠、Z 藍）。移動中或剛移動完可輸入數字再按 <kbd>Enter</kbd>，精確移動那個距離<br>
       <kbd>X</kbd><kbd>Y</kbd><kbd>Z</kbd> 鎖定軸向（再按一次 = 自動）· 方向鍵在畫面平面微調，<kbd>PgUp</kbd>/<kbd>PgDn</kbd> 前後<br>
       <kbd>1</kbd> 前視 <kbd>3</kbd> 側視 <kbd>7</kbd> 上視 <kbd>5</kbd> 3D · <kbd>O</kbd> 正投影 · <kbd>F</kbd> 對準選取 · <kbd>Tab</kbd> 點／面<br>
-      <kbd>A</kbd> 全選 · <kbd>Esc</kbd> 取消選取 · <kbd>Del</kbd> 刪除面 · <kbd>Ctrl+Z</kbd>/<kbd>Ctrl+Y</kbd> 復原／重做 · <kbd>Ctrl+S</kbd> 存檔</div></div></details></div>
+      <kbd>A</kbd> 全選 · <kbd>Esc</kbd> 取消選取 · <kbd>Del</kbd> 刪除面 · <kbd>I</kbd> 或 <b>Alt+點</b> 吸管（吸取面的顏色，已選的面直接套用）· <kbd>Ctrl+Z</kbd>/<kbd>Ctrl+Y</kbd> 復原／重做 · <kbd>Ctrl+S</kbd> 存檔</div></div></details></div>
   </div>
 </div>
 <div id="status"><span id="stFile">No file</span><span id="stCounts"></span><span id="stMod"></span><span id="stMeas" title="Distance of the current / last move. Type a value and press Enter to move exactly that far."><span id="measLbl">Distance</span> <input type="text" id="meas" autocomplete="off" placeholder="type + Enter"></span></div>
@@ -647,6 +649,7 @@ cv.addEventListener("pointerdown", e => {
   if (drag && drag.sticky){ e.stopImmediatePropagation(); if (e.button === 0) endDrag(true); else endDrag(false); return; }
   if (!M || e.button !== 0) return;
   const r = cv.getBoundingClientRect();
+  if (picking || e.altKey){ drag = { kind: "click", x: e.clientX, y: e.clientY, e0: e, pick: true }; return; }
   if (e.shiftKey || e.ctrlKey || e.metaKey){
     const k = mode === "vert" ? pickVert(e) : null;
     drag = { kind: "box", x0: e.clientX - r.left, y0: e.clientY - r.top, add: !(e.ctrlKey || e.metaKey), ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey, e0: e, moved: false };
@@ -692,8 +695,26 @@ cv.addEventListener("pointerup", e => {
     else for (const F of D.faces){ const ss = F.keys.map(k => screenOf(D.verts.get(k).w)); const c = ss.reduce((a, s) => [a[0] + s[0] / ss.length, a[1] + s[1] / ss.length], [0, 0]); if (c[0] >= x0 && c[0] <= x1 && c[1] >= y0 && c[1] <= y1){ if (d.add) sel.add(F.f.id); else sel.delete(F.f.id); } }
     rebuild(true); return;
   }
-  if (d.kind === "click") clickSelect(d.e0);
+  if (d.kind === "click") d.pick ? eyedrop(d.e0) : clickSelect(d.e0);
 });
+// eyedropper: take the colour of the clicked face; the selected faces (if any) get it at once
+let picking = false;
+function setPicking(on){
+  picking = on; cv.classList.toggle("pick", on); $("fPick").classList.toggle("on", on);
+  if (on){ if (mode !== "face") setMode("face"); msg(L("Eyedropper: click a face to take its colour (Esc cancels)", "吸管：點一個面吸取它的顏色（Esc 取消）")); }
+}
+function eyedrop(e){
+  const id = pickFace(e); setPicking(false);
+  if (id == null){ msg(L("Eyedropper: no face there", "吸管：那裡沒有面"), true); return; }
+  if (mode !== "face") setMode("face");
+  const f = M.faces[id], c = f.newCol ?? f.col;
+  const tgt = [...sel].filter(q => typeof q === "number" && M.faces[q]);
+  if (tgt.length && !(tgt.length === 1 && tgt[0] === id)){
+    editFaces(g => { g.newCol = c === g.col ? null : c; }); rebuild(true);
+    msg(L(`Colour ${c} (${hex(c, 2)}) applied to ${tgt.length} face${tgt.length > 1 ? "s" : ""}`, `已把色號 ${c}（${hex(c, 2)}）套用到 ${tgt.length} 個面`));
+  } else msg(L(`Picked colour ${c} (${hex(c, 2)}): select faces and press Set`, `吸取色號 ${c}（${hex(c, 2)}）：選取面後按「設定」`));
+  $("fcol").value = c; swatch(c);
+}
 function clickSelect(e){
   const k = mode === "vert" ? pickVert(e) : pickFace(e);
   if (e.ctrlKey || e.metaKey){ if (k != null){ sel.has(k) ? sel.delete(k) : sel.add(k); } }
@@ -808,6 +829,13 @@ async function openFileList(files){
   dirHandle = null; $("dirList").style.display = "none";
   await openModel(sh.name, new Uint8Array(await sh.arrayBuffer()), { pic: pic ? new Uint8Array(await pic.arrayBuffer()) : null, pal: pal ? new Uint8Array(await pal.arrayBuffer()) : null });
 }
+$("openPic").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  if (!M){ msg(L("Open an SH first, then load a PIC for it", "請先開啟 SH，再載入它的 PIC"), true); return; }
+  try { cur.pic = S.parsePIC(new Uint8Array(await f.arrayBuffer())); } catch(err){ msg(L(`${f.name} is not a PIC file it can read`, `無法讀取 ${f.name}（不是 PIC 檔？）`), true); return; }
+  setPic(cur.pic); modelInfo(); rebuild(true);
+  msg(L(`Texture: ${f.name} (${cur.pic.w}x${cur.pic.h})`, `貼圖：${f.name}（${cur.pic.w}x${cur.pic.h}）`));
+};
 $("openFiles").onchange = e => { openFileList([...e.target.files]); e.target.value = ""; };
 async function loadRepo(name){
   name = name.trim().toUpperCase().replace(/\.SH$/, ""); if (!name) return;
@@ -898,6 +926,7 @@ $("vSet").onclick = () => {
 $("dMove").onclick = () => moveSelectionBy(["dx", "dy", "dz"].map(i => +$(i).value || 0));
 $("fColSet").onclick = () => { const c = Math.max(0, Math.min(255, Math.round(+$("fcol").value))); editFaces(f => { f.newCol = c === f.col ? null : c; }); };
 $("fcol").oninput = () => swatch(Math.max(0, Math.min(255, +$("fcol").value | 0)));
+$("fPick").onclick = () => setPicking(!picking);
 $("fFlip").onclick = () => editFaces(f => { f.flip = !f.flip; });
 $("fDel").onclick = () => { editFaces(f => { f.del = true; }); sel.clear(); rebuild(true); };
 $("fVerts").onclick = () => {
@@ -921,6 +950,8 @@ addEventListener("keydown", e => {
   if (k === "1") return setView("front"); if (k === "3") return setView("side"); if (k === "7") return setView("top"); if (k === "9") return setView("bottom"); if (k === "5") return setView("persp");
   if (k === "o") return setOrtho(!$("ortho").checked);
   if (k === "tab"){ e.preventDefault(); return setMode(mode === "vert" ? "face" : "vert"); }
+  if (k === "escape" && picking) return setPicking(false);
+  if (k === "i" && M) return setPicking(!picking);
   if (k === "escape"){ sel.clear(); return rebuild(true); }
   if (k === "a" && D){ sel = new Set(mode === "vert" ? D.verts.keys() : D.faces.map(F => F.f.id)); return rebuild(true); }
   if (k === "f" && D){ const pts = mode === "vert" ? [...sel].map(q => D.verts.get(q)?.w).filter(Boolean) : D.faces.filter(F => sel.has(F.f.id)).flatMap(F => F.keys.map(q => D.verts.get(q).w)); frameBox(bbox(pts.length ? pts : [...D.verts.values()].map(v => v.w))); return; }
@@ -957,7 +988,7 @@ FAI18N.register({
   "SH Editor": "SH 編輯器", "Open folder…": "開啟資料夾…", "Open files…": "開啟檔案…", "Load from repo": "從 repo 載入", "Save": "存檔", "Save as…": "另存新檔…",
   "Pick a folder with .SH / .PIC / PALETTE.PAL; Save then writes straight back into it (Chrome / Edge)": "選一個放 .SH / .PIC / PALETTE.PAL 的資料夾；存檔會直接寫回裡面（Chrome / Edge）",
   "SH files in the opened folder": "開啟的資料夾裡的 SH 檔",
-  "Open .SH (you can also select its .PIC and a palette at the same time)": "開啟 .SH（可以同時選它的 .PIC 和調色盤）",
+  "Open .SH (you can also select its .PIC and a palette at the same time)": "開啟 .SH（可以同時選它的 .PIC 和調色盤）", "Load PIC…": "載入 PIC…", "Use another .PIC file as the texture of the open SH (view only: the SH and its texture name are not changed)": "用另一個 .PIC 檔當目前 SH 的貼圖（只影響顯示，SH 和它記錄的貼圖檔名不會改）",
   "Load an SH from the FAoutput repository (SH/ folder), e.g. F14, F18G": "從 FAoutput repo（SH/ 資料夾）載入 SH，例如 F14、F18G",
   "Write the edited SH (Ctrl+S). Opened from a folder: overwrites that file. Otherwise: download.": "寫出編輯後的 SH（Ctrl+S）。從資料夾開的會直接覆寫，否則下載。",
   "Save under a new name / download a copy": "存成新檔名／下載一份",
@@ -978,7 +1009,7 @@ FAI18N.register({
   "Selection": "選取", "Nothing selected": "未選取", "Set": "設定", "Apply": "套用", "Move": "移動", "Colour": "色號",
   "x (right)": "x（右）", "y (forward)": "y（前）", "z (up)": "z（上）", "Set the coordinates typed here (empty boxes are left alone)": "設定輸入的座標（空白的格子不變）",
   "x = right, y = forward, z = up (vertex units). World coordinates; parts are converted to their own frame.": "x = 右、y = 前、z = 上（頂點單位）。這裡是世界座標，零件會自動換算到它自己的座標。",
-  "Flip": "翻面", "Delete": "刪除", "Select its vertices": "選它的點",
+  "Flip": "翻面", "Pick": "吸管", "Eyedropper (I, or Alt+click): click another face to take its colour; selected faces get it at once": "吸管（I 或 Alt+點）：點另一個面吸取它的顏色，已選的面會直接套用", "Delete": "刪除", "Select its vertices": "選它的點",
   "Reverse the vertex order (turns the face around)": "把點的順序倒過來（面轉向）", "Remove the face (its bytes become a jump; Undo restores it)": "刪除這個面（它的位元組改成跳過；可以復原）",
   "Select the vertices of the selected faces": "選取所選面的點",
   "Save options": "存檔選項", "Recompute normals of edited faces": "重算修改過的面的法向量", "Recompute F6 vertex normals": "重算 F6 點法向量",
