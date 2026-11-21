@@ -36,6 +36,27 @@ NOSE_DOOR_C4, NOSE_DOOR_UP = 0x2E27, -4
 REAR_BRACE_C4, REAR_BRACE = 0x2DC0, 0x3EC3        # 後斜撐零件：C4 (0,-5,44) → (0,-6,48)，末端接到活塞後面（零件 y=1、z -7..-5）；頂端兩點 z 0/-1 → 2/1 接到機身底               # 前輪艙門 C4 的高度 -6 → -4，貼到機身底（機身底 up -4）
 
 
+# 每種機身排列的位址（F18 / F18F / F18U 同一套；F18C / F18E / F18T 是另一套，零件頂點順序也不同）
+LAYOUTS = {
+    'D': dict(OLD={'R': 0x3BA6, 'L': 0x3CDF, 'N': 0x3F2E}, SPAN_END={'R': 0x3CD0, 'L': 0x3E09, 'N': 0x3FE0},
+              THUNK_F0=0x30A2, NOSE_DOOR_C4=0x2E27, REAR_BRACE_C4=0x2DC0, REAR_BRACE=0x3EC3),
+    'C': dict(OLD={'R': 0x3AD5, 'L': 0x3C0E, 'N': 0x3E5D}, SPAN_END={'R': 0x3BFF, 'L': 0x3D38, 'N': 0x3F0F},
+              THUNK_F0=None, NOSE_DOOR_C4=0x38F5, REAR_BRACE_C4=0x2DE7, REAR_BRACE=0x3DF2),
+}
+
+
+def layout(c):
+    """依檔案選位址（看右主輪零件在哪）。THUNK_F0 = None：找第一個 `F0 00 68 imm32 68 imm32 C3`。"""
+    global OLD, SPAN_END, THUNK_F0, NOSE_DOOR_C4, REAR_BRACE_C4, REAR_BRACE
+    for k, L in LAYOUTS.items():
+        o = L['OLD']['R']
+        if c[o:o+4] == b'\x82\x00\x0d\x00' and all(c[e] == 0x1E for e in L['SPAN_END'].values()): break
+    else: raise SystemExit('認不出這個 F/A-18 的起落架位址')
+    OLD, SPAN_END, NOSE_DOOR_C4, REAR_BRACE_C4, REAR_BRACE = (L[x] for x in ('OLD', 'SPAN_END', 'NOSE_DOOR_C4', 'REAR_BRACE_C4', 'REAR_BRACE'))
+    THUNK_F0 = L['THUNK_F0'] or next(i for i in range(len(c) - 13) if c[i:i+3] == b'\xf0\x00\x68' and c[i+7] == 0x68 and c[i+12] == 0xC3)
+    return k
+
+
 def build(side):
     st = Part(BASE)
     if side in 'LR':
@@ -132,6 +153,7 @@ def main():
         d = bytearray(grow_vas(d, 0x1000)); pe, opt, secs = pe_sections(d)
         code = next(s for s in secs if s['name'] == 'CODE'); nxt = min(s['va'] for s in secs if s['va'] > code['va'])
     c = bytearray(d[code['ro']:code['ro']+code['vs']])
+    print('排列', layout(c))
     for o in OLD.values(): assert c[o] == 0x82, hex(o)
     header = bytes(c[OLD['R'] - 6:OLD['R']])
     assert all(bytes(c[o - 6:o]) == header for o in OLD.values()), '零件範圍標頭不一樣'
@@ -141,8 +163,12 @@ def main():
     struct.pack_into('<h', c, NOSE_DOOR_C4 + 4, NOSE_DOOR_UP)
     assert struct.unpack_from('<3h', c, REAR_BRACE_C4 + 2) == (0, -5, 44)
     struct.pack_into("<3h", c, REAR_BRACE_C4 + 2, 0, -6, 48)
-    assert c[REAR_BRACE] == 0x82 and struct.unpack_from('<6h', c, REAR_BRACE + 6) == (0, 0, 0, 0, 0, -1)
-    struct.pack_into('<6h', c, REAR_BRACE + 6, 0, 0, 2, 0, 0, 1)
+    assert c[REAR_BRACE] == 0x82 and c[REAR_BRACE + 2] == 4
+    top = 0                                        # 頂端兩點（y=0，z 0/-1）→ z 2/1，接到機身底
+    for k in range(4):
+        x, y, z = struct.unpack_from('<3h', c, REAR_BRACE + 6 + 6 * k)
+        if y == 0: struct.pack_into('<3h', c, REAR_BRACE + 6 + 6 * k, x, y, z + 2); top += 1
+    assert top == 2
     tail = bytes(c).find(SIG)
     blk = bytearray(); starts = {}; c4s = {}
     for side in 'RLN':
