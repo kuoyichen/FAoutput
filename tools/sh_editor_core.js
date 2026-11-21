@@ -228,7 +228,7 @@ function parseModel(u8in) {
   // coordinate of 226 is also stored as the bytes E2 00
   const picAt = o => { let s = ""; for (let k = 2; k < 16 && c[o + k]; k++) s += String.fromCharCode(c[o + k]); return /^[\w-]+\.PIC$/i.test(s); };
   let start = 0x14; for (let o = 0; o < Math.min(stop, 0x400); o++) if (c[o] === 0xE2 && c[o + 1] === 0 && picAt(o)) { start = o + 16; break; }
-  const M = { u8, pe, c, dv, stop, scale, shift, bufs: [], verts: [], faces: [], f6: [], insts: [I3()], instMeta: [null], lods: [], texNames: [], warnings: [], stations: new Map(), fallSlots: 0 };
+  const M = { u8, pe, c, dv, stop, scale, shift, bufs: [], verts: [], faces: [], f6: [], insts: [I3()], instMeta: [null], lods: [], texNames: [], warnings: [], stations: new Map(), fallSlots: 0, jumpIns: new Set() };
   for (let i = 0; i < u8.length - 16; i++) if (u8[i] === 0xE2 && u8[i + 1] === 0) { let s = ""; for (let k = 2; k < 16 && u8[i + k]; k++) s += String.fromCharCode(u8[i + k]); if (/^[\w-]+\.PIC$/i.test(s) && !M.texNames.includes(s.toUpperCase())) M.texNames.push(s.toUpperCase()); }
 
   const goodBuf = (o, limit) => {
@@ -309,7 +309,7 @@ function parseModel(u8in) {
 
   // structured walk of an appended block
   const walk = (t, map, inst, lod, depth, seen, meta = null) => {
-    for (let g = 0; g < 4000 && t >= appendStart && t < stop - 1; g++) {
+    for (let g = 0; g < 4000 && t >= start && t < stop - 1; g++) {
       const key = t + "@" + inst; if (seen.has(key)) return; seen.add(key);
       const op = c[t];
       if (op === 0x82 && c[t + 1] === 0) { const b = goodBuf(t, stop); if (!b) return; const rec = addBuf(t, b, lod, true); rec.tf = inst; load(map, rec, inst); t = b.e; }
@@ -333,7 +333,9 @@ function parseModel(u8in) {
         t += 10;
       }
       else if (op === 0x12 && c[t + 1] === 0) { const g2 = t + 4 + dv.getInt16(t + 2, true); if (g2 >= appendStart && depth < 40) walk(g2, map, inst, lod, depth + 1, seen, meta); t += 4; }
-      else if (op === 0x38) { const g2 = t + 3 + dv.getInt16(t + 1, true); if (g2 < appendStart) return; t = g2; }
+      // a jump may also land in the original area: f14_jolly.py (F14J nose) moved grown faces into dead 1E filler runs
+      // there (each after a 38 jump of the original code) and chains them with 38 jumps
+      else if (op === 0x38) { const g2 = t + 3 + dv.getInt16(t + 1, true); if (g2 < start || g2 >= stop - 1) return; if (g2 < appendStart) M.jumpIns.add(g2); t = g2; }
       else if (op === 0xC4 && c[t + 1] === 0) {
         const pos = [0, 1, 2].map(k => dv.getInt16(t + 2 + 2 * k, true)), rot = [3, 4, 5].map(k => dv.getInt16(t + 2 + 2 * k, true));
         const pt = t + 16 + dv.getInt16(t + 14, true);
