@@ -17,7 +17,10 @@ list `C4 ... rel16 00 00`.  So each kind's C4s are repointed, nothing is rebuilt
                 (HARM shape; a Tomcat carries no AGMs): name entry 'AGM-' -> 'MK-84', any AGM then falls to the
                 generic AIM-120 shape.  The new MK-84 is written over the HARM part, the new MK-82 over the old
                 MK-82 part (both smaller), the rest of each old part zeroed.
-Usage: python3 store_bombs.py in.SH out.SH --mode state|f14
+--agm65 (Kuoyi 2026-11-21, as F18-27): every MK-8x / CBU bomb drawn as the MK-84, the BOMB-kind part becomes the
+  AGM-65 Maverick (SH/MAVRK.SH).  F/A-18: AGM-6 -> Maverick, other AGM -> HARM.  F-14 (no HARM part left): every AGM
+  -> Maverick.
+Usage: python3 store_bombs.py in.SH out.SH --mode state|f14 [--agm65]
 """
 import os, re, struct, sys
 from collections import Counter
@@ -26,6 +29,11 @@ sys.path.insert(0, HERE)
 from sh_subdivide import pe_sections
 import f18_bombs as B
 import f18_stores as S
+
+
+# F-14 with --agm65: the AIM-54 kind is real, so MK-8x / CBU -> AGM kind (MK-84 part over HARM), every AGM -> BOMB kind
+# (Maverick part over the old MK-82)
+F14_AGM65_NAMES = (b'AIM-9\x02AIM-7\x07AIM-5\x08GBU-3\x09AIM-\x00\x03AGM-\x00\x06GBU-\x00\x05MK-8\x00\x04CBU-\x00\x04')
 
 
 def slots(c):
@@ -55,7 +63,7 @@ def target(c, i): return i + 16 + struct.unpack_from('<h', c, i + 14)[0]
 def retarget(c, i, t): struct.pack_into('<h', c, i + 14, t - (i + 16))
 
 
-def main(src, dst, mode):
+def main(src, dst, mode, agm65=False):
     d = bytearray(open(src, 'rb').read())
     pe, opt, secs = pe_sections(d); code = next(s for s in secs if s['name'] == 'CODE')
     c = bytearray(d[code['ro']:code['ro'] + code['vs']])
@@ -63,7 +71,7 @@ def main(src, dst, mode):
     bomb_c4 = kind_c4(c, tables, S.BOMB)
     old82 = {target(c, i) for i in bomb_c4}; assert len(old82) == 1; old82 = old82.pop()
     HDR = bytes(c[old82 - 6:old82])
-    mk82 = B.part(*B.bomb('MK82.SH'), HDR)
+    mk82 = B.part(*B.bomb('MAVRK.SH' if agm65 else 'MK82.SH'), HDR)   # the BOMB-kind part
     mk84 = B.part(*B.bomb('MK84.SH'), HDR)
     allc4 = [i for i in range(len(c) - 16) if c[i] == 0xC4 and c[i + 1] == 0 and 0 <= target(c, i) < len(c) - 2]
     users = lambda t: [i for i in allc4 if target(c, i) == t]
@@ -87,7 +95,7 @@ def main(src, dst, mode):
         assert len(blob) <= size // 2, (len(blob), size // 2)
         c[free:free + len(blob)] = blob
         new82, new84 = free + 6, free + len(mk82) + 6
-        name_old, name_new = b'AIM-5\x08', b'MK-84\x08'
+        name_old, name_new = (B.OLD_NAMES, B.AGM65_NAMES) if agm65 else (b'AIM-5\x08', b'MK-84\x08')
         print(f'state table {state:#x} ({nk} slots x 128) -> x 64; parts at {free:#x}: MK82 {len(mk82)} B, MK84 {len(mk84)} B, '
               f'{size // 2 - len(blob)} B left')
     else:
@@ -99,11 +107,11 @@ def main(src, dst, mode):
             c[t - 6:t - 6 + n] = b + b'\0' * (n - len(b))
             print(f'{t:#x}: {len(b)} of {n} B')
         new82, new84 = old82, harm
-        name_old, name_new = b'AGM-\x00\x04', b'MK-84\x04'
+        name_old, name_new = (B.OLD_NAMES, F14_AGM65_NAMES) if agm65 else (b'AGM-\x00\x04', b'MK-84\x04')
     for i in bomb_c4: retarget(c, i, new82)
     for i in kind_c4(c, tables, k84): retarget(c, i, new84)
     k = bytes(c).find(name_old); assert k > 0 and bytes(c).count(name_old) == 1
-    c[k:k + 6] = name_new
+    c[k:k + len(name_new)] = name_new
     d[code['ro']:code['ro'] + code['vs']] = c
     assert len(d) < 65536
     open(dst, 'wb').write(d)
@@ -112,4 +120,4 @@ def main(src, dst, mode):
 
 if __name__ == '__main__':
     a = sys.argv[1:]
-    main(a[0], a[1], a[a.index('--mode') + 1])
+    main(a[0], a[1], a[a.index('--mode') + 1], agm65='--agm65' in a)
