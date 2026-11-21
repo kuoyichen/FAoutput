@@ -13,7 +13,10 @@ In place, no rebuild (F18.SH carries later binary edits: GBU-16 fix, wing fold, 
   * Bomb shapes: vertices with the same coordinates merged, degenerate / duplicate faces dropped; each fin
     (faces in the x = 0 or axis plane) is its bigger face drawn from both sides (fa_weapons.load turned both
     faces of each FA fin pair the same way, so a fin showed from one side only).
-Usage: python3 f18_bombs.py in/F18.SH out/F18.SH
+Usage: python3 f18_bombs.py in/F18.SH out/F18.SH [--agm65]
+--agm65 (Kuoyi 2026-11-21, F18-27): MK-82 and MK-84 look alike, so every MK-8x (and CBU) bomb is drawn as the MK-84
+  (name 'MK-8' -> AIM-54 kind, now the MK-84 part) and the old MK-82 part / BOMB kind becomes the AGM-65 Maverick
+  (SH/MAVRK.SH; name 'AGM-6' -> BOMB kind, ahead of 'AGM-' -> HARM).
 """
 import os, struct, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -21,6 +24,10 @@ sys.path.insert(0, HERE)
 from sh_subdivide import pe_sections
 from f18g_growler import faces_bytes, BASE, orient
 import fa_weapons as FW
+
+
+OLD_NAMES = (b'AIM-9\x02AIM-7\x07AIM-5\x08GBU-3\x09AIM-\x00\x03AGM-\x00\x04GBU-\x00\x05MK-8\x00\x06CBU-\x00\x06')
+AGM65_NAMES = (b'AIM-9\x02AIM-7\x07MK-8\x00\x08GBU-3\x09AIM-\x00\x03AGM-6\x06AGM-\x00\x04GBU-\x00\x05CBU-\x00\x08')
 
 
 def dedup(V, F, top):
@@ -54,8 +61,20 @@ def dedup(V, F, top):
         else: add(fl, col, r); continue
         # FA draws each fin as two overlapping faces of opposite winding (one per side, slightly different
         # outlines from rounding); fa_weapons.load turned both the same way.  Keep the bigger one, both sides.
-        if key not in fins or area(P) > fins[key][0]: fins[key] = (area(P), fl, col, r)
-    for a, fl, col, r in fins.values(): add(fl, col, r); add(fl, col, r[::-1])
+        # boxes in the fin plane: (fwd, distance from the axis); a face overlapping a kept one by more than half
+        # is the other side of the same fin (Maverick: wing and tail fin are separate faces of one group)
+        j = 2 if key[0] == 'x' else 0
+        bx = (min(p[1] for p in P), max(p[1] for p in P), min(p[j] for p in P), max(p[j] for p in P))
+        lst = fins.setdefault(key, [])
+        for n, (a, b2, f2) in enumerate(lst):
+            iw = min(bx[1], b2[1]) - max(bx[0], b2[0]); ih = min(bx[3], b2[3]) - max(bx[2], b2[2])
+            sz = lambda b: (b[1] - b[0]) * (b[3] - b[2])
+            if iw > 0 and ih > 0 and iw * ih > .5 * min(sz(bx), sz(b2)):
+                if area(P) > a: lst[n] = (area(P), bx, (fl, col, r))
+                break
+        else: lst.append((area(P), bx, (fl, col, r)))
+    for lst in fins.values():
+        for a, bx, (fl, col, r) in lst: add(fl, col, r); add(fl, col, r[::-1])
     used = sorted({i for _, _, q in out for i in q}); mm = {v: k for k, v in enumerate(used)}
     return [NV[i] for i in used], [(fl, col, [mm[i] for i in q]) for fl, col, q in out]
 
@@ -105,7 +124,7 @@ def merge_part(p, end):
     return bytes(b + code)
 
 
-def main(src, dst):
+def main(src, dst, agm65=False):
     d = bytearray(open(src, 'rb').read())
     pe, opt, secs = pe_sections(d); code = next(s for s in secs if s['name'] == 'CODE')
     c = bytearray(d[code['ro']:code['ro'] + code['vs']])
@@ -127,7 +146,8 @@ def main(src, dst):
     g_end = order[order.index(a_gb) + 1] - 6           # header of the next part
     HDR = bytes(c[a_mk - 6:a_mk])
     lo = a_mk - 6
-    new = [('MK82', part(*bomb('MK82.SH'), HDR), [a_mk]),
+    first = ('AGM65', part(*bomb('MAVRK.SH'), HDR)) if agm65 else ('MK82', part(*bomb('MK82.SH'), HDR))
+    new = [first + ([a_mk],),
            ('SPAR', bytes(c[a_sp - 6:a_ph - 6]), [a_sp]),
            ('MK84', part(*bomb('MK84.SH'), HDR), [a_ph]),
            ('GB27', HDR + merge_part(bytes(c[a_gb:g_end]), g_end - a_gb), [a_gb])]
@@ -145,8 +165,12 @@ def main(src, dst):
         if o in at:
             for i in srcs: struct.pack_into('<h', c, i + 14, at[o] - (i + 16))
     # name table: 'AIM-' '5' kind 8  ->  'MK-8' '4' kind 8
-    k = bytes(c).find(b'AIM-5\x08'); assert k > 0 and bytes(c).count(b'AIM-5\x08') == 1
-    c[k:k + 6] = b'MK-84\x08'
+    if agm65:      # every MK-8x and CBU bomb drawn as the MK-84; the BOMB kind (old MK-82 part) is the AGM-65
+        k = bytes(c).find(OLD_NAMES); assert k > 0
+        c[k:k + len(AGM65_NAMES)] = AGM65_NAMES
+    else:
+        k = bytes(c).find(b'AIM-5\x08'); assert k > 0 and bytes(c).count(b'AIM-5\x08') == 1
+        c[k:k + 6] = b'MK-84\x08'
     d[code['ro']:code['ro'] + code['vs']] = c
     assert len(d) < 65536
     open(dst, 'wb').write(d)
@@ -154,4 +178,4 @@ def main(src, dst):
 
 
 if __name__ == '__main__':
-    main(*sys.argv[1:3])
+    main(*sys.argv[1:3], agm65='--agm65' in sys.argv)
