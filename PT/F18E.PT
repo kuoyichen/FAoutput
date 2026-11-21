@@ -1060,7 +1060,7 @@
 :ot_names
 	string "F/A-18E"
 	string "F/A-18E Super Hornet"
-	string "FA18E.PT"
+	string "F18E.PT"
 :shape
 	string "f18e.SH"
 :shadowShape
