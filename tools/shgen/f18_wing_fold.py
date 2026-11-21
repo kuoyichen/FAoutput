@@ -30,7 +30,7 @@ Usage: python3 f18_wing_fold.py in.SH out.SH [--folded]   (--folded: static roll
 """
 import math, os, struct, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from sh_subdivide import pe_sections, parse_face, insert_blocks
+from sh_subdivide import pe_sections, parse_face, insert_blocks, main_lod
 from f18g_growler import grow_vas
 from f18_stores import find_thunk
 import keystone
@@ -47,8 +47,20 @@ HSLOT = 463              # hinge vertices: 463..479 are free in F18 (parts: 337-
 OVERLAP = 1              # panel faces start this far inboard of the hinge: FA places C4 parts to whole units
                          # (eye fraction dropped), so an exact joint shows a 1-unit seam on one side (F18-21)
 PSLOT = 700              # panel part vertices
-MAIN_END = 0x39e5        # end of the main LOD body bytecode (first part buffer)
-ROOT_HOOK = 0xe15        # `12 00 rel -> BODY; 38 -> 0xe27; 1E..` (f18_stores.py hook of the main root)
+MAIN_END = 0x39e5        # end of the main LOD body bytecode (first part buffer); set per file by layout()
+ROOT_HOOK = 0xe15        # `12 00 rel -> BODY; 38 -> 0xe27; 1E..` (f18_stores.py hook of the main root); layout()
+MAIN_AT = 0x80           # main-LOD vertex buffer (82 00 n 0); F18C/E/T have it at 0x81; layout()
+TIP_ST = 8               # wingtip station (PT hardpoint) whose store folds with the panel (F18U: 7)
+
+
+def layout(c):
+    """Find MAIN_AT, MAIN_END and ROOT_HOOK in this file (every F/A-18 variant has its own offsets)."""
+    global MAIN_AT, MAIN_END, ROOT_HOOK
+    L = main_lod(c)
+    MAIN_AT, MAIN_END = L[0][0], L[1][0]
+    r = L[0][3]
+    while c[r] == 0xF6: r += 7
+    ROOT_HOOK = r
 
 
 def code_of(d):
@@ -60,10 +72,10 @@ def code_of(d):
 def main_faces(c):
     """Main-LOD vertex buffer (slot 0) and every FC face of the main body reached by a linear walk of the BSP
     region (faces are leaves between nodes; parse_face validates them)."""
-    n = struct.unpack_from('<H', c, 0x82)[0]
-    V = [struct.unpack_from('<hhh', c, 0x86 + 6 * k) for k in range(n)]     # (x, fwd, up)
+    n = struct.unpack_from('<H', c, MAIN_AT + 2)[0]
+    V = [struct.unpack_from('<hhh', c, MAIN_AT + 6 + 6 * k) for k in range(n)]     # (x, fwd, up)
     faces = []
-    p = 0x86 + 6 * n
+    p = MAIN_AT + 6 + 6 * n
     while p < MAIN_END:
         if c[p] == 0xFC:
             f = parse_face(c, p)
@@ -73,7 +85,8 @@ def main_faces(c):
     return V, faces
 
 
-def clip(P, s, H=H):
+def clip(P, s, H=None):
+    if H is None: H = globals()['H']
     """P: [(xyz, uv, idx)], s = +1 / -1 side.  Returns (inner, outer) polygons; cut points are on x = s*H, rounded
     (idx None)."""
     inner, outer = [], []
@@ -93,10 +106,12 @@ def clip(P, s, H=H):
 
 def face_bytes(f, idx, uv, wide):
     fl = f['fl'] if wide else f['fl'] & ~0x400
+    u8 = fl & 0x100 and all(0 <= v <= 255 for t in uv for v in t)    # u8 UV faces stay u8 when they still fit
+    if not u8: fl &= ~0x100
     b = bytearray([0xFC]) + struct.pack('<HH', fl, f['col']) + f['head'][4:]
     b += bytes([len(idx)])
     b += b''.join(struct.pack('<H', i) for i in idx) if wide else bytes(idx)
-    b += b''.join(struct.pack('<HH', *t) for t in uv)
+    b += b''.join(struct.pack('<BB' if u8 else '<HH', *t) for t in uv)
     return b
 
 
@@ -194,7 +209,7 @@ def find_tip_stubs(c, tail):
     table of C4 lists per kind.  Returns {side: (stub offset, [list offsets])}."""
     out = {}
     for rank, s in ((2, +1), (1, -1)):
-        hits = [i for i in range(tail - 12) if c[i:i+3] == b'\xf0\x00\x68' and c[i+3] == 8 and c[i+4] == rank and c[i+6] == 0
+        hits = [i for i in range(tail - 12) if c[i:i+3] == b'\xf0\x00\x68' and c[i+3] == TIP_ST and c[i+4] == rank and c[i+6] == 0
                 and c[i+7] == 0xE8]
         assert len(hits) == 1, (rank, hits)
         o = hits[0]; tb = o + 12
@@ -212,11 +227,12 @@ def build(d, folded=False, grown=False):
     nxt = min(s['va'] for s in secs if s['va'] > code['va'])
     tail = bytes(c).find(SIG)
     thunk_old = find_thunk(c, tail)               # do_start_interp
+    layout(c)
     # the hook at the main root
     assert c[ROOT_HOOK:ROOT_HOOK+2] == b'\x12\x00' and c[ROOT_HOOK+4] == 0x38, c[ROOT_HOOK:ROOT_HOOK+8].hex()
     BODY = ROOT_HOOK + 4 + struct.unpack_from('<h', c, ROOT_HOOK + 2)[0]
     CONT = ROOT_HOOK + 7 + struct.unpack_from('<h', c, ROOT_HOOK + 5)[0]
-    assert c[BODY] == 0x06 and c[CONT] == 0x38, (hex(BODY), hex(CONT))
+    assert c[BODY] in (0x06, 0x0C, 0x0E, 0x10) and c[CONT] == 0x38, (hex(BODY), hex(CONT))
 
     V, faces = main_faces(c)
     hinge = {}                                   # (x, fwd, up) -> slot
@@ -241,7 +257,7 @@ def build(d, folded=False, grown=False):
         for s in (+1, -1):
             if max(s * x for x in xs) <= H - OVERLAP: continue
             assert min(s * x for x in xs) > -H, 'face crosses both hinges'
-            assert f['uv'] is not None and not f['fl'] & 0x100, 'expects u16 UVs'
+            assert f['uv'] is not None, 'expects a textured face'
             inn = snap(clip(P, s)[0], s, top)
             out = snap(clip(P, s, H - OVERLAP)[1], s, top)   # panel reaches OVERLAP inboard of the hinge (no seam)
             if len(out) >= 3: parts[s].append((f, out, top))
