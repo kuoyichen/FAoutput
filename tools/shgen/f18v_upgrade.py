@@ -7,7 +7,7 @@ Same four steps, in the same order as F18.SH was built:
                 on wing and centreline stations, fitted from the store top up into the wing / belly surface)
   2. afterburner sh_ab_flame.py <variant profile> --grow 3000
   3. gear       f18_gear.py (address set picked per layout: F18/F/U or C/E/T)
-  4. wing fold  f18_wing_fold.py; hinge |x| = max(44, outermost wing station + 2), so wing stores stay on the
+  4. wing fold  f18_wing_fold.py; hinge |x| = max(44, outermost wing station + 2, flap end + 1), so wing stores stay on the
                 fixed wing; the wingtip station folds with the panel
 Usage: python3 f18v_upgrade.py VARIANT in.SH in.PIC in.PT out.SH out.PIC [folded_preview.SH]
 Every step keeps the file < 65536 bytes and the vertex table <= 900 (asserted by the steps themselves).
@@ -101,6 +101,20 @@ def chord(P, x, above, near):
     return (max(fs), min(fs)) if fs else None
 
 
+def flap_span(d):
+    """Outer |x| of the flap vertex buffers: main-LOD part buffers behind the wing hinge line (fwd < -5) that
+    reach |x| >= 30."""
+    pe, opt, secs = pe_sections(d)
+    code = next(s for s in secs if s['name'] == 'CODE')
+    c = d[code['ro']:code['ro'] + code['vs']]
+    out = 0
+    for o, n, t, e in main_lod(c)[1:]:
+        if t < 0: continue
+        V = [struct.unpack_from('<3h', c, o + 6 + 6 * k) for k in range(n)]
+        if max(v[1] for v in V) < -5 and max(abs(v[0]) for v in V) >= 30: out = max(out, max(abs(v[0]) for v in V))
+    return out
+
+
 # ---------------------------------------------------------------- configure f18_stores from the PT
 def configure(d, pt):
     P = main_polys(d)
@@ -144,7 +158,10 @@ def configure(d, pt):
     S.SHAPES[S.AIM54] = S.SHAPES[S.AAM]
     S.PYLON_UNITS = lambda: units
     W.TIP_ST = tip['i']
-    W.H = max(44, max(wing) + 2) if wing else 44
+    # hinge outboard of the flaps too: the flap faces use their own vertex buffers (flaps up / down), which the
+    # fold does not clip, so a flap reaching past the hinge sticks out of the folded wing (F18E/F/T/U flaps reach
+    # x 51; F18 / F18C 39)
+    W.H = max(44, max(wing) + 2 if wing else 44, flap_span(d) + 1)
     print('slots', list(slots), 'fall', fall, 'tip station', W.TIP_ST, 'hinge |x|', W.H)
 
 
