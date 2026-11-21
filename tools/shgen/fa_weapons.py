@@ -50,8 +50,11 @@ TOPS = {}
 LAST_TOP = None
 
 
-def load(name, length=None, white=150, roll=0):
-    """roll (degrees) turns the store about its axis, e.g. 45 so + fins become X fins clear of the pylon."""
+def load(name, length=None, white=150, roll=0, balance=False):
+    """roll (degrees) turns the store about its axis, e.g. 45 so + fins become X fins clear of the pylon.
+    balance: make the body as deep as it is wide at every station before turning.  FA's bodies are a 4-point
+    diamond (PAVE 6 wide x 8 deep); turned 45 deg an unequal diamond becomes a tilted, lopsided rhombus.
+    With equal corners it turns into an even square whose corners line up with the X fins."""
     d = open(os.path.join(SHDIR, name), 'rb').read()
     pe, opt, secs = pe_sections(d); code = next(s for s in secs if s['name'] == 'CODE')
     c = d[code['ro']:code['ro']+code['vs']]
@@ -65,10 +68,29 @@ def load(name, length=None, white=150, roll=0):
     s = length / (f1 - f0) if length else 1        # length None: FA's own size, so it matches the launched weapon
     import math
     ca, sa = math.cos(math.radians(roll)), math.sin(math.radians(roll))
+    finq = lambda q: (all(V0[i][0] == 0 for i in q) or all(V0[i][2] == 0 for i in q)) and \
+        max(abs(V0[i][0]) + abs(V0[i][2]) for i in q) >= 3        # fin / canard: in the x = 0 or up = 0 plane
+    finv = {i for f in FF if finq(f[3]) for i in f[3]}
+    bodyv = {i for f in FF if not finq(f[3]) for i in f[3]}
+    if balance:
+        V0 = list(V0)
+        for i in bodyv - finv:              # PAVE has (-3,-1,1) next to the corner (-3,-1,0): snap such points
+            x, f, u = V0[i]                 # onto the corner, or turned they stick out of the square (a crack)
+            if x and u:
+                near = [V0[j] for j in bodyv if V0[j][1] == f and (V0[j][0] == 0) != (V0[j][2] == 0)
+                        and abs(V0[j][0] - x) + abs(V0[j][2] - u) <= 1 and max(abs(V0[j][0]), abs(V0[j][2])) >= 3]
+                if near: V0[i] = near[0]
+        W0 = list(V0)                       # station extents from the unscaled points
+        for i in bodyv - finv:
+            x, f, u = V0[i]
+            xr = max([abs(W0[j][0]) for j in bodyv if W0[j][1] == f and W0[j][2] == 0] or [0])
+            ur = max([abs(W0[j][2]) for j in bodyv if W0[j][1] == f and W0[j][0] == 0] or [0])
+            if xr and ur: R = max(xr, ur); V0[i] = (x * R / xr, f, u * R / ur)
     V = [(round((x * ca - u * sa) * s), round(f * s), round((x * sa + u * ca) * s)) for x, f, u in V0]
     # attach at the top of the body, not of the fins: fin faces lie in the x = 0 or up = 0 plane, body faces do not
     body = [f[3] for f in FF if any(V0[i][0] for i in f[3]) and any(V0[i][2] for i in f[3])]
     top = max(V[i][2] for q in body for i in q if abs(V[i][0]) <= 1)   # body top on the centreline (X fins are off it)
+    if balance: top = max(V[i][2] for i in bodyv - finv)          # the square's flat top hangs on the pylon
     global LAST_TOP; LAST_TOP = top
     TOPS[(name, length, roll)] = top                              # body top above the model origin (weapon centre)
     V = [(x, f, u - top) for x, f, u in V]                       # top of the store at local up 0 (pylon attach)
@@ -80,13 +102,53 @@ def load(name, length=None, white=150, roll=0):
         while len(q) > 1 and V[q[0]] == V[q[-1]]: q.pop()
         if len(set(V[i] for i in q)) < 3: continue
         col = col & 0xFF or white                                # textured / colour-0 faces -> plain white
-        F.append(((FLAT if fl & 0x40 else TWO_SIDED), col, q))
+        F.append(((FLAT if fl & 0x40 else TWO_SIDED), col, q, finq(idx)))
+    global LAST_GROUPS; LAST_GROUPS = None
     cen = [sum(v[k] for v in V) / len(V) for k in range(3)]
-    G = orient(V, [f for f in F if f[0] == FLAT], cen)
-    for fl, col, q in F:
-        if fl != FLAT: G += [(FLAT, col, q), (FLAT, col, q[::-1])]   # thin fins: one face per side
+    if balance:
+        # FA's fin faces come as one-sided FLAT pairs; orient() by the centre turns both the same way, so each fin
+        # showed from one side only (in game only 2 of the 4 X fins were seen from off-axis).  Give every fin
+        # face both sides, and group the fins by quadrant for xfin_code's draw order.
+        G = orient(V, [f[:3] for f in F if f[0] == FLAT and not f[3]], cen)
+        seen = set()                                             # FA's own exact duplicate faces draw nothing new
+        G = [g for g in G if not ((g[1], tuple(g[2])) in seen or seen.add((g[1], tuple(g[2]))))]
+        nb = len(G); seen = set(); quad = {}
+        for fl, col, q, fin in F:
+            if fl != FLAT or fin:
+                k = frozenset(q)
+                if k in seen: continue
+                seen.add(k)
+                cx = sum(V[i][0] for i in q) / len(q); cu = sum(V[i][2] for i in q) / len(q) + top   # axis at up -top
+                quad.setdefault((cx > 0, cu > 0), []).extend([len(G), len(G) + 1])
+                G += [(FLAT, col, q), (FLAT, col, q[::-1])]
+    else:
+        G = orient(V, [f[:3] for f in F if f[0] == FLAT], cen)
+        for fl, col, q, fin in F:
+            if fl != FLAT: G += [(FLAT, col, q), (FLAT, col, q[::-1])]   # thin fins: one face per side
     used = sorted({i for _, _, q in G for i in q}); m = {v: k for k, v in enumerate(used)}
+    if balance: LAST_GROUPS = {'body': list(range(nb)), **quad}
     return [V[i] for i in used], [(fl, col, [m[i] for i in q]) for fl, col, q in G]
+
+
+def xfin_code(V, F, groups, top, faces_bytes):
+    """Faces of an X-finned store with its own draw order (after the 82 buffer, up to and incl. the final 00 00).
+    Eye in part coords; node `06`: n.(eye + d) >= 0 -> A then B, else B then A.  Two nodes on each 45 deg plane
+    through the axis (axis at x 0, up -top): far fin, then the rest, then the near fin."""
+    import struct as S
+    sub = lambda key: faces_bytes(V, [F[i] for i in groups.get(key, [])]) + b'\0\0'
+    body = sub('body')
+    def wrap(n, far, inner, near):            # n = plane normal (x, up); far is drawn first when n.eye >= 0
+        # N_a: A = far, B = N_b;  N_b: A = inner, B = near
+        nb = S.pack('<BB6h', 0x06, 0, n[0], 0, n[1], top, 0, 0)
+        # layout: [Na 18][00 00][Nb 18][00 00][far][inner][near]
+        la = 18 + 2; lb = 18 + 2
+        o_far = la + lb; o_in = o_far + len(far); o_near = o_in + len(inner)
+        Na = nb + S.pack('<hh', o_far - 16, la - 18) + b'\0\0'
+        Nb = nb + S.pack('<hh', o_in - (la + 16), o_near - (la + 18)) + b'\0\0'
+        return Na + Nb + far + inner + near
+    c = 11585
+    core = wrap((c, -c), sub((False, True)), body, sub((True, False)))     # fins (-,+) / (+,-)
+    return wrap((c, c), sub((False, False)), core, sub((True, True)))      # fins (-,-) / (+,+)
 
 
 if __name__ == '__main__':
