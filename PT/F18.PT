@@ -311,7 +311,7 @@
     word 1
     byte 0
 ;-------- hardpoint 5
-    word $461
+    word $465
     word 11
     word -5
     word -4
@@ -321,7 +321,7 @@
     word 0
 	ptr defaultTypeName5
     byte 13
-    word 1
+    word 2
     byte 1
 ;-------- hardpoint 6
     word $7e5
