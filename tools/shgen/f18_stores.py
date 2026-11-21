@@ -129,11 +129,11 @@ def pylon(h, bot, top):
 
 
 import fa_weapons
-_W = lambda name, length, roll=0: (lambda: fa_weapons.load(name, None if NATIVE else length, roll=roll))
+_W = lambda name, length, roll=0, balance=False: (lambda: fa_weapons.load(name, None if NATIVE else length, roll=roll, balance=balance))
 # FA's own weapon models (with their colour bands); lengths are the real ones in F18 units (~9.5 units per metre),
 # used only when NATIVE is off
 SHAPES = {TANK: tank480, AIM9: _W('SIDEM.SH', 29), AAM: _W('AMRAM.SH', 37), ARM: _W('HARM.SH', 42),
-          LGB: _W('PAVE.SH', 42, 45), BOMB: _W('MK82.SH', 21), AIM7: _W('SPAR.SH', 36), AIM54: _W('PHENX.SH', 40),
+          LGB: _W('PAVE.SH', 42, 45, True), BOMB: _W('MK82.SH', 21), AIM7: _W('SPAR.SH', 36), AIM54: _W('PHENX.SH', 40),
           JDAM: _W('GB27.SH', 37)}       # GBU-3x JDAM: FA's GBU-29/30 shape (X fins)
 
 
@@ -624,6 +624,12 @@ def build(d, static=False, debug=False):
     assert all(v > 0 for v in struct.unpack('<3h', HDR)), HDR
     shapes = {k: aft(f()) for k, f in SHAPES.items()}
     parts = {('K', k): part_bytes(*v) for k, v in shapes.items()}
+    SHAPES[LGB](); xg, xt = fa_weapons.LAST_GROUPS, fa_weapons.LAST_TOP      # GBU: X fins with their own draw order
+    if xg:
+        V, F = shapes[LGB]
+        b = struct.pack('<BBHH', 0x82, 0, len(V), BASE*8) + b''.join(struct.pack('<hhh', *v) for v in V)
+        b += fa_weapons.xfin_code(V, F, xg, xt, faces_bytes)
+        parts[('K', LGB)] = HDR + b + b'\0' * (len(b) % 2)
     parts.update({('P', k): part_bytes(*v) for k, v in PYLONS.items()})
     nv = max(len(v[0]) for v in list(shapes.values()) + list(PYLONS.values()))
     if BASE + nv > 900: sys.exit('vertex table over 900')
