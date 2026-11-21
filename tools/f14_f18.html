@@ -135,10 +135,10 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
       </div>
       <div class="card" id="dl">
         <h3>Download</h3>
-        <div class="dlrow"><div><div class="f">F14.SH</div><div class="d" data-lang="en">F-14 shape · 64,000 bytes</div><div class="d" data-lang="zh">F-14 外形 · 64,000 bytes</div></div><a class="b" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/F14.SH" download>⬇ SH</a></div>
+        <div class="dlrow"><div><div class="f">F14.SH</div><div class="d" data-lang="en">F-14 shape · 65,024 bytes</div><div class="d" data-lang="zh">F-14 外形 · 65,024 bytes</div></div><a class="b" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/F14.SH" download>⬇ SH</a></div>
         <div class="dlrow"><div><div class="f">F14.PT</div><div class="d" data-lang="en">matching F-14 stations (required)</div><div class="d" data-lang="zh">對應的 F-14 掛點（必要）</div></div><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PT/F14.PT" download>⬇ PT</a></div>
         <div class="dlrow"><div><div class="f">_F14.PIC</div><div class="d" data-lang="en">F-14 texture with the afterburner flame (required) · 121,484 bytes</div><div class="d" data-lang="zh">含後燃器火焰的 F-14 貼圖（必要） · 121,484 bytes</div></div><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PIC/_F14.PIC" download>⬇ PIC</a></div>
-        <div class="dlrow"><div><div class="f">F18.SH</div><div class="d" data-lang="en">F/A-18 shape · 63,488 bytes</div><div class="d" data-lang="zh">F/A-18 外形 · 63,488 bytes</div></div><a class="b" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/F18.SH" download>⬇ SH</a></div>
+        <div class="dlrow"><div><div class="f">F18.SH</div><div class="d" data-lang="en">F/A-18 shape · 65,024 bytes</div><div class="d" data-lang="zh">F/A-18 外形 · 65,024 bytes</div></div><a class="b" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/F18.SH" download>⬇ SH</a></div>
         <div class="dlrow"><div><div class="f">F18.PT</div><div class="d" data-lang="en">matching F/A-18 stations (required)</div><div class="d" data-lang="zh">對應的 F/A-18 掛點（必要）</div></div><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PT/F18.PT" download>⬇ PT</a></div>
         <div class="dlrow"><div><div class="f">_F18.PIC</div><div class="d" data-lang="en">F/A-18 texture with the afterburner flame (required) · 167,504 bytes</div><div class="d" data-lang="zh">含後燃器火焰的 F/A-18 貼圖（必要） · 167,504 bytes</div></div><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PIC/_F18.PIC" download>⬇ PIC</a></div>
         <div style="margin-top:10px"><button class="btn" id="zip">⬇ All six files (.zip)</button></div>
@@ -162,7 +162,10 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <li><b>Its own AIM-54</b> (octagonal body, straight cone nose, Phoenix fins). The other weapons are FA's own weapon models at their real size. AIM-7s have a blue band, and the tanks sit slightly nose-up to fit under the nacelles.</li>
         <li><b>Glove pylons</b> with a raked leading edge. Pylons stay after firing and disappear when the station is empty.</li>
         <li><b>Jettisoned or empty tanks fall away</b> for 2 seconds, nose dropping about the tail.</li>
-        <li><b>3D landing gear:</b> struts, a nose-gear housing, piston and launch bar, and round wheels with an octagonal tyre. The wheels spin in flight-sim style: still at 0 kt, faster with speed, and stopped again above 180 kt.</li>
+        <li><b>3D landing gear:</b> struts with slim braces, a nose-gear housing and piston, and round wheels with an octagonal tyre. The wheels spin in flight-sim style: still at 0 kt, faster with speed, and stopped again above 180 kt.</li>
+        <li><b>Parked wing oversweep:</b> stopped on the ground or a carrier deck with the gear down, the wings sweep back to 75° over 4 seconds, as the real F-14 parks. They spread again in 3 seconds when you move off, or at full afterburner on the catapult even though the jet is not moving yet.</li>
+        <li><b>Flaps:</b> with the flaps down and the wings fully spread, the trailing-edge strip of each wing drops about 33° and leaves a notch in the wing, as on the real jet. With the wings swept, the flaps still work but are not drawn.</li>
+        <li><b>GBU-16 shape</b> is the same balanced body with four X fins as on the F/A-18.</li>
       </ul>
       <ul data-lang="zh">
         <li><b>新機鼻。</b>雷達罩用平滑的環重做，鼻尖從側面看落在機身中線上，跟真機一樣，不再往下垂。拿掉了黑色雷達罩塗裝和空速管，上下輪廓線平順地接回機身。共 57 點、94 面，並計算了光影法向量，在遊戲裡看起來是圓的。</li>
@@ -171,7 +174,10 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <li><b>自己做的 AIM-54</b>（八角形彈身、直錐形彈頭、鳳凰飛彈的尾翼）。其他武器用 FA 原本的武器模型，維持實際大小。AIM-7 有藍色色帶，副油箱略為抬頭，好貼合發動機艙下方。</li>
         <li><b>翼套派龍</b>前緣做成斜的。武器射完派龍架還在，掛點清空才會消失。</li>
         <li><b>拋棄或用完的副油箱會往下掉</b> 2 秒，以尾端為軸低頭落下。</li>
-        <li><b>立體起落架：</b>輪柱、前輪筒身、活塞和彈射桿，輪子是圓形貼圖加八角形輪胎。輪子會轉：0 節不轉、愈快轉愈快、超過 180 節又停下。</li>
+        <li><b>立體起落架：</b>輪柱加細斜撐、前輪筒身和活塞，輪子是圓形貼圖加八角形輪胎。輪子會轉：0 節不轉、愈快轉愈快、超過 180 節又停下。</li>
+        <li><b>停機時主翼後掠：</b>在地面或航艦甲板上停住、起落架放下時，主翼在 4 秒內後掠到 75 度，跟真的 F-14 停機一樣。開始移動時 3 秒內展開；在彈射器上推到全後燃器時，即使還沒動也會展開。</li>
+        <li><b>襟翼：</b>襟翼放下而且主翼全展時，每邊主翼後緣那一條會往下轉約 33 度，主翼留下缺口，跟真機一樣。主翼後掠時襟翼照常作用，但不畫出來。</li>
+        <li><b>GBU-16 外型</b>跟 F/A-18 的一樣：彈身對稱，四片 X 形尾翼。</li>
       </ul>
     </div>
     <div class="card chg">
@@ -184,6 +190,7 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <li><b>Wing stores moved 4 units back</b> so their tails clear the lowered flaps. Wing pylons hide when a station is empty.</li>
         <li><b>Jettisoned or empty tanks fall away</b> from the centreline and both wing stations. Only fuel tanks fall; fired missiles just disappear.</li>
         <li><b>3D landing gear:</b> the nose strut now reaches the fuselage, with a housing, piston, collar, fork block and launch bar, and the wheels spin with speed (still at 0 kt, stopped above 180 kt).</li>
+        <li><b>Parked wing fold:</b> stopped on the ground or a carrier deck with the gear down, the outer wings fold up over 4 seconds. They spread again in 3 seconds when you move off, or at full afterburner on the catapult.</li>
       </ul>
       <ul data-lang="zh">
         <li><b>照 FAshion F/A-18C 修整外形：</b>機身變窄變低、座艙罩降低、機鼻和機尾加長、垂直和水平尾翼縮小。保留雙座座艙。整個家族請看 <a href="f18_showcase.html">F/A-18 展示</a>。</li>
@@ -193,6 +200,7 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <li><b>翼下外掛往後移 4 單位</b>，尾端不會碰到放下的襟翼。掛點清空時翼下派龍會隱藏。</li>
         <li><b>拋棄或用完的副油箱會往下掉</b>，機腹中線和兩組翼下掛點都有。只有副油箱會掉，飛彈射出就直接消失。</li>
         <li><b>立體起落架：</b>前輪柱接到機身，加了筒身、活塞、套環、叉座和彈射桿，輪子會隨速度轉（0 節不轉、超過 180 節停下）。</li>
+        <li><b>停機時折翼：</b>在地面或航艦甲板上停住、起落架放下時，外翼在 4 秒內往上折起。開始移動時 3 秒內展開，在彈射器上推到全後燃器時也會展開。</li>
       </ul>
     </div>
   </div>
@@ -204,8 +212,8 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
   <div class="card" style="overflow-x:auto">
     <table class="num">
       <tr><th></th><th data-lang="en">Factory</th><th data-lang="zh">原廠</th><th data-lang="en">New</th><th data-lang="zh">新版</th><th data-lang="en">What was added</th><th data-lang="zh">新增內容</th></tr>
-      <tr><td><b>F14.SH</b></td><td class="n">33,280 B · CODE 0x8000</td><td class="n">64,000 B</td><td><span data-lang="en">new nose, own AIM-54, 9 store kinds × 10 slots, pylons, falling-tank timers, BSP nodes, animated afterburner flame that grows over 3 s</span><span data-lang="zh">新機鼻、自製 AIM-54、9 種外掛 × 10 個位置、派龍架、油箱掉落計時、BSP 節點、3 秒內變長的動態後燃器火焰</span></td></tr>
-      <tr><td><b>F18.SH</b></td><td class="n">33,280 B · CODE 0x7000</td><td class="n">63,488 B</td><td><span data-lang="en">reshaped body, 9 store kinds × 9 slots, pylons, falling-tank tables for 5 tank slots, BSP nodes, animated afterburner flame that grows over 3 s</span><span data-lang="zh">修整機身、9 種外掛 × 9 個位置、派龍架、5 個油箱位置的掉落表、BSP 節點、3 秒內變長的動態後燃器火焰</span></td></tr>
+      <tr><td><b>F14.SH</b></td><td class="n">33,280 B · CODE 0x8000</td><td class="n">65,024 B</td><td><span data-lang="en">new nose, own AIM-54, 9 store kinds × 10 slots, pylons, falling-tank timers, BSP nodes, animated afterburner flame that grows over 3 s, 3D gear with spinning wheels, parked wing oversweep, flaps with a wing notch</span><span data-lang="zh">新機鼻、自製 AIM-54、9 種外掛 × 10 個位置、派龍架、油箱掉落計時、BSP 節點、3 秒內變長的動態後燃器火焰、會轉的立體起落架、停機主翼後掠、帶主翼缺口的襟翼</span></td></tr>
+      <tr><td><b>F18.SH</b></td><td class="n">33,280 B · CODE 0x7000</td><td class="n">65,024 B</td><td><span data-lang="en">reshaped body, 9 store kinds × 9 slots, pylons, falling-tank tables for 5 tank slots, BSP nodes, animated afterburner flame that grows over 3 s, 3D gear with spinning wheels, parked wing fold</span><span data-lang="zh">修整機身、9 種外掛 × 9 個位置、派龍架、5 個油箱位置的掉落表、BSP 節點、3 秒內變長的動態後燃器火焰、會轉的立體起落架、停機折翼</span></td></tr>
     </table>
   </div>
 
@@ -441,7 +449,7 @@ async function show(name){
   $("flapsBox").style.display = AC[name].flaps ? "" : "none"; $("sweepBox").style.display = AC[name].sweep ? "" : "none";
   if (!cache[name]){
     $("stat").textContent = L("Loading ", "載入 ") + name + ".SH…";
-    const [u8, p8] = await Promise.all([fetchAny("SH/" + name + ".SH"), fetchAny("PIC/_" + name + ".PIC")]);
+    const [u8, p8] = await Promise.all([fetchAny("SH/view/" + name + ".SH"), fetchAny("PIC/_" + name + ".PIC")]);
     if (!u8){ $("stat").textContent = L("Could not load ", "無法載入 ") + name + ".SH"; return; }
     let pic = null; try { if (p8) pic = parsePIC(p8); } catch(e){}
     const M = SHCore.parseModel(u8); if (!M || !M.faces.length){ $("stat").textContent = L("Could not parse ", "無法解析 ") + name + ".SH"; return; }

@@ -411,7 +411,7 @@ async function fetchFile(dir, name){
   for (const u of urls){ try { const r = await fetch(u); if (r.ok) return new Uint8Array(await r.arrayBuffer()); } catch(e){} }
   return null;
 }
-async function fetchSH(k){ if (dirSH.has(k)) return new Uint8Array(await dirSH.get(k).arrayBuffer()); return fetchFile("SH", k + ".SH"); }
+async function fetchSH(k){ if (dirSH.has(k)) return new Uint8Array(await dirSH.get(k).arrayBuffer()); return /^(F14|F18)$/i.test(k) ? fetchFile("SH/view", k.toUpperCase() + ".SH") : fetchFile("SH", k + ".SH"); }   // F14/F18: view copy without the x86-only wing fold / flaps
 async function fetchPIC(n){ if (dirPIC.has(n)) return new Uint8Array(await dirPIC.get(n).arrayBuffer()); const f = PIC_FILE.get(n); return f ? fetchFile("PIC", f) : null; }
 function shTexName(u8){   // E2 00 + 14-byte file name switches the texture (F14.SH: "_f14.PIC")
   for (let i = 0; i < u8.length - 16; i++) if (u8[i] === 0xE2 && u8[i+1] === 0){ let s = ""; for (let k = 2; k < 16 && u8[i+k]; k++) s += String.fromCharCode(u8[i+k]); if (/^[\w-]+\.PIC$/i.test(s)) return s.toUpperCase(); }
