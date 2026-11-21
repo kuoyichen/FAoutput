@@ -22,7 +22,9 @@ list `C4 ... rel16 00 00`.  So each kind's C4s are repointed, nothing is rebuilt
   -> Maverick.
 --asroc (F18E/F only, with --mode state --agm65): ASROC ("SM-2 MR") -> AAAM.SH in the AIM-7 kind (AIM-7 -> AIM-120);
   names that match nothing (MK-20, rockets, gun pods) -> MK-84 instead of AIM-120.
-Usage: python3 store_bombs.py in.SH out.SH --mode state|f14 [--agm65] [--asroc]
+--mim23 (FIR only, Kuoyi 2026-11-21): MIM23.JT (short name "AIM-23C") drawn as the AIM-54.  The name table is full, so the
+  generic 'AIM-' entry (kind AAM) becomes 'AIM-2' -> AIM54 kind; other AIM-1xx still get AAM from the fallback.
+Usage: python3 store_bombs.py in.SH out.SH --mode state|f14 [--agm65] [--asroc] [--mim23]
 """
 import os, re, struct, sys
 from collections import Counter
@@ -68,7 +70,7 @@ def target(c, i): return i + 16 + struct.unpack_from('<h', c, i + 14)[0]
 def retarget(c, i, t): struct.pack_into('<h', c, i + 14, t - (i + 16))
 
 
-def main(src, dst, mode, agm65=False, asroc=False):
+def main(src, dst, mode, agm65=False, asroc=False, mim23=False):
     d = bytearray(open(src, 'rb').read())
     pe, opt, secs = pe_sections(d); code = next(s for s in secs if s['name'] == 'CODE')
     c = bytearray(d[code['ro']:code['ro'] + code['vs']])
@@ -127,6 +129,11 @@ def main(src, dst, mode, agm65=False, asroc=False):
         g = bytes(c).find(b'\xb8' + struct.pack('<I', S.GENERIC), k + len(name_new)); assert 0 < g - k < 120, g - k
         struct.pack_into('<I', c, g + 1, S.AIM54)
         print('ASROC -> ' + ASROC_SH + ' part at %#x, fallback kind %d -> %d' % (newhq, S.GENERIC, S.AIM54))
+    if mim23:      # 'AIM-' any -> AAM is what the fallback gives anyway; reuse the entry for AIM-2x (AIM-23C) -> AIM-54
+        j = bytes(c).find(b'AIM-\x00' + bytes([S.AAM]), k); assert 0 < j - k < len(name_new)
+        g = bytes(c).find(b'\xb8' + struct.pack('<I', S.GENERIC), k + len(name_new)); assert 0 < g - k < 120 and S.GENERIC == S.AAM
+        c[j:j + 6] = b'AIM-2' + bytes([S.AIM54])
+        print('AIM-23C -> AIM-54 kind')
     d[code['ro']:code['ro'] + code['vs']] = c
     assert len(d) < 65536
     open(dst, 'wb').write(d)
@@ -135,4 +142,4 @@ def main(src, dst, mode, agm65=False, asroc=False):
 
 if __name__ == '__main__':
     a = sys.argv[1:]
-    main(a[0], a[1], a[a.index('--mode') + 1], agm65='--agm65' in a, asroc='--asroc' in a)
+    main(a[0], a[1], a[a.index('--mode') + 1], agm65='--agm65' in a, asroc='--asroc' in a, mim23='--mim23' in a)
