@@ -224,7 +224,9 @@ const PAL_GRAY_HOME = (() => { const p = new Uint8Array(768); for (let i = 0; i 
 // ===== Homepage: F-14 or F/A-18 hero (random), rear half textured, front half bare shape =====
 const $ = id => document.getElementById(id);
 const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
+const SH_VIEW = p => p.replace(/^SH\/(F14|F18)\.SH$/i, "SH/view/$1.SH");   // F14/F18 add x86-only features (wing fold, flaps) the viewers cannot follow: show the view copy (same look, wings spread)
 async function fetchAny(paths){
+  paths = paths.map(SH_VIEW);
   const urls = [];
   if (/^https?:$/.test(location.protocol)) for (const p of paths) urls.push(new URL(p, location.href).href);
   for (const p of paths) urls.push(REMOTE + p);

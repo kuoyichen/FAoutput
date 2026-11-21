@@ -356,7 +356,9 @@ FAI18N.register({"FA SH Texture Test": "FA SH 貼圖測試", "F14X (subdivided)"
 $("langSlot").append(FAI18N.picker()); FAI18N.apply(); document.title = L("FA SH Texture Test", "FA SH 貼圖測試");
 FAI18N.onChange(() => { document.title = L("FA SH Texture Test", "FA SH 貼圖測試"); if (cur) load(cur.name); });
 const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
+const SH_VIEW = p => p.replace(/^SH\/(F14|F18)\.SH$/i, "SH/view/$1.SH");   // F14/F18 add x86-only features (wing fold, flaps) the viewers cannot follow: show the view copy (same look, wings spread)
 async function fetchAny(paths){
+  paths = paths.map(SH_VIEW);
   const urls = [];
   for (const p of paths){ if (/^https?:$/.test(location.protocol)) urls.push(new URL("../" + p, location.href).href); }
   for (const p of paths) urls.push(REMOTE + p);

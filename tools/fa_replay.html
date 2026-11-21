@@ -1006,9 +1006,9 @@ function setModel(k, u8){ let m = null; try { m = parseSH(u8); if (m) m.tex = sh
 let redrawT = 0;
 const soon = () => { if (!redrawT) redrawT = setTimeout(() => { redrawT = 0; renderShList(); fillModelSelect(true); draw(); }, 60); };
 async function fetchSH(k){
-  const urls = [];
-  if (/^https?:$/.test(location.protocol)) urls.push(new URL("../SH/" + k + ".SH", location.href).href);
-  urls.push(SH_REMOTE + encodeURIComponent(k) + ".SH");
+  const urls = [], v = /^(F14|F18)$/i.test(k) ? "view/" : "";   // F14/F18: view copy without the x86-only wing fold / flaps
+  if (/^https?:$/.test(location.protocol)) urls.push(new URL("../SH/" + v + k + ".SH", location.href).href);
+  urls.push(SH_REMOTE + v + encodeURIComponent(k) + ".SH");
   for (const u of urls){ try { const r = await fetch(u); if (r.ok){ shSource = u.startsWith(SH_REMOTE) ? "GitHub" : "../SH/"; return new Uint8Array(await r.arrayBuffer()); } } catch(e){} }
   return null;
 }
