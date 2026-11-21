@@ -20,7 +20,9 @@ list `C4 ... rel16 00 00`.  So each kind's C4s are repointed, nothing is rebuilt
 --agm65 (Kuoyi 2026-11-21, as F18-27): every MK-8x / CBU bomb drawn as the MK-84, the BOMB-kind part becomes the
   AGM-65 Maverick (SH/MAVRK.SH).  F/A-18: AGM-6 -> Maverick, other AGM -> HARM.  F-14 (no HARM part left): every AGM
   -> Maverick.
-Usage: python3 store_bombs.py in.SH out.SH --mode state|f14 [--agm65]
+--asroc (F18E/F only, with --mode state --agm65): ASROC ("SM-2 MR") -> HQ2J.SH in the AIM-7 kind (AIM-7 -> AIM-120);
+  names that match nothing (MK-20, rockets, gun pods) -> MK-84 instead of AIM-120.
+Usage: python3 store_bombs.py in.SH out.SH --mode state|f14 [--agm65] [--asroc]
 """
 import os, re, struct, sys
 from collections import Counter
@@ -63,7 +65,7 @@ def target(c, i): return i + 16 + struct.unpack_from('<h', c, i + 14)[0]
 def retarget(c, i, t): struct.pack_into('<h', c, i + 14, t - (i + 16))
 
 
-def main(src, dst, mode, agm65=False):
+def main(src, dst, mode, agm65=False, asroc=False):
     d = bytearray(open(src, 'rb').read())
     pe, opt, secs = pe_sections(d); code = next(s for s in secs if s['name'] == 'CODE')
     c = bytearray(d[code['ro']:code['ro'] + code['vs']])
@@ -92,9 +94,11 @@ def main(src, dst, mode, agm65=False):
         free = state + size // 2
         free += free % 2
         blob = mk82 + mk84
+        if asroc: hq = B.part(*B.bomb('HQ2J.SH'), HDR); blob += hq
         assert len(blob) <= size // 2, (len(blob), size // 2)
         c[free:free + len(blob)] = blob
         new82, new84 = free + 6, free + len(mk82) + 6
+        newhq = free + len(mk82) + len(mk84) + 6
         name_old, name_new = (B.OLD_NAMES, B.AGM65_NAMES) if agm65 else (b'AIM-5\x08', b'MK-84\x08')
         print(f'state table {state:#x} ({nk} slots x 128) -> x 64; parts at {free:#x}: MK82 {len(mk82)} B, MK84 {len(mk84)} B, '
               f'{size // 2 - len(blob)} B left')
@@ -112,6 +116,14 @@ def main(src, dst, mode, agm65=False):
     for i in kind_c4(c, tables, k84): retarget(c, i, new84)
     k = bytes(c).find(name_old); assert k > 0 and bytes(c).count(name_old) == 1
     c[k:k + len(name_new)] = name_new
+    if asroc:      # F18E/F (Kuoyi 2026-11-21): ASROC.JT (short name "SM-2 MR") drawn with HQ2J.SH in the AIM-7 kind;
+        assert mode == 'state' and agm65      # AIM-7 then falls to 'AIM-' (AIM-120).  The table is full, so MK-20
+        for i in kind_c4(c, tables, S.AIM7): retarget(c, i, newhq)      # comes from the fallback: any name that
+        j = bytes(c).find(b'AIM-7\x07', k); assert j == k + 6          # matches nothing is drawn as the MK-84
+        c[j:j + 6] = b'SM-2 \x07'
+        g = bytes(c).find(b'\xb8' + struct.pack('<I', S.GENERIC), k + len(name_new)); assert 0 < g - k < 120, g - k
+        struct.pack_into('<I', c, g + 1, S.AIM54)
+        print('ASROC -> HQ2J part at %#x, fallback kind %d -> %d' % (newhq, S.GENERIC, S.AIM54))
     d[code['ro']:code['ro'] + code['vs']] = c
     assert len(d) < 65536
     open(dst, 'wb').write(d)
@@ -120,4 +132,4 @@ def main(src, dst, mode, agm65=False):
 
 if __name__ == '__main__':
     a = sys.argv[1:]
-    main(a[0], a[1], a[a.index('--mode') + 1], agm65='--agm65' in a)
+    main(a[0], a[1], a[a.index('--mode') + 1], agm65='--agm65' in a, asroc='--asroc' in a)
