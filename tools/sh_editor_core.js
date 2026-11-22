@@ -67,6 +67,7 @@ function faNormal(P) {
 
 // ---- x86 control blocks (copied from sh_texture.html / sh_gallery.html) ----
 const SH_VA = 0x1000;
+const OVERSWEEP = 55 * 182, PARK = { v: 0 };   // f14_park_sweep.py: parked sweep (75 deg) and the viewer's parked progress 0..1
 function x86Run(mem, start, maxSteps = 400){
   const dv = new DataView(mem.buffer, mem.byteOffset, mem.byteLength), L = mem.length;
   const rd16 = va => { const o = va - SH_VA; return o >= 0 && o + 1 < L ? dv.getInt16(o, true) : 0; };
@@ -122,7 +123,7 @@ function x86Run(mem, start, maxSteps = 400){
       // F-14 parked oversweep (tools/shgen/f14_park_sweep.py): the swing-wing F0 calls a routine that returns the normal
       // sweep (ax>>2 + ax>>6) while flying and blends to 75 deg when parked; viewers show the flying sweep
       const t = p + 5 + dv.getInt32(o+1, true) - SH_VA;
-      if (t >= 0 && t + 13 <= L && [0x9C,0x60,0xE8,0,0,0,0,0x5B,0x0F,0xBF,0x6C,0x24,0x1C].every((x, k) => mem[t + k] === x)) { ax = s16((s16(ax) >> 2) + (s16(ax) >> 6)); p += 5; continue; }
+      if (t >= 0 && t + 13 <= L && [0x9C,0x60,0xE8,0,0,0,0,0x5B,0x0F,0xBF,0x6C,0x24,0x1C].every((x, k) => mem[t + k] === x)) { const n = s16((s16(ax) >> 2) + (s16(ax) >> 6)); ax = s16(n + Math.round((OVERSWEEP - n) * PARK.v)); p += 5; continue; }
       stack.push(p + 5); p += 5 + dv.getInt32(o+1, true); continue; }
     if (b0 === 0x5B){ ebx = stack.pop() ?? 0; p += 1; continue; }
     if (b0 === 0x53){ stack.push(ebx); p += 1; continue; }
@@ -345,7 +346,7 @@ function parseModel(u8in) {
       else if (op === 0xC4 && c[t + 1] === 0) {
         const pos = [0, 1, 2].map(k => dv.getInt16(t + 2 + 2 * k, true)), rot = [3, 4, 5].map(k => dv.getInt16(t + 2 + 2 * k, true));
         const pt = t + 16 + dv.getInt16(t + 14, true);
-        if (pt >= appendStart && depth < 40) { M.insts.push(compose(M.insts[inst], c4Tf(pos, rot))); M.instMeta.push(meta); walk(pt, map.slice(), M.insts.length - 1, lod, depth + 1, seen, meta); }
+        if (pt >= appendStart && depth < 40) { M.insts.push(compose(M.insts[inst], c4Tf(pos, rot))); M.instMeta.push(meta); (M.instInfo = M.instInfo || [])[M.insts.length - 1] = { parent: inst, pos }; walk(pt, map.slice(), M.insts.length - 1, lod, depth + 1, seen, meta); }
         t += 16;
       }
       else if (op === 0xF0 && c[t + 1] === 0 && c[t + 2] === 0x68 && c[t + 7] === 0xE8) {
@@ -406,7 +407,10 @@ function parseModel(u8in) {
       const N = dv.getUint32(o + 3, true) - SH_VA;
       if (N >= appendStart && N < stop - 8 && c[N] === 0xF0 && c[N + 1] === 0 && c[N + 2] === 0x68) {
         const X = dv.getUint32(N + 3, true) - SH_VA;
-        if (X >= appendStart && X < stop - 6 && goodBuf(X, stop)) { walk(X, map, 0, lod, 0, new Set()); o += 13; continue; }
+        if (X >= appendStart && X < stop - 6 && goodBuf(X, stop)) { const i0 = M.insts.length; walk(X, map, 0, lod, 0, new Set());
+          // the outer panels are the C4 parts placed straight from the fold block; polys(opts.fold) rolls them up about their hinge
+          for (let i = i0; i < M.insts.length; i++) { const I = M.instInfo && M.instInfo[i]; if (I && I.parent === 0 && Math.abs(I.pos[0]) >= 30) (M.foldPanels = M.foldPanels || []).push({ inst: i, hx: I.pos[0], hu: I.pos[1] }); }
+          o += 13; continue; }
       }
       // F-14 flaps (tools/shgen/f14_flap.py): a wing part's first 82 moved to an appended block (flap vertices at slot 800 +
       // the wing vertices), and the part now starts with this trampoline. Load the block's 82s here as the part's own
@@ -591,7 +595,15 @@ function polys(M, opts = {}) {
   try { return polysAt(M, opts); } finally { if (gr) for (const G of gr) for (const id of G.vids) M.verts[id].p[1] = G.tail; }
 }
 function polysAt(M, opts) {
-  placeParts(M, { vars: M.ctl ? varsFor(M, opts.on || {}) : undefined, gear: !!(opts.on && opts.on._PLgearDown) });
+  PARK.v = Math.max(0, Math.min(1, opts.park || 0));   // F-14 parked oversweep progress (polys opts.park)
+  try { placeParts(M, { vars: M.ctl ? varsFor(M, opts.on || {}) : undefined, gear: !!(opts.on && opts.on._PLgearDown) }); } finally { PARK.v = 0; }
+  // F/A-18 parked wing fold (polys opts.fold 0..1, 1 = 95 deg up): vertices of a panel part and of everything placed inside it
+  const fold = M.foldPanels && opts.fold > 0 ? Math.max(0, Math.min(1, opts.fold)) * 17294 / 65536 * 2 * Math.PI : 0, panelOf = new Map();
+  if (fold) { const P = new Map(M.foldPanels.map(q => [q.inst, q])); const up = i => { if (panelOf.has(i)) return panelOf.get(i); let r = null; for (let j = i, g = 0; j && g < 40; g++) { if (P.has(j)) { r = P.get(j); break; } const I = M.instInfo && M.instInfo[j]; if (!I) break; j = I.parent; } panelOf.set(i, r); return r; };
+    for (let i = 1; i < M.insts.length; i++) up(i); }
+  const cf = Math.cos(fold), sf = Math.sin(fold);
+  const wpt = (r) => { const w = worldOf(M, r[0], r[1]); const q = fold && r[1] && panelOf.get(r[1]); if (!q) return w;
+    const dx = w[0] - q.hx, du = w[2] - q.hu, sg = q.hx >= 0 ? 1 : -1; return [q.hx + dx * cf - sg * du * sf, w[1], q.hu + sg * dx * sf + du * cf]; };
   const st = M.stations || new Map(), k = opts.scale ? M.scale : 1, out = [];
   const shown = opts.storeShown || (t => { const S0 = st.get(t.st); if (!S0) return true; return t.type === "pylon" ? S0.def !== 0 : S0.def === t.kind && S0.maxRank >= t.rank; });
   for (const f of M.faces) {
@@ -600,7 +612,7 @@ function polysAt(M, opts) {
     if (f.grp && !f.grp.placed) continue;
     if (!(opts.on && opts.on._PLleftFlap) && f.refs.some(r => M.bufs[M.verts[r[0]].buf].flap)) continue;   // F-14 flap faces: only with flaps down
     if (!f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed)) continue;
-    out.push({ pts: f.refs.map(r => { const w = worldOf(M, r[0], r[1]); return [w[0] * k, w[1] * k, w[2] * k]; }), uv: f.uv, col: f.col, face: f });
+    out.push({ pts: f.refs.map(r => { const w = wpt(r); return [w[0] * k, w[1] * k, w[2] * k]; }), uv: f.uv, col: f.col, face: f });
   }
   return out;
 }
