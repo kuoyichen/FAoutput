@@ -103,6 +103,11 @@ class Mesh:
 
     def face(self, idx, normal, point, col, flags=F_LIT):
         n = [float(k) for k in normal]; L = math.sqrt(sum(k * k for k in n))
+        # FA 用螢幕上的繞向剔除背面：(B−A)×(C−A)（x, up, fwd 座標）要和外法線同向，不然整面不畫
+        P = [self.v[i - self.slot] for i in idx[:3]]
+        e1 = [P[1][t] - P[0][t] for t in range(3)]; e2 = [P[2][t] - P[0][t] for t in range(3)]
+        cr = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]
+        if sum(cr[t] * n[t] for t in range(3)) < 0: idx = list(idx)[::-1]
         n = [int(round(k / L * 32767)) for k in n]
         b = bytearray(b'\xFC') + struct.pack('<HH', flags, col) + struct.pack('<3h', *n)
         b += struct.pack('<3b', *[int(round(k)) for k in point]) + bytes([len(idx)])
@@ -144,17 +149,17 @@ def node(op, n1, d1, n2, d2, A, B):
 def make_parts():
     """回傳 dict：blk（HDR+硬桿零件、機腹燈、尾端 C4、選擇跳躍、掛勾 C4）與各位移。"""
     m = Mesh(BOOM_SLOT)
-    oc = [(1, 2), (2, 1), (2, -1), (1, -2), (-1, -2), (-2, -1), (-2, 1), (-1, 2)]   # 上半桿八角
-    sq = [(1, 1), (1, -1), (-1, -1), (-1, 1)]                                      # 伸縮管方形
+    oc = [(1, 1), (1, -1), (-1, -1), (-1, 1)]       # 上半桿：方管 2×2（Kuoyi：原本八角太粗，縮一半）
+    sq = [(0, 1), (1, 0), (0, -1), (-1, 0)]         # 伸縮管：菱形，比上半桿稍細
     # 上半桿：環 fwd +2, −36, −40, −50；−36..−40 下面三片是桿上燈
     tube_rings = [[m.vert(x, u, f) for x, u in oc] for f in (2, -36, -40, -UP_LEN)]
-    LIGHT_SIDES = (2, 3, 4)          # 邊 (2,-1)-(1,-2)、(1,-2)-(-1,-2)、(-1,-2)-(-2,-1)
+    LIGHT_SIDES = (0, 1, 2)          # 右側、底面、左側
     tube = prism_faces(m, tube_rings, oc, lambda a, i: C_BOOM)
     cap = m.face(tube_rings[3], (0, 0, -1), (0, 0, -UP_LEN), C_BOOM)
     # 飛翼（V 形，翼尖朝外上），兩面
     fins = []
     for sx in (-1, 1):
-        q = [m.vert(2 * sx, 0, -41), m.vert(2 * sx, 0, -48), m.vert(8 * sx, 4, -48), m.vert(8 * sx, 4, -45)]
+        q = [m.vert(1 * sx, 0, -41), m.vert(1 * sx, 0, -48), m.vert(7 * sx, 4, -48), m.vert(7 * sx, 4, -45)]
         P = [m.v[k - m.slot] for k in q]
         e1 = [P[1][t] - P[0][t] for t in range(3)]; e2 = [P[2][t] - P[0][t] for t in range(3)]
         n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]
@@ -174,9 +179,10 @@ def make_parts():
     # 根：fwd 平面 −UP_LEN（eye_fwd + UP_LEN ≥ 0：眼睛在桿端前方 → 先畫伸縮管再畫上半桿）
     root = len(part); part += bytes(14); part += b'\x1E'
     # 伸縮管
-    o_tele = len(part); o_tcap = len(part); part += tcap
-    for row in tele:
+    o_tele = len(part)
+    for row in tele[::-1]:                 # 管根先畫、管尖後畫，管尖蓋最後
         for f in row: part += f
+    o_tcap = len(part); part += tcap
     part += b'\x1E'
     # 上半桿：x 平面兩層：Lfin / (tube / Rfin)
     o_up = len(part); part += bytes(14); part += b'\x1E'
@@ -196,6 +202,7 @@ def make_parts():
     put(o_up, 0x0E, 1, 0, 0, 0, o_lf, o_up2)
     put(o_up2, 0x0E, 1, 0, 0, 0, o_tube, o_rf)
     tele_fwd = [[part82 + m.voff(k) + 2 for k in ring] for ring in tele_rings]   # (x, fwd, up) 的 fwd
+    tele_v = [[(part82 + m.voff(k), m.v[k - m.slot][0], m.v[k - m.slot][1]) for k in ring] for ring in tele_rings]
     tcap_pt = o_tcap + 1 + 2 + 2 + 6 + 2                                         # 平面點 fwd（i8）
 
     # ---- 機腹燈 ----
@@ -216,7 +223,7 @@ def make_parts():
     rel = lambda o_jmp, tgt: tgt - (o_jmp + 3)
     return dict(blk=blk, part82=part82, snip=o_snip, boom2=o_boom2, endsel=o_endsel,
                 rel_ret=rel(o_endsel, o_ret), rel_boom2=rel(o_endsel, o_boom2), rel_lights=rel(o_endsel, o_lights),
-                tele_fwd=tele_fwd, tcap_pt=tcap_pt, light_faces=light_faces, nverts=len(m.v))
+                tele_fwd=tele_fwd, tele_v=tele_v, tcap_pt=tcap_pt, light_faces=light_faces, nverts=len(m.v))
 
 
 def build(src, dst, preview=None, mode='full'):
@@ -255,10 +262,19 @@ def build(src, dst, preview=None, mode='full'):
         # 伸縮管各環 fwd = min(−UP_LEN, 管尖 + 3k)，管尖 = −UP_LEN − EXT/256
         ta = [f"            mov eax, dword ptr [ebx + {r('EXT')}]", "            sar eax, 8", "            neg eax",
               f"            sub eax, {UP_LEN}", f"            mov byte ptr [ebx + {s(G['tcap_pt'])}], al"]
-        for k, ring in enumerate(G['tele_fwd']):
+        # 環 k：v = 管尖 + 3k。v ≤ −UP_LEN 露在外面；前一環露在外面時夾在 −UP_LEN（全尺寸）；
+        # 其餘藏在上半桿裡的環縮成中心一點（不留退化面的殘線）
+        for k, ring in enumerate(G['tele_v']):
             ta += ["            mov ecx, eax", f"            add ecx, {TELE_STEP * k}", f"            cmp ecx, {-UP_LEN}",
-                   f"            jle tr{k}", f"            mov ecx, {-UP_LEN}", f"        tr{k}:"]
-            ta += [f"            mov word ptr [ebx + {s(o)}], cx" for o in ring]
+                   f"            jle tx{k}", f"            cmp ecx, {-UP_LEN + TELE_STEP}", f"            jl tc{k}"]
+            for o, x, u in ring:
+                ta += [f"            mov word ptr [ebx + {s(o)}], 0", f"            mov word ptr [ebx + {s(o + 2)}], {-UP_LEN}",
+                       f"            mov word ptr [ebx + {s(o + 4)}], 0"]
+            ta += [f"            jmp tn{k}", f"        tc{k}:", f"            mov ecx, {-UP_LEN}", f"        tx{k}:"]
+            for o, x, u in ring:
+                ta += [f"            mov word ptr [ebx + {s(o)}], {x}", f"            mov word ptr [ebx + {s(o + 2)}], cx",
+                       f"            mov word ptr [ebx + {s(o + 4)}], {u}"]
+            ta += [f"        tn{k}:"]
         TELE_ASM = "\n".join(ta)
         LIGHT_ASM = "\n".join(f"            mov word ptr [ebx + {s(o + 1)}], ax\n            mov byte ptr [ebx + {s(o + 3)}], cl"
                                for o in G['light_faces'])

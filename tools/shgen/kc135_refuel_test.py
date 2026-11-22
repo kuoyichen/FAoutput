@@ -92,3 +92,17 @@ print('boom stowed', f)
 w(AB, '<H', 1); print('own AB on', frame(0, -5000, 0, 0)); w(AB, '<H', 0)
 w(0x580bec, '<H', 0); print('handle 0', frame(0, cf, cu, 0))
 w(AB, '<H', 1); print('handle 0 AB', frame(0, cf, cu, 0))
+
+if os.environ.get('KC_DUMP'):
+    w(EYE, '<h', 100); w(0x580bec, '<H', 5); w(AB, '<H', 0)
+    for k in range(8): f = frame(0, cf, cu, 0)
+    m = bytes(mu.mem_read(B, len(c)))
+    p82 = blk0 + G['part82']
+    import struct as S
+    n = S.unpack_from('<H', m, p82 + 2)[0]
+    vs = [S.unpack_from('<3h', m, p82 + 6 + 6 * i) for i in range(n)]
+    print('tele verts', vs[-36:])
+    out = bytearray(d); out[code['ro']:code['ro'] + len(m)] = m
+    # preview: F0 -> snip
+    out[code['ro'] + 0x3716] = 0x68; S.pack_into('<I', out, code['ro'] + 0x3717, 0x1000 + blk0 + G['snip'])
+    open(os.environ['KC_DUMP'], 'wb').write(out)
