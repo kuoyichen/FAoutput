@@ -69,11 +69,13 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
     <span class="muted" style="font-size:13px">KC135.SH 38,912 B · FA 1.02f</span>
   </div>
   <div class="two">
-    <figure><img src="img/refuel/boom_side.png" alt="KC-135 with the boom lowered and the telescope extended" loading="lazy"><figcaption data-lang="en">Boom down in contact: dark grey upper boom, black V ruddevators, orange and black telescope.</figcaption><figcaption data-lang="zh">接上時的硬桿：深灰色上半桿、黑色 V 形飛翼、橘黑相間的伸縮管。</figcaption></figure>
-    <figure><img src="img/refuel/lights_below.png" alt="KC-135 seen from below with green director lights" loading="lazy"><figcaption data-lang="en">From below while you are in the refueling box: a row of green lights on the belly, four behind the boom hinge, and a green band on the boom.</figcaption><figcaption data-lang="zh">在加油框裡時從下方看：機腹一排綠燈、硬桿樞紐後方四個綠燈，以及桿上的綠色燈帶。</figcaption></figure>
+    <figure><img src="img/refuel/contact.jpg" alt="F-14 in contact with the KC-135 boom" loading="lazy"><figcaption data-lang="en">In contact: boom down and aimed, telescope in the receptacle, belly lights and boom band green.</figcaption><figcaption data-lang="zh">接上了：硬桿放下對準、伸縮管插進受油口，機腹燈和桿上燈帶都是綠的。</figcaption></figure>
+    <figure><img src="img/refuel/receiver_lights.jpg" alt="Close-up of the boom from the receiver" loading="lazy"><figcaption data-lang="en">From the receiver's seat: orange and black telescope coming at you, the four green lights behind the hinge stay visible.</figcaption><figcaption data-lang="zh">受油機的視角：橘黑伸縮管朝你伸過來，樞紐後方四個綠燈一直看得到。</figcaption></figure>
+    <figure><img src="img/refuel/trail.jpg" alt="KC-135 trailing its boom while an F-14 approaches" loading="lazy"><figcaption data-lang="en">Approaching: the boom trails at 30° waiting for you.</figcaption><figcaption data-lang="zh">接近中：硬桿以 30° 放下等你。</figcaption></figure>
+    <figure><img src="img/refuel/approach.jpg" alt="KC-135 seen from behind through the HUD" loading="lazy"><figcaption data-lang="en">Lining up behind the tanker.</figcaption><figcaption data-lang="zh">在加油機正後方對準。</figcaption></figure>
   </div>
-  <p class="muted" style="font-size:13px" data-lang="en">Pictures are drawn by the repo's painter preview (<code>tools/shgen/sh_paint.py</code>) from the shipped file, in the state the in-game code sets; colours are flat, without FA's textures.</p>
-  <p class="muted" style="font-size:13px" data-lang="zh">圖是用 repo 裡的預覽程式（<code>tools/shgen/sh_paint.py</code>）從發布的檔案畫出來的，狀態就是遊戲裡程式設定的樣子；顏色是平塗，沒有 FA 的貼圖。</p>
+  <p class="muted" style="font-size:13px" data-lang="en">Screenshots from FA 1.02f with the shipped <code>KC135.SH</code>, taken by Kuoyi.</p>
+  <p class="muted" style="font-size:13px" data-lang="zh">以上是 Kuoyi 用發布版 <code>KC135.SH</code> 在 FA 1.02f 裡的實機截圖。</p>
 
   <h2 id="use" data-lang="en">How to refuel</h2><h2 data-lang="zh">怎麼加油</h2>
   <ol class="steps" data-lang="en">
@@ -145,7 +147,10 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
     <li><b>你在下方時最後才畫。</b>從下方看時，機身會蓋掉燈和硬桿。當你的視點在機腹下方，硬桿和燈會改到整架飛機畫完之後才畫，做法是把主繪圖樹的結尾導過來。</li>
     <li><b>在空中調整。</b>放寬加油框、加快伸縮管、加上 <code>Start Refueling</code> 訊息、在硬桿樞紐後方加受油機看得到的燈，並在你靠近時一直維持小碰撞半徑，衝過頭也安全。</li>
   </ol>
-  <figure style="max-width:620px"><img src="img/refuel/receiver_view.png" alt="KC-135 from the receiver's position" loading="lazy"><figcaption data-lang="en">Roughly what the receiver sees: the four lights behind the boom stay visible even when the boom covers the belly row.</figcaption><figcaption data-lang="zh">大約是受油機看到的樣子：硬桿擋住機腹那排燈時，樞紐後方的四個燈仍然看得到。</figcaption></figure>
+  <div class="two">
+    <figure><img src="img/refuel/below_stowed.jpg" alt="KC-135 from below with the boom stowed" loading="lazy"><figcaption data-lang="en">Out of range: boom stowed under the tail with the original orange chevrons, no green lights.</figcaption><figcaption data-lang="zh">不在範圍內：硬桿收在機尾下方（原版橘色箭頭），沒有綠燈。</figcaption></figure>
+    <figure><img src="img/refuel/cockpit_below.jpg" alt="KC-135 seen from the cockpit below" loading="lazy"><figcaption data-lang="en">From the cockpit, sliding under the tanker before the boom comes down.</figcaption><figcaption data-lang="zh">從座艙看，滑到加油機下方、硬桿還沒放下前。</figcaption></figure>
+  </div>
 
   <h2 data-lang="en">What is inside the file</h2><h2 data-lang="zh">檔案裡加了什麼</h2>
   <div class="scroll"><table>
