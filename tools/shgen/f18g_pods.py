@@ -14,7 +14,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import f18v_upgrade as U
 import f18_stores as S
-from f18g_growler import lathe, FIN, DARK, GREY
+from f18g_growler import lathe, FIN, DARK, GREY, alq218
+import f18_wing_fold as W
 
 # store centres (x, up, fwd): F18F.PT stations (hp5 tank x 22, hp7 x 34, hp9 centre) + PT_DROP, as the PT stores are drawn
 TANK_C = (22, -7, 6)
@@ -22,6 +23,7 @@ POD_W = (34, -6, 3)
 POD_C = (0, -10, -4)
 PROP_FWD = 22                     # prop disc, ahead of the pod centre
 PROP_UP = 0
+TIP = (69, 1, -17)                # ALQ-218 centre, x > 0 side (F18G v9)
 
 
 def pod():
@@ -32,11 +34,12 @@ def pod():
 
 
 def prop():
-    """Two twisted blades (radius 1..4, chord 2), both sides drawn; turns about the fwd axis (C4 roll)."""
+    """Two 1 x 1 blades right at the axis (Kuoyi 2026-11-22: smallest possible), both sides drawn; turns about the
+    fwd axis (C4 roll)."""
     V, F = [], []
     for s in (1, -1):
         b = len(V)
-        V += [(-s, 1, s), (s, 0, s), (s, 0, 4 * s), (-s, 1, 4 * s)]
+        V += [(0, 0, 0), (s, 0, 0), (s, 0, s), (0, 0, s)]
         q = [b, b + 1, b + 2, b + 3]
         F += [(FIN, DARK, q), (FIN, DARK, q[::-1])]
     return V, F
@@ -77,10 +80,18 @@ def extra(d):
         sides = (('R', x), ('L', -x)) if x else (('', 0),)
         for s, xs in sides:
             units.append(('fp' + name + s, 'fp' + name, (xs, top, 0), top + 3))
-            units.append(('fs' + name + s, part, (xs, u, 0), None))
+            units.append(('fs' + name + s, part, (xs, top if part == 'tankW' else u, 0), None))
             if part != 'tankW':
                 S.SPIN['fs' + name + s] = (part, (xs, u, 0), 'prop', (xs, u + PROP_UP, f + PROP_FWD))
+    S.PYLONS['tip'] = alq218()            # wingtip ALQ-218 (as F18G v9), drawn by the folding panels
     S.PYLON_UNITS = lambda: base_units() + units
+    make0 = S.make
+    def make(d, *a, **k):                  # the tip pod part's offset is known once the stores block is laid out
+        out, at = make0(d, *a, **k)
+        W.TIP_FIXED = (at[('P', 'tip')], TIP)
+        print('  tip pod part at', hex(at[('P', 'tip')]), 'pos', TIP)
+        return out, at
+    S.make = make
     S.FALL_SLOTS = {}                     # nothing to jettison: the tanks are fixed structure (Kuoyi 2026-11-22)
     print('  fixed units', [u[0] for u in units], 'spinning', list(S.SPIN))
 

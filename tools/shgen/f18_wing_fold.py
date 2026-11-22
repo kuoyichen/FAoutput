@@ -50,6 +50,7 @@ PSLOT = 700              # panel part vertices
 MAIN_END = 0x39e5        # end of the main LOD body bytecode (first part buffer); set per file by layout()
 ROOT_HOOK = 0xe15        # `12 00 rel -> BODY; 38 -> 0xe27; 1E..` (f18_stores.py hook of the main root); layout()
 MAIN_AT = 0x80           # main-LOD vertex buffer (82 00 n 0); F18C/E/T have it at 0x81; layout()
+TIP_FIXED = None         # (CODE offset of a part's 82, (x>0, up, fwd)): fixed store on each wingtip, folds with the panel
 TIP_ST = 8               # wingtip station (PT hardpoint) whose store folds with the panel (F18U: 7; None = no tip)
 
 
@@ -373,6 +374,11 @@ def build(d, folded=False, grown=False):
         # tip store after the panel: tail jump (F0 trampoline; the stub is out of rel16 reach) into the slot stub,
         # whose C4 list ends with 00 00 = the end of this part
         if s not in stubs:                        # no wingtip station: plain part end
+            if TIP_FIXED:                         # a fixed wingtip store (F18G ALQ-218) drawn after the panel
+                tgt, (x, u, fw) = TIP_FIXED
+                q = at + len(b)
+                rel = tgt - (q + 16); assert -32768 <= rel < 32768, rel
+                b += struct.pack('<BB6h', 0xC4, 0, s * x - s * H, u - UH, fw, 0, 0, 0) + struct.pack('<h', rel)
             return bytes(b + b'\x00\x00')
         jmp_at = at + len(b)
         b += b'\xf0\x00' + b'\x68' + struct.pack('<I', VA(stubs[s][0])) + b'\x68' + struct.pack('<I', VA(thunk_new)) + b'\xc3'
