@@ -190,6 +190,9 @@ FALL_NSTATE = 128                  # aircraft tracked (object index & 127; the o
 PLACER = None                      # e.g. sh_order-based placement: PLACER(c, ROOT, unit geometry, unit boxes)
 SPIN = {}                          # unit -> (body part, body pos, prop part, prop pos): a fixed store (PYLON_UNITS
                                    # entry) with a propeller on its nose that turns while the jet moves (F18G pods)
+GROUPS = {}                        # unit -> (member units, tree): members are drawn by one hand-made sub-tree, placed as
+                                   # one unit.  tree = ('node', n, d, A, B) | ('seq', [('c4', part key, pos) | ('call', stub)])
+                                   # (stub = slot / pylon-stub / 'X'+spin unit name), eye plane n.(eye+d) >= 0 -> A then B
 SPIN_RATE = 197                    # prop roll units (65536 = 1 turn) per ms: 3 turns a second
 SPIN_STOP = 256                    # |speed| below this (ft/s x 256) = stopped: prop held at roll 0
 
@@ -218,6 +221,25 @@ def spin_x86(disp):
         popad
         popfd
     """
+
+
+def tree_size(tr):
+    if tr[0] == 'node': return 20 + tree_size(tr[3]) + tree_size(tr[4])
+    return sum(16 if it[0] == 'c4' else 4 for it in tr[1]) + 2
+
+
+def tree_bytes(tr, o, at):
+    if tr[0] == 'node':
+        _, n, d, A, B = tr
+        a = o + 20; b = a + tree_size(A)
+        out = struct.pack('<BB6h', 0x06, 0, n[0], d[0], n[1], d[1], n[2], d[2]) + struct.pack('<hh', a - (o+16), b - (o+18)) + b'\x00\x00'
+        return out + tree_bytes(A, a, at) + tree_bytes(B, b, at)
+    out = b''
+    for it in tr[1]:
+        q = o + len(out)
+        if it[0] == 'c4': out += struct.pack('<BB6h', 0xC4, 0, *it[2], 0, 0, 0) + struct.pack('<h', at[it[1]] - (q+16))
+        else: out += b'\x12\x00' + struct.pack('<h', at['S' + it[1]] - (q+4))
+    return out + b'\x00\x00'
 
 
 def spin_stub(o, va, thunk_va, body_at, body_ps, prop_at, prop_ps):
@@ -696,6 +718,9 @@ def build(d, static=False, debug=False):
             pstub[name] = (SLOTS[name[2:]][0], part, ps); leaves[name] = [('call', name)]
         else: leaves[name] = [('c4', ('P', part), ps)]
     for name in SPIN: leaves[name] = [('call', 'X' + name)]
+    for g, (mem, tr) in GROUPS.items():
+        for m in mem: leaves.pop(m)
+        leaves[g] = [('call', 'G' + g)]
     SPIN_LEN = 2 + len(asm(spin_x86(100))) + 11 + 56
 
     def box(V, ps, clip_up=None):
@@ -705,12 +730,16 @@ def build(d, static=False, debug=False):
         return lo, hi
     ubox = {k: box(shapes[v[2] or GENERIC][0], v[3]) for k, v in SLOTS.items()}   # no default store: a generic missile
     for name, part, ps, top in pyu: ubox[name] = box(PYLONS[part][0], ps, top)
+    for g, (mem, tr) in GROUPS.items():
+        bs = [ubox.pop(m) for m in mem]
+        ubox[g] = ([min(b[0][j] for b in bs) for j in range(3)], [max(b[1][j] for b in bs) for j in range(3)])
     if PLACER is None: plan, rootrefs = place_units(c, ROOT, ubox)
     else:
         ugeo = {}
         def geo(V, F, ps): return [(bool(fl & 0x40), [(ps[0] + V[i][0], ps[1] + V[i][2], ps[2] + V[i][1]) for i in idx]) for fl, col, idx in F]
         for k, v in SLOTS.items(): ugeo[k] = geo(*shapes[v[2] or GENERIC], v[3])
         for name, part, ps, top in pyu: ugeo[name] = geo(*PYLONS[part], ps)
+        for g, (mem, tr) in GROUPS.items(): ugeo[g] = [f for m in mem for f in ugeo.pop(m)]
         plan, rootrefs = PLACER(c, ROOT, ugeo, ubox)
     nodes = []                                        # (key, plane n, d, A target, B leaf)
     chain_top = {}
@@ -737,6 +766,8 @@ def build(d, static=False, debug=False):
         at[('L', s, 1)] = p; p += 18
     for s in SPIN:
         at['SX' + s] = p; p += SPIN_LEN
+    for g, (mem, tr) in GROUPS.items():
+        at['SG' + g] = p; p += tree_size(tr)
     fall = FALL_SLOTS if not static else {}
     for s in fall:
         at['SF' + s] = p; p += 2 + 5 + 5 + 8
@@ -818,6 +849,9 @@ def build(d, static=False, debug=False):
         o = at['SX' + s]; assert len(blk) == o - tail
         b, rl = spin_stub(o, lambda off: code['va'] + off, code['va'] + thunk_new, at[('P', bp)], bps, at[('P', pp)], pps)
         blk += b; spin_rel += [o - tail + r for r in rl]
+    for g, (mem, tr) in GROUPS.items():
+        o = at['SG' + g]; assert len(blk) == o - tail
+        blk += tree_bytes(tr, o, at)
     for s in fall:
         o = at['SF' + s]; assert len(blk) == o - tail
         st, rank, dflt, ps = SLOTS[s]

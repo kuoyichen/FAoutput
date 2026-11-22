@@ -83,6 +83,33 @@ def extra(d):
             units.append(('fs' + name + s, part, (xs, top if part == 'tankW' else u, 0), None))
             if part != 'tankW':
                 S.SPIN['fs' + name + s] = (part, (xs, u, 0), 'prop', (xs, u + PROP_UP, f + PROP_FWD))
+    # draw order (Kuoyi 2026-11-22 in game: seen from the side the outer AGM-88 was covered by the pod / tank behind
+    # it): each wing's stores are ONE unit with its own sub-tree: inboard -> outboard chain split by x planes between
+    # the stations (eye outboard: inner stores first), each store against its pylon by a plane at the store top
+    S.GROUPS = {}
+    agm = next(k for k, v in S.SLOTS.items() if k[0] == 'R' and v[3][0] > 40)[1:]      # outer wing slot station
+    agm_top = S.SLOTS['R' + agm][3][1]
+    def item(store, pylon, top):
+        return ('node', (0, 16384, 0), (0, -top, 0), ('seq', [store]), ('seq', [pylon]))
+    for s, sg in (('R', 1), ('L', -1)):
+        tk = item(('c4', ('P', 'tankW'), (sg * TANK_C[0], u_top(TANK_C, 3.5), 0)), ('c4', ('P', 'fpT'), (sg * TANK_C[0], u_top(TANK_C, 3.5), 0)), u_top(TANK_C, 3.5))
+        pd = item(('call', 'Xfs' + 'A' + s), ('c4', ('P', 'fpA'), (sg * POD_W[0], POD_W[1] + 3, 0)), POD_W[1] + 3)
+        hm = item(('call', s + agm), ('call', 'py' + s + agm), agm_top)
+        xp = lambda b: ((16384 * sg, 0, 0), (-b * sg, 0, 0))
+        tr = ('node', *xp(28), tk, pd)
+        tr = ('node', *xp(42), tr, hm)
+        S.GROUPS['W' + s] = (['fpT' + s, 'fsT' + s, 'fpA' + s, 'fsA' + s, s + agm, 'py' + s + agm], tr)
+    S.GROUPS['WC'] = (['fpC', 'fsC'], item(('call', 'XfsC'), ('c4', ('P', 'fpC'), (0, POD_C[1] + 3, 0)), POD_C[1] + 3))
+    # the wing groups go where place_units puts them (the wing's branch), but always split from the wing by a plane at
+    # its underside (eye below -> drawn after the wing): fewest painter errors over the sh_order views, gear down
+    P0 = S.PLACER
+    def placer(c, ROOT, ugeo, ubox):
+        plan, refs = P0(c, ROOT, ugeo, ubox) if P0 else S.place_units(c, ROOT, ubox)
+        for T in plan:
+            plan[T] = [(u, (0, -16384, 0), (0, 0, 0)) if u in ('WR', 'WL') else (u, n, dd)
+                       for u, n, dd in plan[T]]
+        return plan, refs
+    S.PLACER = placer
     S.PYLONS['tip'] = alq218()            # wingtip ALQ-218 (as F18G v9), drawn by the folding panels
     S.PYLON_UNITS = lambda: base_units() + units
     make0 = S.make
