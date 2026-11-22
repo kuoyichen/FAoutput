@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+"""Unicorn test for kc135_refuel.py output: runs the hook x86 with fake FA objects.
+usage: python3 kc135_refuel_test.py KC135-1.SH"""
+import math, os, struct, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from sh_subdivide import pe_sections
+from unicorn import Uc, UC_ARCH_X86, UC_MODE_32, UC_HOOK_CODE
+from unicorn.x86_const import *
+
+d = open(sys.argv[1], 'rb').read(); pe, opt, secs = pe_sections(bytearray(d))
+code = next(s for s in secs if s['name'] == 'CODE'); c = d[code['ro']:code['ro'] + code['vs']]
+B = 0x02000000
+tail = c.find(bytes([1, 2, 3, 2, 1, 2, 3, 2, 1]))
+# locate hook target from the call at 0x371C
+tgt = 0x371C + 5 + struct.unpack_from('<i', c, 0x371D)[0]
+snip = None
+DEG = 65536 / 360
+mu = Uc(UC_ARCH_X86, UC_MODE_32)
+mu.mem_map(B, 0x10000); mu.mem_write(B, bytes(c))
+mu.mem_map(0x400000, 0x300000)
+mu.mem_map(0x7f0000, 0x10000)
+for a in (0x48d410, 0x48d420, 0x48e950): mu.mem_write(a, b'\xC3')
+calls = []
+def hk(uc, addr, size, ud):
+    if addr in (0x48d410, 0x48d420, 0x48e950):
+        calls.append((hex(addr), uc.reg_read(UC_X86_REG_ECX) & 0xffff, uc.reg_read(UC_X86_REG_EDX) & 0xffff))
+        if addr == 0x48d420:
+            p = uc.reg_read(UC_X86_REG_ECX); t = struct.unpack('<I', uc.mem_read(p, 4))[0]
+            calls.append(bytes(uc.mem_read(t, 20)).split(b'\0')[0])
+mu.hook_add(UC_HOOK_CODE, hk, begin=0x48d000, end=0x48f000)
+TK, PL, TD = 0x600000, 0x601000, 0x602000
+w = lambda a, fmt, *v: mu.mem_write(a, struct.pack(fmt, *v))
+r = lambda a, fmt: struct.unpack(fmt, mu.mem_read(a, struct.calcsize(fmt)))[0]
+w(0x553848 + 5*4, '<I', TK); w(0x553848 + 9*4, '<I', PL)
+w(0x580bec, '<H', 5); w(0x520a1c, '<H', 9)
+for o in (TK, PL):
+    w(o, '<B', 4); w(o + 1, '<I', 1); w(o + 0xe, '<H', 270); w(o + 9, '<B', 0); w(o + 5, '<I', TD)
+w(TD + 0x165, '<I', 16200)
+clock = [1000]
+
+def frame(th_deg, rel_fwd, rel_up, rel_right, fuel=None, spd=(500, 500), ph_deg=None):
+    h = th_deg * math.pi / 180
+    tx, ty, tz = 50000.0, 20000.0, -30000.0
+    # world = right*(cos h, -sin h) + fwd*(sin h, cos h)
+    px = tx + rel_right * math.cos(h) + rel_fwd * math.sin(h)
+    pz = tz - rel_right * math.sin(h) + rel_fwd * math.cos(h)
+    py = ty + rel_up
+    for o, (x, y, z), hd, sp in ((TK, (tx, ty, tz), th_deg, spd[0]), (PL, (px, py, pz), th_deg if ph_deg is None else ph_deg, spd[1])):
+        w(o + 0x11, '<3i', int(x * 256), int(y * 256), int(z * 256)); w(o + 0x1d, '<H', int(hd * DEG) & 0xffff)
+        w(o + 0x34, '<i', sp * 256)
+    if fuel is not None: w(PL + 0x1fc, '<i', fuel * 256)
+    clock[0] += 64; w(0x552928, '<I', clock[0])
+    sp = 0x7f8000; ret = B + 0x3721
+    w(sp, '<I', ret); mu.reg_write(UC_X86_REG_ESP, sp)
+    mu.emu_start(B + tgt, B + 0x3725, count=100000)
+    resume = r(mu.reg_read(UC_X86_REG_ESP), '<I')
+    c4 = resume - B
+    hdg, pitch = r(resume + 8, '<h'), r(resume + 10, '<h')
+    rad = r(B + 0x73E4, '<i')
+    return dict(resume=hex(c4), c4=mu.mem_read(resume, 2).hex(), hdg=round(hdg / DEG, 1), pitch=round(pitch / DEG, 1),
+                radius=rad >> 8, fuel=r(PL + 0x1fc, '<i') / 256)
+
+L, P = 160, 30
+back, down = L*math.cos(math.radians(P)), L*math.sin(math.radians(P))
+cf, cu = -126 - back - 50, -4 - down - 20
+print('far        ', frame(0, -5000, 0, 0, fuel=1000))
+for k in range(4): print('contact h0 ', frame(0, cf, cu, 0))
+for k in range(3): print('contact h90', frame(90, cf, cu, 0))
+print('offset right 40ft h0', frame(0, cf, cu, 40))
+print('speed diff 50', frame(0, cf, cu, 0, spd=(500, 550)))
+print('near full', frame(0, cf, cu, 0, fuel=16190)); print('full ', frame(0, cf, cu, 0))
+print('calls', calls)
+for k in range(3): print('leave', frame(0, -5000, 0, 0))
+w(0x580bec, '<H', 0); print('handle 0', frame(0, cf, cu, 0))
