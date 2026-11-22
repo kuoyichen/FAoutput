@@ -468,7 +468,7 @@ function partTf(e){
 // ===== File loading: ../SH, ../PIC (when served over HTTP) → GitHub =====
 const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
 const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
-const SH_VIEW = p => p.replace(/^SH\/(F14|F18)\.SH$/i, "SH/view/$1.SH");   // F14/F18 add x86-only features (wing fold, flaps) the viewers cannot follow: show the view copy (same look, wings spread)
+const SH_VIEW = p => p;   // SHCore now follows the F14/F18 x86-only parts (wing fold, flaps, parked sweep), so every viewer loads the real SH
 async function fetchAny(paths){
   paths = paths.map(SH_VIEW);
   const urls = [];

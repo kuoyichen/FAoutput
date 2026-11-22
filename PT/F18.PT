@@ -1059,7 +1059,7 @@
 
 :ot_names
 	string "F/A-18D"
-	string "F/A- 18D Hornet"
+	string "F/A-18D Hornet"
 	string "F18.PT"
 :shape
 	string "f18.SH"

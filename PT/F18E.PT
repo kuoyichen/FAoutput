@@ -363,7 +363,7 @@
     word 2
     byte 5
 ;-------- hardpoint 9
-    word $8
+    word $9
     word 0
     word -16
     word -12
