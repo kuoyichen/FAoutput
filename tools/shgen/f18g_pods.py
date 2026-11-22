@@ -23,6 +23,7 @@ POD_W = (34, -6, 3)
 POD_C = (0, -10, -4)
 PROP_FWD = 22                     # prop disc, ahead of the pod centre
 PROP_UP = 2                       # = POD_AXIS: turbine on the spinner, high on the pod
+GEAR_X = 17                       # |x| just outboard of the main gear (wheel x 8..16)
 TIP = (69, 1, -17)                # ALQ-218 centre, x > 0 side (F18G v9)
 
 
@@ -70,6 +71,16 @@ def pod():
     return V, F
 
 
+def tank():
+    """EA-18G 480-gal tank, 25% fatter than the F/A-18F one (r 4.4), longer, pointed nose, BLUNT tail (flat cap);
+    top at local up 0 (hangs from the pylon bottom)."""
+    r = 4.4; e = r * .7
+    sec = [(0, r), (e, e), (r, 0), (e, -e), (0, -r), (-e, -e), (-r, 0), (-e, e)]
+    st = [(31, 0, -r), (27, .35, -r), (21, .65, -r), (15, .88, -r), (9, 1, -r), (-14, 1, -r), (-20, .9, -r), (-24, .75, -r)]
+    V, F, rings = lathe(sec, st, GREY)
+    return V, F
+
+
 def prop():
     """Two 1 x 1 blades right at the axis (Kuoyi 2026-11-22: smallest possible), both sides drawn; turns about the
     fwd axis (C4 roll)."""
@@ -104,7 +115,7 @@ def extra(d):
     P = U.main_polys(d)
     base_units = S.PYLON_UNITS
     units = []
-    S.PYLONS['tankW'] = shift(S.tank480(), TANK_C[2])
+    S.PYLONS['tankW'] = shift(tank(), TANK_C[2])
     S.PYLONS['podW'] = shift(pod(), POD_W[2])
     S.PYLONS['podC'] = shift(pod(), POD_C[2])
     S.PYLONS['prop'] = prop()
@@ -137,14 +148,18 @@ def extra(d):
         tr = ('node', *xp(42), tr, hm)
         S.GROUPS['W' + s] = (['fpT' + s, 'fsT' + s, 'fpA' + s, 'fsA' + s, s + agm, 'py' + s + agm], tr)
     S.GROUPS['WC'] = (['fpC', 'fsC'], item(('call', 'XfsC'), ('c4', ('P', 'fpC'), (0, POD_C[1] + 3, 0)), POD_C[1] + 3))
-    # the wing groups go where place_units puts them (the wing's branch), but always split from the wing by a plane at
-    # its underside (eye below -> drawn after the wing): fewest painter errors over the sh_order views, gear down
+    # the wing groups go where place_units puts them (the wing's branch).  Right: split from it by a plane at the wing
+    # underside (eye below -> drawn after).  Left: that branch also draws the LEFT MAIN GEAR (part 0x351e; the right
+    # gear is in the body branch, drawn before the right wing from the right), so it is split by an x plane just
+    # outboard of the gear: eye outboard -> stores after the gear (Kuoyi 2026-11-22: the gear showed through the
+    # stores from slightly above the left side).  The wing's top surface is ordered against both by the original
+    # node 0x31d8 (from above it is drawn last).
     P0 = S.PLACER
     def placer(c, ROOT, ugeo, ubox):
         plan, refs = P0(c, ROOT, ugeo, ubox) if P0 else S.place_units(c, ROOT, ubox)
         for T in plan:
-            plan[T] = [(u, (0, -16384, 0), (0, 0, 0)) if u in ('WR', 'WL') else (u, n, dd)
-                       for u, n, dd in plan[T]]
+            plan[T] = [(u, (0, -16384, 0), (0, 0, 0)) if u == 'WR' else
+                       (u, (-16384, 0, 0), (GEAR_X, 0, 0)) if u == 'WL' else (u, n, dd) for u, n, dd in plan[T]]
         return plan, refs
     S.PLACER = placer
     S.PYLONS['tip'] = alq218()            # wingtip ALQ-218 (as F18G v9), drawn by the folding panels
