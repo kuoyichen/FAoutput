@@ -257,9 +257,11 @@ function parseModel(u8in) {
   };
   const load = (map, rec, inst) => { for (let i = 0; i < rec.n; i++) map[rec.slot + i] = [rec.v0 + i, inst]; };
   const faceKey = new Map();
+  let collect = null, walkStop = -1; const flapAreas = [], flapTag = new Map();   // F-14 flaps: face offset -> "up" (strip) / "down" (deflected flap)
   const addFace = (F, map, lod, hooked, strict, ab) => {
     if (!flagsOk(F.fl) || new Set(F.idx).size < F.n) return false;
     const refs = F.idx.map(s => map[s]); if (refs.some(r => !r)) return false;
+    if (collect) collect.push(F.o);
     if (strict && F.nrm) {   // reject stray bytes: the stored normal must agree with the vertices
       const n = faNormal(refs.map(r => M.verts[r[0]].p)), L = Math.hypot(...F.nrm);
       if (n && L > 0 && (n[0] * F.nrm[0] + n[1] * F.nrm[1] + n[2] * F.nrm[2]) / L < 0.5) return false;
@@ -317,6 +319,7 @@ function parseModel(u8in) {
   // structured walk of an appended block
   const walk = (t, map, inst, lod, depth, seen, meta = null) => {
     for (let g = 0; g < 4000 && t >= start && t < stop - 1; g++) {
+      if (t === walkStop) return;
       const key = t + "@" + inst; if (seen.has(key)) return; seen.add(key);
       const op = c[t];
       if (op === 0x82 && c[t + 1] === 0) { const b = goodBuf(t, stop); if (!b) return; const rec = addBuf(t, b, lod, true); rec.tf = inst; load(map, rec, inst); t = b.e; }
@@ -367,7 +370,7 @@ function parseModel(u8in) {
       }
       else if (op === 0xF0 && c[t + 1] === 0 && c[t + 2] === 0x68 && c[t + 7] === 0x68 && c[t + 12] === 0xC3) {
         // F0 tail jump (`68 <dest> 68 <thunk> C3`, f18_wing_fold.py: a folding panel goes on into its wingtip store stub)
-        const g2 = dv.getUint32(t + 3, true) - SH_VA; if (g2 < appendStart || g2 >= stop - 1) return; t = g2;
+        const g2 = dv.getUint32(t + 3, true) - SH_VA; if (g2 < appendStart || g2 >= stop - 1 || g2 === walkStop) return; t = g2;
       }
       else return;   // 00 00 / 1E return, or an op we do not follow
     }
@@ -420,10 +423,25 @@ function parseModel(u8in) {
         for (let b; (b = goodBuf(t, stop)); t = b.e) {
           const rec = addBuf(t, b, lod, false); load(map, rec, 0);
           if (!first) { first = rec; rec.src = t; rec.o = o; } else rec.follow = first;
-          if (b.slot >= 800) rec.flap = true;
         }
-        M.flapTramps = (M.flapTramps || new Set()).add(o);
+        M.flapTramps = (M.flapTramps || new Set()).add(o); flapAreas.push([o, o + 102]);
         o += 13; continue;
+      }
+      // inside that area: `F0 00 68 <flap faces> 68 <thunk> C3` (taken when the chooser sees flaps down + wing spread)
+      if (lod === 0 && N >= appendStart && N < stop - 2 && c[N] === 0xFC && flapAreas.some(([a, b]) => o >= a && o < b)) {
+        collect = []; walk(N, map, 0, lod, 0, new Set()); for (const fo of collect) flapTag.set(fo, "down"); collect = null; o += 13; continue;
+      }
+      // other `F0 00 68 <face copy> 68 <thunk> C3` far jumps (f18_wing_fold.py moves grown faces to its block): the face is drawn there
+      if (lod >= 0 && N >= appendStart && N < stop - 2 && c[N] === 0xFC) { walk(N, map, 0, lod, 0, new Set()); o += 13; continue; }
+    }
+    // F-14 flap band hook (f14_flap.py): `F0 00 80 3D <flag> 00 68 <orig> 74 07 C7 04 24 <alt> 68 <thunk> C3` in place of a wing band face.
+    // flag 0 (flap hidden) -> <orig>: the full strip, then a jump on to <alt>; flap shown -> <alt>: only the inboard and outboard pieces
+    if (op === 0xF0 && c[o + 1] === 0 && c[o + 2] === 0x80 && c[o + 3] === 0x3D && c[o + 9] === 0x68 && c[o + 14] === 0x74 && c[o + 16] === 0xC7 && lod >= 0) {
+      const ORIG = dv.getUint32(o + 10, true) - SH_VA, ALT = dv.getUint32(o + 19, true) - SH_VA;
+      if (ORIG >= start && ORIG < stop && ALT >= appendStart && ALT < stop) {
+        walk(ALT, map, 0, lod, 0, new Set());
+        collect = []; walkStop = ALT; walk(ORIG, map, 0, lod, 0, new Set()); walkStop = -1; for (const fo of collect) flapTag.set(fo, "up"); collect = null;
+        o += 28; continue;
       }
     }
     if (op === 0x82 && c[o + 1] === 0) {
@@ -472,6 +490,7 @@ function parseModel(u8in) {
     for (let i = f0; i < M.faces.length; i++) { M.faces[i].grp = grp; grp.f.push(M.faces[i]); }
     M.gearGroups.push(grp);
   }
+  for (const f of M.faces) if (flapTag.has(f.o)) f.flap = flapTag.get(f.o);
   // original sub-parts of the main LOD: place them like FA does for the default state (gear down)
   const subs = M.bufs.filter(b => b.lod === 0 && !b.hooked && !b.follow).slice(1);
   for (const g of M.gearGroups || []) subs.push(g);
@@ -605,12 +624,13 @@ function polysAt(M, opts) {
   const wpt = (r) => { const w = worldOf(M, r[0], r[1]); const q = fold && r[1] && panelOf.get(r[1]); if (!q) return w;
     const dx = w[0] - q.hx, du = w[2] - q.hu, sg = q.hx >= 0 ? 1 : -1; return [q.hx + dx * cf - sg * du * sf, w[1], q.hu + sg * dx * sf + du * cf]; };
   const st = M.stations || new Map(), k = opts.scale ? M.scale : 1, out = [];
+  const flapShown = !!(opts.on && opts.on._PLleftFlap) && !(opts.on && opts.on._PLswingWing > 0) && !(opts.park > 0);
   const shown = opts.storeShown || (t => { const S0 = st.get(t.st); if (!S0) return true; return t.type === "pylon" ? S0.def !== 0 : S0.def === t.kind && S0.maxRank >= t.rank; });
   for (const f of M.faces) {
     if (f.lod !== 0 || f.del || (f.store && (f.store.type === "fall" || !shown(f.store)))) continue;
     if (f.ab && (!(opts.on && opts.on._PLafterBurner) || f.ab.frame !== (opts.abFrame || 0) % f.ab.frames)) continue;   // flame: AB on, one animation frame
     if (f.grp && !f.grp.placed) continue;
-    if (!(opts.on && opts.on._PLleftFlap) && f.refs.some(r => M.bufs[M.verts[r[0]].buf].flap)) continue;   // F-14 flap faces: only with flaps down
+    if (f.flap && (f.flap === "down") !== flapShown) continue;   // F-14: deflected flap with flaps down + wing spread, else the full band strip
     if (!f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed)) continue;
     out.push({ pts: f.refs.map(r => { const w = wpt(r); return [w[0] * k, w[1] * k, w[2] * k]; }), uv: f.uv, col: f.col, face: f });
   }

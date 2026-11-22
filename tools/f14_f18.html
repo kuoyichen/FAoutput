@@ -278,12 +278,12 @@ const KIND = [["Nothing", "不掛"], ["Fuel tank", "副油箱"], ["AIM-9 Sidewin
 // the shape each kind number draws differs per aircraft since the bomb update (Nov 21): ac.kind overrides KIND
 const kindName = k => { const o = AC[curName] && AC[curName].kind && AC[curName].kind[k] || KIND[k]; return o ? L(...o) : L("kind " + k, "種類 " + k); };
 const AC = {
-  F14: { name: "F-14 Tomcat", sub: ["Rebuilt nose, Phoenix loadout", "重做機鼻、鳳凰飛彈掛載"], sweep: true, flaps: false,
+  F14: { name: "F-14 Tomcat", sub: ["Rebuilt nose, Phoenix loadout", "重做機鼻、鳳凰飛彈掛載"], sweep: true, flaps: true,
     kind: { 4: ["Mk-82 / Mk-84 / CBU bomb (Mk-84 shape)", "Mk-82／Mk-84／CBU 炸彈（Mk-84 外形）"], 6: ["AGM missile (AGM-65 Maverick shape)", "AGM 飛彈（AGM-65 小牛外形）"] },
     st: { 4: ["Belly tunnel", "機腹凹槽"], 5: ["Under the intakes", "進氣道下方"], 6: ["Glove pylons", "翼套派龍"], 7: ["Pylon shoulders", "派龍側軌"] } },
-  F14J: { name: "F-14 Jolly Rogers", sub: ["VF-84 black tails and skull", "VF-84 黑尾翼骷髏塗裝"], sweep: true, flaps: false, like: "F14", pt: "F14J" },
-  FIR: { name: "F-14 IIAF", sub: ["Iranian tan scheme", "伊朗沙色塗裝"], sweep: true, flaps: false, like: "F14", pt: "F14I" },
-  FBC: { name: "F-14 Black Cat", sub: ["All-black scheme", "全黑塗裝"], sweep: true, flaps: false, like: "F14", pt: "F14X" },
+  F14J: { name: "F-14 Jolly Rogers", sub: ["VF-84 black tails and skull", "VF-84 黑尾翼骷髏塗裝"], sweep: true, flaps: true, like: "F14", pt: "F14J" },
+  FIR: { name: "F-14 IIAF", sub: ["Iranian tan scheme", "伊朗沙色塗裝"], sweep: true, flaps: true, like: "F14", pt: "F14I" },
+  FBC: { name: "F-14 Black Cat", sub: ["All-black scheme", "全黑塗裝"], sweep: true, flaps: true, like: "F14", pt: "F14X" },
   F18: { name: "F/A-18 Hornet", sub: ["Reshaped, full strike loadout", "外形修整、對地攻擊掛載"], sweep: false, flaps: true,
     kind: { 4: ["AGM-88 HARM / other AGM", "AGM-88 HARM／其他 AGM"], 6: ["AGM-65 Maverick", "AGM-65 小牛"], 8: ["Mk-82 / Mk-84 / CBU bomb (Mk-84 shape)", "Mk-82／Mk-84／CBU 炸彈（Mk-84 外形）"] },
     st: { 4: ["Centreline", "機腹中線"], 5: ["Fuselage", "機身兩側"], 6: ["Inboard wing", "內側翼下"], 7: ["Outboard wing", "外側翼下"], 8: ["Wingtips", "翼尖"] } }
@@ -362,6 +362,7 @@ function build(){
   const C = cache[curName], M = C.M, ab = $("ab").checked;
   M.place({ vars: ctlState(M) });
   const faces = [], gr = ab && M.abGrow ? M.abGrow : null, g = Math.min(1, AB.grow);
+  const flapShown = $("flaps").checked && AC[curName].flaps && !(AC[curName].sweep && +$("sweep").value > 20);
   // growing flame (F0 x86 in the SH): FA moves the tail points from 15 % to full length over 3 s after the burner lights
   if (gr) for (const G of gr) for (const id of G.vids) M.verts[id].p[1] = Math.round(G.noz - (G.noz - G.tail) * (0.15 + 0.85 * g));
   try {
@@ -369,6 +370,7 @@ function build(){
       if (f.lod !== 0 || f.del || (f.store && (f.store.type === "fall" || !storeShown(C.loadout, f.store))) || (!ab && isFlame(f, C))) continue;
       if (f.ab && (!ab || f.ab.frame !== AB.frame % f.ab.frames)) continue;   // animated flame (SH op 40): one frame at a time
       if (f.grp && !f.grp.placed) continue;
+      if (f.flap && (f.flap === "down") !== flapShown) continue;   // F-14: lowered flap only with flaps down and the wings fully spread, else the full band strip
       if (!f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed)) continue;
       faces.push({ pts: f.refs.map(r => { const w = SHCore.worldOf(M, r[0], r[1]); return [w[0], w[2], w[1]]; }), uv: f.uv, col: f.col });
     }
