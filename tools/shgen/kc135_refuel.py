@@ -68,7 +68,11 @@ U = 2.0                      # ft / 頂點單位
 HINGE_UP, HINGE_FWD = PIVOT[1] * U, PIVOT[2] * U          # −4, −126 ft
 RECEP_UP, RECEP_FWD = 20.0, 50.0                          # 玩家受油口相對玩家原點（ft）
 APP_BACK, APP_SIDE, APP_DOWN = 1500, 500, 800             # 接近區（ft）
-L_MIN, L_MAX = 125, 195                                   # 硬桿全長 160 ft（含伸縮管）
+L_MIN, L_MAX = 104, 148                                   # 上半桿 100 ft + 伸縮管 0..48 ft
+NEAR_L = 210                                               # 比這遠：硬桿停在拖曳位置（TRAIL_*）
+TRAIL_PITCH, TRAIL_EXT = 30, 8                             # 拖曳位置：放下 30°、伸縮管伸出 8 單位
+P_MIN, P_MAX = 20, 40                                      # 對準時俯角範圍（實機約 20..40°）
+TELE_RATE = 10                                             # 伸縮管每 1/256 s 動 10/256 單位（≈ 20 ft/s）
 RATE = 50                                                  # lb/s（3000 lb/min）
 ORIG_R, SMALL_R = 72704, 40 * 256
 DEG = 65536 / 360.0
@@ -76,8 +80,150 @@ STEP = 14                                                  # 每 1/256 s 轉 14 
 MSG = b' Plane Re-Fueled\0'
 
 
+# ---- 新硬桿幾何（零件座標：樞紐為原點，x 右、up 上、fwd 前；硬桿朝 −fwd）----
+UP_LEN = 50                  # 上半桿長（頂點單位，1 = 2 ft）
+TELE_LEN = 24                # 下半伸縮管長，全伸出 24（約上半桿的一半）
+TELE_STEP = 3                # 橘黑條紋每段 3
+BOOM_SLOT = 600              # 硬桿頂點槽 600..（KC135 原本最多用到 590）
+LIGHT_SLOT = 515             # 機腹燈頂點槽：用原本硬桿的 515..（原硬桿已不再畫）
+C_BOOM, C_FIN, C_ORANGE, C_BLACK, C_GREEN = 156, 158, 162, 158, 165
+F_LIT, F_GLOW = 0x0661, 0x0641  # 0x40 背面剔除 + 0x20 打光；0x641 不打光（燈）
+BELLY_UP = -7                # 機腹平底 up −7（x ±2，fwd −16..67）
+LIGHT_F = [30 + 5 * j for j in range(7)]   # 機腹燈 7 個，各 2×2
+EYE_BELOW = BELLY_UP         # 眼睛低於機腹平面才在最後畫（燈、硬桿）
+END_JMP = 0x146B             # 主 LOD 最外層 BSP 結束後的 38 → 0x42AD（1E）
+
+
+class Mesh:
+    def __init__(self, slot):
+        self.slot, self.v, self.faces = slot, [], []
+
+    def vert(self, x, u, f):
+        self.v.append([x, u, f]); return self.slot + len(self.v) - 1
+
+    def face(self, idx, normal, point, col, flags=F_LIT):
+        n = [float(k) for k in normal]; L = math.sqrt(sum(k * k for k in n))
+        n = [int(round(k / L * 32767)) for k in n]
+        b = bytearray(b'\xFC') + struct.pack('<HH', flags, col) + struct.pack('<3h', *n)
+        b += struct.pack('<3b', *[int(round(k)) for k in point]) + bytes([len(idx)])
+        b += b''.join(struct.pack('<H', i) for i in idx)
+        return b
+
+    def buf(self):
+        b = bytearray(b'\x82\x00') + struct.pack('<HH', len(self.v), self.slot * 8)
+        for x, u, f in self.v: b += struct.pack('<3h', x, f, u)          # 82 存 (x, fwd, up)
+        return b
+
+    def voff(self, i):          # 第 i 個（槽號）頂點在 buf() 裡的位移
+        return 6 + 6 * (i - self.slot)
+
+
+def prism_faces(m, rings, prof, cols, flags=None):
+    """rings = 各環頂點槽號清單（同 prof 順序）；回傳每段每邊的面（bytes）清單 [seg][side]。"""
+    out = []
+    for a in range(len(rings) - 1):
+        row = []
+        for i in range(len(prof)):
+            j = (i + 1) % len(prof)
+            (x0, u0), (x1, u1) = prof[i], prof[j]
+            nx, nu = (x0 + x1) / 2, (u0 + u1) / 2          # 正多邊形：中點方向就是外法線
+            q = [rings[a][i], rings[a][j], rings[a + 1][j], rings[a + 1][i]]
+            fa = m.v[rings[a][i] - m.slot][2]
+            col = cols(a, i); fl = flags(a, i) if flags else F_LIT
+            row.append(m.face(q, (nx, nu, 0), (x0, u0, fa), col, fl))
+        out.append(row)
+    return out
+
+
+def node(op, n1, d1, n2, d2, A, B):
+    """2D 平面節點（14 bytes）；A、B 是相對本節點起點的位移，值 ≥0 先畫 A 再畫 B。"""
+    p = 0
+    return bytearray(struct.pack('<BBhhhhhh', op, 0, n1, d1, n2, d2, A - (p + 12), B - (p + 14)))
+
+
+def make_parts():
+    """回傳 dict：blk（HDR+硬桿零件、機腹燈、尾端 C4、選擇跳躍、掛勾 C4）與各位移。"""
+    m = Mesh(BOOM_SLOT)
+    oc = [(1, 2), (2, 1), (2, -1), (1, -2), (-1, -2), (-2, -1), (-2, 1), (-1, 2)]   # 上半桿八角
+    sq = [(1, 1), (1, -1), (-1, -1), (-1, 1)]                                      # 伸縮管方形
+    # 上半桿：環 fwd +2, −36, −40, −50；−36..−40 下面三片是桿上燈
+    tube_rings = [[m.vert(x, u, f) for x, u in oc] for f in (2, -36, -40, -UP_LEN)]
+    LIGHT_SIDES = (2, 3, 4)          # 邊 (2,-1)-(1,-2)、(1,-2)-(-1,-2)、(-1,-2)-(-2,-1)
+    tube = prism_faces(m, tube_rings, oc, lambda a, i: C_BOOM)
+    cap = m.face(tube_rings[3], (0, 0, -1), (0, 0, -UP_LEN), C_BOOM)
+    # 飛翼（V 形，翼尖朝外上），兩面
+    fins = []
+    for sx in (-1, 1):
+        q = [m.vert(2 * sx, 0, -41), m.vert(2 * sx, 0, -48), m.vert(8 * sx, 4, -48), m.vert(8 * sx, 4, -45)]
+        P = [m.v[k - m.slot] for k in q]
+        e1 = [P[1][t] - P[0][t] for t in range(3)]; e2 = [P[2][t] - P[0][t] for t in range(3)]
+        n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]
+        if n[1] < 0: n = [-k for k in n]                     # 上面
+        pt = P[0]
+        fins.append(m.face(q, n, pt, C_FIN) + m.face(q[::-1], [-k for k in n], pt, C_FIN))
+    # 伸縮管：環 k 在管尖後 3k（fwd 由 x86 每格寫），預設全伸出
+    tip = -UP_LEN - TELE_LEN
+    nr = TELE_LEN // TELE_STEP + 1
+    tele_rings = [[m.vert(x, u, tip + TELE_STEP * k) for x, u in sq] for k in range(nr)]
+    tele = prism_faces(m, tele_rings, sq, lambda a, i: C_BLACK if a % 2 == 0 else C_ORANGE)
+    tcap = m.face(tele_rings[0], (0, 0, -1), (0, 0, tip), C_BLACK)
+    assert BOOM_SLOT + len(m.v) <= 700, len(m.v)
+
+    # ---- 零件位元組 ----
+    part = bytearray(HDR); part82 = len(part); part += m.buf()
+    # 根：fwd 平面 −UP_LEN（eye_fwd + UP_LEN ≥ 0：眼睛在桿端前方 → 先畫伸縮管再畫上半桿）
+    root = len(part); part += bytes(14); part += b'\x1E'
+    # 伸縮管
+    o_tele = len(part); o_tcap = len(part); part += tcap
+    for row in tele:
+        for f in row: part += f
+    part += b'\x1E'
+    # 上半桿：x 平面兩層：Lfin / (tube / Rfin)
+    o_up = len(part); part += bytes(14); part += b'\x1E'
+    o_up2 = len(part); part += bytes(14); part += b'\x1E'
+    o_lf = len(part); part += fins[0] + b'\x1E'
+    o_rf = len(part); part += fins[1] + b'\x1E'
+    o_tube = len(part); part += cap
+    light_faces = []
+    for a, row in enumerate(tube):
+        for i, f in enumerate(row):
+            if a == 1 and i in LIGHT_SIDES: light_faces.append(len(part))
+            part += f
+    part += b'\x1E'
+    def put(at, op, n1, d1, n2, d2, A, B):
+        part[at:at + 14] = node(op, n1, d1, n2, d2, A - at, B - at)
+    put(root, 0x0C, 0, 0, 1, UP_LEN, o_tele, o_up)
+    put(o_up, 0x0E, 1, 0, 0, 0, o_lf, o_up2)
+    put(o_up2, 0x0E, 1, 0, 0, 0, o_tube, o_rf)
+    tele_fwd = [[part82 + m.voff(k) + 2 for k in ring] for ring in tele_rings]   # (x, fwd, up) 的 fwd
+    tcap_pt = o_tcap + 1 + 2 + 2 + 6 + 2                                         # 平面點 fwd（i8）
+
+    # ---- 機腹燈 ----
+    lm = Mesh(LIGHT_SLOT); lf = bytearray()
+    for f in LIGHT_F:
+        q = [lm.vert(-1, BELLY_UP, f), lm.vert(1, BELLY_UP, f), lm.vert(1, BELLY_UP, f + 2), lm.vert(-1, BELLY_UP, f + 2)]
+        lf += lm.face(q, (0, -1, 0), (0, BELLY_UP, f), C_GREEN, F_GLOW)
+    blk = bytearray(part)
+    o_lights = len(blk); blk += lm.buf() + lf
+    # 尾端硬桿（眼睛在機腹下方時，在整架飛機最後才畫）
+    o_boom2 = len(blk); blk += b'\xC4\x00' + bytes(14) + b'\x1E'
+    o_ret = len(blk); blk += b'\x1E'
+    o_endsel = len(blk); blk += b'\x38\x00\x00'
+    o_snip = len(blk); blk += b'\xC4\x00' + bytes(14) + b'\x38\x00\x00'
+    for o in (o_boom2, o_snip):
+        struct.pack_into('<3h', blk, o + 2, *PIVOT)
+        struct.pack_into('<h', blk, o + 14, part82 - (o + 16))
+    rel = lambda o_jmp, tgt: tgt - (o_jmp + 3)
+    return dict(blk=blk, part82=part82, snip=o_snip, boom2=o_boom2, endsel=o_endsel,
+                rel_ret=rel(o_endsel, o_ret), rel_boom2=rel(o_endsel, o_boom2), rel_lights=rel(o_endsel, o_lights),
+                tele_fwd=tele_fwd, tcap_pt=tcap_pt, light_faces=light_faces, nverts=len(m.v))
+
+
 def build(src, dst, preview=None, mode='full'):
-    d = bytearray(open(src, 'rb').read()); pe, opt, secs = pe_sections(d)
+    d = bytearray(open(src, 'rb').read())
+    from f18g_growler import grow_vas
+    d = bytearray(grow_vas(d, 0x1000))        # 新硬桿 + 程式約 4.3 KB：CODE 需超過 .idata 原本的 VA 0x9000
+    pe, opt, secs = pe_sections(d)
     code = next(s for s in secs if s['name'] == 'CODE')
     c = bytearray(d[code['ro']:code['ro'] + code['vs']])
     tail = c.find(SIG); assert tail > 0
@@ -85,31 +231,10 @@ def build(src, dst, preview=None, mode='full'):
     assert c[0x372B:0x372F] == bytes.fromhex('1200c30d')
     assert c[BOOM:BOOM + 2] == b'\x82\x00' and struct.unpack_from('<i', c, F2TBL)[0] == ORIG_R
 
-    # ---- 1. 硬桿零件：頂點與平面點減去樞紐 ----
-    part = bytearray(c[BOOM:BOOM_END])
-    n = struct.unpack_from('<H', part, 2)[0]
-    for k in range(n):
-        x, f, u = struct.unpack_from('<3h', part, 6 + 6*k)
-        struct.pack_into('<3h', part, 6 + 6*k, x - PIVOT[0], f - PIVOT[2], u - PIVOT[1])
-    p = 6 + 6*n
-    while part[p] == 0xF6: p += 7
-    nf = 0
-    while part[p] == 0xFC:
-        fl = struct.unpack_from('<H', part, p + 1)[0]; q = p + 5
-        assert fl & 0x60 and fl & 0x200 and fl & 0x400 and not fl & 0x04
-        q += 6
-        x, u, f = struct.unpack_from('<3b', part, q)
-        struct.pack_into('<3b', part, q, x - PIVOT[0], u - PIVOT[1], f - PIVOT[2]); q += 3
-        cnt = part[q]; q += 1 + 2*cnt
-        p = q; nf += 1
-    assert part[p] == 0x1E and p == len(part) - 1 and nf == 24, (hex(p), nf)
-
-    # ---- 2. 區塊配置：PART | SNIP | DATA | CODE ----
-    blk = bytearray(HDR) + part
-    o_part82 = len(HDR)
-    o_snip = len(blk)
-    blk += b'\xC4\x00' + struct.pack('<3h', *PIVOT) + struct.pack('<3h', 0, 0, 0) + b'\0\0'   # rel 之後補
-    blk += b'\x38\0\0'
+    # ---- 1. 新硬桿（實機樣式）與機腹燈，見 make_parts() ----
+    G = make_parts()
+    blk = bytearray(G['blk'])
+    o_part82, o_snip, o_boom2, o_endsel = G['part82'], G['snip'], G['boom2'], G['endsel']
     while len(blk) % 4: blk += b'\0'
     D = {}
     def var(name, size, init=b''):
@@ -117,7 +242,7 @@ def build(src, dst, preview=None, mode='full'):
     fl = lambda v: struct.pack('<f', v)
     var('SLOTS', 8 * 16)
     for k in ('DT', 'TMP', 'DX', 'DY', 'DZ', 'COS', 'SIN', 'RIGHT', 'BACK', 'DOWN', 'L', 'PITCH', 'YAW',
-              'TP', 'TH', 'APPR', 'CONT', 'SHOW'): var(k, 4)
+              'TP', 'TH', 'TE', 'EXT', 'APPR', 'CONT', 'SHOW'): var(k, 4)
     var('K256', 4, fl(1 / 256)); var('KANG', 4, fl(2 * math.pi / 65536)); var('KFA', 4, fl(65536 / (2 * math.pi)))
     var('CFWD', 4, fl(RECEP_FWD - HINGE_FWD)); var('CUP', 4, fl(RECEP_UP - HINGE_UP))
     var('ENTRY', 8); var('MSGTXT', len(MSG), MSG)
@@ -127,6 +252,16 @@ def build(src, dst, preview=None, mode='full'):
     def asm(base_off):
         r = lambda name: D[name] - base_off          # [ebx + r] = 變數
         s = lambda off: off - base_off
+        # 伸縮管各環 fwd = min(−UP_LEN, 管尖 + 3k)，管尖 = −UP_LEN − EXT/256
+        ta = [f"            mov eax, dword ptr [ebx + {r('EXT')}]", "            sar eax, 8", "            neg eax",
+              f"            sub eax, {UP_LEN}", f"            mov byte ptr [ebx + {s(G['tcap_pt'])}], al"]
+        for k, ring in enumerate(G['tele_fwd']):
+            ta += ["            mov ecx, eax", f"            add ecx, {TELE_STEP * k}", f"            cmp ecx, {-UP_LEN}",
+                   f"            jle tr{k}", f"            mov ecx, {-UP_LEN}", f"        tr{k}:"]
+            ta += [f"            mov word ptr [ebx + {s(o)}], cx" for o in ring]
+        TELE_ASM = "\n".join(ta)
+        LIGHT_ASM = "\n".join(f"            mov word ptr [ebx + {s(o + 1)}], ax\n            mov byte ptr [ebx + {s(o + 3)}], cl"
+                               for o in G['light_faces'])
         src = f"""
             pushfd
             pushad
@@ -138,6 +273,8 @@ def build(src, dst, preview=None, mode='full'):
             mov dword ptr [ebx + {r('APPR')}], 0
             mov dword ptr [ebx + {r('CONT')}], 0
             mov dword ptr [ebx + {r('SHOW')}], 0
+            mov dword ptr [ebx + {r('TE')}], 0
+            mov dword ptr [ebx + {r('EXT')}], 0
             movzx eax, word ptr [0x580bec]
             test eax, eax
             jz noslot
@@ -159,6 +296,7 @@ def build(src, dst, preview=None, mode='full'):
             mov word ptr [ebp], ax
             mov dword ptr [ebp + 4], edx
             mov dword ptr [ebp + 8], 0
+            mov dword ptr [ebp + 12], 0
         haveslot:
             mov eax, edx
             sub edx, dword ptr [ebp + 4]
@@ -274,27 +412,43 @@ def build(src, dst, preview=None, mode='full'):
             cmp eax, {APP_SIDE}
             jg animate
             mov dword ptr [ebx + {r('APPR')}], 1
+            mov dword ptr [ebx + {r('TP')}], {int(TRAIL_PITCH * DEG)}
+            mov dword ptr [ebx + {r('TE')}], {TRAIL_EXT * 256}
+            mov eax, dword ptr [ebx + {r('L')}]
+            cmp eax, {NEAR_L}
+            jg animate
             mov eax, dword ptr [ebx + {r('PITCH')}]
-            cmp eax, {int(10 * DEG)}
+            cmp eax, {int(P_MIN * DEG)}
             jge p1
-            mov eax, {int(10 * DEG)}
+            mov eax, {int(P_MIN * DEG)}
         p1:
-            cmp eax, {int(45 * DEG)}
+            cmp eax, {int(P_MAX * DEG)}
             jle p2
-            mov eax, {int(45 * DEG)}
+            mov eax, {int(P_MAX * DEG)}
         p2:
             mov dword ptr [ebx + {r('TP')}], eax
             mov eax, dword ptr [ebx + {r('YAW')}]
             neg eax
-            cmp eax, {int(-20 * DEG)}
+            cmp eax, {int(-15 * DEG)}
             jge y1
-            mov eax, {int(-20 * DEG)}
+            mov eax, {int(-15 * DEG)}
         y1:
-            cmp eax, {int(20 * DEG)}
+            cmp eax, {int(15 * DEG)}
             jle y2
-            mov eax, {int(20 * DEG)}
+            mov eax, {int(15 * DEG)}
         y2:
             mov dword ptr [ebx + {r('TH')}], eax
+            mov eax, dword ptr [ebx + {r('L')}]
+            sub eax, {UP_LEN * 2}
+            jge e1
+            xor eax, eax
+        e1:
+            cmp eax, {TELE_LEN * 2}
+            jle e2
+            mov eax, {TELE_LEN * 2}
+        e2:
+            shl eax, 7
+            mov dword ptr [ebx + {r('TE')}], eax
 
             mov eax, dword ptr [ebx + {r('L')}]
             cmp eax, {L_MIN}
@@ -302,9 +456,9 @@ def build(src, dst, preview=None, mode='full'):
             cmp eax, {L_MAX}
             jg animate
             mov eax, dword ptr [ebx + {r('PITCH')}]
-            cmp eax, {int(15 * DEG)}
+            cmp eax, {int(P_MIN * DEG)}
             jl animate
-            cmp eax, {int(45 * DEG)}
+            cmp eax, {int(P_MAX * DEG)}
             jg animate
             mov eax, dword ptr [ebx + {r('YAW')}]
             cmp eax, {int(-15 * DEG)}
@@ -362,14 +516,24 @@ def build(src, dst, preview=None, mode='full'):
             call approach
             mov word ptr [ebp + 8], ax
             mov word ptr [ebx + {s(o_snip + 10)}], ax
+            mov word ptr [ebx + {s(o_boom2 + 10)}], ax
             movsx eax, word ptr [ebp + 10]
             mov ecx, dword ptr [ebx + {r('TH')}]
             call approach
             mov word ptr [ebp + 10], ax
             mov word ptr [ebx + {s(o_snip + 8)}], ax
+            mov word ptr [ebx + {s(o_boom2 + 8)}], ax
+            mov edx, dword ptr [ebx + {r('DT')}]
+            imul edx, edx, {TELE_RATE}
+            movsx eax, word ptr [ebp + 12]
+            mov ecx, dword ptr [ebx + {r('TE')}]
+            call approach
+            mov word ptr [ebp + 12], ax
+            mov dword ptr [ebx + {r('EXT')}], eax
             mov eax, dword ptr [ebx + {r('APPR')}]
             or ax, word ptr [ebp + 8]
             or ax, word ptr [ebp + 10]
+            or ax, word ptr [ebp + 12]
             mov dword ptr [ebx + {r('SHOW')}], eax
             mov eax, {ORIG_R}
             cmp dword ptr [ebx + {r('APPR')}], 0
@@ -382,17 +546,40 @@ def build(src, dst, preview=None, mode='full'):
         noslot:
             mov word ptr [ebx + {s(o_snip + 8)}], 0
             mov word ptr [ebx + {s(o_snip + 10)}], 0
+            mov word ptr [ebx + {s(o_boom2 + 8)}], 0
+            mov word ptr [ebx + {s(o_boom2 + 10)}], 0
             mov dword ptr [ebx + {s(-1)}], {ORIG_R}
         done:
+{TELE_ASM}
+            mov ax, {F_LIT}
+            mov cl, {C_BOOM}
+            cmp dword ptr [ebx + {r('CONT')}], 0
+            je lt1
+            mov ax, {F_GLOW}
+            mov cl, {C_GREEN}
+        lt1:
+{LIGHT_ASM}
             mov ecx, dword ptr [ebx + {s(-2)}]
             cmp word ptr [ecx], 1
-            je show
+            jne ab0
+            mov dword ptr [ebx + {r('SHOW')}], 1
+        ab0:
+            lea edx, [ebx + {s(RESUME - tail)}]
+            mov word ptr [ebx + {s(o_endsel + 1)}], {G['rel_ret']}
             cmp dword ptr [ebx + {r('SHOW')}], 0
-            jne show
-            lea eax, [ebx + {s(RESUME - tail)}]
-            jmp resume
-        show:
-            lea eax, [ebx + {s(resume_off)}]
+            je seldone
+            movsx eax, word ptr [0x51cdac]
+            cmp eax, {EYE_BELOW}
+            jl below
+            lea edx, [ebx + {s(resume_off)}]
+            jmp seldone
+        below:
+            mov word ptr [ebx + {s(o_endsel + 1)}], {G['rel_boom2']}
+            cmp dword ptr [ebx + {r('CONT')}], 0
+            je seldone
+            mov word ptr [ebx + {s(o_endsel + 1)}], {G['rel_lights']}
+        seldone:
+            mov eax, edx
         resume:
             mov dword ptr [esp + 28], eax
             popad
@@ -438,9 +625,6 @@ def build(src, dst, preview=None, mode='full'):
         code_bytes = bytes(enc)
         if code_bytes[:2] == b'\x9c\x60' and code_bytes[2] == 0xE8: break
     blk += code_bytes
-    # C4 rel：C4 起點 + 16 之後 + rel = 82
-    rel = o_part82 - (o_snip + 16)
-    struct.pack_into('<h', blk, o_snip + 14, rel)
     # 38 rel16：38 在 o_snip+16，rel 之後 = o_snip+19；目標 RESUME（原 CODE，在區塊之前）
     struct.pack_into('<h', blk, o_snip + 17, RESUME - (tail + o_snip + 19))
 
@@ -456,6 +640,11 @@ def build(src, dst, preview=None, mode='full'):
     if mode in ('full', 'x86only'):
         c[F0_HOOK + 2:F0_HOOK + 4] = b'\xEB\x13'
         c[call_at] = 0xE8; struct.pack_into('<i', c, call_at + 1, target - (call_at + 5))
+    # 主 LOD 最外層結束的 38（→ 0x42AD 的 1E）改跳到區塊的選擇跳躍（預設 → 1E）
+    struct.pack_into('<h', blk, o_endsel + 1, G['rel_ret'])
+    assert c[END_JMP] == 0x38 and END_JMP + 3 + struct.unpack_from('<h', c, END_JMP + 1)[0] == 0x42AD and c[0x42AD] == 0x1E
+    if mode == 'full':
+        struct.pack_into('<h', c, END_JMP + 1, tail + o_endsel - (END_JMP + 3))
 
     if mode in ('static', 'origboom'):
         c[F0_HOOK + 2:F0_HOOK + 4] = b'\xEB\x08'          # 跳到 0x3720 的 push（原本的重定位）
@@ -475,6 +664,13 @@ def build(src, dst, preview=None, mode='full'):
         b = cd['ro']; va = lambda off: 0x1000 + off
         d2[b + F0_HOOK + 2] = 0x68; struct.pack_into('<I', d2, b + F0_HOOK + 3, va(tail + o_snip))
         struct.pack_into('<h', d2, b + tail + o_snip + 10, int(30 * DEG))
+        if len(sys.argv) > 0 and os.environ.get('KC_PREVIEW_BELOW'):
+            # 機腹下方視角：最後畫機腹燈 + 硬桿；掛勾處不畫
+            struct.pack_into('<I', d2, b + F0_HOOK + 3, va(RESUME))
+            struct.pack_into('<h', d2, b + tail + o_endsel + 1, G['rel_lights'])
+            struct.pack_into('<h', d2, b + tail + o_boom2 + 10, int(30 * DEG))
+            for o in G['light_faces']:
+                struct.pack_into('<H', d2, b + tail + o + 1, F_GLOW); d2[b + tail + o + 3] = C_GREEN
         open(preview, 'wb').write(d2)
     return info
 

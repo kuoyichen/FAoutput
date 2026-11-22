@@ -14,7 +14,10 @@ tail = c.find(bytes([1, 2, 3, 2, 1, 2, 3, 2, 1]))
 # locate hook target from the call at 0x372B
 assert c[0x3716:0x3718] == b'\xEB\x13' and c[0x372B] == 0xE8
 tgt = 0x372B + 5 + struct.unpack_from('<i', c, 0x372C)[0]
-snip = None
+import kc135_refuel as K
+G = K.make_parts()
+blk0 = c.find(K.HDR + b'\x82\x00' + struct.pack('<HH', G['nverts'], K.BOOM_SLOT * 8)); assert blk0 > 0
+EYE = 0x51cdac
 DEG = 65536 / 360
 mu = Uc(UC_ARCH_X86, UC_MODE_32)
 mu.mem_map(B, 0x10000); mu.mem_write(B, bytes(c))
@@ -55,24 +58,34 @@ def frame(th_deg, rel_fwd, rel_up, rel_right, fuel=None, spd=(500, 500), ph_deg=
     clock[0] += 64; w(0x552928, '<I', clock[0])
     sp = 0x7f8000; ret = B + 0x3730
     w(sp, '<I', ret); mu.reg_write(UC_X86_REG_ESP, sp)
-    mu.emu_start(B + tgt, B + 0x3736, count=100000)
-    resume = r(mu.reg_read(UC_X86_REG_ESP), '<I')
-    c4 = resume - B
-    hdg, pitch = r(resume + 8, '<h'), r(resume + 10, '<h')
+    mu.emu_start(B + tgt, B + 0x3736, count=200000)
+    resume = r(mu.reg_read(UC_X86_REG_ESP), '<I') - B
+    sn, b2, es = blk0 + G['snip'], blk0 + G['boom2'], blk0 + G['endsel']
+    hdg, pitch = r(B + b2 + 8, '<h'), r(B + b2 + 10, '<h')
+    assert (hdg, pitch) == (r(B + sn + 8, '<h'), r(B + sn + 10, '<h'))
+    end = es + 3 + r(B + es + 1, '<h')
+    endn = {blk0 + G['boom2']: 'boom', blk0 + G['boom2'] - 0: 'boom'}.get(end, 'lights' if end < blk0 + G['boom2'] else 'ret')
+    hook = 'boom' if resume == sn else ('skip' if resume == 0x373C else hex(resume))
+    tipf = r(B + blk0 + G['tele_fwd'][0][0], '<h'); r1 = r(B + blk0 + G['tele_fwd'][1][0], '<h')
+    capf = r(B + blk0 + G['tcap_pt'], '<b')
+    lf = G['light_faces'][0]; lt = (hex(r(B + blk0 + lf + 1, '<H')), r(B + blk0 + lf + 3, '<B'))
     rad = r(B + 0x73E4, '<i')
-    return dict(resume=hex(c4), c4=mu.mem_read(resume, 2).hex(), hdg=round(hdg / DEG, 1), pitch=round(pitch / DEG, 1),
-                radius=rad >> 8, fuel=r(PL + 0x1fc, '<i') / 256)
+    return dict(hook=hook, end=endn, hdg=round(hdg / DEG, 1), pitch=round(pitch / DEG, 1), tip=tipf, ring1=r1, cap=capf,
+                light=lt, radius=rad >> 8, fuel=round(r(PL + 0x1fc, '<i') / 256, 1))
 
-L, P = 160, 30
+w(EYE, '<h', 100)
+L, P = 130, 30
 back, down = L*math.cos(math.radians(P)), L*math.sin(math.radians(P))
 cf, cu = -126 - back - 50, -4 - down - 20
 print('far        ', frame(0, -5000, 0, 0, fuel=1000))
+for k in range(3): print('trail 1000 ft', frame(0, -1000, -300, 0))
 for k in range(4): print('contact h0 ', frame(0, cf, cu, 0))
 for k in range(3): print('contact h90', frame(90, cf, cu, 0))
 print('offset right 40ft h0', frame(0, cf, cu, 40))
 print('speed diff 50', frame(0, cf, cu, 0, spd=(500, 550)))
 print('near full', frame(0, cf, cu, 0, fuel=16190)); print('full ', frame(0, cf, cu, 0))
 print('calls', calls)
+w(EYE, '<h', -50); print('eye below', frame(0, cf, cu, 0)); w(EYE, '<h', 100)
 for k in range(3): print('leave', frame(0, -5000, 0, 0))
 for k in range(30): f = frame(0, -5000, 0, 0)
 print('boom stowed', f)
