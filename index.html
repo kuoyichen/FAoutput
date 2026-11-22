@@ -314,7 +314,7 @@ function build(M){
   const faces = [], st = M.stations || new Map();
   const storeShown = t => { const S0 = st.get(t.st); if (!S0) return true; return t.type === "pylon" ? S0.def !== 0 : S0.def === t.kind && S0.maxRank >= t.rank; };   // default loadout
   for (const f of M.faces){
-    if (f.lod !== 0 || f.del || (f.store && !storeShown(f.store)) || f.ab || isFlame(f)) continue;   // f.ab = animated AB flame (SH op 40), never on the hero
+    if (f.lod !== 0 || f.del || (f.store && !storeShown(f.store)) || f.ab || f.flap === "down" || isFlame(f)) continue;   // f.ab = animated AB flame (SH op 40), never on the hero
     if (!f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed)) continue;
     faces.push({ pts: f.refs.map(r => { const w = SHCore.worldOf(M, r[0], r[1]); return [w[0], w[2], w[1]]; }), uv: f.uv, col: f.col });
   }
