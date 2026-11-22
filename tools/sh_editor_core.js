@@ -115,9 +115,15 @@ function x86Run(mem, start, maxSteps = 400){
     if (b0 === 0xA1){ eax = rd32(rd32(p+1)); ax = s16(eax); p += 5; continue; }
     if (b0 >= 0x70 && b0 <= 0x7F){ const t = cc(b0); if (t == null) return null; p += 2 + (t ? (b1 << 24) >> 24 : 0); continue; }
     if (b0 === 0x0F && b1 >= 0x80 && b1 <= 0x8F){ const t = cc(b1); if (t == null) return null; p += 6 + (t ? dv.getInt32(o+2, true) : 0); continue; }
+    if (b0 === 0x90){ p += 1; continue; }
     if (b0 === 0xEB){ p += 2 + ((b1 << 24) >> 24); continue; }
     if (b0 === 0xE9){ p += 5 + dv.getInt32(o+1, true); continue; }
-    if (b0 === 0xE8){ stack.push(p + 5); p += 5 + dv.getInt32(o+1, true); continue; }
+    if (b0 === 0xE8){
+      // F-14 parked oversweep (tools/shgen/f14_park_sweep.py): the swing-wing F0 calls a routine that returns the normal
+      // sweep (ax>>2 + ax>>6) while flying and blends to 75 deg when parked; viewers show the flying sweep
+      const t = p + 5 + dv.getInt32(o+1, true) - SH_VA;
+      if (t >= 0 && t + 13 <= L && [0x9C,0x60,0xE8,0,0,0,0,0x5B,0x0F,0xBF,0x6C,0x24,0x1C].every((x, k) => mem[t + k] === x)) { ax = s16((s16(ax) >> 2) + (s16(ax) >> 6)); p += 5; continue; }
+      stack.push(p + 5); p += 5 + dv.getInt32(o+1, true); continue; }
     if (b0 === 0x5B){ ebx = stack.pop() ?? 0; p += 1; continue; }
     if (b0 === 0x53){ stack.push(ebx); p += 1; continue; }
     if (b0 === 0x81 && b1 === 0xC3){ ebx += dv.getInt32(o+2, true); p += 6; continue; }
@@ -228,7 +234,7 @@ function parseModel(u8in) {
   // coordinate of 226 is also stored as the bytes E2 00
   const picAt = o => { let s = ""; for (let k = 2; k < 16 && c[o + k]; k++) s += String.fromCharCode(c[o + k]); return /^[\w-]+\.PIC$/i.test(s); };
   let start = 0x14; for (let o = 0; o < Math.min(stop, 0x400); o++) if (c[o] === 0xE2 && c[o + 1] === 0 && picAt(o)) { start = o + 16; break; }
-  const M = { u8, pe, c, dv, stop, scale, shift, bufs: [], verts: [], faces: [], f6: [], insts: [I3()], instMeta: [null], lods: [], texNames: [], warnings: [], stations: new Map(), fallSlots: 0 };
+  const M = { u8, pe, c, dv, stop, scale, shift, bufs: [], verts: [], faces: [], f6: [], insts: [I3()], instMeta: [null], lods: [], texNames: [], warnings: [], stations: new Map(), fallSlots: 0, jumpIns: new Set() };
   for (let i = 0; i < u8.length - 16; i++) if (u8[i] === 0xE2 && u8[i + 1] === 0) { let s = ""; for (let k = 2; k < 16 && u8[i + k]; k++) s += String.fromCharCode(u8[i + k]); if (/^[\w-]+\.PIC$/i.test(s) && !M.texNames.includes(s.toUpperCase())) M.texNames.push(s.toUpperCase()); }
 
   const goodBuf = (o, limit) => {
@@ -309,7 +315,7 @@ function parseModel(u8in) {
 
   // structured walk of an appended block
   const walk = (t, map, inst, lod, depth, seen, meta = null) => {
-    for (let g = 0; g < 4000 && t >= appendStart && t < stop - 1; g++) {
+    for (let g = 0; g < 4000 && t >= start && t < stop - 1; g++) {
       const key = t + "@" + inst; if (seen.has(key)) return; seen.add(key);
       const op = c[t];
       if (op === 0x82 && c[t + 1] === 0) { const b = goodBuf(t, stop); if (!b) return; const rec = addBuf(t, b, lod, true); rec.tf = inst; load(map, rec, inst); t = b.e; }
@@ -333,7 +339,9 @@ function parseModel(u8in) {
         t += 10;
       }
       else if (op === 0x12 && c[t + 1] === 0) { const g2 = t + 4 + dv.getInt16(t + 2, true); if (g2 >= appendStart && depth < 40) walk(g2, map, inst, lod, depth + 1, seen, meta); t += 4; }
-      else if (op === 0x38) { const g2 = t + 3 + dv.getInt16(t + 1, true); if (g2 < appendStart) return; t = g2; }
+      // a jump may also land in the original area: f14_jolly.py (F14J nose) moved grown faces into dead 1E filler runs
+      // there (each after a 38 jump of the original code) and chains them with 38 jumps
+      else if (op === 0x38) { const g2 = t + 3 + dv.getInt16(t + 1, true); if (g2 < start || g2 >= stop - 1) return; if (g2 < appendStart) M.jumpIns.add(g2); t = g2; }
       else if (op === 0xC4 && c[t + 1] === 0) {
         const pos = [0, 1, 2].map(k => dv.getInt16(t + 2 + 2 * k, true)), rot = [3, 4, 5].map(k => dv.getInt16(t + 2 + 2 * k, true));
         const pt = t + 16 + dv.getInt16(t + 14, true);
@@ -355,6 +363,10 @@ function parseModel(u8in) {
         S0.slots.push({ o: t, rank, def }); S0.maxRank = Math.max(S0.maxRank, rank); if (!S0.def || rank === 1) S0.def = def || S0.def;
         for (let k = 1; k < NK; k++) { const lt = ent(k); if (c[lt] === 0 && c[lt + 1] === 0) continue; S0.kinds.add(k); if (depth < 40) walk(lt, map.slice(), inst, lod, depth + 1, seen, { type: "store", st, rank, kind: k, def, stub: t }); }
         return;
+      }
+      else if (op === 0xF0 && c[t + 1] === 0 && c[t + 2] === 0x68 && c[t + 7] === 0x68 && c[t + 12] === 0xC3) {
+        // F0 tail jump (`68 <dest> 68 <thunk> C3`, f18_wing_fold.py: a folding panel goes on into its wingtip store stub)
+        const g2 = dv.getUint32(t + 3, true) - SH_VA; if (g2 < appendStart || g2 >= stop - 1) return; t = g2;
       }
       else return;   // 00 00 / 1E return, or an op we do not follow
     }
@@ -386,6 +398,30 @@ function parseModel(u8in) {
     while (si < sites.length && sites[si][0] <= o) { walk(sites[si][1], map.slice(), 0, Math.max(lod, 0), 0, siteSeen); si++; }
     if (hooks.has(o)) { walk(hooks.get(o), map.slice(), 0, Math.max(lod, 0), 0, new Set()); o += 7; continue; }
     const op = c[o];
+    // F/A-18 parked wing fold (tools/shgen/f18_wing_fold.py): the root hook became `F0 00 68 <block> 68 <thunk> C3`; the block is
+    // `F0 00 68 <cont> <x86 that writes the panel C4 rolls> 68 <thunk> C3` and FA goes on at <cont>: the hinge 82 (vertices the
+    // clipped inner wing faces of the body use), the draw-order nodes and the two outer-panel C4 parts. Walk it with the live
+    // slot map so the body that follows resolves the hinge slots.
+    if (op === 0xF0 && c[o + 1] === 0 && c[o + 2] === 0x68 && c[o + 7] === 0x68 && c[o + 12] === 0xC3 && lod >= 0) {
+      const N = dv.getUint32(o + 3, true) - SH_VA;
+      if (N >= appendStart && N < stop - 8 && c[N] === 0xF0 && c[N + 1] === 0 && c[N + 2] === 0x68) {
+        const X = dv.getUint32(N + 3, true) - SH_VA;
+        if (X >= appendStart && X < stop - 6 && goodBuf(X, stop)) { walk(X, map, 0, lod, 0, new Set()); o += 13; continue; }
+      }
+      // F-14 flaps (tools/shgen/f14_flap.py): a wing part's first 82 moved to an appended block (flap vertices at slot 800 +
+      // the wing vertices), and the part now starts with this trampoline. Load the block's 82s here as the part's own
+      // buffers (placed by the wing C4 like the old 82 at this address), then go on with the part's faces.
+      if (lod === 0 && N >= appendStart && N < stop - 6 && goodBuf(N, stop)) {
+        let t = N, first = null;
+        for (let b; (b = goodBuf(t, stop)); t = b.e) {
+          const rec = addBuf(t, b, lod, false); load(map, rec, 0);
+          if (!first) { first = rec; rec.src = t; rec.o = o; } else rec.follow = first;
+          if (b.slot >= 800) rec.flap = true;
+        }
+        M.flapTramps = (M.flapTramps || new Set()).add(o);
+        o += 13; continue;
+      }
+    }
     if (op === 0x82 && c[o + 1] === 0) {
       const b = goodBuf(o, appendStart);
       if (b) {
@@ -420,7 +456,7 @@ function parseModel(u8in) {
   // (and its nested placements) to wherever the control code puts the old part, and shows it only while that part is drawn.
   M.gearGroups = [];
   for (let T = start; T < appendStart - 12; T++) {
-    if (c[T] !== 0xF0 || c[T + 1] !== 0 || c[T + 2] === 0x68 && c[T + 7] === 0xE8) continue;
+    if (c[T] !== 0xF0 || c[T + 1] !== 0 || c[T + 2] === 0x68 && c[T + 7] === 0xE8 || M.flapTramps && M.flapTramps.has(T)) continue;
     let q = -1; for (let k = T + 2; k < Math.min(T + 400, stop - 11); k++) if (c[k] === 0x68 && c[k + 5] === 0x68 && c[k + 10] === 0xC3) { q = k; break; }
     if (q < 0) continue;
     const N = dv.getUint32(q + 1, true) - SH_VA;
@@ -433,7 +469,7 @@ function parseModel(u8in) {
     M.gearGroups.push(grp);
   }
   // original sub-parts of the main LOD: place them like FA does for the default state (gear down)
-  const subs = M.bufs.filter(b => b.lod === 0 && !b.hooked).slice(1);
+  const subs = M.bufs.filter(b => b.lod === 0 && !b.hooked && !b.follow).slice(1);
   for (const g of M.gearGroups || []) subs.push(g);
   subs.sort((x, y) => x.o - y.o);
   M.subs = subs;
@@ -460,6 +496,7 @@ function placeParts(M, state) {
   // parts drawn by plain code (no F0 / C4) keep identity: a sub whose faces are not reached by any control code
   const reached = new Set(ev.map(e => e.part));
   if (!M.ctl.blocks.length && !M.ctl.statics.length) for (const b of M.subs) b.placed = true;
+  for (const b of M.bufs) if (b.follow) { b.placed = b.follow.placed; b.base = b.follow.base; }
   M.unplaced = M.subs.filter(b => !b.placed).length;
   return reached;
 }
@@ -561,6 +598,7 @@ function polysAt(M, opts) {
     if (f.lod !== 0 || f.del || (f.store && (f.store.type === "fall" || !shown(f.store)))) continue;
     if (f.ab && (!(opts.on && opts.on._PLafterBurner) || f.ab.frame !== (opts.abFrame || 0) % f.ab.frames)) continue;   // flame: AB on, one animation frame
     if (f.grp && !f.grp.placed) continue;
+    if (!(opts.on && opts.on._PLleftFlap) && f.refs.some(r => M.bufs[M.verts[r[0]].buf].flap)) continue;   // F-14 flap faces: only with flaps down
     if (!f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed)) continue;
     out.push({ pts: f.refs.map(r => { const w = worldOf(M, r[0], r[1]); return [w[0] * k, w[1] * k, w[2] * k]; }), uv: f.uv, col: f.col, face: f });
   }
