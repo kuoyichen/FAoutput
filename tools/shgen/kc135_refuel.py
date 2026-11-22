@@ -92,6 +92,7 @@ C_BOOM, C_FIN, C_ORANGE, C_BLACK, C_GREEN = 156, 158, 162, 158, 165
 F_LIT, F_GLOW = 0x0661, 0x0641  # 0x40 背面剔除 + 0x20 打光；0x641 不打光（燈）
 BELLY_UP = -7                # 機腹平底 up −7（x ±2，fwd −16..67）
 LIGHT_F = [30 + 5 * j for j in range(7)]   # 機腹燈 7 個，各 2×2
+REAR_LIGHTS = [(-66, -68, 1, 3), (-71, -74, 2, 4)]   # 機尾下方綠燈 (fwd 前, fwd 後, x 內, x 外)，左右對稱
 EYE_BELOW = BELLY_UP         # 眼睛低於機腹平面才在最後畫（燈、硬桿）
 END_JMP = 0x146B             # 主 LOD 最外層 BSP 結束後的 38 → 0x42AD（1E）
 
@@ -212,6 +213,14 @@ def make_parts():
     for f in LIGHT_F:
         q = [lm.vert(-1, BELLY_UP, f), lm.vert(1, BELLY_UP, f), lm.vert(1, BELLY_UP, f + 2), lm.vert(-1, BELLY_UP, f + 2)]
         lf += lm.face(q, (0, -1, 0), (0, BELLY_UP, f), C_GREEN, F_GLOW)
+    # 機尾下方斜面（硬桿樞紐後方，fwd −64 → −79 由 up 0 升到 8，面朝下後方）：左右各兩個，
+    # 從受油機看過去不會被硬桿擋住（Kuoyi 2026-11-22 在預覽圖上指的位置）
+    up_at = lambda f: (-64 - f) * 8 / 15
+    for f0, f1, x0, x1 in REAR_LIGHTS:
+        for sx in (-1, 1):
+            q = [lm.vert(sx * x0, round(up_at(f0)), f0), lm.vert(sx * x1, round(up_at(f0)), f0),
+                 lm.vert(sx * x1, round(up_at(f1)), f1), lm.vert(sx * x0, round(up_at(f1)), f1)]
+            lf += lm.face(q, (0, -15, -8), (sx * x0, up_at(f0), f0), C_GREEN, F_GLOW)
     blk = bytearray(part)
     o_lights = len(blk); blk += lm.buf() + lf
     # 尾端硬桿（眼睛在機腹下方時，在整架飛機最後才畫）
