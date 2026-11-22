@@ -161,7 +161,8 @@ def configure(d, pt):
     hps = [h for h in pt_hards(pt) if h['i'] >= 4 and (h['x'], h['u'], h['f']) != (0, 0, 0)]
     slots, pylons, units, fall, under_ = {}, {}, [], {}, {}
     wing = sorted({h['x'] for h in hps if h['loc'] == 4})
-    tip = max(hps, key=lambda h: h['x'])
+    tips = [h for h in hps if h['loc'] == 5]          # wingtip station (none on F18G: tips treated as empty)
+    tip = max(tips, key=lambda h: h['x']) if tips else None
     print('hardpoints:')
     for h in hps:
         st, x, u, f = h['i'], h['x'], h['u'], h['f']
@@ -207,7 +208,7 @@ def configure(d, pt):
     # placed by sh_order (best branch + plane over ~80 rendered views); every other unit as before
     fus = {p + str(h['i']) for h in hps if h['loc'] == 1 and h['x'] != 0 for p in 'RL'}
     S.PLACER = (lambda c, ROOT, ugeo, ubox: placer(c, ROOT, ugeo, ubox, fus)) if fus else None
-    W.TIP_ST = tip['i']
+    W.TIP_ST = tip['i'] if tip else None
     # hinge outboard of the flaps too: the flap faces use their own vertex buffers (flaps up / down), which the
     # fold does not clip, so a flap reaching past the hinge sticks out of the folded wing (F18E/F/T/U flaps reach
     # x 51; F18 / F18C 39)

@@ -50,7 +50,7 @@ PSLOT = 700              # panel part vertices
 MAIN_END = 0x39e5        # end of the main LOD body bytecode (first part buffer); set per file by layout()
 ROOT_HOOK = 0xe15        # `12 00 rel -> BODY; 38 -> 0xe27; 1E..` (f18_stores.py hook of the main root); layout()
 MAIN_AT = 0x80           # main-LOD vertex buffer (82 00 n 0); F18C/E/T have it at 0x81; layout()
-TIP_ST = 8               # wingtip station (PT hardpoint) whose store folds with the panel (F18U: 7)
+TIP_ST = 8               # wingtip station (PT hardpoint) whose store folds with the panel (F18U: 7; None = no tip)
 
 
 def layout(c):
@@ -208,6 +208,7 @@ def find_tip_stubs(c, tail):
     """f18_stores.py slot stubs for station 8 (wingtip): `F0 00 68 imm32(8 | rank<<8 | kind<<16) E8 rel32` + an i16
     table of C4 lists per kind.  Returns {side: (stub offset, [list offsets])}."""
     out = {}
+    if TIP_ST is None: return out                 # no wingtip station (F18G-1): panels carry no store
     for rank, s in ((2, +1), (1, -1)):
         hits = [i for i in range(tail - 12) if c[i:i+3] == b'\xf0\x00\x68' and c[i+3] == TIP_ST and c[i+4] == rank and c[i+6] == 0
                 and c[i+7] == 0xE8]
@@ -371,6 +372,8 @@ def build(d, folded=False, grown=False):
         b += fb
         # tip store after the panel: tail jump (F0 trampoline; the stub is out of rel16 reach) into the slot stub,
         # whose C4 list ends with 00 00 = the end of this part
+        if s not in stubs:                        # no wingtip station: plain part end
+            return bytes(b + b'\x00\x00')
         jmp_at = at + len(b)
         b += b'\xf0\x00' + b'\x68' + struct.pack('<I', VA(stubs[s][0])) + b'\x68' + struct.pack('<I', VA(thunk_new)) + b'\xc3'
         relocs.extend([jmp_at + 3 - tail, jmp_at + 8 - tail])
