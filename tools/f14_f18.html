@@ -65,6 +65,8 @@ label.ck{display:inline-flex;gap:5px;align-items:center;cursor:pointer;font-size
 .dlrow .f{font-family:ui-monospace,Consolas,monospace;font-weight:700}
 .dlrow .d{font-size:12px;color:var(--muted)}
 .dlrow a.b{margin-left:auto;background:var(--accent);color:#1a1a1a;font-weight:700;text-decoration:none;border-radius:8px;padding:6px 12px;font-size:13px;white-space:nowrap}
+.dlrow .dl3{margin-left:auto;display:flex;gap:4px}
+.dlrow .dl3 a.b{margin-left:0;padding:6px 8px}
 .dlrow a.b.ghost{background:none;color:var(--text);border:1px solid var(--line)}
 .btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#1a1a1a;font-weight:700;text-decoration:none;border-radius:10px;padding:10px 16px;border:0;font-size:14px;cursor:pointer}
 .btn:hover{filter:brightness(1.08)}
@@ -96,7 +98,7 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
   <span id="langSlot"></span>
 </header>
 <main>
-  <div class="kicker">Release #4 · Nov 16, 2026</div>
+  <div class="kicker">Release #4 · Nov 16, 2026 · updated Nov 22</div>
   <h1 data-lang="en">New <b>F-14</b> and <b>F/A-18</b>, now with their weapons</h1>
   <h1 data-lang="zh">全新外型的 <b>F-14</b> 與 <b>F/A-18</b>，會畫出自己掛的武器</h1>
   <p class="lead" data-lang="en">Two replacement shapes for Fighters Anthology: <code>F14.SH</code> with a rebuilt nose, and <code>F18.SH</code> reshaped like the FAshion Hornets. Both now draw the missiles, bombs and fuel tanks the aircraft really carries in the game. Stores disappear as you fire them, pylons stay, and dropped tanks fall away. Try any loadout below, then download the files.</p>
@@ -141,7 +143,10 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <div class="dlrow"><div><div class="f">F18.SH</div><div class="d" data-lang="en">F/A-18 shape · 65,024 bytes</div><div class="d" data-lang="zh">F/A-18 外形 · 65,024 bytes</div></div><a class="b" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/F18.SH" download>⬇ SH</a></div>
         <div class="dlrow"><div><div class="f">F18.PT</div><div class="d" data-lang="en">matching F/A-18 stations (required)</div><div class="d" data-lang="zh">對應的 F/A-18 掛點（必要）</div></div><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PT/F18.PT" download>⬇ PT</a></div>
         <div class="dlrow"><div><div class="f">_F18.PIC</div><div class="d" data-lang="en">F/A-18 texture with the afterburner flame (required) · 167,504 bytes</div><div class="d" data-lang="zh">含後燃器火焰的 F/A-18 貼圖（必要） · 167,504 bytes</div></div><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PIC/_F18.PIC" download>⬇ PIC</a></div>
-        <div style="margin-top:10px"><button class="btn" id="zip">⬇ All six files (.zip)</button></div>
+        <div class="dlrow"><div><div class="f">F14J</div><div class="d" data-lang="en">F-14 Jolly Rogers · same upgrades, own texture</div><div class="d" data-lang="zh">F-14 海盜旗 · 同樣升級、自己的貼圖</div></div><span class="dl3"><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/F14J.SH" download>SH</a><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PT/F14J.PT" download>PT</a><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PIC/_F14J.PIC" download>PIC</a></span></div>
+        <div class="dlrow"><div><div class="f">FIR</div><div class="d" data-lang="en">F-14 IIAF (Iran) · same upgrades, own texture</div><div class="d" data-lang="zh">F-14 伊朗 · 同樣升級、自己的貼圖</div></div><span class="dl3"><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/FIR.SH" download>SH</a><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PT/F14I.PT" download>PT</a><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PIC/_FIR.PIC" download>PIC</a></span></div>
+        <div class="dlrow"><div><div class="f">FBC</div><div class="d" data-lang="en">F-14 Black Cat · same upgrades, own texture</div><div class="d" data-lang="zh">F-14 黑貓 · 同樣升級、自己的貼圖</div></div><span class="dl3"><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/FBC.SH" download>SH</a><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PT/F14X.PT" download>PT</a><a class="b ghost" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PIC/_FBC.PIC" download>PIC</a></span></div>
+        <div style="margin-top:10px"><button class="btn" id="zip">⬇ All files (.zip)</button></div>
         <p class="note" data-lang="en">Files come straight from <a href="https://github.com/kuoyichen/FAoutput">GitHub</a>. The textures (<code>_F14.PIC</code>, <code>_F18.PIC</code>) now hold the animated afterburner flame frames, so install them with the SH files. <a href="#install">How to install</a></p>
         <p class="note" data-lang="zh">檔案直接從 <a href="https://github.com/kuoyichen/FAoutput">GitHub</a> 下載。貼圖（<code>_F14.PIC</code>、<code>_F18.PIC</code>）加入了動態後燃器火焰的畫格，要和 SH 一起安裝。<a href="#install">安裝方式</a></p>
         <div id="zipMsg" class="note"></div>
@@ -166,6 +171,8 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <li><b>Parked wing oversweep:</b> stopped on the ground or a carrier deck with the gear down, the wings sweep back to 75° over 4 seconds, as the real F-14 parks. They spread again in 3 seconds when you move off, or at full afterburner on the catapult even though the jet is not moving yet.</li>
         <li><b>Flaps:</b> with the flaps down and the wings fully spread, the trailing-edge strip of each wing drops about 33° and leaves a notch in the wing, as on the real jet. With the wings swept, the flaps still work but are not drawn.</li>
         <li><b>GBU-16 shape</b> is the same balanced body with four X fins as on the F/A-18.</li>
+        <li><b>Bombs and air-to-ground missiles (Nov 21):</b> Mk-82, Mk-83, Mk-84 and CBU loads are drawn with the redrawn, symmetric Mk-84, and every AGM (HARM included) with the AGM-65 Maverick shape.</li>
+        <li><b>Same upgrades on three more F-14s:</b> F14J.SH (Jolly Rogers: black tails with the skull, black nose band and spine, black tanks, white flaps), FIR.SH (Iranian tan) and FBC.SH (Black Cat), each with its own texture. Pick them above the viewer.</li>
       </ul>
       <ul data-lang="zh">
         <li><b>新機鼻。</b>雷達罩用平滑的環重做，鼻尖從側面看落在機身中線上，跟真機一樣，不再往下垂。拿掉了黑色雷達罩塗裝和空速管，上下輪廓線平順地接回機身。共 57 點、94 面，並計算了光影法向量，在遊戲裡看起來是圓的。</li>
@@ -178,6 +185,8 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <li><b>停機時主翼後掠：</b>在地面或航艦甲板上停住、起落架放下時，主翼在 4 秒內後掠到 75 度，跟真的 F-14 停機一樣。開始移動時 3 秒內展開；在彈射器上推到全後燃器時，即使還沒動也會展開。</li>
         <li><b>襟翼：</b>襟翼放下而且主翼全展時，每邊主翼後緣那一條會往下轉約 33 度，主翼留下缺口，跟真機一樣。主翼後掠時襟翼照常作用，但不畫出來。</li>
         <li><b>GBU-16 外型</b>跟 F/A-18 的一樣：彈身對稱，四片 X 形尾翼。</li>
+        <li><b>炸彈與對地飛彈（11/21）：</b>Mk-82、Mk-83、Mk-84 和 CBU 都用重畫過、左右對稱的 Mk-84 外形，所有 AGM（包括 HARM）都用 AGM-65 小牛飛彈的外形。</li>
+        <li><b>另外三架 F-14 也有同樣的升級：</b>F14J.SH（海盜旗：黑色尾翼加骷髏、黑色機鼻帶與背脊、黑色副油箱、白色襟翼）、FIR.SH（伊朗沙色）和 FBC.SH（黑貓），各自用自己的貼圖。可在檢視器上方切換。</li>
       </ul>
     </div>
     <div class="card chg">
@@ -191,6 +200,9 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <li><b>Jettisoned or empty tanks fall away</b> from the centreline and both wing stations. Only fuel tanks fall; fired missiles just disappear.</li>
         <li><b>3D landing gear:</b> the nose strut now reaches the fuselage, with a housing, piston, collar, fork block and launch bar, and the wheels spin with speed (still at 0 kt, stopped above 180 kt).</li>
         <li><b>Parked wing fold:</b> stopped on the ground or a carrier deck with the gear down, the outer wings fold up over 4 seconds. They spread again in 3 seconds when you move off, or at full afterburner on the catapult.</li>
+        <li><b>Fuselage AIM-120s moved forward</b> so their noses sit just behind the intake lip, as on the real jet.</li>
+        <li><b>Bombs and air-to-ground missiles (Nov 21):</b> Mk-82, Mk-84 and CBU loads are drawn with the redrawn, symmetric Mk-84, AGM-65 Maverick has its own shape, HARM keeps its own, and an AIM-54 (which the Hornet never carries) is drawn as an AIM-120.</li>
+        <li><b>The whole Hornet family</b> (F/A-18C, E, F, both Blue Angels and the EA-18G) now has these upgrades too, each with its own shape: see the <a href="f18_showcase.html">F/A-18 Showcase</a>.</li>
       </ul>
       <ul data-lang="zh">
         <li><b>照 FAshion F/A-18C 修整外形：</b>機身變窄變低、座艙罩降低、機鼻和機尾加長、垂直和水平尾翼縮小。保留雙座座艙。整個家族請看 <a href="f18_showcase.html">F/A-18 展示</a>。</li>
@@ -201,6 +213,9 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
         <li><b>拋棄或用完的副油箱會往下掉</b>，機腹中線和兩組翼下掛點都有。只有副油箱會掉，飛彈射出就直接消失。</li>
         <li><b>立體起落架：</b>前輪柱接到機身，加了筒身、活塞、套環、叉座和彈射桿，輪子會隨速度轉（0 節不轉、超過 180 節停下）。</li>
         <li><b>停機時折翼：</b>在地面或航艦甲板上停住、起落架放下時，外翼在 4 秒內往上折起。開始移動時 3 秒內展開，在彈射器上推到全後燃器時也會展開。</li>
+        <li><b>機身兩側 AIM-120 往前移</b>，彈頭剛好在進氣口唇口後方，跟真機一樣。</li>
+        <li><b>炸彈與對地飛彈（11/21）：</b>Mk-82、Mk-84 和 CBU 都用重畫過、左右對稱的 Mk-84 外形，AGM-65 小牛有自己的外形，HARM 維持原本外形，AIM-54（Hornet 不會掛）畫成 AIM-120。</li>
+        <li><b>整個 Hornet 家族</b>（F/A-18C、E、F、兩架藍天使和 EA-18G）也都有這些升級，各自有自己的外形：請看 <a href="f18_showcase.html">F/A-18 展示</a>。</li>
       </ul>
     </div>
   </div>
@@ -228,8 +243,8 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
     <li>先備份同名的舊檔，再把新檔放到你的 FA 讀取外加 SH、PT、PIC 檔的地方。</li>
     <li>開一場 F-14 或 F/A-18 的任務，在掛載畫面選武器，再切到外部視角看你的飛機。</li>
   </ol>
-  <div class="warnbox" data-lang="en"><b>Use the matching PT.</b> The SH draws a store by station number, so it needs the station layout of the new PT. With the stock F14.PT the F-14 shows two AIM-54s on one side and none on the other, and no AIM-9s. Other aircraft that borrow these shapes (for example F14D.PT uses F14.SH, and F18F.PT / F18G.PT use F18.SH) draw stores according to their own stations, which may not line up. The PT hardpoints are also where FA launches the weapons, and some are set a little away from where the SH draws them on purpose, so missiles leave clear of the airframe.</div>
-  <div class="warnbox" data-lang="zh"><b>要用對應的 PT。</b>SH 是依掛點編號畫外掛，所以需要新 PT 的掛點配置。如果用原廠 F14.PT，F-14 會一邊畫兩枚 AIM-54、另一邊沒有，也沒有 AIM-9。其他借用這兩個外形的飛機（例如 F14D.PT 用 F14.SH，F18F.PT、F18G.PT 用 F18.SH）會照它們自己的掛點畫，可能對不上。PT 的掛點也是 FA 發射武器的位置，有幾個是故意設得離 SH 畫的位置遠一點，讓飛彈離開機身後才射出。</div>
+  <div class="warnbox" data-lang="en"><b>Use the matching PT.</b> The SH draws a store by station number, so it needs the station layout of the new PT. With the stock F14.PT the F-14 shows two AIM-54s on one side and none on the other, and no AIM-9s. Each variant has its own PT: F14D.PT also flies F14.SH, F14J.PT flies F14J.SH, F14I.PT flies FIR.SH and F14X.PT flies FBC.SH; the F/A-18 variants are on the Showcase page. The PT hardpoints are also where FA launches the weapons, and some are set a little away from where the SH draws them on purpose, so missiles leave clear of the airframe.</div>
+  <div class="warnbox" data-lang="zh"><b>要用對應的 PT。</b>SH 是依掛點編號畫外掛，所以需要新 PT 的掛點配置。如果用原廠 F14.PT，F-14 會一邊畫兩枚 AIM-54、另一邊沒有，也沒有 AIM-9。每個衍生型都有自己的 PT：F14D.PT 也用 F14.SH，F14J.PT 用 F14J.SH，F14I.PT 用 FIR.SH，F14X.PT 用 FBC.SH；F/A-18 各型請看展示頁。PT 的掛點也是 FA 發射武器的位置，有幾個是故意設得離 SH 畫的位置遠一點，讓飛彈離開機身後才射出。</div>
 </main>
 <footer data-lang="en">FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>). Tools that built these shapes are in <a href="https://github.com/kuoyichen/FAoutput/tree/main/tools/shgen">tools/shgen</a> on GitHub. Keep a backup of your original files.</footer>
 <footer data-lang="zh">FAshion 是 hawke 為 Jane's Fighters Anthology 做的同好專案（<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>）。產生這些外形的工具在 GitHub 的 <a href="https://github.com/kuoyichen/FAoutput/tree/main/tools/shgen">tools/shgen</a>。請保留原本檔案的備份。</footer>
@@ -241,11 +256,11 @@ footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);
 // appended (F-14N nose, loadout stores), tags every store face with its station / kind / round, and places the moving parts.
 const { parsePIC, palFromBytes } = SHCore; let gamePal = null;
 FAI18N.register({
-  "FAshion home": "FAshion 首頁", "Release #4 · New F-14 and F/A-18": "發布 #4 · 新的 F-14 與 F/A-18", "Release #4 · Nov 16, 2026": "發布 #4 · 2026 年 11 月 16 日",
+  "FAshion home": "FAshion 首頁", "Release #4 · New F-14 and F/A-18": "發布 #4 · 新的 F-14 與 F/A-18", "Release #4 · Nov 16, 2026 · updated Nov 22": "發布 #4 · 2026 年 11 月 16 日 · 11 月 22 日更新",
   "Below": "下方", "Side": "側視", "Top": "上視", "Front": "前視", "Auto-rotate": "自動旋轉", "Wireframe": "線框", "Loading…": "載入中…",
   "Configuration": "狀態", "Landing gear down": "起落架放下", "Flaps down": "襟翼放下", "Tailhook down": "尾鉤放下", "Speed brake open": "減速板打開", "Afterburner": "後燃器",
   "Wing sweep": "後掠角", "Clean": "乾淨外形", "Carrier landing": "航艦降落", "Combat": "空戰",
-  "Loadout": "掛載", "Default": "預設", "All fired": "全部射完", "Empty": "全空", "Download": "下載", "⬇ All six files (.zip)": "⬇ 六個檔案一起下載（.zip）",
+  "Loadout": "掛載", "Default": "預設", "All fired": "全部射完", "Empty": "全空", "Download": "下載", "⬇ All files (.zip)": "⬇ 全部檔案一起下載（.zip）",
   "What changed from the factory SH": "跟原廠 SH 相比改了什麼", "How to install": "安裝方式"
 });
 document.getElementById("langSlot").append(FAI18N.picker());
@@ -260,13 +275,20 @@ async function fetchAny(path){
 // ===== The two aircraft =====
 const KIND = [["Nothing", "不掛"], ["Fuel tank", "副油箱"], ["AIM-9 Sidewinder", "AIM-9 響尾蛇"], ["AIM-120 AMRAAM", "AIM-120 AMRAAM"], ["AGM-88 HARM", "AGM-88 HARM"],
   ["GBU laser bomb", "GBU 雷射導引炸彈"], ["Mk-82 / CBU bomb", "Mk-82／CBU 炸彈"], ["AIM-7 Sparrow", "AIM-7 麻雀"], ["AIM-54 Phoenix", "AIM-54 鳳凰"], ["JDAM", "JDAM"]];
-const kindName = k => KIND[k] ? L(...KIND[k]) : L("kind " + k, "種類 " + k);
+// the shape each kind number draws differs per aircraft since the bomb update (Nov 21): ac.kind overrides KIND
+const kindName = k => { const o = AC[curName] && AC[curName].kind && AC[curName].kind[k] || KIND[k]; return o ? L(...o) : L("kind " + k, "種類 " + k); };
 const AC = {
   F14: { name: "F-14 Tomcat", sub: ["Rebuilt nose, Phoenix loadout", "重做機鼻、鳳凰飛彈掛載"], sweep: true, flaps: false,
+    kind: { 4: ["Mk-82 / Mk-84 / CBU bomb (Mk-84 shape)", "Mk-82／Mk-84／CBU 炸彈（Mk-84 外形）"], 6: ["AGM missile (AGM-65 Maverick shape)", "AGM 飛彈（AGM-65 小牛外形）"] },
     st: { 4: ["Belly tunnel", "機腹凹槽"], 5: ["Under the intakes", "進氣道下方"], 6: ["Glove pylons", "翼套派龍"], 7: ["Pylon shoulders", "派龍側軌"] } },
+  F14J: { name: "F-14 Jolly Rogers", sub: ["VF-84 black tails and skull", "VF-84 黑尾翼骷髏塗裝"], sweep: true, flaps: false, like: "F14", pt: "F14J" },
+  FIR: { name: "F-14 IIAF", sub: ["Iranian tan scheme", "伊朗沙色塗裝"], sweep: true, flaps: false, like: "F14", pt: "F14I" },
+  FBC: { name: "F-14 Black Cat", sub: ["All-black scheme", "全黑塗裝"], sweep: true, flaps: false, like: "F14", pt: "F14X" },
   F18: { name: "F/A-18 Hornet", sub: ["Reshaped, full strike loadout", "外形修整、對地攻擊掛載"], sweep: false, flaps: true,
+    kind: { 4: ["AGM-88 HARM / other AGM", "AGM-88 HARM／其他 AGM"], 6: ["AGM-65 Maverick", "AGM-65 小牛"], 8: ["Mk-82 / Mk-84 / CBU bomb (Mk-84 shape)", "Mk-82／Mk-84／CBU 炸彈（Mk-84 外形）"] },
     st: { 4: ["Centreline", "機腹中線"], 5: ["Fuselage", "機身兩側"], 6: ["Inboard wing", "內側翼下"], 7: ["Outboard wing", "外側翼下"], 8: ["Wingtips", "翼尖"] } }
 };
+for (const k in AC) if (AC[k].like){ const b = AC[AC[k].like]; AC[k].kind = b.kind; AC[k].st = b.st; }
 const cache = {};   // name -> { M (SHCore model), pic, stations, loadout }
 
 // ===== WebGL (same shading as the F/A-18 Showcase) =====
@@ -449,7 +471,7 @@ async function show(name){
   $("flapsBox").style.display = AC[name].flaps ? "" : "none"; $("sweepBox").style.display = AC[name].sweep ? "" : "none";
   if (!cache[name]){
     $("stat").textContent = L("Loading ", "載入 ") + name + ".SH…";
-    const [u8, p8] = await Promise.all([fetchAny("SH/view/" + name + ".SH"), fetchAny("PIC/_" + name + ".PIC")]);
+    const [u8, p8] = await Promise.all([fetchAny("SH/" + name + ".SH"), fetchAny("PIC/_" + name + ".PIC")]);
     if (!u8){ $("stat").textContent = L("Could not load ", "無法載入 ") + name + ".SH"; return; }
     let pic = null; try { if (p8) pic = parsePIC(p8); } catch(e){}
     const M = SHCore.parseModel(u8); if (!M || !M.faces.length){ $("stat").textContent = L("Could not parse ", "無法解析 ") + name + ".SH"; return; }
@@ -484,7 +506,7 @@ $("zip").onclick = async () => {
   const b = $("zip"), label = b.textContent; b.disabled = true; b.textContent = L("Preparing zip…", "正在打包…"); $("zipMsg").textContent = "";
   try {
     const files = [];
-    for (const p of ["SH/F14.SH", "PT/F14.PT", "PIC/_F14.PIC", "SH/F18.SH", "PT/F18.PT", "PIC/_F18.PIC"]){ const d = await fetchAny(p); if (!d) throw new Error(L("Could not download ", "無法下載 ") + p); files.push({ name: p.split("/")[1], data: d }); }
+    for (const p of ["SH/F14.SH", "PT/F14.PT", "PIC/_F14.PIC", "SH/F18.SH", "PT/F18.PT", "PIC/_F18.PIC", "SH/F14J.SH", "PT/F14J.PT", "PIC/_F14J.PIC", "SH/FIR.SH", "PT/F14I.PT", "PIC/_FIR.PIC", "SH/FBC.SH", "PT/F14X.PT", "PIC/_FBC.PIC"]){ const d = await fetchAny(p); if (!d) throw new Error(L("Could not download ", "無法下載 ") + p); files.push({ name: p.split("/")[1], data: d }); }
     const url = URL.createObjectURL(makeZip(files)), a = document.createElement("a"); a.href = url; a.download = "FAshion_F14_F18.zip"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
   } catch(e){ $("zipMsg").textContent = e.message; }
   b.disabled = false; b.textContent = label;
@@ -493,7 +515,7 @@ $("zip").onclick = async () => {
 FAI18N.apply(); labelAc();
 FAI18N.onChange(() => { labelAc(); if (curName && cache[curName]){ loadUI(); build(); } });
 palReady = loadPal();
-show((new URLSearchParams(location.search).get("ac") || "").toUpperCase() === "F18" ? "F18" : "F14");
+{ const q = (new URLSearchParams(location.search).get("ac") || "").toUpperCase(); show(AC[q] ? q : "F14"); }
 </script>
 </body>
 </html>
