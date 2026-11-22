@@ -36,6 +36,31 @@ RESUME = 0x373C             # 原本兩條路最後都回到這裡
 BOOM = 0x44F2               # 硬桿 82 緩衝區
 BOOM_END = 0x485A           # 下一個零件（襟翼）開始
 F2TBL = 0x73E4
+AB_PTR = 0x3719             # cmp word ptr [_PLafterBurner],1 的位址運算元（重定位）
+CALL_AT = 0x372B            # 原本 12 00 c3 0d（呼叫硬桿）的位置
+
+
+def reloc_sites(d, pe, code):
+    """CODE 內所有 HIGHLOW 重定位位置（CODE 位移）。"""
+    rva, rsz = struct.unpack_from('<II', d, pe + 24 + 96 + 8 * 5)
+    _, _, secs = pe_sections(d)
+    rs = next(s for s in secs if s['va'] <= rva < s['va'] + s['vs'])
+    p = rs['ro'] + rva - rs['va']; end = p + rsz; out = []
+    while p < end:
+        pg, sz = struct.unpack_from('<II', d, p)
+        if not pg or sz < 8: break
+        for k in range((sz - 8) // 2):
+            e = struct.unpack_from('<H', d, p + 8 + 2 * k)[0]
+            if e >> 12 == 3: out.append(pg + (e & 0xFFF) - code['va'])
+        p += sz
+    return out
+
+
+def check_relocs(d, pe, code, c):
+    """改過的位元組不可碰到任何重定位 dword（否則 FA 載入器解析出非法位址而當機）。"""
+    orig = d[code['ro']:code['ro'] + code['vs']]
+    for site in reloc_sites(d, pe, code):
+        assert c[site:site + 4] == orig[site:site + 4] or site >= len(orig), f'patch overwrote reloc at CODE+{site:#x}'
 PIVOT = (0, -2, -63)        # (x, up, fwd) 頂點單位（1 單位 = 2 ft）
 HDR = bytes.fromhex('eb0047001a01')   # 零件範圍標頭，照起落架零件抄
 
@@ -51,7 +76,7 @@ STEP = 14                                                  # 每 1/256 s 轉 14 
 MSG = b' Plane Re-Fueled\0'
 
 
-def build(src, dst, preview=None):
+def build(src, dst, preview=None, mode='full'):
     d = bytearray(open(src, 'rb').read()); pe, opt, secs = pe_sections(d)
     code = next(s for s in secs if s['name'] == 'CODE')
     c = bytearray(d[code['ro']:code['ro'] + code['vs']])
@@ -92,7 +117,7 @@ def build(src, dst, preview=None):
     fl = lambda v: struct.pack('<f', v)
     var('SLOTS', 8 * 16)
     for k in ('DT', 'TMP', 'DX', 'DY', 'DZ', 'COS', 'SIN', 'RIGHT', 'BACK', 'DOWN', 'L', 'PITCH', 'YAW',
-              'TP', 'TH', 'APPR', 'CONT'): var(k, 4)
+              'TP', 'TH', 'APPR', 'CONT', 'SHOW'): var(k, 4)
     var('K256', 4, fl(1 / 256)); var('KANG', 4, fl(2 * math.pi / 65536)); var('KFA', 4, fl(65536 / (2 * math.pi)))
     var('CFWD', 4, fl(RECEP_FWD - HINGE_FWD)); var('CUP', 4, fl(RECEP_UP - HINGE_UP))
     var('ENTRY', 8); var('MSGTXT', len(MSG), MSG)
@@ -112,12 +137,17 @@ def build(src, dst, preview=None):
             mov dword ptr [ebx + {r('TH')}], 0
             mov dword ptr [ebx + {r('APPR')}], 0
             mov dword ptr [ebx + {r('CONT')}], 0
+            mov dword ptr [ebx + {r('SHOW')}], 0
             movzx eax, word ptr [0x580bec]
             test eax, eax
             jz noslot
+            cmp ax, word ptr [0x553838]
+            jae noslot
             mov esi, dword ptr [eax*4 + 0x553848]
             test esi, esi
             jz noslot
+            cmp byte ptr [esi], 4
+            jne noslot
             mov ecx, eax
             and ecx, 7
             shl ecx, 4
@@ -140,6 +170,10 @@ def build(src, dst, preview=None):
             mov dword ptr [ebx + {r('DT')}], edx
 
             movzx eax, word ptr [0x520a1c]
+            test eax, eax
+            jz animate
+            cmp ax, word ptr [0x553838]
+            jae animate
             mov edi, dword ptr [eax*4 + 0x553848]
             test edi, edi
             jz animate
@@ -333,6 +367,10 @@ def build(src, dst, preview=None):
             call approach
             mov word ptr [ebp + 10], ax
             mov word ptr [ebx + {s(o_snip + 8)}], ax
+            mov eax, dword ptr [ebx + {r('APPR')}]
+            or ax, word ptr [ebp + 8]
+            or ax, word ptr [ebp + 10]
+            mov dword ptr [ebx + {r('SHOW')}], eax
             mov eax, {ORIG_R}
             cmp dword ptr [ebx + {r('APPR')}], 0
             je setr
@@ -346,13 +384,22 @@ def build(src, dst, preview=None):
             mov word ptr [ebx + {s(o_snip + 10)}], 0
             mov dword ptr [ebx + {s(-1)}], {ORIG_R}
         done:
-            lea eax, [ebx + {s(o_snip)}]
+            mov ecx, dword ptr [ebx + {s(-2)}]
+            cmp word ptr [ecx], 1
+            je show
+            cmp dword ptr [ebx + {r('SHOW')}], 0
+            jne show
+            lea eax, [ebx + {s(RESUME - tail)}]
+            jmp resume
+        show:
+            lea eax, [ebx + {s(resume_off)}]
+        resume:
             mov dword ptr [esp + 28], eax
             popad
             popfd
             pop ecx
             push eax
-            add ecx, 4
+            add ecx, 6
             jmp ecx
 
         approach:
@@ -374,6 +421,9 @@ def build(src, dst, preview=None):
         return src
 
     # 兩次組譯：第一次求 base 位置（code 開頭 + pushfd/pushad/call 之後）
+    # mode: full = x86 + 可動硬桿；x86only = 跑 x86 但不畫硬桿；static = 不跑 x86、畫收起的 C4 硬桿；
+    #       origboom = 不跑 x86、直接用原本的呼叫畫原本的硬桿（只拿掉後燃器判斷）
+    resume_off = o_snip if mode == 'full' else RESUME - tail
     ks = Ks(KS_ARCH_X86, KS_MODE_32)
     base_off = o_code + 1 + 1 + 5
     F2_REL = None
@@ -382,6 +432,8 @@ def build(src, dst, preview=None):
         # F2 表在原 CODE 0x73E4，區塊插在 tail：相對 base 的位移
         f2disp = F2TBL - (tail + base_off)
         src = src.replace(f'[ebx + {-1 - base_off}]', f'[ebx + {f2disp}]')
+        # [ebx + s(-2)] = 0x3719 的 dword：原本 cmp [_PLafterBurner],1 的運算元，載入器會把它換成變數位址
+        src = src.replace(f'[ebx + {-2 - base_off}]', f'[ebx + {AB_PTR - (tail + base_off)}]')
         enc, _ = ks.asm(src, 0)
         code_bytes = bytes(enc)
         if code_bytes[:2] == b'\x9c\x60' and code_bytes[2] == 0xE8: break
@@ -394,13 +446,26 @@ def build(src, dst, preview=None):
 
     # ---- 3. 掛勾：0x3714 F0 ----
     #   F0 00 | EB 04 | (0x3718 舊重定位，不執行) | E8 rel32 → x86 | (0x3721 舊重定位) | 68 thunk; C3（保留）
-    c[F0_HOOK + 2:F0_HOOK + 4] = b'\xEB\x04'
-    call_at = 0x371C
+    #   KC135-1/2/2C 把 call 放在 0x371C，蓋掉了 0x3719 重定位 dword 的最高位元組 → 載入時當機。
+    #   現在：F0 00 | EB 13 → 0x372B | (0x3718..0x372A 原樣，重定位 0x3719/0x3721/0x3726 不動)
+    #         0x372B: E8 rel32 → x86（蓋掉原本的 12 00 c3 0d 呼叫硬桿與 F0）| 0x3730..0x3735 死碼（含重定位 0x3732）
+    #         x86 回到 返回位址+6 = 0x3736：push thunk; ret（原樣）
+    call_at = CALL_AT
     target = tail + o_code
-    c[call_at] = 0xE8; struct.pack_into('<i', c, call_at + 1, target - (call_at + 5))
-    assert c[0x3725] == 0x68 and c[0x372A] == 0xC3
+    assert c[0x3736] == 0x68 and c[0x373B] == 0xC3
+    if mode in ('full', 'x86only'):
+        c[F0_HOOK + 2:F0_HOOK + 4] = b'\xEB\x13'
+        c[call_at] = 0xE8; struct.pack_into('<i', c, call_at + 1, target - (call_at + 5))
 
+    if mode in ('static', 'origboom'):
+        c[F0_HOOK + 2:F0_HOOK + 4] = b'\xEB\x08'          # 跳到 0x3720 的 push（原本的重定位）
+    check_relocs(d, pe, code, c)
     out = insert_blocks(d, pe, secs, code, c, tail, bytes(blk))
+    if mode == 'static':
+        out = bytearray(out); pe3, o3, s3 = pe_sections(out); cd3 = next(x for x in s3 if x['name'] == 'CODE')
+        assert out[cd3['ro'] + 0x3720] == 0x68
+        struct.pack_into('<I', out, cd3['ro'] + 0x3721, 0x1000 + tail + o_snip)
+        out = bytes(out)
     assert len(out) < 65536, len(out)
     open(dst, 'wb').write(out)
     info = dict(tail=tail, o_snip=o_snip, o_code=o_code, o_part82=o_part82, D=D, blk_len=len(blk), size=len(out))
@@ -416,4 +481,6 @@ def build(src, dst, preview=None):
 
 if __name__ == '__main__':
     a = sys.argv[1:]
-    print(build(a[0], a[1], a[2] if len(a) > 2 else None))
+    mode = 'full'
+    if a and a[-1] in ('full', 'x86only', 'static', 'origboom', 'insertonly'): mode = a.pop()
+    print(build(a[0], a[1], a[2] if len(a) > 2 else None, mode))

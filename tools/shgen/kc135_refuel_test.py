@@ -11,8 +11,9 @@ d = open(sys.argv[1], 'rb').read(); pe, opt, secs = pe_sections(bytearray(d))
 code = next(s for s in secs if s['name'] == 'CODE'); c = d[code['ro']:code['ro'] + code['vs']]
 B = 0x02000000
 tail = c.find(bytes([1, 2, 3, 2, 1, 2, 3, 2, 1]))
-# locate hook target from the call at 0x371C
-tgt = 0x371C + 5 + struct.unpack_from('<i', c, 0x371D)[0]
+# locate hook target from the call at 0x372B
+assert c[0x3716:0x3718] == b'\xEB\x13' and c[0x372B] == 0xE8
+tgt = 0x372B + 5 + struct.unpack_from('<i', c, 0x372C)[0]
 snip = None
 DEG = 65536 / 360
 mu = Uc(UC_ARCH_X86, UC_MODE_32)
@@ -32,11 +33,13 @@ TK, PL, TD = 0x600000, 0x601000, 0x602000
 w = lambda a, fmt, *v: mu.mem_write(a, struct.pack(fmt, *v))
 r = lambda a, fmt: struct.unpack(fmt, mu.mem_read(a, struct.calcsize(fmt)))[0]
 w(0x553848 + 5*4, '<I', TK); w(0x553848 + 9*4, '<I', PL)
-w(0x580bec, '<H', 5); w(0x520a1c, '<H', 9)
+w(0x553838, '<H', 10); w(0x580bec, '<H', 5); w(0x520a1c, '<H', 9)
 for o in (TK, PL):
     w(o, '<B', 4); w(o + 1, '<I', 1); w(o + 0xe, '<H', 270); w(o + 9, '<B', 0); w(o + 5, '<I', TD)
 w(TD + 0x165, '<I', 16200)
 clock = [1000]
+AB = 0x7f0100                      # fake _PLafterBurner; loader puts its address in CODE+0x3719
+w(B + 0x3719, '<I', AB); w(AB, '<H', 0)
 
 def frame(th_deg, rel_fwd, rel_up, rel_right, fuel=None, spd=(500, 500), ph_deg=None):
     h = th_deg * math.pi / 180
@@ -50,9 +53,9 @@ def frame(th_deg, rel_fwd, rel_up, rel_right, fuel=None, spd=(500, 500), ph_deg=
         w(o + 0x34, '<i', sp * 256)
     if fuel is not None: w(PL + 0x1fc, '<i', fuel * 256)
     clock[0] += 64; w(0x552928, '<I', clock[0])
-    sp = 0x7f8000; ret = B + 0x3721
+    sp = 0x7f8000; ret = B + 0x3730
     w(sp, '<I', ret); mu.reg_write(UC_X86_REG_ESP, sp)
-    mu.emu_start(B + tgt, B + 0x3725, count=100000)
+    mu.emu_start(B + tgt, B + 0x3736, count=100000)
     resume = r(mu.reg_read(UC_X86_REG_ESP), '<I')
     c4 = resume - B
     hdg, pitch = r(resume + 8, '<h'), r(resume + 10, '<h')
@@ -71,4 +74,8 @@ print('speed diff 50', frame(0, cf, cu, 0, spd=(500, 550)))
 print('near full', frame(0, cf, cu, 0, fuel=16190)); print('full ', frame(0, cf, cu, 0))
 print('calls', calls)
 for k in range(3): print('leave', frame(0, -5000, 0, 0))
+for k in range(30): f = frame(0, -5000, 0, 0)
+print('boom stowed', f)
+w(AB, '<H', 1); print('own AB on', frame(0, -5000, 0, 0)); w(AB, '<H', 0)
 w(0x580bec, '<H', 0); print('handle 0', frame(0, cf, cu, 0))
+w(AB, '<H', 1); print('handle 0 AB', frame(0, cf, cu, 0))
