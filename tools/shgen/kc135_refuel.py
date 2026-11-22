@@ -75,7 +75,8 @@ TRAIL_PITCH, TRAIL_EXT = 30, 8                             # 拖曳位置：放�
 P_MIN, P_MAX = 15, 45                                      # 對準與加油框俯角範圍（放寬，實機約 20..40°）
 TELE_RATE = 24                                             # 伸縮管每 1/256 s 動 24/256 單位（≈ 48 ft/s，跟得上玩家前後移動）
 RATE = 50                                                  # lb/s（3000 lb/min）
-ORIG_R, SMALL_R = 72704, 40 * 256
+ORIG_R, SMALL_R = 72704, 10 * 256                        # 加油機附近：半徑 10 ft（掃描 5 ft）
+NEAR_BOX = 2000                                            # 玩家在加油機 ±2000 ft 方塊內就用小半徑（含衝到前面）
 DEG = 65536 / 360.0
 STEP = 14                                                  # 每 1/256 s 轉 14 單位 ≈ 20°/s
 MSG = b' Plane Re-Fueled\0'
@@ -260,7 +261,7 @@ def build(src, dst, preview=None, mode='full'):
     fl = lambda v: struct.pack('<f', v)
     var('SLOTS', 8 * 16)
     for k in ('DT', 'TMP', 'DX', 'DY', 'DZ', 'COS', 'SIN', 'RIGHT', 'BACK', 'DOWN', 'L', 'PITCH', 'YAW',
-              'TP', 'TH', 'TE', 'EXT', 'APPR', 'CONT', 'SHOW'): var(k, 4)
+              'TP', 'TH', 'TE', 'EXT', 'APPR', 'CONT', 'SHOW', 'NEARR'): var(k, 4)
     var('K256', 4, fl(1 / 256)); var('KANG', 4, fl(2 * math.pi / 65536)); var('KFA', 4, fl(65536 / (2 * math.pi)))
     var('CFWD', 4, fl(RECEP_FWD - HINGE_FWD)); var('CUP', 4, fl(RECEP_UP - HINGE_UP))
     var('ENTRY', 8); var('MSGTXT', len(MSG), MSG); var('MSGSTART', len(MSG_START), MSG_START)
@@ -300,6 +301,7 @@ def build(src, dst, preview=None, mode='full'):
             mov dword ptr [ebx + {r('APPR')}], 0
             mov dword ptr [ebx + {r('CONT')}], 0
             mov dword ptr [ebx + {r('SHOW')}], 0
+            mov dword ptr [ebx + {r('NEARR')}], 0
             mov dword ptr [ebx + {r('TE')}], 0
             mov dword ptr [ebx + {r('EXT')}], 0
             movzx eax, word ptr [0x580bec]
@@ -423,6 +425,20 @@ def build(src, dst, preview=None, mode='full'):
             fld dword ptr [ebx + {r('RIGHT')}]
             fistp dword ptr [ebx + {r('RIGHT')}]
 
+            mov eax, dword ptr [ebx + {r('BACK')}]
+            add eax, {NEAR_BOX}
+            cmp eax, {2 * NEAR_BOX}
+            ja nb
+            mov eax, dword ptr [ebx + {r('RIGHT')}]
+            add eax, {NEAR_BOX}
+            cmp eax, {2 * NEAR_BOX}
+            ja nb
+            mov eax, dword ptr [ebx + {r('DOWN')}]
+            add eax, {NEAR_BOX}
+            cmp eax, {2 * NEAR_BOX}
+            ja nb
+            mov dword ptr [ebx + {r('NEARR')}], 1
+        nb:
             mov eax, dword ptr [ebx + {r('BACK')}]
             cmp eax, 0
             jle animate
@@ -573,7 +589,7 @@ def build(src, dst, preview=None, mode='full'):
             or ax, word ptr [ebp + 12]
             mov dword ptr [ebx + {r('SHOW')}], eax
             mov eax, {ORIG_R}
-            cmp dword ptr [ebx + {r('APPR')}], 0
+            cmp dword ptr [ebx + {r('NEARR')}], 0
             je setr
             mov eax, {SMALL_R}
         setr:
