@@ -216,11 +216,15 @@ def configure(d, pt):
     print('slots', list(slots), 'fall', fall, 'tip station', W.TIP_ST, 'hinge |x|', W.H)
 
 
+EXTRA = None
+
+
 def main():
     var, src, psrc, pt, dst, pdst = sys.argv[1:7]
     tmp = dst + '.tmp'
     d = open(src, 'rb').read()
     configure(d, pt)
+    if EXTRA: EXTRA(d)                             # aircraft-specific additions (f18g_pods.py)
     out, _ = S.make(d)
     open(tmp + '1.SH', 'wb').write(out); print('1 stores', len(out))
     py = sys.executable

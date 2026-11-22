@@ -188,6 +188,55 @@ FALL_SLOTS = {'C4': 0, 'R6': 1, 'L6': 2, 'R7': 3, 'L7': 4}   # slot -> fall inde
 FALL_MS = 2000                     # for this long (wall clock, timeGetTime)
 FALL_NSTATE = 128                  # aircraft tracked (object index & 127; the object pointer guards collisions)
 PLACER = None                      # e.g. sh_order-based placement: PLACER(c, ROOT, unit geometry, unit boxes)
+SPIN = {}                          # unit -> (body part, body pos, prop part, prop pos): a fixed store (PYLON_UNITS
+                                   # entry) with a propeller on its nose that turns while the jet moves (F18G pods)
+SPIN_RATE = 197                    # prop roll units (65536 = 1 turn) per ms: 3 turns a second
+SPIN_STOP = 256                    # |speed| below this (ft/s x 256) = stopped: prop held at roll 0
+
+
+def spin_x86(disp):
+    """Roll word at [nx + disp] (nx = the label after `call`) = time * SPIN_RATE while the drawn jet moves, else 0."""
+    return f"""
+        pushfd
+        pushad
+        call nx
+    nx:
+        pop ebx
+        movzx ecx, word ptr [0x580bec]
+        mov esi, dword ptr [ecx*4 + 0x553848]
+        xor eax, eax
+        test esi, esi
+        jz put
+        mov edx, dword ptr [esi + 0x34]
+        add edx, {SPIN_STOP - 1}
+        cmp edx, {2 * SPIN_STOP - 2}
+        jbe put
+        call dword ptr [0x593758]
+        imul eax, eax, {SPIN_RATE}
+    put:
+        mov word ptr [ebx + {disp}], ax
+        popad
+        popfd
+    """
+
+
+def spin_stub(o, va, thunk_va, body_at, body_ps, prop_at, prop_ps):
+    """F0 stub at CODE offset o: x86 sets the prop roll, then the interpreter runs the list after it: a plane node
+    at the prop disc (eye ahead -> body then prop, else prop then body), body C4, prop C4.  Returns bytes and the
+    offsets (from o) of its two absolute pushes."""
+    ln = len(asm(spin_x86(100)))
+    stub_len = 2 + ln + 11
+    L = o + stub_len                                   # list
+    A, B = L + 20, L + 38
+    nx = o + 2 + 7
+    x = asm(spin_x86(B + 12 - nx)); assert len(x) == ln
+    b = b'\xf0\x00' + x + b'\x68' + struct.pack('<I', va(L)) + b'\x68' + struct.pack('<I', thunk_va) + b'\xc3'
+    pf = prop_ps[2]
+    b += struct.pack('<BB6h', 0x06, 0, 0, 0, 0, 0, 16384, -pf) + struct.pack('<hh', A - (L+16), B - (L+18)) + b'\x00\x00'
+    b += struct.pack('<BB6h', 0xC4, 0, *body_ps, 0, 0, 0) + struct.pack('<h', body_at - (A+16)) + b'\x00\x00'
+    b += struct.pack('<BB6h', 0xC4, 0, *prop_ps, 0, 0, 0) + struct.pack('<h', prop_at - (B+16)) + b'\x00\x00'
+    assert len(b) == stub_len + 56
+    return b, [2 + ln + 1, 2 + ln + 6]
 
 
 # ---------------------------------------------------------------- x86
@@ -646,6 +695,8 @@ def build(d, static=False, debug=False):
         if HIDE_EMPTY_PYLONS and name[2:] in SLOTS:
             pstub[name] = (SLOTS[name[2:]][0], part, ps); leaves[name] = [('call', name)]
         else: leaves[name] = [('c4', ('P', part), ps)]
+    for name in SPIN: leaves[name] = [('call', 'X' + name)]
+    SPIN_LEN = 2 + len(asm(spin_x86(100))) + 11 + 56
 
     def box(V, ps, clip_up=None):
         P = [(ps[0] + x, ps[1] + u, ps[2] + f) for x, f, u in V]
@@ -684,6 +735,8 @@ def build(d, static=False, debug=False):
     for s in pstub:
         at['S' + s] = p; p += (2 + 5 + 5 + 4 if not static else 6)
         at[('L', s, 1)] = p; p += 18
+    for s in SPIN:
+        at['SX' + s] = p; p += SPIN_LEN
     fall = FALL_SLOTS if not static else {}
     for s in fall:
         at['SF' + s] = p; p += 2 + 5 + 5 + 8
@@ -760,6 +813,11 @@ def build(d, static=False, debug=False):
             blk += struct.pack('<hh', at['EMPTY'] - (o + 12), at[('L', s, 1)] - (o + 12))
         q = at[('L', s, 1)]
         blk += struct.pack('<BB6h', 0xC4, 0, *ps, 0, 0, 0) + struct.pack('<h', at[('P', part)] - (q+16)) + b'\x00\x00'
+    spin_rel = []
+    for s, (bp, bps, pp, pps) in SPIN.items():
+        o = at['SX' + s]; assert len(blk) == o - tail
+        b, rl = spin_stub(o, lambda off: code['va'] + off, code['va'] + thunk_new, at[('P', bp)], bps, at[('P', pp)], pps)
+        blk += b; spin_rel += [o - tail + r for r in rl]
     for s in fall:
         o = at['SF' + s]; assert len(blk) == o - tail
         st, rank, dflt, ps = SLOTS[s]
@@ -779,6 +837,7 @@ def build(d, static=False, debug=False):
             fb, st_len = fall_bytes(at['FALL'], at['SUB'])
             assert len(blk) == at['FALL'] - tail
             blk += fb + b'\x00' * st_len
+    relocs += spin_rel
     blk += b'\x00' * pad
     for k in parts:
         if first[parts[k]] == k: blk += parts[k]
