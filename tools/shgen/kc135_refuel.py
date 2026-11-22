@@ -56,10 +56,11 @@ def reloc_sites(d, pe, code):
     return out
 
 
-def check_relocs(d, pe, code, c):
+def check_relocs(d, pe, code, c, allow=()):
     """改過的位元組不可碰到任何重定位 dword（否則 FA 載入器解析出非法位址而當機）。"""
     orig = d[code['ro']:code['ro'] + code['vs']]
     for site in reloc_sites(d, pe, code):
+        if site in allow: continue
         assert c[site:site + 4] == orig[site:site + 4] or site >= len(orig), f'patch overwrote reloc at CODE+{site:#x}'
 PIVOT = (0, -2, -63)        # (x, up, fwd) 頂點單位（1 單位 = 2 ft）
 HDR = bytes.fromhex('eb0047001a01')   # 零件範圍標頭，照起落架零件抄
@@ -714,10 +715,14 @@ def build(src, dst, preview=None, mode='full'):
     assert c[END_JMP] == 0x38 and END_JMP + 3 + struct.unpack_from('<h', c, END_JMP + 1)[0] == 0x42AD and c[0x42AD] == 0x1E
     if mode == 'full':
         struct.pack_into('<h', c, END_JMP + 1, tail + o_endsel - (END_JMP + 3))
+        # 0x3720 的 push（遊戲裡被 EB 13 跳過、不執行）改成 RESUME：網頁檢視器跟著 F0 第一個 push 走，
+        # 才不會停在 0x372B 的 call 上而漏畫後面的機身。重定位值換成另一個合法的 CODE 位址即可。
+        assert c[0x3720] == 0x68
+        struct.pack_into('<I', c, 0x3721, 0x1000 + RESUME)
 
     if mode in ('static', 'origboom'):
         c[F0_HOOK + 2:F0_HOOK + 4] = b'\xEB\x08'          # 跳到 0x3720 的 push（原本的重定位）
-    check_relocs(d, pe, code, c)
+    check_relocs(d, pe, code, c, allow=(0x3721,) if mode == 'full' else ())
     out = insert_blocks(d, pe, secs, code, c, tail, bytes(blk))
     if mode == 'static':
         out = bytearray(out); pe3, o3, s3 = pe_sections(out); cd3 = next(x for x in s3 if x['name'] == 'CODE')
