@@ -68,16 +68,18 @@ U = 2.0                      # ft / 頂點單位
 HINGE_UP, HINGE_FWD = PIVOT[1] * U, PIVOT[2] * U          # −4, −126 ft
 RECEP_UP, RECEP_FWD = 20.0, 50.0                          # 玩家受油口相對玩家原點（ft）
 APP_BACK, APP_SIDE, APP_DOWN = 1500, 500, 800             # 接近區（ft）
-L_MIN, L_MAX = 104, 148                                   # 上半桿 100 ft + 伸縮管 0..48 ft
+L_MIN, L_MAX = 96, 165                                    # 上半桿 100 ft + 伸縮管 0..48 ft（放寬：多 ±10 多 ft）
+YAW_LIM, HDG_LIM, SPD_LIM = 25, 20, 60                     # 加油框：偏角 ±25°、航向差 ±20°、速度差 ±60 ft/s
 NEAR_L = 210                                               # 比這遠：硬桿停在拖曳位置（TRAIL_*）
 TRAIL_PITCH, TRAIL_EXT = 30, 8                             # 拖曳位置：放下 30°、伸縮管伸出 8 單位
-P_MIN, P_MAX = 20, 40                                      # 對準時俯角範圍（實機約 20..40°）
-TELE_RATE = 10                                             # 伸縮管每 1/256 s 動 10/256 單位（≈ 20 ft/s）
+P_MIN, P_MAX = 15, 45                                      # 對準與加油框俯角範圍（放寬，實機約 20..40°）
+TELE_RATE = 24                                             # 伸縮管每 1/256 s 動 24/256 單位（≈ 48 ft/s，跟得上玩家前後移動）
 RATE = 50                                                  # lb/s（3000 lb/min）
 ORIG_R, SMALL_R = 72704, 40 * 256
 DEG = 65536 / 360.0
 STEP = 14                                                  # 每 1/256 s 轉 14 單位 ≈ 20°/s
 MSG = b' Plane Re-Fueled\0'
+MSG_START = b' Start Refueling\0'          # 進入加油框（離開超過 1 秒後再進來才會再跳）
 
 
 # ---- 新硬桿幾何（零件座標：樞紐為原點，x 右、up 上、fwd 前；硬桿朝 −fwd）----
@@ -252,7 +254,7 @@ def build(src, dst, preview=None, mode='full'):
               'TP', 'TH', 'TE', 'EXT', 'APPR', 'CONT', 'SHOW'): var(k, 4)
     var('K256', 4, fl(1 / 256)); var('KANG', 4, fl(2 * math.pi / 65536)); var('KFA', 4, fl(65536 / (2 * math.pi)))
     var('CFWD', 4, fl(RECEP_FWD - HINGE_FWD)); var('CUP', 4, fl(RECEP_UP - HINGE_UP))
-    var('ENTRY', 8); var('MSGTXT', len(MSG), MSG)
+    var('ENTRY', 8); var('MSGTXT', len(MSG), MSG); var('MSGSTART', len(MSG_START), MSG_START)
     while len(blk) % 16: blk += b'\x90'
     o_code = len(blk)
 
@@ -312,7 +314,7 @@ def build(src, dst, preview=None, mode='full'):
             mov word ptr [ebp], ax
             mov dword ptr [ebp + 4], edx
             mov dword ptr [ebp + 8], 0
-            mov dword ptr [ebp + 12], 0
+            mov dword ptr [ebp + 12], 0x70000000
         haveslot:
             mov eax, edx
             sub edx, dword ptr [ebp + 4]
@@ -445,13 +447,13 @@ def build(src, dst, preview=None, mode='full'):
             mov dword ptr [ebx + {r('TP')}], eax
             mov eax, dword ptr [ebx + {r('YAW')}]
             neg eax
-            cmp eax, {int(-15 * DEG)}
+            cmp eax, {int(-YAW_LIM * DEG)}
             jge y1
-            mov eax, {int(-15 * DEG)}
+            mov eax, {int(-YAW_LIM * DEG)}
         y1:
-            cmp eax, {int(15 * DEG)}
+            cmp eax, {int(YAW_LIM * DEG)}
             jle y2
-            mov eax, {int(15 * DEG)}
+            mov eax, {int(YAW_LIM * DEG)}
         y2:
             mov dword ptr [ebx + {r('TH')}], eax
             mov eax, dword ptr [ebx + {r('L')}]
@@ -477,22 +479,22 @@ def build(src, dst, preview=None, mode='full'):
             cmp eax, {int(P_MAX * DEG)}
             jg animate
             mov eax, dword ptr [ebx + {r('YAW')}]
-            cmp eax, {int(-15 * DEG)}
+            cmp eax, {int(-YAW_LIM * DEG)}
             jl animate
-            cmp eax, {int(15 * DEG)}
+            cmp eax, {int(YAW_LIM * DEG)}
             jg animate
             mov ax, word ptr [edi + 0x1d]
             sub ax, word ptr [esi + 0x1d]
             cwde
-            cmp eax, {int(-10 * DEG)}
+            cmp eax, {int(-HDG_LIM * DEG)}
             jl animate
-            cmp eax, {int(10 * DEG)}
+            cmp eax, {int(HDG_LIM * DEG)}
             jg animate
             mov eax, dword ptr [edi + 0x34]
             sub eax, dword ptr [esi + 0x34]
-            cmp eax, {-30 * 256}
+            cmp eax, {-SPD_LIM * 256}
             jl animate
-            cmp eax, {30 * 256}
+            cmp eax, {SPD_LIM * 256}
             jg animate
             mov dword ptr [ebx + {r('CONT')}], 1
 
@@ -502,29 +504,39 @@ def build(src, dst, preview=None, mode='full'):
             mov eax, dword ptr [edi + 0x1fc]
             cmp eax, ecx
             jge animate
+            cmp word ptr [ebp + 14], 256
+            jb nostart
+            push eax
+            push ecx
+            lea eax, [ebx + {r('MSGSTART')}]
+            call sendmsg
+            pop ecx
+            pop eax
+        nostart:
+            mov word ptr [ebp + 14], 0
             mov edx, dword ptr [ebx + {r('DT')}]
             imul edx, edx, {RATE}
             add eax, edx
             cmp eax, ecx
             jl notfull
             mov dword ptr [edi + 0x1fc], ecx
-            mov eax, 0x48d410
-            call eax
-            lea ecx, [ebx + {r('ENTRY')}]
             lea eax, [ebx + {r('MSGTXT')}]
-            mov dword ptr [ecx], eax
-            mov dword ptr [ecx + 4], 0
-            mov eax, 0x48d420
-            call eax
-            movzx ecx, word ptr [0x580bec]
-            movzx edx, word ptr [0x520a1c]
-            mov eax, 0x48e950
-            call eax
+            call sendmsg
             jmp animate
         notfull:
             mov dword ptr [edi + 0x1fc], eax
 
         animate:
+            cmp dword ptr [ebx + {r('CONT')}], 0
+            jne inbox
+            movzx eax, word ptr [ebp + 14]
+            add eax, dword ptr [ebx + {r('DT')}]
+            cmp eax, 30000
+            jbe ob1
+            mov eax, 30000
+        ob1:
+            mov word ptr [ebp + 14], ax
+        inbox:
             mov edx, dword ptr [ebx + {r('DT')}]
             imul edx, edx, {STEP}
             movsx eax, word ptr [ebp + 8]
@@ -604,6 +616,22 @@ def build(src, dst, preview=None, mode='full'):
             push eax
             add ecx, 6
             jmp ecx
+
+        sendmsg:
+            push eax
+            mov eax, 0x48d410
+            call eax
+            pop eax
+            lea ecx, [ebx + {r('ENTRY')}]
+            mov dword ptr [ecx], eax
+            mov dword ptr [ecx + 4], 0
+            mov eax, 0x48d420
+            call eax
+            movzx ecx, word ptr [0x580bec]
+            movzx edx, word ptr [0x520a1c]
+            mov eax, 0x48e950
+            call eax
+            ret
 
         approach:
             mov edi, ecx
