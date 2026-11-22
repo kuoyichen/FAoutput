@@ -14,7 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import f18v_upgrade as U
 import f18_stores as S
-from f18g_growler import lathe, FIN, DARK, GREY, alq218
+from f18g_growler import lathe, FIN, DARK, GREY, FLAT, alq218
 import f18_wing_fold as W
 
 # store centres (x, up, fwd): F18F.PT stations (hp5 tank x 22, hp7 x 34, hp9 centre) + PT_DROP, as the PT stores are drawn
@@ -22,14 +22,51 @@ TANK_C = (22, -7, 6)
 POD_W = (34, -6, 3)
 POD_C = (0, -10, -4)
 PROP_FWD = 22                     # prop disc, ahead of the pod centre
-PROP_UP = 0
+PROP_UP = 2                       # = POD_AXIS: turbine on the spinner, high on the pod
 TIP = (69, 1, -17)                # ALQ-218 centre, x > 0 side (F18G v9)
 
 
+# ALQ-99 side profile (Kuoyi 2026-11-22, photo): flat top along the whole pod, belly straight then sweeping up in a long
+# curve under the front to a neck that sits HIGH (axis near the top line), small spinner + turbine there; rounded tail.
+# stations: (fwd, top, bottom, half width), pod centre frame (x, fwd, up)
+POD_ST = [(-23, 2, -2, 1.5), (-21.5, 3, -3.5, 2.5), (-19, 3, -4, 3), (2, 3, -4, 3), (7, 3, -3.6, 3), (11, 3, -2.8, 2.9),
+          (14.5, 3, -1.6, 2.6), (17.5, 2.8, -.2, 2.1), (19.5, 2.5, .8, 1.4), (21, 2.4, 1.3, 1), (23, 2.7, 1.3, .9)]
+POD_TIP = (25, 2)          # spinner tip (fwd, up)
+POD_AXIS = 2               # turbine axis height (up), on the spinner
+
+
 def pod():
-    """ALQ-99: rounded box section 6 wide x 7 deep (deeper below the axis), rounded tail, nose necking into a spinner."""
-    sec = [(-2, 3), (2, 3), (3, 2), (3, -2), (2, -4), (-2, -4), (-3, -2), (-3, 2)]
-    V, F, _ = lathe(sec, [(-23, .5, 0), (-21, .85, 0), (-18, 1, 0), (15, 1, 0), (18, .8, 0), (21, .4, 0), (25, 0, 0)])
+    """ALQ-99 lofted from POD_ST: 8-point rounded-box sections, flat cap at the tail, spinner point at the front."""
+    V, rings = [], []
+    for f, tp, bt, w in POD_ST:
+        h = tp - bt; k = min(1, h / 3)
+        sec = [(-w * .6, tp), (w * .6, tp), (w, tp - .3 * h * k), (w, bt + .35 * h * k), (w * .6, bt), (-w * .6, bt),
+               (-w, bt + .35 * h * k), (-w, tp - .3 * h * k)]
+        r = []
+        for x, u in sec:
+            v = (round(x), round(f), round(u))
+            if v not in V: V.append(v)
+            r.append(V.index(v))
+        rings.append((f, (tp + bt) / 2, r))
+    V.append((0, POD_TIP[0], POD_TIP[1])); tip = len(V) - 1
+    F = []
+    def add(q, f, axis_u):
+        q = [v for i, v in enumerate(q) if v != q[i - 1]]
+        if len(set(q)) < 3: return
+        P = [V[i] for i in q]; n = [0, 0, 0]
+        for i in range(len(P)):                  # file order (x, fwd, up); FA wants the winding sum pointing inside
+            a_, b_ = P[i], P[(i + 1) % len(P)]
+            n[0] += a_[1]*b_[2] - a_[2]*b_[1]; n[1] += a_[2]*b_[0] - a_[0]*b_[2]; n[2] += a_[0]*b_[1] - a_[1]*b_[0]
+        c = [sum(p[j] for p in P) / len(P) for j in range(3)]
+        out = (c[0], c[1] - f, c[2] - axis_u)    # from the local axis point outwards
+        if sum(n[j] * out[j] for j in range(3)) > 0: q = q[::-1]
+        F.append((FLAT, GREY, q))
+    for (fa, ua, A), (fb, ub, B) in zip(rings, rings[1:]):
+        for j in range(8): add([A[j], A[(j + 1) % 8], B[(j + 1) % 8], B[j]], (fa + fb) / 2, (ua + ub) / 2)
+    fl, ul, L = rings[-1]
+    for j in range(8): add([L[j], L[(j + 1) % 8], tip], fl + 1, POD_AXIS)
+    f0, u0, R0 = rings[0]
+    add(list(R0), f0 + 3, u0)                    # tail cap
     return V, F
 
 
