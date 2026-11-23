@@ -200,8 +200,36 @@ def build_pic(b, pal):
     return bytes(b)
 
 
+def fill_base(b, c):
+    """機身這類「有顏色的貼圖面」，貼圖裡 0xFF 的地方遊戲裡沒有照面顏色顯示（KC135-11 在 FA 裡仍是綠底），
+    所以把這些面 UV 範圍內的 0xFF 直接填成面的顏色。顏色 0 的面（起落架、座艙等需要透明的）不動，兩者沒有重疊。"""
+    from PIL import Image, ImageDraw
+    b = bytearray(b)
+    w, h = struct.unpack_from('<II', b, 2); rt = struct.unpack_from('<I', b, 0x22)[0]
+    rows = [struct.unpack_from('<I', b, rt + 4*r)[0] for r in range(h)]
+    masks = {}
+    for p in range(len(c) - 8):
+        if c[p] == 0xFC and face_ok(c, p):
+            f = parse_face(c, p)
+            if not f['fl'] & 4: continue
+            m = masks.setdefault(c[p+3], Image.new('L', (w, h), 0))
+            ImageDraw.Draw(m).polygon([tuple(get_uv(c, f, j)) for j in range(len(f['idx']))], fill=255, outline=255)
+    zero = masks.pop(0, Image.new('L', (w, h), 0)).load(); n = 0
+    for col, m in masks.items():
+        px = m.load()
+        for v in range(h):
+            for u in range(w):
+                q = rows[h-1-v] + u
+                if px[u, v] and not zero[u, v] and b[q] == 255: b[q] = col; n += 1
+    print('pic 0xFF filled with face colour', n)
+    return bytes(b)
+
+
 if __name__ == '__main__':
     a = sys.argv[1:]
     pal = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'PIC', 'PALETTE.PAL'), 'rb').read()[:768]
-    open(a[1], 'wb').write(build_sh(open(a[0], 'rb').read()))
-    if len(a) > 3: open(a[3], 'wb').write(build_pic(open(a[2], 'rb').read(), pal))
+    sh = build_sh(open(a[0], 'rb').read())
+    open(a[1], 'wb').write(sh)
+    if len(a) > 3:
+        pe, opt, secs = pe_sections(sh); code = next(s for s in secs if s['name'] == 'CODE')
+        open(a[3], 'wb').write(fill_base(build_pic(open(a[2], 'rb').read(), pal), sh[code['ro']:code['ro'] + code['vs']]))
