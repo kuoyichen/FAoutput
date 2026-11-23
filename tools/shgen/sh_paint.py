@@ -85,6 +85,7 @@ def run(c, start, eye):
                 exe(a, tf, eye, depth+1); exe(b, tf, eye, depth+1); p += 10
             elif op == 0x12 and c[p+1] == 0:
                 exe(p+4+h(p+2), tf, eye, depth+1); p += 4
+            elif op == 0x40 and c[p+1] == 0: p = p+3+h(p+3)          # 動畫切換：取第 0 格
             elif op == 0x38: p = p+3+h(p+1)
             elif op == 0x48 and c[p+1] == 0: p = p+4+h(p+2)
             elif op == 0xC4 and c[p+1] == 0:
