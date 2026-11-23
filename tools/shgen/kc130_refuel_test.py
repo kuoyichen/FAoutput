@@ -41,6 +41,9 @@ w(0x553838, '<H', 10); w(0x580bec, '<H', 5); w(0x520a1c, '<H', 9)
 for o in (TK, PL):
     w(o, '<B', 4); w(o + 1, '<I', 1); w(o + 0xe, '<H', 270); w(o + 9, '<B', 0); w(o + 5, '<I', TD)
 w(TD + 0x165, '<I', 10860)
+SHP = 0x603000                      # 玩家的 SH CODE：F2 表前緣 fwd = NOSE ft
+NOSE = 102
+w(TD + 0xf, '<I', SHP); w(SHP + 0xe, '<H', 0xf2); w(SHP + 0x10, '<H', 0x100); w(SHP + 0x112 + 14, '<h', NOSE)
 w(B + K.THUNK_DW, '<I', THUNK)
 clock = [1000]
 
@@ -67,9 +70,10 @@ def frame(th_deg, rel_fwd, rel_up, rel_right, fuel=None, spd=(400, 400), ph_deg=
         hh = G['H'][sd]; c4 = blk0 + G['c4'][sd]
         Ln = r(B + blk0 + hh['o'] + hh['nd_d'], '<h')
         vo, off = hh['verts'][0]; tipf = r(B + blk0 + hh['o'] + vo, '<h')
-        po, poff = hh['pts'][0]; pf = r(B + blk0 + hh['o'] + po, '<b')
+        po, poff = hh['pts'][0]; pf = r(B + blk0 + hh['o'] + po, '<h')
         assert tipf == -Ln + off and pf == -Ln + poff, (sd, Ln, tipf, pf)
-        out[sd] = (round(r(B + c4 + 10, '<h') / DEG, 1), round(r(B + c4 + 8, '<h') / DEG, 1), Ln)
+        fo = hh['inner'][0]; green = r(B + blk0 + hh['o'] + fo + 3, '<B') == K.C_GREEN
+        out[sd] = (round(r(B + c4 + 10, '<h') / DEG, 1), round(r(B + c4 + 8, '<h') / DEG, 1), Ln) + (('GREEN',) if green else ())
     out['R2'] = r(B + K.F2TBL, '<i') >> 8
     out['fuel'] = round(r(PL + 0x1fc, '<i') / 256, 1)
     return out
@@ -81,7 +85,7 @@ def rel(sx, L, P, Y=0):
     p, y = math.radians(P), math.radians(Y)
     right = piv[0] + L * math.cos(p) * math.sin(y)
     up = piv[1] - L * math.sin(p) - K.PROBE_UP
-    fwd = piv[2] - L * math.cos(p) * math.cos(y) - K.PROBE_FWD
+    fwd = piv[2] - L * math.cos(p) * math.cos(y) - NOSE
     return fwd, up, right
 
 
@@ -93,10 +97,12 @@ def run(n, *a, **k):
 print('far              ', frame(0, -5000, 0, 0, fuel=1000))
 print('approach 1500 C  ', run(40, 0, -1500, -300, 0))
 print('right 150 ft 20° ', run(40, 0, *rel(1, 150, 20)))
+print('right 600 ft 10° ', run(40, 0, *rel(1, 600, 10)))
+print('right 850 (track only)', run(40, 0, *rel(1, 850, 8)))
 print('right h90        ', run(5, 90, *rel(1, 150, 20)))
-print('left 120 ft 10° yaw-10', run(40, 0, *rel(-1, 120, 10, -10)))
+print('left 120 ft 10° yaw-10', run(40, 0, *rel(-1, 300, 10, -10)))
 print('left steep 45°   ', run(40, 0, *rel(-1, 100, 45)))
-print('right 230 (track, no contact)', run(40, 0, *rel(1, 230, 15)))
+print('right 230 (track, no contact)', run(40, 0, *rel(1, 900, 15)))
 print('speed diff 80    ', run(2, 0, *rel(1, 150, 15), spd=(400, 480)))
 print('fuel before full ', frame(0, *rel(1, 150, 15), fuel=10850)); print('full', frame(0, *rel(1, 150, 15)))
 print('calls', calls)

@@ -26,6 +26,8 @@ RESUME = 0x70               # 原本 F0 之後回到的位置
 ROOT = 0xA42                # 主 BSP 根節點（06）
 F2TBL = 0x4C97
 HDR = bytes.fromhex('3c016000f900')   # C4 零件範圍標頭 = CODE+8..13
+# 軟管零件的範圍標頭：C4（0x4D3194）用 |眼睛| + 範圍 決定精度位移，軟管長到 400+ 單位，範圍要涵蓋（否則 16 位元溢位）
+HOSE_HDR = struct.pack('<3h', 440, 440, 440)
 
 U = 2.0                      # ft / 頂點單位
 PODX, POD_UP = 75, 1         # 莢艙中心（x 為右側；左側鏡像）
@@ -34,24 +36,25 @@ PIV = (PODX, POD_UP, POD_TAIL)                  # 軟管出口（樞紐）
 WING_UP = 6
 BIG = [(3, 0), (2, 2), (0, 3), (-2, 2), (-3, 0), (-2, -2), (0, -3), (2, -2)]
 SMALL = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
-HOSE = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+HOSE = [(0, 0), (1, 0), (1, 1), (0, 1)]          # 1×1 單位方管（Kuoyi 2026-11-23：再細一些）
 C_POD, C_NOSE, C_PYLON, C_DARK = 153, 150, 154, 158
-C_HOSE, C_CONE_OUT, C_CONE_IN, C_RIM = 157, 147, 145, 158
+C_HOSE, C_CONE_OUT, C_CONE_IN, C_RIM, C_GREEN = 157, 147, 145, 158, 165
+F_LITW, F_GLOWW = 0x0461, 0x0441     # 平面點用 i16（錐套離樞紐超過 127 單位）；GLOW 不打光
 HUB_D, RIM_D, BAND_D = 1, 6, 7                  # 錐套各環在管尖後的距離（單位）
 
-PROBE_UP, PROBE_FWD = 8.0, 85.0                 # 受油探管相對玩家原點（ft；F/A-18 機頭 +102）
-APP_BACK, APP_SIDE, APP_DOWN, APP_UP = 2000, 800, 1000, 150   # 放出軟管的接近區（ft，相對加油機中心）
-NEAR_L = 260                 # 探管離樞紐比這近：該側錐套追蹤探管
-L_MIN, L_MAX = 24, 210       # 接上：長度（ft）
+PROBE_UP, PROBE_FWD = 0.0, 85.0                 # 接觸點 = 玩家機頭：fwd 由玩家 SH 的 F2 碰撞盒前緣（typedef+0xF → CODE）讀，讀不到才用 85 ft
+APP_BACK, APP_SIDE, APP_DOWN, APP_UP = 3000, 1000, 1200, 200   # 放出軟管的接近區（ft，相對加油機中心）
+NEAR_L = 880                 # 探管離樞紐比這近：該側錐套追蹤探管
+L_MIN, L_MAX = 24, 800       # 接上：長度（ft）
 P_MIN, P_MAX = -5, 50        # 接上：俯角（度）
 YAW_LIM, HDG_LIM, SPD_LIM = 35, 20, 60
-TRAIL_P, TRAIL_LEN, STOW_LEN = 10, 60, 1       # 拖曳：下垂 10°、長 60 單位（120 ft）；收起 1 單位
-H_MIN, H_MAX = 1, 100        # 軟管長度範圍（單位）
-HOSE_RATE = 40               # 軟管每秒 40 單位（80 ft/s）
+TRAIL_P, TRAIL_LEN, STOW_LEN = 8, 240, 1       # 拖曳：下垂 8°、長 240 單位（480 ft，Kuoyi：原本的 4 倍）；收起 1 單位
+H_MIN, H_MAX = 1, 400        # 軟管長度範圍（單位）
+HOSE_RATE = 100              # 軟管每秒 100 單位（200 ft/s）
 STEP = 24                    # 每 1/256 s 轉 24 單位 ≈ 34°/s
 RATE = 50                    # lb/s
 ORIG_R, SMALL_R = 50688, 10 * 256
-NEAR_BOX = 2000
+NEAR_BOX = 3000
 DEG = 65536 / 360.0
 MSG = b' Plane Re-Fueled\0'
 MSG_START = b' Start Refueling\0'
@@ -119,43 +122,49 @@ def pod_faces(m, sx):
     return pod, py
 
 
+def widen(f, flags):
+    """FC 面（0x200：i8 平面點）改成 i16 平面點的格式（旗標去掉 0x200）。"""
+    pt = struct.unpack('<3b', f[11:14])
+    return bytes(f[:1]) + struct.pack('<H', flags) + bytes(f[3:11]) + struct.pack('<3h', *pt) + bytes(f[14:])
+
+
 def hose_part(slot):
     """軟管零件（零件座標：樞紐為原點，軟管朝 −fwd）。回傳 bytes 與 x86 要改的位移。
-    管尖、錐套的頂點 fwd = −L + off；錐套面的平面點 fwd（i8）同樣；節點 d = L。"""
+    管尖、錐套的頂點 fwd = −L + off；錐套面的平面點 fwd（i16）同樣；節點 d = L。
+    檔案裡先放 TB 長度的樣子（x86 每格都會重寫）。"""
+    TB = 20
     m = Mesh(slot)
     root = [m.vert(x, u, 0) for x, u in HOSE]
-    tip = [m.vert(x, u, -H_MAX) for x, u in HOSE]
-    hub = [m.vert(x, u, -H_MAX - HUB_D) for x, u in SMALL]
-    rim = [m.vert(x, u, -H_MAX - RIM_D) for x, u in BIG]
-    rim2 = [m.vert(x, u, -H_MAX - BAND_D) for x, u in BIG]
+    tip = [m.vert(x, u, -TB) for x, u in HOSE]
+    hub = [m.vert(x, u, -TB - HUB_D) for x, u in SMALL]
+    rim = [m.vert(x, u, -TB - RIM_D) for x, u in BIG]
+    rim2 = [m.vert(x, u, -TB - BAND_D) for x, u in BIG]
     ax = lambda f: (0, 0, f)
     tube = bytearray()
-    for i in range(4):
-        j = (i + 1) % 4
-        x0, u0 = HOSE[i]; x1, u1 = HOSE[j]
-        tube += m.face([root[i], root[j], tip[j], tip[i]], ((x0 + x1) / 2, (u0 + u1) / 2, 0), m.v[root[i] - slot], C_HOSE)
-    # 錐套：輪轂蓋（朝後）、內錐面、外緣帶、外錐面
-    dro = []
-    dro.append(m.face(hub[::-1], (0, 0, -1), m.v[hub[0] - slot], C_RIM))
-    dro += band(m, hub, rim, ax, C_CONE_IN, inward=True)
-    dro += band(m, rim, rim2, ax, C_RIM)
-    dro += band(m, hub, rim, ax, C_CONE_OUT)
-    dro.append(m.face(hub, (0, 0, 1), m.v[hub[0] - slot], C_RIM))     # 輪轂前面（軟管接頭，補洞）
-    part = bytearray(HDR); p82 = len(part); part += m.buf()
+    for f in band(m, root, tip, lambda f: (0.5, 0.5, f), C_HOSE):
+        tube += f                                   # 平面點取根部頂點（fwd 0），長度改變也不用改
+    # 錐套：輪轂蓋（朝後）、內錐面、外緣帶、外錐面、輪轂前面（軟管接頭）
+    dro = [('hub', m.face(hub[::-1], (0, 0, -1), m.v[hub[0] - slot], C_RIM))]
+    dro += [('in', f) for f in band(m, hub, rim, ax, C_CONE_IN, inward=True)]
+    dro += [('rim', f) for f in band(m, rim, rim2, ax, C_RIM)]
+    dro += [('out', f) for f in band(m, hub, rim, ax, C_CONE_OUT)]
+    dro.append(('hubf', m.face(hub, (0, 0, 1), m.v[hub[0] - slot], C_RIM)))
+    part = bytearray(HOSE_HDR); p82 = len(part); part += m.buf()
     nd = len(part); part += bytes(14); part += b'\x1E'
-    o_dro = len(part); pts = []
-    for f in dro:
-        pts.append((len(part) + 13, f[13]))      # 平面點 fwd byte 位移、原值（−H_MAX − k）
-        part += f
+    o_dro = len(part); pts = []; inner = []
+    for kind, f in dro:
+        w = widen(f, F_LITW)
+        pts.append((len(part) + 15, struct.unpack_from('<h', w, 15)[0] + TB))   # 平面點 fwd word 位移、相對管尖
+        if kind == 'in': inner.append(len(part))
+        part += w
     part += b'\x1E'
     o_tube = len(part); part += tube + b'\x1E'
     # 根節點：fwd 平面在管尖（−L）：eye_fwd + L ≥ 0（眼睛在管尖前方）→ 先畫錐套再畫軟管
-    part[nd:nd + 14] = node(0x0C, 0, 0, 1, H_MAX, o_dro - nd, o_tube - nd)
+    part[nd:nd + 14] = node(0x0C, 0, 0, 1, TB, o_dro - nd, o_tube - nd)
     verts = []
     for k in tip + hub + rim + rim2:
-        verts.append((p82 + m.voff(k) + 2, m.v[k - slot][2] + H_MAX))     # (fwd word 位移, 相對管尖)
-    pts = [(o, struct.unpack('b', bytes([b]))[0] + H_MAX) for o, b in pts]
-    return dict(b=part, p82=p82, verts=verts, pts=pts, nd_d=nd + 8, n=len(m.v))
+        verts.append((p82 + m.voff(k) + 2, m.v[k - slot][2] + TB))     # (fwd word 位移, 相對管尖)
+    return dict(b=part, p82=p82, verts=verts, pts=pts, inner=inner, nd_d=nd + 8, n=len(m.v))
 
 
 def make_block():
@@ -219,12 +228,12 @@ def build(src, dst, preview=None, show=None):
     def var(name, size, init=b''):
         D[name] = len(blk); blk.extend((init + b'\0' * size)[:size])
     fl = lambda v: struct.pack('<f', v)
-    var('SLOTS', 8 * 32)
+    var('SLOTS', 8 * 64)
     for k in ('DT', 'TMP', 'DX', 'DY', 'DZ', 'COS', 'SIN', 'RIGHT', 'FWD', 'RS', 'BACK', 'DOWN', 'L', 'PITCH', 'YAW',
               'RI', 'FI', 'UI', 'SIDE', 'APPR', 'CONT', 'NEARR', 'TP', 'TH', 'TE', 'TPR', 'THR', 'TER', 'TPL', 'THL', 'TEL'):
         var(k, 4)
     var('K256', 4, fl(1 / 256)); var('KANG', 4, fl(2 * math.pi / 65536)); var('KFA', 4, fl(65536 / (2 * math.pi)))
-    var('PF', 4, fl(PROBE_FWD - PIV[2] * U)); var('PU', 4, fl(PROBE_UP - PIV[1] * U)); var('PX', 4, fl(PIV[0] * U))
+    var('PF', 4, fl(PROBE_FWD - PIV[2] * U)); var('PIVF', 4, fl(PIV[2] * U)); var('NOSE', 4); var('PU', 4, fl(PROBE_UP - PIV[1] * U)); var('PX', 4, fl(PIV[0] * U))
     var('ENTRY', 8); var('MSGTXT', len(MSG), MSG); var('MSGSTART', len(MSG_START), MSG_START)
     while len(blk) % 16: blk += b'\x90'
     o_f0 = len(blk); blk += b'\xF0\x00'
@@ -237,12 +246,22 @@ def build(src, dst, preview=None, show=None):
         s = lambda off: off - base_off
         def geo(side, sl):
             h = G['H'][side]; o = h['o']
-            a = [f"            movsx eax, word ptr [ebp + {sl}]", "            sar eax, 8",
+            a = [f"            mov eax, dword ptr [ebp + {sl}]", "            sar eax, 8",
                  f"            mov word ptr [ebx + {s(o + h['nd_d'])}], ax", "            neg eax"]
             for vo, off in h['verts']:
                 a += [f"            lea ecx, [eax + {off}]", f"            mov word ptr [ebx + {s(o + vo)}], cx"]
             for po, off in h['pts']:
-                a += [f"            lea ecx, [eax + {off}]", f"            mov byte ptr [ebx + {s(o + po)}], cl"]
+                a += [f"            lea ecx, [eax + {off}]", f"            mov word ptr [ebx + {s(o + po)}], cx"]
+            return "\n".join(a)
+        def cone(side, sgn):
+            # 接上加油時，該側錐套內錐面變綠（不打光）
+            h = G['H'][side]; o = h['o']; lab = 'cn' + side
+            a = [f"            mov ax, {F_LITW}", f"            mov cl, {C_CONE_IN}",
+                 f"            cmp dword ptr [ebx + {r('CONT')}], 0", f"            je {lab}",
+                 f"            cmp dword ptr [ebx + {r('SIDE')}], {sgn}", f"            jne {lab}",
+                 f"            mov ax, {F_GLOWW}", f"            mov cl, {C_GREEN}", f"        {lab}:"]
+            for fo in h['inner']:
+                a += [f"            mov word ptr [ebx + {s(o + fo + 1)}], ax", f"            mov byte ptr [ebx + {s(o + fo + 3)}], cl"]
             return "\n".join(a)
         def anim(side, base):
             c4 = G['c4'][side]; t = 'R' if side == 'R' else 'L'
@@ -261,10 +280,10 @@ def build(src, dst, preview=None, show=None):
             mov word ptr [ebx + {s(c4 + 8)}], ax
             mov edx, dword ptr [ebx + {r('DT')}]
             imul edx, edx, {HOSE_RATE}
-            movsx eax, word ptr [ebp + {base + 4}]
+            mov eax, dword ptr [ebp + {base + 4}]
             mov ecx, dword ptr [ebx + {r('TE' + t)}]
             call approach
-            mov word ptr [ebp + {base + 4}], ax
+            mov dword ptr [ebp + {base + 4}], eax
 {geo(side, base + 4)}
 """
         src = f"""
@@ -275,6 +294,7 @@ def build(src, dst, preview=None, show=None):
         base:
             pop ebx
             xor eax, eax
+            mov dword ptr [ebx + {r('SIDE')}], eax
             mov dword ptr [ebx + {r('APPR')}], eax
             mov dword ptr [ebx + {r('CONT')}], eax
             mov dword ptr [ebx + {r('NEARR')}], eax
@@ -296,7 +316,7 @@ def build(src, dst, preview=None, show=None):
             jne noslot
             mov ecx, eax
             and ecx, 7
-            shl ecx, 5
+            shl ecx, 6
             lea ebp, [ebx + ecx + {r('SLOTS')}]
             inc eax
             mov edx, dword ptr [0x552928]
@@ -308,6 +328,8 @@ def build(src, dst, preview=None, show=None):
             mov dword ptr [ebp + 12], 0x70000000
             mov dword ptr [ebp + 16], 0
             mov dword ptr [ebp + 20], 0
+            mov dword ptr [ebp + 24], 0
+            mov dword ptr [ebp + 28], 0
         haveslot:
             mov eax, edx
             sub edx, dword ptr [ebp + 4]
@@ -415,6 +437,27 @@ def build(src, dst, preview=None, show=None):
             mov dword ptr [ebx + {r('TER')}], eax
             mov dword ptr [ebx + {r('TEL')}], eax
 
+            mov ecx, {int(PROBE_FWD)}
+            mov eax, dword ptr [edi + 5]
+            test eax, eax
+            jz nosedef
+            mov eax, dword ptr [eax + 0xf]
+            test eax, eax
+            jz nosedef
+            cmp word ptr [eax + 0xe], 0xf2
+            jne nosedef
+            movzx edx, word ptr [eax + 0x10]
+            movsx edx, word ptr [eax + edx + 0x12 + 14]
+            cmp edx, 10
+            jl nosedef
+            cmp edx, 400
+            jg nosedef
+            mov ecx, edx
+        nosedef:
+            mov dword ptr [ebx + {r('NOSE')}], ecx
+            fild dword ptr [ebx + {r('NOSE')}]
+            fsub dword ptr [ebx + {r('PIVF')}]
+            fstp dword ptr [ebx + {r('PF')}]
             mov dword ptr [ebx + {r('SIDE')}], 1
             fld dword ptr [ebx + {r('RIGHT')}]
             cmp dword ptr [ebx + {r('RI')}], 0
@@ -578,8 +621,10 @@ def build(src, dst, preview=None, show=None):
         ob1:
             mov word ptr [ebp + 14], ax
         inbox:
-{anim('R', 8)}
-{anim('L', 16)}
+{anim('R', 16)}
+{anim('L', 24)}
+{cone('R', 1)}
+{cone('L', -1)}
             mov eax, {ORIG_R}
             cmp dword ptr [ebx + {r('NEARR')}], 0
             je setr
@@ -664,7 +709,7 @@ def build(src, dst, preview=None, show=None):
             h = G['H'][sd]; o = h['o']
             struct.pack_into('<h', d2, b + o + h['nd_d'], Ln)
             for vo, off in h['verts']: struct.pack_into('<h', d2, b + o + vo, -Ln + off)
-            for po, off in h['pts']: struct.pack_into('<b', d2, b + o + po, -Ln + off)
+            for po, off in h['pts']: struct.pack_into('<h', d2, b + o + po, -Ln + off)
             struct.pack_into('<h', d2, b + G['c4'][sd] + 10, int(pt * DEG))
             struct.pack_into('<h', d2, b + G['c4'][sd] + 8, int(yw * DEG))
         open(preview, 'wb').write(d2)
