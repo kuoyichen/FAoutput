@@ -70,6 +70,8 @@ HINGE_UP, HINGE_FWD = PIVOT[1] * U, PIVOT[2] * U          # −4, −126 ft
 RECEP_UP, RECEP_FWD = 0.0, 85.0                           # 接觸點 = 玩家機頭（Kuoyi 2026-11-23：視野考量，改到受油機尖端）：
                                                           # fwd 讀玩家 SH 的 F2 碰撞盒前緣（typedef+0xF → CODE），讀不到才用 85 ft
 APP_BACK, APP_SIDE, APP_DOWN = 1500, 500, 800             # 接近區（ft）
+SLIDE_N = 8                                                # 機頭太近（L 太短或俯角太大）時接觸點沿受油機往後滑，最多滑到原點（機身中段），分 8 步
+                                                           # （Kuoyi 2026-11-23：F-16 受油口在機身中段，機頭到前半段都要有效）
 L_MIN, L_MAX = 96, 213                                    # 上半桿 100 ft + 伸縮管 0..96 ft（放寬：多 ±10 多 ft）
 YAW_LIM, HDG_LIM, SPD_LIM = 25, 20, 60                     # 加油框：偏角 ±25°、航向差 ±20°、速度差 ±60 ft/s
 NEAR_L = 260                                               # 比這遠：硬桿停在拖曳位置（TRAIL_*）
@@ -265,7 +267,7 @@ def build(src, dst, preview=None, mode='full'):
     for k in ('DT', 'TMP', 'DX', 'DY', 'DZ', 'COS', 'SIN', 'RIGHT', 'BACK', 'DOWN', 'L', 'PITCH', 'YAW',
               'TP', 'TH', 'TE', 'EXT', 'APPR', 'CONT', 'SHOW', 'NEARR'): var(k, 4)
     var('K256', 4, fl(1 / 256)); var('KANG', 4, fl(2 * math.pi / 65536)); var('KFA', 4, fl(65536 / (2 * math.pi)))
-    var('CFWD', 4, fl(RECEP_FWD - HINGE_FWD)); var('HFWD', 4, fl(HINGE_FWD)); var('NOSE', 4); var('CUP', 4, fl(RECEP_UP - HINGE_UP))
+    var('CFWD', 4, fl(RECEP_FWD - HINGE_FWD)); var('HFWD', 4, fl(HINGE_FWD)); var('NOSE', 4); var('NSTEP', 4); var('KS', 4); var('K8TH', 4, fl(1.0 / SLIDE_N)); var('CUP', 4, fl(RECEP_UP - HINGE_UP))
     var('ENTRY', 8); var('MSGTXT', len(MSG), MSG); var('MSGSTART', len(MSG_START), MSG_START)
     while len(blk) % 16: blk += b'\x90'
     o_code = len(blk)
@@ -380,6 +382,11 @@ def build(src, dst, preview=None, mode='full'):
             fild dword ptr [ebx + {r('NOSE')}]
             fsub dword ptr [ebx + {r('HFWD')}]
             fstp dword ptr [ebx + {r('CFWD')}]
+            fild dword ptr [ebx + {r('NOSE')}]
+            fmul dword ptr [ebx + {r('K8TH')}]
+            fstp dword ptr [ebx + {r('NSTEP')}]
+            mov dword ptr [ebx + {r('KS')}], 0
+        geom:
             fild dword ptr [edi + 0x11]
             fild dword ptr [esi + 0x11]
             fsubp st(1), st(0)
@@ -447,6 +454,23 @@ def build(src, dst, preview=None, mode='full'):
             fistp dword ptr [ebx + {r('DOWN')}]
             fld dword ptr [ebx + {r('RIGHT')}]
             fistp dword ptr [ebx + {r('RIGHT')}]
+            cmp dword ptr [ebx + {r('KS')}], {SLIDE_N}
+            jge gdone
+            mov eax, dword ptr [ebx + {r('L')}]
+            cmp eax, {L_MIN}
+            jl slide
+            cmp eax, {NEAR_L}
+            jg gdone
+            mov eax, dword ptr [ebx + {r('PITCH')}]
+            cmp eax, {int(P_MAX * DEG)}
+            jle gdone
+        slide:
+            inc dword ptr [ebx + {r('KS')}]
+            fld dword ptr [ebx + {r('CFWD')}]
+            fsub dword ptr [ebx + {r('NSTEP')}]
+            fstp dword ptr [ebx + {r('CFWD')}]
+            jmp geom
+        gdone:
 
             mov eax, dword ptr [ebx + {r('BACK')}]
             add eax, {NEAR_BOX}

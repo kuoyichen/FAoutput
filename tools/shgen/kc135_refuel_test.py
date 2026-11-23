@@ -93,6 +93,16 @@ for k in range(12): f = frame(0, *rel(110, 57), 0)
 print('steep 57 deg L110', f)
 for k in range(12): f = frame(0, *rel(205, 35), 0)
 print('long L205 35 deg', f)
+def relx(L, P, ext):   # 接觸點在機頭後 ext ft（受油機往前衝）
+    f, u = rel(L, P); return f + ext, u
+for ext in (30, 57, 100, 130, 250):
+    frame(0, *relx(130, 30, ext), 0, fuel=1000)
+    for k in range(12): f = frame(0, *relx(130, 30, ext), 0)
+    print(f'nose {ext} ft past, L130 30deg at that point', f)
+frame(0, *rel(70, 30), 0, fuel=1000)
+for k in range(12): f = frame(0, *rel(70, 30), 0)
+print('nose too close L70 (slides back)', f)
+w(PL + 0x1fc, '<i', 16200 * 256)
 print('ahead 300 ft', frame(0, 300, 0, 0)); print('above 100 ft', frame(0, 0, 100, 0))
 print('calls', calls)
 w(EYE, '<h', -50); print('eye below', frame(0, cf, cu, 0)); w(EYE, '<h', 100)
