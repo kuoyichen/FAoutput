@@ -25,6 +25,7 @@ THUNK_DW = 0x6B             # push thunk 的重定位 dword（載入器換成 do
 RESUME = 0x70               # 原本 F0 之後回到的位置
 ROOT = 0xA42                # 主 BSP 根節點（06）
 F2TBL = 0x4C97
+BOUND_R = 340                       # 包圍球：樞紐 (75,−12) 到最長管端 300 單位 ≈ 322，加墜錐
 HDR = bytes.fromhex('3c016000f900')   # C4 零件範圍標頭 = CODE+8..13
 # 軟管零件的範圍標頭：C4（0x4D3194）用 |眼睛| + 範圍 決定精度位移，軟管長到 400+ 單位，範圍要涵蓋（否則 16 位元溢位）
 HOSE_HDR = struct.pack('<3h', 340, 340, 340)
@@ -697,6 +698,10 @@ def build(src, dst, preview=None, show=None):
         if code_bytes[:5] == b'\x83\xec\x08\x9c\x60' and code_bytes[5] == 0xE8: break
     blk += code_bytes
 
+    # 物件包圍球半徑 CODE+4（頂點單位）：FA 0x4d028c 用它判斷要不要做近平面裁切（整球在視錐內 → 不裁切的快速路徑）。
+    # 原本 158 只包住機身；軟管伸到 300 單位，球太小時管端跑到鏡頭後面也不裁切 → 一筆劃過畫面。
+    assert struct.unpack_from('<h', c, 4)[0] == 158
+    struct.pack_into('<h', c, 4, BOUND_R)
     # 根節點 A → 包裝節點
     struct.pack_into('<h', c, ROOT + 14, tail + G['W'] - (ROOT + 16))
     check_relocs(d, pe, code, c)
