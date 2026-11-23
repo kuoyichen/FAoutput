@@ -242,7 +242,7 @@ def make_parts():
 def build(src, dst, preview=None, mode='full'):
     d = bytearray(open(src, 'rb').read())
     from f18g_growler import grow_vas
-    d = bytearray(grow_vas(d, 0x1000))        # 新硬桿 + 程式約 4.3 KB：CODE 需超過 .idata 原本的 VA 0x9000
+    d = bytearray(grow_vas(d, 0x2000))        # 新硬桿 + 程式約 8.7 KB（伸縮管加長後）：CODE 結尾必須在 .idata 的 VA 之前（KC135-14 只加 0x1000，重疊而一進任務就當機）
     pe, opt, secs = pe_sections(d)
     code = next(s for s in secs if s['name'] == 'CODE')
     c = bytearray(d[code['ro']:code['ro'] + code['vs']])
@@ -730,6 +730,8 @@ def build(src, dst, preview=None, mode='full'):
         struct.pack_into('<I', out, cd3['ro'] + 0x3721, 0x1000 + tail + o_snip)
         out = bytes(out)
     assert len(out) < 65536, len(out)
+    _, _, so = pe_sections(out); so = sorted(so, key=lambda x: x['va'])
+    for a, b in zip(so, so[1:]): assert a['va'] + a['vs'] <= b['va'], f"{a['name']} VA 重疊 {b['name']}：grow_vas 要再加大"
     open(dst, 'wb').write(out)
     info = dict(tail=tail, o_snip=o_snip, o_code=o_code, o_part82=o_part82, D=D, blk_len=len(blk), size=len(out))
     if preview:
