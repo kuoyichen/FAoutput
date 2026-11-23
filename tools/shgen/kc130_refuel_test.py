@@ -72,7 +72,7 @@ def frame(th_deg, rel_fwd, rel_up, rel_right, fuel=None, spd=(400, 400), ph_deg=
         vo, off = hh['verts'][0]; tipf = r(B + blk0 + hh['o'] + vo, '<h')
         po, poff = hh['pts'][0]; pf = r(B + blk0 + hh['o'] + po, '<h')
         assert tipf == -Ln + off and pf == -Ln + poff, (sd, Ln, tipf, pf)
-        fo = hh['inner'][0]; green = r(B + blk0 + hh['o'] + fo + 3, '<B') == K.C_GREEN
+        fo = G['podf'][sd][0][0]; green = r(B + blk0 + fo + 3, '<B') == K.C_GREEN
         out[sd] = (round(r(B + c4 + 10, '<h') / DEG, 1), round(r(B + c4 + 8, '<h') / DEG, 1), Ln) + (('GREEN',) if green else ())
     out['R2'] = r(B + K.F2TBL, '<i') >> 8
     out['fuel'] = round(r(PL + 0x1fc, '<i') / 256, 1)
@@ -98,7 +98,7 @@ print('far              ', frame(0, -5000, 0, 0, fuel=1000))
 print('approach 1500 C  ', run(40, 0, -1500, -300, 0))
 print('right 150 ft 20° ', run(40, 0, *rel(1, 150, 20)))
 print('right 600 ft 10° ', run(40, 0, *rel(1, 600, 10)))
-print('right 850 (track only)', run(40, 0, *rel(1, 850, 8)))
+print('right 850 (track only)', run(40, 0, *rel(1, 650, 8)))
 print('right h90        ', run(5, 90, *rel(1, 150, 20)))
 print('left 120 ft 10° yaw-10', run(40, 0, *rel(-1, 300, 10, -10)))
 print('left steep 45°   ', run(40, 0, *rel(-1, 100, 45)))

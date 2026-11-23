@@ -16,7 +16,7 @@
 import math, os, struct, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sh_subdivide import pe_sections, insert_blocks
-from kc135_refuel import Mesh, node, check_relocs, F_LIT
+from kc135_refuel import Mesh, node, check_relocs, F_LIT, F_GLOW
 from keystone import Ks, KS_ARCH_X86, KS_MODE_32
 
 SIG = bytes([1, 2, 3, 2, 1, 2, 3, 2, 1])
@@ -27,7 +27,7 @@ ROOT = 0xA42                # 主 BSP 根節點（06）
 F2TBL = 0x4C97
 HDR = bytes.fromhex('3c016000f900')   # C4 零件範圍標頭 = CODE+8..13
 # 軟管零件的範圍標頭：C4（0x4D3194）用 |眼睛| + 範圍 決定精度位移，軟管長到 400+ 單位，範圍要涵蓋（否則 16 位元溢位）
-HOSE_HDR = struct.pack('<3h', 440, 440, 440)
+HOSE_HDR = struct.pack('<3h', 340, 340, 340)
 
 U = 2.0                      # ft / 頂點單位
 PODX, POD_UP = 75, 1         # 莢艙中心（x 為右側；左側鏡像）
@@ -44,13 +44,13 @@ HUB_D, RIM_D, BAND_D = 1, 6, 7                  # 錐套各環在管尖後的距
 
 PROBE_UP, PROBE_FWD = 0.0, 85.0                 # 接觸點 = 玩家機頭：fwd 由玩家 SH 的 F2 碰撞盒前緣（typedef+0xF → CODE）讀，讀不到才用 85 ft
 APP_BACK, APP_SIDE, APP_DOWN, APP_UP = 3000, 1000, 1200, 200   # 放出軟管的接近區（ft，相對加油機中心）
-NEAR_L = 880                 # 探管離樞紐比這近：該側錐套追蹤探管
-L_MIN, L_MAX = 24, 800       # 接上：長度（ft）
+NEAR_L = 660                 # 探管離樞紐比這近：該側錐套追蹤探管
+L_MIN, L_MAX = 24, 600       # 接上：長度（ft）
 P_MIN, P_MAX = -5, 50        # 接上：俯角（度）
 YAW_LIM, HDG_LIM, SPD_LIM = 35, 20, 60
-TRAIL_P, TRAIL_LEN, STOW_LEN = 8, 240, 1       # 拖曳：下垂 8°、長 240 單位（480 ft，Kuoyi：原本的 4 倍）；收起 1 單位
-H_MIN, H_MAX = 1, 400        # 軟管長度範圍（單位）
-HOSE_RATE = 100              # 軟管每秒 100 單位（200 ft/s）
+TRAIL_P, TRAIL_LEN, STOW_LEN = 8, 180, 1       # 拖曳：下垂 8°、長 180 單位（360 ft，Kuoyi：4 倍會亂晃，改原本的 3 倍）；收起 1 單位
+H_MIN, H_MAX = 1, 300        # 軟管長度範圍（單位）
+HOSE_RATE = 80               # 軟管每秒 80 單位（160 ft/s）
 STEP = 24                    # 每 1/256 s 轉 24 單位 ≈ 34°/s
 RATE = 50                    # lb/s
 ORIG_R, SMALL_R = 50688, 10 * 256
@@ -103,10 +103,14 @@ def pod_faces(m, sx):
     nose = m.vert(X, POD_UP, POD_NOSE)
     r1 = ring(m, SMALL, X, POD_UP, POD_F1, sx); r2 = ring(m, BIG, X, POD_UP, POD_F2, sx)
     r3 = ring(m, BIG, X, POD_UP, POD_F3, sx); r4 = ring(m, SMALL, X, POD_UP, POD_TAIL, sx)
-    pod = bytearray()
+    pod = bytearray(); fl = []                       # fl = (面位移, 原色)：加油時整個莢艙變綠
+    def add(f, col):
+        if f: fl.append((len(pod), col))
+        pod.extend(f)
     for i in range(8):
-        pod += face_out(m, [nose, r1[i], r1[(i + 1) % 8]], ax(POD_F1), C_NOSE)
-    for f in band(m, r1, r2, ax, C_NOSE) + band(m, r2, r3, ax, C_POD) + band(m, r3, r4, ax, C_POD): pod += f
+        add(face_out(m, [nose, r1[i], r1[(i + 1) % 8]], ax(POD_F1), C_NOSE), C_NOSE)
+    for f in band(m, r1, r2, ax, C_NOSE): add(f, C_NOSE)
+    for f in band(m, r2, r3, ax, C_POD) + band(m, r3, r4, ax, C_POD): add(f, C_POD)
     pod += m.face(r4, (0, 0, -1), m.v[r4[0] - m.slot], C_DARK)
     # 派龍架：x 從 75 到 76（左側 −76..−75），底 up 4 fwd −6..2，頂 up 6 fwd −8..1
     x0, x1 = (PODX, PODX + 1) if sx > 0 else (-PODX - 1, -PODX)
@@ -119,7 +123,7 @@ def pod_faces(m, sx):
     py += face_out(m, q[x0], c, C_PYLON) + face_out(m, q[x1], c, C_PYLON)
     py += face_out(m, [q[x0][1], q[x1][1], q[x1][2], q[x0][2]], c, C_PYLON)
     py += face_out(m, [q[x0][3], q[x1][3], q[x1][0], q[x0][0]], c, C_PYLON)
-    return pod, py
+    return pod, py, fl
 
 
 def widen(f, flags):
@@ -176,6 +180,7 @@ def make_block():
         H[side] = dict(hp, o=o)
     m = Mesh(POD_SLOT)
     pods = {s: pod_faces(m, sx) for s, sx in (('L', -1), ('R', 1))}
+    podf = {}
     W = len(blk); blk += bytes(14) + b'\x1E'
     o_main = len(blk); blk += b'\x38\x00\x00'                  # → 0xA57（插入後再填）
     o_grp = len(blk); blk += m.buf(); g0 = len(blk); blk += bytes(14) + b'\x1E'
@@ -188,6 +193,7 @@ def make_block():
         struct.pack_into('<h', blk, c4 + 14, H[s]['o'] + H[s]['p82'] - (c4 + 16))
         pn = len(blk); blk += bytes(14) + b'\x1E'
         o_pod = len(blk); blk += pods[s][0] + b'\x1E'
+        podf[s] = [(o_pod + fo, col) for fo, col in pods[s][2]]
         o_py = len(blk); blk += pods[s][1] + b'\x1E'
         # 莢艙頂 up 4：眼睛在上面 → 先莢艙後派龍架
         blk[pn:pn + 14] = node(0x0C, 1, -(POD_UP + 3), 0, 0, o_pod - pn, o_py - pn)
@@ -199,13 +205,13 @@ def make_block():
     # 上下：n_up = −1, d = −5：眼睛 up ≤ 5 → 先畫飛機再畫莢艙
     blk[W:W + 14] = node(0x0C, -1, -5, 0, 0, o_main - W, o_grp - W)
     assert POD_SLOT + len(m.v) <= HOSE_SLOT and HOSE_SLOT + 40 + H['L']['n'] <= 900
-    return dict(blk=blk, W=W, o_main=o_main, H=H, c4=c4_at)
+    return dict(blk=blk, W=W, o_main=o_main, H=H, c4=c4_at, podf=podf)
 
 
 def build(src, dst, preview=None, show=None):
     d = bytearray(open(src, 'rb').read())
     from f18g_growler import grow_vas
-    d = bytearray(grow_vas(d, 0x2000))
+    d = bytearray(grow_vas(d, 0x3000))      # 莢艙綠色切換的程式變大：0x2000 不夠（VA 會蓋到 .idata）
     pe, opt, secs = pe_sections(d)
     code = next(s for s in secs if s['name'] == 'CODE')
     c = bytearray(d[code['ro']:code['ro'] + code['vs']])
@@ -254,14 +260,16 @@ def build(src, dst, preview=None, show=None):
                 a += [f"            lea ecx, [eax + {off}]", f"            mov word ptr [ebx + {s(o + po)}], cx"]
             return "\n".join(a)
         def cone(side, sgn):
-            # 接上加油時，該側錐套內錐面變綠（不打光）
-            h = G['H'][side]; o = h['o']; lab = 'cn' + side
-            a = [f"            mov ax, {F_LITW}", f"            mov cl, {C_CONE_IN}",
-                 f"            cmp dword ptr [ebx + {r('CONT')}], 0", f"            je {lab}",
-                 f"            cmp dword ptr [ebx + {r('SIDE')}], {sgn}", f"            jne {lab}",
-                 f"            mov ax, {F_GLOWW}", f"            mov cl, {C_GREEN}", f"        {lab}:"]
-            for fo in h['inner']:
-                a += [f"            mov word ptr [ebx + {s(o + fo + 1)}], ax", f"            mov byte ptr [ebx + {s(o + fo + 3)}], cl"]
+            # 接上加油時，該側莢艙整個變綠（不打光），從受油機看得到（Kuoyi 2026-11-23）
+            lab = 'cn' + side; F = G['podf'][side]
+            a = [f"            cmp dword ptr [ebx + {r('CONT')}], 0", f"            je {lab}n",
+                 f"            cmp dword ptr [ebx + {r('SIDE')}], {sgn}", f"            jne {lab}n"]
+            for fo, col in F:
+                a += [f"            mov word ptr [ebx + {s(fo + 1)}], {F_GLOW}", f"            mov byte ptr [ebx + {s(fo + 3)}], {C_GREEN}"]
+            a += [f"            jmp {lab}d", f"        {lab}n:"]
+            for fo, col in F:
+                a += [f"            mov word ptr [ebx + {s(fo + 1)}], {F_LIT}", f"            mov byte ptr [ebx + {s(fo + 3)}], {col}"]
+            a += [f"        {lab}d:"]
             return "\n".join(a)
         def anim(side, base):
             c4 = G['c4'][side]; t = 'R' if side == 'R' else 'L'
