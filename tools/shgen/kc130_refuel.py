@@ -59,7 +59,10 @@ NEAR_BOX = 3000
 DEG = 65536 / 360.0
 MSG = b' Plane Re-Fueled\0'
 MSG_START = b' Start Refueling\0'
-POD_SLOT, HOSE_SLOT = 300, 400
+POD_SLOT, HOSE_SLOT, HOSE_N = 300, 400, 64      # 每條軟管 64 點（方管 SEG+1 環 + 錐套 24 點）
+SEG = 8                                          # 軟管段數
+SAG_K = 1 / 12                                   # 中點下垂 = L / 12（拋物線 4t(1−t)）
+F_NONRM = 0x0401                                 # 無法向量的面
 
 
 def newell(P):
@@ -140,14 +143,22 @@ def hose_part(slot):
     TB = 20
     m = Mesh(slot)
     root = [m.vert(x, u, 0) for x, u in HOSE]
+    mids = [[m.vert(x, u, -TB * k // SEG) for x, u in HOSE] for k in range(1, SEG)]
     tip = [m.vert(x, u, -TB) for x, u in HOSE]
     hub = [m.vert(x, u, -TB - HUB_D) for x, u in SMALL]
     rim = [m.vert(x, u, -TB - RIM_D) for x, u in BIG]
     rim2 = [m.vert(x, u, -TB - BAND_D) for x, u in BIG]
     ax = lambda f: (0, 0, f)
-    tube = bytearray()
-    for f in band(m, root, tip, lambda f: (0.5, 0.5, f), C_HOSE):
-        tube += f                                   # 平面點取根部頂點（fwd 0），長度改變也不用改
+    # 軟管分 SEG 段，x86 每格把中間各環往下壓成垂掛曲線（Kuoyi 2026-11-23）。
+    # 左右兩面（x 固定）法向量一直有效，打光；上下兩面會傾斜，不放法向量（0x401：單色、不剔除、不打光）。
+    tube = bytearray(); rings = [root] + mids + [tip]
+    for a, b in zip(rings, rings[1:]):
+        for i, f in enumerate(band(m, a, b, lambda f: (0.5, 0.5, f), C_HOSE)):
+            if i in (0, 2):                          # 下、上
+                f = bytearray(f); f = f[:1] + struct.pack('<HH', F_NONRM, C_HOSE) + f[14:]
+            else:                                    # 平面點用根部頂點（x 不變，fwd 0 也在平面上）
+                f = bytearray(f); f[12:14] = struct.pack('<2b', 0, 0)
+            tube += f
     # 錐套：輪轂蓋（朝後）、內錐面、外緣帶、外錐面、輪轂前面（軟管接頭）
     dro = [('hub', m.face(hub[::-1], (0, 0, -1), m.v[hub[0] - slot], C_RIM))]
     dro += [('in', f) for f in band(m, hub, rim, ax, C_CONE_IN, inward=True)]
@@ -166,17 +177,20 @@ def hose_part(slot):
     o_tube = len(part); part += tube + b'\x1E'
     # 根節點：fwd 平面在管尖（−L）：eye_fwd + L ≥ 0（眼睛在管尖前方）→ 先畫錐套再畫軟管
     part[nd:nd + 14] = node(0x0C, 0, 0, 1, TB, o_dro - nd, o_tube - nd)
+    mid = []                                         # (fwd word 位移, up word 位移, 第 k 環, 原 up)
+    for k, rr in enumerate(mids, 1):
+        for v in rr: mid.append((p82 + m.voff(v) + 2, p82 + m.voff(v) + 4, k, m.v[v - slot][1]))
     verts = []
     for k in tip + hub + rim + rim2:
         verts.append((p82 + m.voff(k) + 2, m.v[k - slot][2] + TB))     # (fwd word 位移, 相對管尖)
-    return dict(b=part, p82=p82, verts=verts, pts=pts, inner=inner, nd_d=nd + 8, n=len(m.v))
+    return dict(b=part, p82=p82, verts=verts, mid=mid, pts=pts, inner=inner, nd_d=nd + 8, n=len(m.v))
 
 
 def make_block():
     """區塊：兩個軟管零件、包裝節點（上下）、莢艙群組。回傳 bytes 與各位移（相對區塊起點）。"""
     blk = bytearray()
     H = {}
-    for side, slot in (('R', HOSE_SLOT), ('L', HOSE_SLOT + 40)):
+    for side, slot in (('R', HOSE_SLOT), ('L', HOSE_SLOT + HOSE_N)):
         hp = hose_part(slot); o = len(blk); blk += hp['b']
         H[side] = dict(hp, o=o)
     m = Mesh(POD_SLOT)
@@ -205,7 +219,7 @@ def make_block():
     blk[g0:g0 + 14] = node(0x0E, 1, 0, 0, 0, side_at['L'] - g0, side_at['R'] - g0)
     # 上下：n_up = −1, d = −5：眼睛 up ≤ 5 → 先畫飛機再畫莢艙
     blk[W:W + 14] = node(0x0C, -1, -5, 0, 0, o_main - W, o_grp - W)
-    assert POD_SLOT + len(m.v) <= HOSE_SLOT and HOSE_SLOT + 40 + H['L']['n'] <= 900
+    assert POD_SLOT + len(m.v) <= HOSE_SLOT and H['R']['n'] <= HOSE_N and HOSE_SLOT + HOSE_N + H['L']['n'] <= 900
     return dict(blk=blk, W=W, o_main=o_main, H=H, c4=c4_at, podf=podf)
 
 
@@ -259,6 +273,13 @@ def build(src, dst, preview=None, show=None):
                 a += [f"            lea ecx, [eax + {off}]", f"            mov word ptr [ebx + {s(o + vo)}], cx"]
             for po, off in h['pts']:
                 a += [f"            lea ecx, [eax + {off}]", f"            mov word ptr [ebx + {s(o + po)}], cx"]
+            a += ["            neg eax"]           # eax = L（正）
+            for fo, uo, k, u0 in h['mid']:
+                t = k / SEG; g = int(round(4 * t * (1 - t) * SAG_K * 256))
+                a += [f"            imul ecx, eax, {k}", f"            sar ecx, {SEG.bit_length() - 1}", "            neg ecx",
+                      f"            mov word ptr [ebx + {s(o + fo)}], cx",
+                      f"            imul ecx, eax, {g}", "            sar ecx, 8", "            neg ecx", f"            add ecx, {u0}",
+                      f"            mov word ptr [ebx + {s(o + uo)}], cx"]
             return "\n".join(a)
         def cone(side, sgn):
             # 接上加油時，該側莢艙整個變綠（不打光），從受油機看得到（Kuoyi 2026-11-23）
@@ -723,6 +744,9 @@ def build(src, dst, preview=None, show=None):
             struct.pack_into('<h', d2, b + o + h['nd_d'], Ln)
             for vo, off in h['verts']: struct.pack_into('<h', d2, b + o + vo, -Ln + off)
             for po, off in h['pts']: struct.pack_into('<h', d2, b + o + po, -Ln + off)
+            for fo, uo, k, u0 in h['mid']:
+                t = k / SEG; struct.pack_into('<h', d2, b + o + fo, -(Ln * k >> 3))
+                struct.pack_into('<h', d2, b + o + uo, u0 - (Ln * int(round(4 * t * (1 - t) * SAG_K * 256)) >> 8))
             struct.pack_into('<h', d2, b + G['c4'][sd] + 10, int(pt * DEG))
             struct.pack_into('<h', d2, b + G['c4'][sd] + 8, int(yw * DEG))
         open(preview, 'wb').write(d2)
