@@ -84,6 +84,13 @@ for k in range(3): print('contact h90', frame(90, cf, cu, 0))
 print('offset right 40ft h0', frame(0, cf, cu, 40))
 print('speed diff 50', frame(0, cf, cu, 0, spd=(500, 550)))
 print('near full', frame(0, cf, cu, 0, fuel=16190)); print('full ', frame(0, cf, cu, 0))
+def rel(L, P):
+    b, dn = L*math.cos(math.radians(P)), L*math.sin(math.radians(P))
+    return -126 - b - 50, -4 - dn - 20
+for k in range(12): f = frame(0, *rel(110, 57), 0)
+print('steep 57 deg L110', f)
+for k in range(12): f = frame(0, *rel(205, 35), 0)
+print('long L205 35 deg', f)
 print('ahead 300 ft', frame(0, 300, 0, 0)); print('above 100 ft', frame(0, 0, 100, 0))
 print('calls', calls)
 w(EYE, '<h', -50); print('eye below', frame(0, cf, cu, 0)); w(EYE, '<h', 100)
@@ -96,7 +103,8 @@ w(AB, '<H', 1); print('handle 0 AB', frame(0, cf, cu, 0))
 
 if os.environ.get('KC_DUMP'):
     w(EYE, '<h', 100); w(0x580bec, '<H', 5); w(AB, '<H', 0)
-    for k in range(8): f = frame(0, cf, cu, 0)
+    dl, dp = (float(x) for x in os.environ.get('KC_DUMP_LP', '130,30').split(','))
+    for k in range(16): f = frame(0, *rel(dl, dp), 0)
     m = bytes(mu.mem_read(B, len(c)))
     p82 = blk0 + G['part82']
     import struct as S

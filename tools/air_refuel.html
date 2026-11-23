@@ -58,15 +58,16 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
   <span id="langSlot"></span>
 </header>
 <main>
-  <div class="kicker">Release #8</div>
+  <div class="kicker">Release #8 · updated Nov 23</div>
   <h1 data-lang="en">Air refueling from the <b>KC-135</b></h1>
   <h1 data-lang="zh">FA 可以<b>空中加油</b>了</h1>
   <p class="lead" data-lang="en">Fly up behind a friendly KC-135 and it lowers its boom, aims it at you, extends the telescope to your receptacle and pumps fuel into your tanks. Everything lives inside <code>KC135.SH</code>: no FA.EXE patch, no new files. Drop in the shape and every mission that has a friendly KC-135 becomes a tanker mission.</p>
   <p class="lead" data-lang="zh">飛到友軍 KC-135 的後下方，它會放下硬桿、對準你、把伸縮管伸到你的受油口，然後開始加油。全部都做在 <code>KC135.SH</code> 裡：不改 FA.EXE，也不需要其他新檔案。換上這個外形之後，任何有友軍 KC-135 的任務都能空中加油。</p>
   <div class="dl">
     <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/KC135.SH" download>⬇ <span data-lang="en">Download KC135.SH</span><span data-lang="zh">下載 KC135.SH</span></a>
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PIC/_KC135.PIC" download>⬇ <span data-lang="en">Download _KC135.PIC</span><span data-lang="zh">下載 _KC135.PIC</span></a>
     <a class="btn ghost" href="#use"><span data-lang="en">How to refuel</span><span data-lang="zh">怎麼加油</span></a>
-    <span class="muted" style="font-size:13px">KC135.SH 38,912 B · FA 1.02f</span>
+    <span class="muted" style="font-size:13px">KC135.SH 41,984 B + _KC135.PIC · FA 1.02f</span>
   </div>
   <div class="two">
     <figure><img src="img/refuel/contact.jpg" alt="F-14 in contact with the KC-135 boom" loading="lazy"><figcaption data-lang="en">In contact: boom down and aimed, telescope in the receptacle, belly lights and boom band green.</figcaption><figcaption data-lang="zh">接上了：硬桿放下對準、伸縮管插進受油口，機腹燈和桿上燈帶都是綠的。</figcaption></figure>
@@ -83,10 +84,10 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
 
   <h2 id="use" data-lang="en">How to refuel</h2><h2 data-lang="zh">怎麼加油</h2>
   <ol class="steps" data-lang="en">
-    <li><b>Back up your <code>KC135.SH</code></b>, then copy the new one into the folder FA loads shapes from (where you keep your other loose .SH files).</li>
+    <li><b>Back up your <code>KC135.SH</code> and <code>_KC135.PIC</code></b>, then copy the new ones into the folder FA loads shapes and textures from (where you keep your other loose .SH files).</li>
     <li><b>Pick a mission with a friendly KC-135</b> (same side as you), or add one in the mission editor and have it fly a straight leg.</li>
     <li><b>Come up behind it.</b> Within 1,500 ft behind it, 500 ft to either side and up to 800 ft below, the boom lowers to 30° and the telescope extends a little.</li>
-    <li><b>Close to about 100–160 ft from the boom hinge</b>, slightly below. Inside 210 ft the boom follows you and the telescope reaches for your receptacle.</li>
+    <li><b>Close to about 100–210 ft from the boom hinge</b>, below and behind. Inside 260 ft the boom follows you and the telescope reaches for your receptacle.</li>
     <li><b>When you are in the box</b> you get <code>Start Refueling</code>, the green lights come on, and fuel flows at <b>50 lb/s</b> (3,000 lb/min) as long as you stay in it.</li>
     <li><b>Full:</b> <code>Plane Re-Fueled</code>. Back off and the boom raises and stows.</li>
   </ol>
@@ -94,7 +95,7 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
     <li><b>先備份你的 <code>KC135.SH</code></b>，再把新的複製到 FA 讀外形的目錄（你放其他 .SH 的地方）。</li>
     <li><b>選一個有友軍 KC-135 的任務</b>（和你同一陣營），或在任務編輯器裡加一架，讓它直線飛一段。</li>
     <li><b>從它後方接近。</b>進入後方 1,500 ft、左右 500 ft、下方 800 ft 以內，硬桿會放到 30°，伸縮管伸出一小段。</li>
-    <li><b>靠近到離硬桿樞紐約 100–160 ft</b>，稍微在下方。210 ft 以內硬桿會跟著你轉，伸縮管會伸向你的受油口。</li>
+    <li><b>靠近到離硬桿樞紐約 100–210 ft</b>，在後下方。260 ft 以內硬桿會跟著你轉，伸縮管會伸向你的受油口。</li>
     <li><b>進入加油框</b>時會跳出 <code>Start Refueling</code>，綠燈亮起，只要待在框裡就以<b>每秒 50 lb</b>（每分鐘 3,000 lb）加油。</li>
     <li><b>加滿</b>時跳出 <code>Plane Re-Fueled</code>。退開後硬桿會收回。</li>
   </ol>
@@ -102,8 +103,8 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
   <div class="scroll"><table>
     <thead><tr><th data-lang="en">Condition</th><th data-lang="zh">條件</th><th data-lang="en">Range</th><th data-lang="zh">範圍</th></tr></thead>
     <tbody>
-      <tr><td data-lang="en">Distance from boom hinge to your receptacle</td><td data-lang="zh">硬桿樞紐到你受油口的距離</td><td class="n">96 – 165 ft</td></tr>
-      <tr><td data-lang="en">Boom elevation (below the tanker)</td><td data-lang="zh">硬桿俯角（在加油機下方）</td><td class="n">15° – 45°</td></tr>
+      <tr><td data-lang="en">Distance from boom hinge to your receptacle</td><td data-lang="zh">硬桿樞紐到你受油口的距離</td><td class="n">96 – 213 ft</td></tr>
+      <tr><td data-lang="en">Boom elevation (below the tanker)</td><td data-lang="zh">硬桿俯角（在加油機下方）</td><td class="n">15° – 60°</td></tr>
       <tr><td data-lang="en">Boom azimuth (left / right)</td><td data-lang="zh">硬桿左右偏角</td><td class="n">± 25°</td></tr>
       <tr><td data-lang="en">Heading difference</td><td data-lang="zh">航向差</td><td class="n">± 20°</td></tr>
       <tr><td data-lang="en">Speed difference</td><td data-lang="zh">速度差</td><td class="n">± 60 ft/s</td></tr>
@@ -127,8 +128,8 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
     <div data-lang="en"><b>Up to 8 tankers</b> keep their own boom position. Multiplayer is untested.</div>
     <div data-lang="zh"><b>最多 8 架加油機</b>各自記住自己的硬桿位置。連線對戰沒有測試過。</div>
   </div>
-  <div class="note" data-lang="en">To undo, put your original <code>KC135.SH</code> back. Nothing else is changed.</div>
-  <div class="note" data-lang="zh">要還原，把原本的 <code>KC135.SH</code> 放回去就好，其他東西都沒有改。</div>
+  <div class="note" data-lang="en">To undo, put your original <code>KC135.SH</code> and <code>_KC135.PIC</code> back. Nothing else is changed.</div>
+  <div class="note" data-lang="zh">要還原，把原本的 <code>KC135.SH</code> 和 <code>_KC135.PIC</code> 放回去就好，其他東西都沒有改。</div>
 
   <h2 data-lang="en">How it was made</h2><h2 data-lang="zh">製作過程</h2>
   <p data-lang="en">This started as a question about the runway resupply. FA.EXE re-arms and re-fuels you when you stop near your base (<a href="https://github.com/kuoyichen/FAoutput/blob/main/skill/FA_resupply.MD">notes</a>), but it has no air refueling at all. Rather than patch the EXE, the whole feature went into the tanker’s own shape, because an SH can carry native x86 code that FA runs while drawing it.</p>
@@ -141,6 +142,8 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
     <li><b>Invisible faces.</b> In game the telescope showed only outlines and a fin flickered. FA culls faces by the order of their corners on screen, not only by their normal, and those faces were wound backwards. Every new face is now wound to match its normal, the same rule all the original faces follow.</li>
     <li><b>Drawn last when you are underneath.</b> Seen from below, the fuselage was painted over the lights and boom. When your eye is under the belly, the boom and lights are drawn after the whole aircraft, by redirecting the end of its main drawing tree.</li>
     <li><b>Tuning in the air.</b> Wider box, faster telescope, a <code>Start Refueling</code> message, lights behind the boom hinge where the receiver can see them, and the small collision radius kept whenever you are near, so overshooting is safe.</li>
+    <li><b>Reaching further (Nov 23).</b> Pilots overshot when they came in close, because the boom stopped at 45° and the telescope was short. The boom now goes down to 60° and the telescope is twice as long (up to about 96 ft), so contact holds from 96 to 213 ft. The first build of this crashed on mission load: the bigger code block grew past the address where the import table starts, so the section space reserved before it was doubled and the generator now refuses to write overlapping sections.</li>
+    <li><b>Today’s grey and a shorter gear (Nov 23).</b> The stock tanker hung its engine pods very low, so FA had to draw long gear legs and park it high. The pods were raised to just under the wing, the gear pictures were cropped from the top (wheels keep their size) and the parking height in the collision box was lowered. The olive green became the current USAF grey: every green colour index moves 48 steps to the matching shade of the grey ramp, in the faces, in the per-vertex shading records (smooth-shaded faces take their colour from these, not from the face) and in <code>_KC135.PIC</code>.</li>
   </ol>
   <ol class="steps" data-lang="zh">
     <li><b>先讀懂原版。</b>原版硬桿只是一條扁平的面，只在 <code>_PLafterBurner</code> 開啟時才畫（玩家自己開加油機時）。碰撞表寫的是 284 ft，而 FA 會讓移動中的 AI 用這個半徑去掃人類玩家，所以跟在加油機後面一定會撞。</li>
@@ -150,6 +153,8 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
     <li><b>看不見的面。</b>遊戲裡伸縮管只剩框線，飛翼時有時無。原因是 FA 剔除背面時看的是面在螢幕上的頂點順序，不只是法向量，而那些面的順序剛好反了。現在每個新面都依法向量排好頂點順序，和原版所有的面一樣。</li>
     <li><b>你在下方時最後才畫。</b>從下方看時，機身會蓋掉燈和硬桿。當你的視點在機腹下方，硬桿和燈會改到整架飛機畫完之後才畫，做法是把主繪圖樹的結尾導過來。</li>
     <li><b>在空中調整。</b>放寬加油框、加快伸縮管、加上 <code>Start Refueling</code> 訊息、在硬桿樞紐後方加受油機看得到的燈，並在你靠近時一直維持小碰撞半徑，衝過頭也安全。</li>
+    <li><b>伸得更遠（11/23）。</b>飛得太近時容易衝過頭，因為硬桿只能放到 45°，伸縮管又短。現在硬桿可以放到 60°，伸縮管加倍（最長約 96 ft），96 到 213 ft 之間都能接上。第一版一進任務就當機：程式區塊變大，蓋到了匯入表的位址，所以前面預留的區段空間加倍，產生器也會拒絕輸出區段重疊的檔案。</li>
+    <li><b>現行灰色塗裝和較短的起落架（11/23）。</b>原版的引擎艙掛得很低，FA 只好把起落架畫得很長、停得很高。引擎艙往上提到機翼下方，起落架貼圖從上方裁短（輪子大小不變），碰撞盒裡的停機高度也一起降低。橄欖綠改成現行美軍灰色：所有綠色色號都往後移 48 到灰色組對應的明暗，面顏色、每個頂點的著色記錄（平滑著色的面用的是這裡的顏色，不是面顏色）和 <code>_KC135.PIC</code> 都要改。</li>
   </ol>
   <div class="two">
     <figure><img src="img/refuel/below_stowed.jpg" alt="KC-135 from below with the boom stowed" loading="lazy"><figcaption data-lang="en">Out of range: boom stowed under the tail with the original orange chevrons, no green lights.</figcaption><figcaption data-lang="zh">不在範圍內：硬桿收在機尾下方（原版橘色箭頭），沒有綠燈。</figcaption></figure>
@@ -159,10 +164,10 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
   <h2 data-lang="en">What is inside the file</h2><h2 data-lang="zh">檔案裡加了什麼</h2>
   <div class="scroll"><table>
     <tbody>
-      <tr><td data-lang="en">New block before the signature</td><td data-lang="zh">簽章前的新區塊</td><td class="n" data-lang="en">about 5.9 KB: boom part (76 vertices), lights (44 vertices), boom placements, data, x86</td><td class="n" data-lang="zh">約 5.9 KB：硬桿零件（76 點）、燈（44 點）、硬桿放置、資料、x86</td></tr>
+      <tr><td data-lang="en">New block before the signature</td><td data-lang="zh">簽章前的新區塊</td><td class="n" data-lang="en">about 8.5 KB: boom part (92 vertices), lights (44 vertices), boom placements, data, x86</td><td class="n" data-lang="zh">約 8.5 KB：硬桿零件（92 點）、燈（44 點）、硬桿放置、資料、x86</td></tr>
       <tr><td data-lang="en">Hooks in the original code</td><td data-lang="zh">原程式裡的掛勾</td><td class="n" data-lang="en">afterburner check at CODE 0x3714 → x86; end of the main tree at 0x146B → lights and boom when seen from below</td><td class="n" data-lang="zh">CODE 0x3714 的後燃器判斷 → x86；0x146B 主繪圖樹結尾 → 從下方看時的燈和硬桿</td></tr>
       <tr><td data-lang="en">Changed at run time</td><td data-lang="zh">執行時改寫</td><td class="n" data-lang="en">boom angles, telescope vertices, light colours, collision radius</td><td class="n" data-lang="zh">硬桿角度、伸縮管頂點、燈的顏色、碰撞半徑</td></tr>
-      <tr><td data-lang="en">Size</td><td data-lang="zh">大小</td><td class="n">33,280 → 38,912 B</td></tr>
+      <tr><td data-lang="en">Size</td><td data-lang="zh">大小</td><td class="n">33,280 → 41,984 B</td></tr>
     </tbody>
   </table></div>
   <p class="muted" style="font-size:13px" data-lang="en">Source: <a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_refuel.py">tools/shgen/kc135_refuel.py</a> builds the file from the factory <code>KC135.SH</code> (the copy in your game, or this repo before release #8; <code>python3 kc135_refuel.py original.SH out.SH</code>; distances, rates and the box are constants at the top). <a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_refuel_test.py">kc135_refuel_test.py</a> runs the x86 in an emulator against fake objects.</p>
