@@ -10,8 +10,8 @@
   2. 起落架：三個貼圖看板零件（主輪 L 0x42BC、R 0x438D，鼻輪 0x445E）底部頂點往上 GEAR_CUT，
      頂部頂點的 UV 往底部那頭移同樣比例，等於把貼圖上半段的支柱裁掉，輪子大小不變。
   3. F2 碰撞盒 ymin：−34 → −(17 − GEAR_CUT)·2 ft，FA 用它決定停在地上的高度。
-  4. 顏色：面顏色 105（綠）和 148（淺灰機腹）改成 BODY（灰階 144..159 那一組，FA 依此打光）。
-     _KC135.PIC 裡的綠色（96..111）依亮度換成灰階。
+  4. 顏色（照 Kuoyi 的改法）：面顏色和 F6 頂點顏色 105 → 153；_KC135.PIC 綠色組 95..111 整組 +48 → 143..159。
+     平滑著色的面用 F6 記錄的顏色，只改面顏色機身還是綠的。
 用法：python3 kc135_gray.py 輸入KC135.SH 輸出.SH 輸入_KC135.PIC 輸出.PIC
 """
 import os, struct, sys
@@ -25,9 +25,9 @@ INNER_UP, OUTER_UP = 4, 3
 GEAR = (0x42BC, 0x438D, 0x445E)
 GEAR_CUT = 5
 F2TBL = 0x73E4
-BODY = 155
-GREENS = range(96, 112)
-GREYS = range(144, 160)
+BODY = 153                  # Kuoyi 的改法：綠色組 95..111 整組平移 +48 到灰色組 143..159（105 → 153）
+SHIFT = 48
+GREENS = range(95, 112)
 
 
 def walk_faces(c, starts):
@@ -90,6 +90,18 @@ def face_ok(c, p):
     q += 2*k if fl & 0x400 else k
     if fl & 4: q += k * (2 if fl & 0x100 else 4)
     return max(idx) < 800 and q < len(c) and c[q] in NEXT_OPS
+
+
+def vbufs(c):
+    """CODE 裡所有看起來合理的 82 頂點緩衝。"""
+    out = []
+    for p in range(len(c) - 6):
+        if c[p] == 0x82 and c[p+1] == 0:
+            n, t = struct.unpack_from('<HH', c, p+2)
+            if 3 <= n <= 600 and t % 8 == 0 and t // 8 < 800 and p + 6 + 6*n < len(c):
+                V = [struct.unpack_from('<hhh', c, p+6+6*i) for i in range(n)]
+                if all(abs(x) < 200 and abs(f) < 200 and abs(u) < 100 for x, f, u in V): out.append(p)
+    return out
 
 
 def parse_face(c, p):
@@ -176,10 +188,18 @@ def build_sh(d):
     # 4. 顏色
     ncol = 0
     for p, f in F.items():
-        if c[p+3] in (105, 148): c[p+3] = BODY; ncol += 1
+        if c[p+3] == 105: c[p+3] = BODY; ncol += 1
     # 走訪沒走到的 LOD（遠距離用的低細節機身等）也有綠色面：整段 CODE 掃描，確認能完整解析成一個面才改
     for p in range(len(c) - 8):
-        if c[p] == 0xFC and c[p+3] in (105, 148) and face_ok(c, p): c[p+3] = BODY; ncol += 1
+        if c[p] == 0xFC and c[p+3] == 105 and face_ok(c, p): c[p+3] = BODY; ncol += 1
+    # F6 頂點記錄（f6 idx16 顏色 法向量3B）：平滑著色的機身是用這裡的顏色，不是面顏色（KC135-10/11 機身仍綠的原因）
+    nf6 = 0
+    for a in vbufs(c):
+        q = a + 6 + 6 * struct.unpack_from('<H', c, a+2)[0]
+        while c[q] == 0xF6:
+            if c[q+3] == 105: c[q+3] = BODY; nf6 += 1
+            q += 7
+    print('F6 vertex colours', nf6)
 
     check_relocs(bytes(d), pe, code, c)
     d[code['ro']:code['ro'] + code['vs']] = c
@@ -188,40 +208,12 @@ def build_sh(d):
 
 
 def build_pic(b, pal):
+    """綠色組 95..111 平移到灰色組 143..159（和 Kuoyi 自己改的版本一樣）。"""
     b = bytearray(b)
-    w, h = struct.unpack_from('<II', b, 2); po, ps = struct.unpack_from('<II', b, 10)
-    lum = lambda k: 0.3*pal[3*k] + 0.59*pal[3*k+1] + 0.11*pal[3*k+2]
-    ratio = lum(BODY) / lum(105)
-    m = {g: min(GREYS, key=lambda k: abs(lum(k) - lum(g) * ratio)) for g in GREENS}
-    n = 0
+    po, ps = struct.unpack_from('<II', b, 10); n = 0
     for i in range(po, po + ps):
-        if b[i] in m: b[i] = m[b[i]]; n += 1
-    print('pic pixels recoloured', n, m)
-    return bytes(b)
-
-
-def fill_base(b, c):
-    """機身這類「有顏色的貼圖面」，貼圖裡 0xFF 的地方遊戲裡沒有照面顏色顯示（KC135-11 在 FA 裡仍是綠底），
-    所以把這些面 UV 範圍內的 0xFF 直接填成面的顏色。顏色 0 的面（起落架、座艙等需要透明的）不動，兩者沒有重疊。"""
-    from PIL import Image, ImageDraw
-    b = bytearray(b)
-    w, h = struct.unpack_from('<II', b, 2); rt = struct.unpack_from('<I', b, 0x22)[0]
-    rows = [struct.unpack_from('<I', b, rt + 4*r)[0] for r in range(h)]
-    masks = {}
-    for p in range(len(c) - 8):
-        if c[p] == 0xFC and face_ok(c, p):
-            f = parse_face(c, p)
-            if not f['fl'] & 4: continue
-            m = masks.setdefault(c[p+3], Image.new('L', (w, h), 0))
-            ImageDraw.Draw(m).polygon([tuple(get_uv(c, f, j)) for j in range(len(f['idx']))], fill=255, outline=255)
-    zero = masks.pop(0, Image.new('L', (w, h), 0)).load(); n = 0
-    for col, m in masks.items():
-        px = m.load()
-        for v in range(h):
-            for u in range(w):
-                q = rows[h-1-v] + u
-                if px[u, v] and not zero[u, v] and b[q] == 255: b[q] = col; n += 1
-    print('pic 0xFF filled with face colour', n)
+        if b[i] in GREENS: b[i] += SHIFT; n += 1
+    print('pic pixels recoloured', n)
     return bytes(b)
 
 
@@ -231,5 +223,4 @@ if __name__ == '__main__':
     sh = build_sh(open(a[0], 'rb').read())
     open(a[1], 'wb').write(sh)
     if len(a) > 3:
-        pe, opt, secs = pe_sections(sh); code = next(s for s in secs if s['name'] == 'CODE')
-        open(a[3], 'wb').write(fill_base(build_pic(open(a[2], 'rb').read(), pal), sh[code['ro']:code['ro'] + code['vs']]))
+        open(a[3], 'wb').write(build_pic(open(a[2], 'rb').read(), pal))
