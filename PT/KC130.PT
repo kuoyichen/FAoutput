@@ -636,7 +636,7 @@
 	string "KC-130J Harvest Hawk"
 	string "KC130.PT"
 :shape
-	string "an12a.SH"
+	string "KC130.SH"
 :shadowShape
 	string "ac130_s.SH"
 :loopSound
