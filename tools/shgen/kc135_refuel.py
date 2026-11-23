@@ -14,7 +14,7 @@
      C4（0x4D3194）會把眼睛和光源一起轉進零件座標，旋轉後光影和背面剔除照樣正確。
   2. 0x3714 的 F0 改成跳到新的 x86（舊的兩個重定位位置 0x3718、0x3721 留著不執行）。x86 每次畫加油機時：
        - 找出加油機（[0x553848 + word[0x580BEC]*4]）和玩家（word[0x520A1C]）。
-       - 玩家同陣營、存活時，把「玩家受油口」= 玩家位置 + (0, +RECEP_UP, +RECEP_FWD) 換到加油機座標
+       - 玩家同陣營、存活時，把「玩家機頭」= 玩家位置 + (0, 0, F2 碰撞盒前緣) 換到加油機座標
          （只用加油機航向；右 = dx cos h − dz sin h，前 = dx sin h + dz cos h），再算相對硬桿樞紐的
          後方距離、下方距離、左右、長度、俯角、偏角（x87 fpatan / fsqrt）。
        - 接近區（後方 0..APP_BACK、左右 ±APP_SIDE、下方 −60..APP_DOWN）：硬桿放下指向玩家（俯角 10..45°、
@@ -67,7 +67,8 @@ HDR = bytes.fromhex('eb0047001a01')   # 零件範圍標頭，照起落架零件�
 
 U = 2.0                      # ft / 頂點單位
 HINGE_UP, HINGE_FWD = PIVOT[1] * U, PIVOT[2] * U          # −4, −126 ft
-RECEP_UP, RECEP_FWD = 20.0, 50.0                          # 玩家受油口相對玩家原點（ft）
+RECEP_UP, RECEP_FWD = 0.0, 85.0                           # 接觸點 = 玩家機頭（Kuoyi 2026-11-23：視野考量，改到受油機尖端）：
+                                                          # fwd 讀玩家 SH 的 F2 碰撞盒前緣（typedef+0xF → CODE），讀不到才用 85 ft
 APP_BACK, APP_SIDE, APP_DOWN = 1500, 500, 800             # 接近區（ft）
 L_MIN, L_MAX = 96, 213                                    # 上半桿 100 ft + 伸縮管 0..96 ft（放寬：多 ±10 多 ft）
 YAW_LIM, HDG_LIM, SPD_LIM = 25, 20, 60                     # 加油框：偏角 ±25°、航向差 ±20°、速度差 ±60 ft/s
@@ -264,7 +265,7 @@ def build(src, dst, preview=None, mode='full'):
     for k in ('DT', 'TMP', 'DX', 'DY', 'DZ', 'COS', 'SIN', 'RIGHT', 'BACK', 'DOWN', 'L', 'PITCH', 'YAW',
               'TP', 'TH', 'TE', 'EXT', 'APPR', 'CONT', 'SHOW', 'NEARR'): var(k, 4)
     var('K256', 4, fl(1 / 256)); var('KANG', 4, fl(2 * math.pi / 65536)); var('KFA', 4, fl(65536 / (2 * math.pi)))
-    var('CFWD', 4, fl(RECEP_FWD - HINGE_FWD)); var('CUP', 4, fl(RECEP_UP - HINGE_UP))
+    var('CFWD', 4, fl(RECEP_FWD - HINGE_FWD)); var('HFWD', 4, fl(HINGE_FWD)); var('NOSE', 4); var('CUP', 4, fl(RECEP_UP - HINGE_UP))
     var('ENTRY', 8); var('MSGTXT', len(MSG), MSG); var('MSGSTART', len(MSG_START), MSG_START)
     while len(blk) % 16: blk += b'\x90'
     o_code = len(blk)
@@ -358,6 +359,27 @@ def build(src, dst, preview=None, mode='full'):
             test al, 0x80
             jnz animate
 
+            mov ecx, {int(RECEP_FWD)}
+            mov eax, dword ptr [edi + 5]
+            test eax, eax
+            jz nosedef
+            mov eax, dword ptr [eax + 0xf]
+            test eax, eax
+            jz nosedef
+            cmp word ptr [eax + 0xe], 0xf2
+            jne nosedef
+            movzx edx, word ptr [eax + 0x10]
+            movsx edx, word ptr [eax + edx + 0x12 + 14]
+            cmp edx, 10
+            jl nosedef
+            cmp edx, 400
+            jg nosedef
+            mov ecx, edx
+        nosedef:
+            mov dword ptr [ebx + {r('NOSE')}], ecx
+            fild dword ptr [ebx + {r('NOSE')}]
+            fsub dword ptr [ebx + {r('HFWD')}]
+            fstp dword ptr [ebx + {r('CFWD')}]
             fild dword ptr [edi + 0x11]
             fild dword ptr [esi + 0x11]
             fsubp st(1), st(0)
