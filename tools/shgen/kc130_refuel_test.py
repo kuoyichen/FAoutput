@@ -73,7 +73,7 @@ def frame(th_deg, rel_fwd, rel_up, rel_right, fuel=None, spd=(400, 400), ph_deg=
         po, poff = hh['pts'][0]; pf = r(B + blk0 + hh['o'] + po, '<h')
         assert tipf == -Ln + off and pf == -Ln + poff, (sd, Ln, tipf, pf)
         for fo, uo, k, u0 in hh['mid']:          # 垂掛曲線：中間各環
-            g = int(round(4 * (k / K.SEG) * (1 - k / K.SEG) * K.SAG_K * 256))
+            g = K.sag_g(k)
             assert r(B + blk0 + hh['o'] + fo, '<h') == -(Ln * k >> 3) and r(B + blk0 + hh['o'] + uo, '<h') == u0 - (Ln * g >> 8), (sd, k)
         fo = G['podf'][sd][0][0]; green = r(B + blk0 + fo + 3, '<B') == K.C_GREEN
         out[sd] = (round(r(B + c4 + 10, '<h') / DEG, 1), round(r(B + c4 + 8, '<h') / DEG, 1), Ln) + (('GREEN',) if green else ())

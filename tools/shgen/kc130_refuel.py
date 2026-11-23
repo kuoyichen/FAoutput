@@ -61,7 +61,14 @@ MSG = b' Plane Re-Fueled\0'
 MSG_START = b' Start Refueling\0'
 POD_SLOT, HOSE_SLOT, HOSE_N = 300, 400, 64      # 每條軟管 64 點（方管 SEG+1 環 + 錐套 24 點）
 SEG = 8                                          # 軟管段數
-SAG_K = 1 / 12                                   # 中點下垂 = L / 12（拋物線 4t(1−t)）
+SAG_A = math.tan(math.radians(TRAIL_P))             # 管尖斜率（相對弦線）= tan(拖曳俯角)：拖曳時錐套前那段水平（Kuoyi 2026-11-23）
+SAG_B = 0.38                                     # 靠莢艙那段多垂一些：中點下垂 ≈ L/12
+
+
+def sag_g(k):
+    """第 k 環往弦線下方的偏移 / L，×256：a·t(1−t) + b·t(1−t)²（t=1 時斜率 −a，即管尖水平）。"""
+    t = k / SEG
+    return int(round((SAG_A * t * (1 - t) + SAG_B * t * (1 - t) ** 2) * 256))
 F_NONRM = 0x0401                                 # 無法向量的面
 
 
@@ -275,7 +282,7 @@ def build(src, dst, preview=None, show=None):
                 a += [f"            lea ecx, [eax + {off}]", f"            mov word ptr [ebx + {s(o + po)}], cx"]
             a += ["            neg eax"]           # eax = L（正）
             for fo, uo, k, u0 in h['mid']:
-                t = k / SEG; g = int(round(4 * t * (1 - t) * SAG_K * 256))
+                g = sag_g(k)
                 a += [f"            imul ecx, eax, {k}", f"            sar ecx, {SEG.bit_length() - 1}", "            neg ecx",
                       f"            mov word ptr [ebx + {s(o + fo)}], cx",
                       f"            imul ecx, eax, {g}", "            sar ecx, 8", "            neg ecx", f"            add ecx, {u0}",
@@ -746,7 +753,7 @@ def build(src, dst, preview=None, show=None):
             for po, off in h['pts']: struct.pack_into('<h', d2, b + o + po, -Ln + off)
             for fo, uo, k, u0 in h['mid']:
                 t = k / SEG; struct.pack_into('<h', d2, b + o + fo, -(Ln * k >> 3))
-                struct.pack_into('<h', d2, b + o + uo, u0 - (Ln * int(round(4 * t * (1 - t) * SAG_K * 256)) >> 8))
+                struct.pack_into('<h', d2, b + o + uo, u0 - (Ln * sag_g(k) >> 8))
             struct.pack_into('<h', d2, b + G['c4'][sd] + 10, int(pt * DEG))
             struct.pack_into('<h', d2, b + G['c4'][sd] + 8, int(yw * DEG))
         open(preview, 'wb').write(d2)
