@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Air refueling from the KC-135</title>
-<meta name="description" content="FAshion release #8: air refueling in Fighters Anthology. A KC135.SH that lowers and aims its boom, extends the telescope, lights up and refuels you, all done with x86 inside the shape.">
+<title>Air refueling: KC-135 and KC-130</title>
+<meta name="description" content="FAshion release #8: air refueling in Fighters Anthology. A KC135.SH that lowers and aims its boom, and a KC130.SH that trails two hoses whose drogues come to your nose, all done with x86 inside the shapes.">
 <style>
 :root{ --bg:#0e1216; --card:#161c22; --card2:#1b232b; --line:#26303a; --text:#e2e8ee; --muted:#8a96a4; --accent:#ffd54a; --cyan:#6fd3ff; --ok:#5fd38a; --bad:#ff6b6b; --warn:#ffb347; }
 *{box-sizing:border-box}
@@ -59,15 +59,24 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
 </header>
 <main>
   <div class="kicker">Release #8 · updated Nov 23</div>
-  <h1 data-lang="en">Air refueling from the <b>KC-135</b></h1>
-  <h1 data-lang="zh">FA 可以<b>空中加油</b>了</h1>
+  <h1 data-lang="en">Air refueling from the <b>KC-135</b> and the <b>KC-130</b></h1>
+  <h1 data-lang="zh">FA 可以<b>空中加油</b>了：KC-135 和 KC-130</h1>
   <p class="lead" data-lang="en">Fly up behind a friendly KC-135 and it lowers its boom, aims it at you, extends the telescope to your receptacle and pumps fuel into your tanks. Everything lives inside <code>KC135.SH</code>, with no FA.EXE patch. The tanker now also wears today’s USAF grey and sits on shorter gear, so <code>_KC135.PIC</code> comes with it. Drop in the two files and every mission that has a friendly KC-135 becomes a tanker mission.</p>
+  <p class="lead" data-lang="en">The <b>KC-130</b> refuels the Navy way: a pod under each wing trails a long hose with a shuttlecock drogue. Both hoses reel out when you come near, and the drogue on your side swings to meet your nose. <a href="#kc130">Jump to the KC-130</a>.</p>
   <p class="lead" data-lang="zh">飛到友軍 KC-135 的後下方，它會放下硬桿、對準你、把伸縮管伸到你的受油口，然後開始加油。全部都做在 <code>KC135.SH</code> 裡，不改 FA.EXE。加油機也換上現行美軍的灰色塗裝、起落架改短，所以要一起換 <code>_KC135.PIC</code>。換上這兩個檔案之後，任何有友軍 KC-135 的任務都能空中加油。</p>
+  <p class="lead" data-lang="zh"><b>KC-130</b> 則是海軍的軟管式加油：兩側機翼下的莢艙各拖出一條長軟管，末端是羽毛球形的錐套。你一靠近，兩條軟管都會放出來，你那一側的錐套會自動擺過來對準你的機頭。<a href="#kc130">跳到 KC-130</a>。</p>
   <div class="dl">
     <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/KC135.SH" download>⬇ <span data-lang="en">Download KC135.SH</span><span data-lang="zh">下載 KC135.SH</span></a>
     <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PIC/_KC135.PIC" download>⬇ <span data-lang="en">Download _KC135.PIC</span><span data-lang="zh">下載 _KC135.PIC</span></a>
     <a class="btn ghost" href="#use"><span data-lang="en">How to refuel</span><span data-lang="zh">怎麼加油</span></a>
     <span class="muted" style="font-size:13px">KC135.SH 41,984 B + _KC135.PIC · FA 1.02f</span>
+  </div>
+  <div class="dl">
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/KC130.SH" download>⬇ <span data-lang="en">Download KC130.SH</span><span data-lang="zh">下載 KC130.SH</span></a>
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PIC/_KC130.PIC" download>⬇ <span data-lang="en">Download _KC130.PIC</span><span data-lang="zh">下載 _KC130.PIC</span></a>
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PT/KC130.PT" download>⬇ <span data-lang="en">Download KC130.PT</span><span data-lang="zh">下載 KC130.PT</span></a>
+    <a class="btn ghost" href="#kc130"><span data-lang="en">KC-130 hose refueling</span><span data-lang="zh">KC-130 軟管加油</span></a>
+    <span class="muted" style="font-size:13px">KC130.SH 37,888 B + _KC130.PIC + KC130.PT · FA 1.02f</span>
   </div>
   <div class="two">
     <figure><img src="img/refuel/contact.jpg" alt="F-14 in contact with the KC-135 boom" loading="lazy"><figcaption data-lang="en">In contact: boom down and aimed, telescope in the receptacle, belly lights and boom band green.</figcaption><figcaption data-lang="zh">接上了：硬桿放下對準、伸縮管插進受油口，機腹燈和桿上燈帶都是綠的。</figcaption></figure>
@@ -88,7 +97,7 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
     <li><b>Pick a mission with a friendly KC-135</b> (same side as you), or add one in the mission editor and have it fly a straight leg.</li>
     <li><b>Come up behind it.</b> Within 1,500 ft behind it, 500 ft to either side and up to 800 ft below, the boom lowers to 30° and the telescope extends a little.</li>
     <li><b>Close to about 100–210 ft from the boom hinge</b>, below and behind. Inside 260 ft the boom follows you and the telescope reaches for your receptacle.</li>
-    <li><b>When you are in the box</b> you get <code>Start Refueling</code>, the green lights come on, and fuel flows at <b>50 lb/s</b> (3,000 lb/min) as long as you stay in it.</li>
+    <li><b>When you are in the box</b> you get <code>Start Refueling</code>, the green lights come on, and fuel flows at <b>100 lb/s</b> (6,000 lb/min, twice the KC-130’s hose) as long as you stay in it.</li>
     <li><b>Full:</b> <code>Plane Re-Fueled</code>. Back off and the boom raises and stows.</li>
   </ol>
   <ol class="steps" data-lang="zh">
@@ -96,7 +105,7 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
     <li><b>選一個有友軍 KC-135 的任務</b>（和你同一陣營），或在任務編輯器裡加一架，讓它直線飛一段。</li>
     <li><b>從它後方接近。</b>進入後方 1,500 ft、左右 500 ft、下方 800 ft 以內，硬桿會放到 30°，伸縮管伸出一小段。</li>
     <li><b>靠近到離硬桿樞紐約 100–210 ft</b>，在後下方。260 ft 以內硬桿會跟著你轉，伸縮管會伸向你的受油口。</li>
-    <li><b>進入加油框</b>時會跳出 <code>Start Refueling</code>，綠燈亮起，只要待在框裡就以<b>每秒 50 lb</b>（每分鐘 3,000 lb）加油。</li>
+    <li><b>進入加油框</b>時會跳出 <code>Start Refueling</code>，綠燈亮起，只要待在框裡就以<b>每秒 100 lb</b>（每分鐘 6,000 lb，是 KC-130 軟管的兩倍）加油。</li>
     <li><b>加滿</b>時跳出 <code>Plane Re-Fueled</code>。退開後硬桿會收回。</li>
   </ol>
   <h3 data-lang="en">The refueling box</h3><h3 data-lang="zh">加油框</h3>
@@ -125,13 +134,74 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
     <div data-lang="zh"><b>自己開 KC-135</b> 和原版一樣：按後燃器會顯示硬桿（現在是新的硬桿，水平拖在後面）。</div>
     <div data-lang="en"><b>Only up close.</b> The boom and lights are part of the detailed model; far away FA draws the low-detail KC-135 without them.</div>
     <div data-lang="zh"><b>只在近距離顯示。</b>硬桿和燈是在精細模型裡；距離遠時 FA 會改畫低精細度的 KC-135，看不到它們。</div>
-    <div data-lang="en"><b>Up to 8 tankers</b> keep their own boom position. Multiplayer is untested.</div>
-    <div data-lang="zh"><b>最多 8 架加油機</b>各自記住自己的硬桿位置。連線對戰沒有測試過。</div>
+    <div data-lang="en"><b>Up to 8 tankers</b> keep their own boom position (KC-135 and KC-130 each). Multiplayer is untested.</div>
+    <div data-lang="zh"><b>最多 8 架加油機</b>各自記住自己的硬桿位置（KC-135、KC-130 各 8 架）。連線對戰沒有測試過。</div>
   </div>
-  <div class="note" data-lang="en">To undo, put your original <code>KC135.SH</code> and <code>_KC135.PIC</code> back. Nothing else is changed.</div>
-  <div class="note" data-lang="zh">要還原，把原本的 <code>KC135.SH</code> 和 <code>_KC135.PIC</code> 放回去就好，其他東西都沒有改。</div>
+  <div class="note" data-lang="en">To undo, put your original <code>KC135.SH</code> and <code>_KC135.PIC</code> back (for the KC-130, remove <code>KC130.SH</code>, <code>_KC130.PIC</code> and <code>KC130.PT</code>). Nothing else is changed.</div>
+  <div class="note" data-lang="zh">要還原，把原本的 <code>KC135.SH</code> 和 <code>_KC135.PIC</code> 放回去就好（KC-130 則刪掉 <code>KC130.SH</code>、<code>_KC130.PIC</code> 和 <code>KC130.PT</code>），其他東西都沒有改。</div>
 
-  <h2 data-lang="en">How it was made</h2><h2 data-lang="zh">製作過程</h2>
+  <h2 id="kc130" data-lang="en">The KC-130: hose and drogue</h2><h2 data-lang="zh">KC-130：軟管和錐套</h2>
+  <p data-lang="en">FA’s C-130 shape (<code>AN12A.SH</code>, which the stock KC-130 uses) gets a refueling pod under each outer wing. When you come near, both pods reel out a 360 ft hose that hangs in a curve and trails level into a shuttlecock drogue. Fly your nose toward one of them: within about 660 ft the drogue on your side swings to meet your nose (holding a drogue by hand in FA would be close to impossible), and when you are in contact that pod turns green and fuel flows at 50 lb/s. Either side can refuel you, but only one at a time. Like the KC-135, its collision radius drops from 198 ft to 10 ft while you are within 3,000 ft, so you can fly through it.</p>
+  <p data-lang="zh">FA 的 C-130 外形（<code>AN12A.SH</code>，原版 KC-130 用的就是它）在兩側外翼下各加了一個加油莢艙。你一靠近，兩個莢艙都會放出 360 ft 的軟管，軟管垂成曲線，接到錐套前那段拉平。把機頭飛向其中一個：大約 660 ft 以內，你那一側的錐套會自動擺過來對準你的機頭（在 FA 裡要靠手飛去咬住錐套幾乎不可能），接上時那一側的莢艙變成綠色，以每秒 50 lb 加油。兩側都能加，但一次只有一側。和 KC-135 一樣，你在它 3,000 ft 以內時，它的碰撞半徑從 198 ft 縮到 10 ft，可以穿過去。</p>
+  <div class="two">
+    <figure><img src="img/refuel/kc130_contact_left.jpg" alt="Jolly Rogers F-14 on the KC-130's left hose, the left pod green" loading="lazy"><figcaption data-lang="en">On the left hose: the pod turns green while fuel flows, the right hose keeps trailing.</figcaption><figcaption data-lang="zh">接在左側軟管：加油時莢艙變綠，右側軟管照常拖著。</figcaption></figure>
+    <figure><img src="img/refuel/kc130_from_below.jpg" alt="KC-130 seen from below with an F-14 on the right hose" loading="lazy"><figcaption data-lang="en">From below and ahead: the right hose bends down to the F-14’s nose, the idle left hose hangs straight.</figcaption><figcaption data-lang="zh">從前下方看：右側軟管彎下來接到 F-14 機頭，沒在用的左側軟管直直垂著。</figcaption></figure>
+  </div>
+  <figure><img src="img/refuel/kc130_long_hose.jpg" alt="F-14 refueling from the KC-130's right hose at long range" loading="lazy"><figcaption data-lang="en">The hose reels out up to 600 ft, so you can take fuel well behind the tanker. The idle hose trails level into its drogue.</figcaption><figcaption data-lang="zh">軟管最長放到 600 ft，在加油機後方很遠的地方也能加。沒在用的軟管水平拖進錐套。</figcaption></figure>
+  <p class="muted" style="font-size:13px" data-lang="en">Screenshots from FA 1.02f with the shipped <code>KC130.SH</code>, taken by Kuoyi.</p>
+  <p class="muted" style="font-size:13px" data-lang="zh">以上是 Kuoyi 用發布版 <code>KC130.SH</code> 在 FA 1.02f 裡的實機截圖。</p>
+
+  <h3 data-lang="en">How to refuel from the KC-130</h3><h3 data-lang="zh">怎麼跟 KC-130 加油</h3>
+  <ol class="steps" data-lang="en">
+    <li><b>Copy <code>KC130.SH</code>, <code>_KC130.PIC</code> and <code>KC130.PT</code></b> into your FA folder. The stock <code>KC130.PT</code> points to <code>AN12A.SH</code>; the new one points to <code>KC130.SH</code>, so the plain C-130 transports are left as they were.</li>
+    <li><b>Pick a mission with a friendly KC-130</b>, or add one in the mission editor and have it fly a straight leg.</li>
+    <li><b>Come up behind it.</b> Within 3,000 ft behind, 1,000 ft to either side and 1,200 ft below, both hoses reel out to 360 ft.</li>
+    <li><b>Point your nose at one drogue.</b> The side is picked by which side of the tanker you are on. Inside about 660 ft that drogue follows your nose, and the hose lengthens or shortens with you.</li>
+    <li><b>In contact</b> you get <code>Start Refueling</code>, the pod on that side turns green and fuel flows at <b>50 lb/s</b> (3,000 lb/min).</li>
+    <li><b>Full:</b> <code>Plane Re-Fueled</code>. Back off and the drogue returns to trail.</li>
+  </ol>
+  <ol class="steps" data-lang="zh">
+    <li><b>把 <code>KC130.SH</code>、<code>_KC130.PIC</code> 和 <code>KC130.PT</code></b> 複製到 FA 目錄。原版 <code>KC130.PT</code> 指向 <code>AN12A.SH</code>，新的改指向 <code>KC130.SH</code>，所以一般的 C-130 運輸機不受影響。</li>
+    <li><b>選一個有友軍 KC-130 的任務</b>，或在任務編輯器裡加一架，讓它直線飛一段。</li>
+    <li><b>從它後方接近。</b>進入後方 3,000 ft、左右 1,000 ft、下方 1,200 ft 以內，兩條軟管都會放出到 360 ft。</li>
+    <li><b>機頭對準其中一個錐套。</b>用哪一側看你在加油機的哪一邊。大約 660 ft 以內，那個錐套會跟著你的機頭，軟管也會跟著你放長或收短。</li>
+    <li><b>接上</b>時跳出 <code>Start Refueling</code>，那一側的莢艙變綠，以<b>每秒 50 lb</b>（每分鐘 3,000 lb）加油。</li>
+    <li><b>加滿</b>時跳出 <code>Plane Re-Fueled</code>。退開後錐套回到拖曳位置。</li>
+  </ol>
+  <div class="scroll"><table>
+    <thead><tr><th data-lang="en">Condition</th><th data-lang="zh">條件</th><th data-lang="en">Range</th><th data-lang="zh">範圍</th></tr></thead>
+    <tbody>
+      <tr><td data-lang="en">Hose length, pod to your nose</td><td data-lang="zh">軟管長度（莢艙到你的機頭）</td><td class="n">24 – 600 ft</td></tr>
+      <tr><td data-lang="en">Hose elevation (below the pod)</td><td data-lang="zh">軟管俯角（在莢艙下方）</td><td class="n">−5° – 50°</td></tr>
+      <tr><td data-lang="en">Hose azimuth (left / right)</td><td data-lang="zh">軟管左右偏角</td><td class="n">± 35°</td></tr>
+      <tr><td data-lang="en">Heading difference</td><td data-lang="zh">航向差</td><td class="n">± 20°</td></tr>
+      <tr><td data-lang="en">Speed difference</td><td data-lang="zh">速度差</td><td class="n">± 60 ft/s</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted" data-lang="en">The contact point is the tip of your nose: the code reads the front of your aircraft’s collision box from its shape, so it fits any jet (85 ft ahead of centre if that cannot be read). Probe-and-drogue receivers carry the probe by the nose, so this is where it belongs.</p>
+  <p class="muted" data-lang="zh">接觸點是你的機頭尖端：程式從你的外形讀出碰撞盒的最前緣，所以每種飛機都對得上（讀不到時用中心前方 85 ft）。軟管式受油機的受油探管就在機頭附近，所以接觸點放在這裡。</p>
+
+  <h3 data-lang="en">How the KC-130 was made</h3><h3 data-lang="zh">KC-130 的製作過程</h3>
+  <ol class="steps" data-lang="en">
+    <li><b>Hook the C-130.</b> <code>AN12A.SH</code> already starts every draw with a small x86 routine. Its return address now leads to the new code first, which then hands control back, so no original byte inside a relocated address is touched.</li>
+    <li><b>Pods and hoses.</b> Each pod is a small closed body on a pylon under the outer wing. Each hose is a separate part hinged at the pod tail: the x86 aims it, sets its length every frame and moves the drogue to the end.</li>
+    <li><b>Thin and long.</b> Kuoyi asked for a thinner hose, then a longer one. At four times the first length the hose jittered, so it settled at three times (360 ft trailing, 600 ft at most). Distances that long overflow FA’s 16-bit part coordinates, so the lengths are kept in 32 bits and the drogue faces use wide plane points.</li>
+    <li><b>Green where you can see it.</b> The first contact light was the inside of the drogue, which the receiver cannot see from behind. Now the whole pod on the active side turns green.</li>
+    <li><b>Stray lines across the screen.</b> When a hose end went behind the camera, a stroke shot across the whole screen. FA checks the shape’s bounding sphere against the view before drawing; if the sphere is fully in view it skips near-plane clipping. The C-130’s sphere only covered the airframe, not 600 ft of hose, so the sphere was enlarged to cover the hoses and FA clips them again.</li>
+    <li><b>A hanging hose.</b> Each hose is now 8 segments. Every frame the x86 bends them into a curve that drops steeply from the pod and runs level into the drogue, like the photos.</li>
+  </ol>
+  <ol class="steps" data-lang="zh">
+    <li><b>掛勾 C-130。</b><code>AN12A.SH</code> 每次畫的時候本來就會先跑一小段 x86。現在把它的返回位址導到新的程式，跑完再交還，所以不會改到任何需要重定位的原始位元組。</li>
+    <li><b>莢艙和軟管。</b>每個莢艙是掛在外翼派龍架下的封閉小物體。每條軟管是獨立零件，樞紐在莢艙尾端：x86 負責轉向、每個畫面設定長度，並把錐套移到管尖。</li>
+    <li><b>又細又長。</b>Kuoyi 要求軟管再細一點、再長一點。放到第一版的四倍時軟管會亂晃，所以定在三倍（拖曳 360 ft，最長 600 ft）。這麼長會超出 FA 零件的 16 位元座標，所以長度改用 32 位元記錄，錐套的面也改用寬格式的平面點。</li>
+    <li><b>綠燈要讓人看得到。</b>第一版接上時亮的是錐套內面，受油機從後面看不到。現在改成整個那一側的莢艙變綠。</li>
+    <li><b>天外飛來一筆。</b>軟管末端跑到鏡頭後方時，會有一條線劃過整個畫面。FA 畫物件前會先用外形的包圍球檢查是否在視野內；整顆球都在視野內時就不做近平面裁切。C-130 的包圍球只包住機身，沒包到 600 ft 的軟管，把包圍球加大到涵蓋軟管後，FA 就會正常裁切。</li>
+    <li><b>垂掛的軟管。</b>每條軟管現在分成 8 段。x86 每個畫面把它們彎成曲線：從莢艙先陡陡往下垂，接近錐套時拉平，和照片一樣。</li>
+  </ol>
+  <p class="muted" style="font-size:13px" data-lang="en">Source: <a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc130_refuel.py">tools/shgen/kc130_refuel.py</a> builds <code>KC130.SH</code> from <code>SH/AN12A.SH</code> (<code>python3 kc130_refuel.py AN12A.SH KC130.SH</code>; hose lengths, the box and the rate are constants at the top). <a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc130_refuel_test.py">kc130_refuel_test.py</a> runs its x86 in an emulator. <code>_KC130.PIC</code> is <code>_AN12A.PIC</code> under the new name. Size 33,280 → 37,888 B.</p>
+  <p class="muted" style="font-size:13px" data-lang="zh">原始碼：<a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc130_refuel.py">tools/shgen/kc130_refuel.py</a> 從 <code>SH/AN12A.SH</code> 產生 <code>KC130.SH</code>（<code>python3 kc130_refuel.py AN12A.SH KC130.SH</code>；軟管長度、加油框和速率都是檔案開頭的常數）。<a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc130_refuel_test.py">kc130_refuel_test.py</a> 用模擬器執行它的 x86。<code>_KC130.PIC</code> 就是改名的 <code>_AN12A.PIC</code>。大小 33,280 → 37,888 B。</p>
+
+  <h2 data-lang="en">How the KC-135 was made</h2><h2 data-lang="zh">KC-135 的製作過程</h2>
   <p data-lang="en">This started as a question about the runway resupply. FA.EXE re-arms and re-fuels you when you stop near your base (<a href="https://github.com/kuoyichen/FAoutput/blob/main/skill/FA_resupply.MD">notes</a>), but it has no air refueling at all. Rather than patch the EXE, the whole feature went into the tanker’s own shape, because an SH can carry native x86 code that FA runs while drawing it.</p>
   <p data-lang="zh">一開始只是想了解跑道補給。FA.EXE 會在你停在基地附近時重新掛彈加油（<a href="https://github.com/kuoyichen/FAoutput/blob/main/skill/FA_resupply.MD">筆記</a>），但完全沒有空中加油。我們沒有去改 EXE，而是把整個功能放進加油機自己的外形，因為 SH 可以帶 x86 程式，FA 畫它的時候就會執行。</p>
   <ol class="steps" data-lang="en">
@@ -161,7 +231,7 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
     <figure><img src="img/refuel/cockpit_below.jpg" alt="KC-135 seen from the cockpit below" loading="lazy"><figcaption data-lang="en">From the cockpit, sliding under the tanker before the boom comes down.</figcaption><figcaption data-lang="zh">從座艙看，滑到加油機下方、硬桿還沒放下前。</figcaption></figure>
   </div>
 
-  <h2 data-lang="en">What is inside the file</h2><h2 data-lang="zh">檔案裡加了什麼</h2>
+  <h2 data-lang="en">What is inside KC135.SH</h2><h2 data-lang="zh">KC135.SH 裡加了什麼</h2>
   <div class="scroll"><table>
     <tbody>
       <tr><td data-lang="en">New block before the signature</td><td data-lang="zh">簽章前的新區塊</td><td class="n" data-lang="en">about 8.5 KB: boom part (92 vertices), lights (44 vertices), boom placements, data, x86</td><td class="n" data-lang="zh">約 8.5 KB：硬桿零件（92 點）、燈（44 點）、硬桿放置、資料、x86</td></tr>
@@ -170,11 +240,11 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
       <tr><td data-lang="en">Size</td><td data-lang="zh">大小</td><td class="n">33,280 → 41,984 B</td></tr>
     </tbody>
   </table></div>
-  <p class="muted" style="font-size:13px" data-lang="en">Source: <a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_refuel.py">tools/shgen/kc135_refuel.py</a> builds the file from the factory <code>KC135.SH</code> (the copy in your game, or this repo before release #8; <code>python3 kc135_refuel.py original.SH out.SH</code>; distances, rates and the box are constants at the top). <a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_refuel_test.py">kc135_refuel_test.py</a> runs the x86 in an emulator against fake objects.</p>
-  <p class="muted" style="font-size:13px" data-lang="zh">原始碼：<a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_refuel.py">tools/shgen/kc135_refuel.py</a> 從出廠的 <code>KC135.SH</code> 產生這個檔（遊戲裡的原檔，或本 repo 發布 #8 之前的版本；<code>python3 kc135_refuel.py 原版.SH 輸出.SH</code>；距離、速度和加油框都是檔案開頭的常數）。<a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_refuel_test.py">kc135_refuel_test.py</a> 用模擬器拿假物件執行這段 x86。</p>
+  <p class="muted" style="font-size:13px" data-lang="en">Source: <a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_refuel.py">tools/shgen/kc135_refuel.py</a> builds the file from the factory <code>KC135.SH</code> (the copy in your game, or this repo before release #8; <code>python3 kc135_refuel.py original.SH out.SH</code>; distances, rates and the box are constants at the top; <a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_gray.py">kc135_gray.py</a> then adds the grey paint and short gear). <a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_refuel_test.py">kc135_refuel_test.py</a> runs the x86 in an emulator against fake objects.</p>
+  <p class="muted" style="font-size:13px" data-lang="zh">原始碼：<a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_refuel.py">tools/shgen/kc135_refuel.py</a> 從出廠的 <code>KC135.SH</code> 產生這個檔（遊戲裡的原檔，或本 repo 發布 #8 之前的版本；<code>python3 kc135_refuel.py 原版.SH 輸出.SH</code>；距離、速度和加油框都是檔案開頭的常數；再用 <a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_gray.py">kc135_gray.py</a> 換灰色塗裝和短起落架）。<a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_refuel_test.py">kc135_refuel_test.py</a> 用模擬器拿假物件執行這段 x86。</p>
 </main>
-<footer data-lang="en">FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>). Keep a backup of your original KC135.SH.</footer>
-<footer data-lang="zh">FAshion 是 hawke 為 Jane's Fighters Anthology 做的同好專案（<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>）。請保留原版 KC135.SH 的備份。</footer>
+<footer data-lang="en">FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>). Keep a backup of your original KC135.SH and KC130.PT.</footer>
+<footer data-lang="zh">FAshion 是 hawke 為 Jane's Fighters Anthology 做的同好專案（<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>）。請保留原版 KC135.SH 和 KC130.PT 的備份。</footer>
 <script>
 "use strict";
 FAI18N.register({ "FAshion home": "FAshion 首頁", "Air refueling": "空中加油", "Release #8": "發布 #8" });
