@@ -69,11 +69,11 @@ U = 2.0                      # ft / 頂點單位
 HINGE_UP, HINGE_FWD = PIVOT[1] * U, PIVOT[2] * U          # −4, −126 ft
 RECEP_UP, RECEP_FWD = 20.0, 50.0                          # 玩家受油口相對玩家原點（ft）
 APP_BACK, APP_SIDE, APP_DOWN = 1500, 500, 800             # 接近區（ft）
-L_MIN, L_MAX = 96, 165                                    # 上半桿 100 ft + 伸縮管 0..48 ft（放寬：多 ±10 多 ft）
+L_MIN, L_MAX = 96, 213                                    # 上半桿 100 ft + 伸縮管 0..96 ft（放寬：多 ±10 多 ft）
 YAW_LIM, HDG_LIM, SPD_LIM = 25, 20, 60                     # 加油框：偏角 ±25°、航向差 ±20°、速度差 ±60 ft/s
-NEAR_L = 210                                               # 比這遠：硬桿停在拖曳位置（TRAIL_*）
+NEAR_L = 260                                               # 比這遠：硬桿停在拖曳位置（TRAIL_*）
 TRAIL_PITCH, TRAIL_EXT = 30, 8                             # 拖曳位置：放下 30°、伸縮管伸出 8 單位
-P_MIN, P_MAX = 15, 45                                      # 對準與加油框俯角範圍（放寬，實機約 20..40°）
+P_MIN, P_MAX = 15, 60                                      # 對準與加油框俯角範圍（Kuoyi 2026-11-23：最大 60°，近距離不會衝過頭）
 TELE_RATE = 24                                             # 伸縮管每 1/256 s 動 24/256 單位（≈ 48 ft/s，跟得上玩家前後移動）
 RATE = 50                                                  # lb/s（3000 lb/min）
 ORIG_R, SMALL_R = 72704, 10 * 256                        # 加油機附近：半徑 10 ft（掃描 5 ft）
@@ -86,7 +86,7 @@ MSG_START = b' Start Refueling\0'          # 進入加油框（離開超過 1 �
 
 # ---- 新硬桿幾何（零件座標：樞紐為原點，x 右、up 上、fwd 前；硬桿朝 −fwd）----
 UP_LEN = 50                  # 上半桿長（頂點單位，1 = 2 ft）
-TELE_LEN = 24                # 下半伸縮管長，全伸出 24（約上半桿的一半）
+TELE_LEN = 48                # 下半伸縮管長，全伸出 48（Kuoyi 2026-11-23：加倍，約上半桿長）
 TELE_STEP = 3                # 橘黑條紋每段 3
 BOOM_SLOT = 600              # 硬桿頂點槽 600..（KC135 原本最多用到 590）
 LIGHT_SLOT = 515             # 機腹燈頂點槽：用原本硬桿的 515..（原硬桿已不再畫）
