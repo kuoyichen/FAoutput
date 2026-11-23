@@ -19,7 +19,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sh_subdivide import pe_sections, main_lod
 from kc135_refuel import check_relocs
 
-LODS = ((0x82, 491), (0x4C71, 269))
+LODS = ((0x82, 491), (0x4C71, 269), (0x6B38, 97))     # 三個 LOD 的機身頂點緩衝（slot 0 起）
+LOW_GEAR = (0x686A, 45)                                 # 低細節 LOD 的多邊形起落架（slot 269 起）
 INNER_UP, OUTER_UP = 4, 3
 GEAR = (0x42BC, 0x438D, 0x445E)
 GEAR_CUT = 5
@@ -73,6 +74,34 @@ def walk_faces(c, starts):
     return F
 
 
+NEXT_OPS = {0xFC, 0x1E, 0x00, 0x06, 0x0C, 0x0E, 0x10, 0x38, 0x12, 0x82, 0xC4, 0xF6, 0x48, 0x6C, 0xF0, 0xF2}
+
+
+def face_ok(c, p):
+    """p 處是不是一個完整的 FC 面：旗標合理、點數 3..16、索引 < 800、後面接的是已知指令。"""
+    fl = struct.unpack_from('<H', c, p+1)[0]
+    if fl & 0xF800 or not fl & 0x200: return False
+    q = p + 5
+    if fl & 0x60: q += 6 + (3 if fl & 0x200 else 6)
+    if q >= len(c): return False
+    k = c[q]; q += 1
+    if not 3 <= k <= 16: return False
+    idx = [struct.unpack_from('<H', c, q+2*i)[0] for i in range(k)] if fl & 0x400 else list(c[q:q+k])
+    q += 2*k if fl & 0x400 else k
+    if fl & 4: q += k * (2 if fl & 0x100 else 4)
+    return max(idx) < 800 and q < len(c) and c[q] in NEXT_OPS
+
+
+def parse_face(c, p):
+    fl = struct.unpack_from('<H', c, p+1)[0]; q = p + 5; ptq = None
+    if fl & 0x60: q += 6; ptq = q; q += 3 if fl & 0x200 else 6
+    k = c[q]; q += 1
+    idx = [struct.unpack_from('<H', c, q+2*i)[0] for i in range(k)] if fl & 0x400 else list(c[q:q+k])
+    q += 2*k if fl & 0x400 else k
+    uvq = q if fl & 4 else None
+    return dict(fl=fl, idx=idx, ptq=ptq, uvq=uvq)
+
+
 def get_uv(c, f, i):
     if f['fl'] & 0x100: return list(c[f['uvq'] + 2*i:f['uvq'] + 2*i + 2])
     return list(struct.unpack_from('<HH', c, f['uvq'] + 4*i))
@@ -95,21 +124,28 @@ def build_sh(d):
         starts.append(R)
     F = walk_faces(c, starts)
 
-    # 1. 引擎艙
-    moved = []
-    for a, n in LODS:
+    # 1. 引擎艙（三個 LOD），以及低細節 LOD 的多邊形起落架（up ≤ −10 的點整個往上 GEAR_CUT）
+    bufs = []
+    for a, n in LODS + (LOW_GEAR,):
         assert c[a] == 0x82 and struct.unpack_from('<H', c, a+2)[0] == n
-        mv = {}
+        base = struct.unpack_from('<H', c, a+4)[0] // 8; mv = {}
         for i in range(n):
             q = a + 6 + 6*i; x, f, u = struct.unpack_from('<hhh', c, q)
-            dz = INNER_UP if 36 <= abs(x) <= 52 and u <= -6 else OUTER_UP if 66 <= abs(x) <= 82 and u <= -3 else 0
-            if dz: struct.pack_into('<h', c, q + 4, u + dz); mv[i] = dz
-        moved.append((a, mv))
+            if (a, n) == LOW_GEAR: dz = GEAR_CUT if u <= -10 else 0
+            else: dz = INNER_UP if 36 <= abs(x) <= 52 and u <= -6 else OUTER_UP if 66 <= abs(x) <= 82 and u <= -3 else 0
+            if dz: struct.pack_into('<h', c, q + 4, u + dz); mv[base + i] = dz
+        bufs.append((a, base, n, mv))
+    # 面：走訪到的 + 整段掃描到的完整面（遠距離 LOD 走訪不到）
+    allf = dict(F)
+    for p in range(len(c) - 8):
+        if c[p] == 0xFC and p not in allf and face_ok(c, p): allf[p] = parse_face(c, p)
     npt = 0
-    for p, f in F.items():
-        # 面屬於哪個 LOD：在第二個緩衝之後的就是低細節
-        a, mv = moved[1] if p > LODS[1][0] else moved[0]
-        if f['ptq'] is None or not f['idx'] or any(i not in mv for i in f['idx']): continue
+    for p, f in allf.items():
+        if f['ptq'] is None or not f['idx']: continue
+        own = [b for b in bufs if b[0] < p and all(b[1] <= i < b[1] + b[2] for i in f['idx'])]
+        if not own: continue
+        a, base, n, mv = max(own)
+        if any(i not in mv for i in f['idx']): continue
         dz = mv[f['idx'][0]]
         if f['fl'] & 0x200: c[f['ptq'] + 1] = (c[f['ptq'] + 1] + dz) & 0xFF
         else: struct.pack_into('<h', c, f['ptq'] + 2, struct.unpack_from('<h', c, f['ptq'] + 2)[0] + dz)
@@ -141,10 +177,13 @@ def build_sh(d):
     ncol = 0
     for p, f in F.items():
         if c[p+3] in (105, 148): c[p+3] = BODY; ncol += 1
+    # 走訪沒走到的 LOD（遠距離用的低細節機身等）也有綠色面：整段 CODE 掃描，確認能完整解析成一個面才改
+    for p in range(len(c) - 8):
+        if c[p] == 0xFC and c[p+3] in (105, 148) and face_ok(c, p): c[p+3] = BODY; ncol += 1
 
     check_relocs(bytes(d), pe, code, c)
     d[code['ro']:code['ro'] + code['vs']] = c
-    print(f'nacelle verts moved {[len(m) for _, m in moved]}, face pts {npt}, recoloured faces {ncol}')
+    print(f'verts moved {[len(b[3]) for b in bufs]}, face pts {npt}, recoloured faces {ncol}')
     return bytes(d)
 
 
