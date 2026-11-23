@@ -40,8 +40,6 @@ w(0x553838, '<H', 10); w(0x580bec, '<H', 5); w(0x520a1c, '<H', 9)
 for o in (TK, PL):
     w(o, '<B', 4); w(o + 1, '<I', 1); w(o + 0xe, '<H', 270); w(o + 9, '<B', 0); w(o + 5, '<I', TD)
 w(TD + 0x165, '<I', 16200)
-SHP, NOSE = 0x603000, 115           # 玩家 SH：F2 前緣 = 機頭（F-14 = 115 ft）
-w(TD + 0xf, '<I', SHP); w(SHP + 0xe, '<H', 0xf2); w(SHP + 0x10, '<H', 0x100); w(SHP + 0x112 + 14, '<h', NOSE)
 clock = [1000]
 AB = 0x7f0100                      # fake _PLafterBurner; loader puts its address in CODE+0x3719
 w(B + 0x3719, '<I', AB); w(AB, '<H', 0)
@@ -78,7 +76,7 @@ def frame(th_deg, rel_fwd, rel_up, rel_right, fuel=None, spd=(500, 500), ph_deg=
 w(EYE, '<h', 100)
 L, P = 130, 30
 back, down = L*math.cos(math.radians(P)), L*math.sin(math.radians(P))
-cf, cu = -126 - back - NOSE, -4 - down
+cf, cu = -126 - back - 50, -4 - down - 20
 print('far        ', frame(0, -5000, 0, 0, fuel=1000))
 for k in range(3): print('trail 1000 ft', frame(0, -1000, -300, 0))
 for k in range(4): print('contact h0 ', frame(0, cf, cu, 0))
@@ -88,21 +86,11 @@ print('speed diff 50', frame(0, cf, cu, 0, spd=(500, 550)))
 print('near full', frame(0, cf, cu, 0, fuel=16190)); print('full ', frame(0, cf, cu, 0))
 def rel(L, P):
     b, dn = L*math.cos(math.radians(P)), L*math.sin(math.radians(P))
-    return -126 - b - NOSE, -4 - dn
+    return -126 - b - 50, -4 - dn - 20
 for k in range(12): f = frame(0, *rel(110, 57), 0)
 print('steep 57 deg L110', f)
 for k in range(12): f = frame(0, *rel(205, 35), 0)
 print('long L205 35 deg', f)
-def relx(L, P, ext):   # 接觸點在機頭後 ext ft（受油機往前衝）
-    f, u = rel(L, P); return f + ext, u
-for ext in (30, 57, 100, 130, 250):
-    frame(0, *relx(130, 30, ext), 0, fuel=1000)
-    for k in range(12): f = frame(0, *relx(130, 30, ext), 0)
-    print(f'nose {ext} ft past, L130 30deg at that point', f)
-frame(0, *rel(70, 30), 0, fuel=1000)
-for k in range(12): f = frame(0, *rel(70, 30), 0)
-print('nose too close L70 (slides back)', f)
-w(PL + 0x1fc, '<i', 16200 * 256)
 print('ahead 300 ft', frame(0, 300, 0, 0)); print('above 100 ft', frame(0, 0, 100, 0))
 print('calls', calls)
 w(EYE, '<h', -50); print('eye below', frame(0, cf, cu, 0)); w(EYE, '<h', 100)
