@@ -96,7 +96,8 @@ button.on{border-color:var(--accent);color:var(--accent)}
 <div id="btns" class="btns">
   <button id="bGear">Gear</button>
   <button id="bBrake">Brake</button>
-  <button id="bFlare" style="grid-column:span 2;color:#ffd54a">FLARE</button>
+  <button id="bFlare" style="color:#ffd54a">FLARE</button>
+  <button id="bTime" style="color:#7fe0ff" title="Time compression">x1</button>
 </div>
 <div id="btnsR" class="btns">
   <button id="bView">View</button>
@@ -1668,7 +1669,7 @@ function updButtons(){
   $("bGear").classList.toggle("on", P.gear); $("bBrake").classList.toggle("on", P.brake); $("bView").classList.toggle("on", !!cam.lock);
   $("bGear").style.display = P.mode === "fly" ? "" : "none";
   $("wpn").style.display = $("hKillD").style.display = $("bFlare").style.display = P.mode === "fly" ? "" : "none";
-  $("bFlare").textContent = L("FLARE", "熱焰彈") + " ×" + flares;
+  $("bFlare").textContent = L("FLR", "熱焰") + " ×" + flares;
   const w = WEAPONS[W.sel]; $("bWpn").textContent = (w.id === "gun" ? L("GUN", "機砲") : w.name) + " ×" + W.ammo[W.sel];
   $("stRt").textContent = P.mode === "fly" ? L("Pitch / Rudder", "俯仰 / 方向舵") : L("Steer", "轉向");
   $("stLt").textContent = P.mode === "fly" ? L("Throttle / Roll", "油門 / 滾轉") : L("Throttle", "油門");
@@ -1679,6 +1680,7 @@ function frontView(){ cam.yaw = cam.pitch = 0; cam.zoom = 1; cam.rc = false; cam
 $("bFly").onclick = toggleFlyby;
 $("bRC").onclick = () => { cam.rc = !cam.rc; cam.fly = null; cam.zoom = 1; cam.rcFov = 0; updButtons(); sub(cam.rc ? L("RC view: watching from the runway end, like flying a model plane. Pinch to zoom.", "遙控視角：站在跑道頭看飛機，像在飛遙控飛機。兩指可縮放。") : L("Chase view", "追蹤視角")); };
 $("bFlare").addEventListener("pointerdown", e => { e.preventDefault(); dropFlares(); });
+$("bTime").addEventListener("pointerdown", e => { e.preventDefault(); timeX = timeX >= 8 ? 1 : timeX * 2; $("bTime").textContent = "x" + timeX; });
 $("bGear").onclick = toggleGear; $("bBrake").onclick = toggleBrake; $("bReset").onclick = () => spawn();
 $("bView").onclick = () => { cam.mode = (cam.mode + 1) % 3; cam.yaw = cam.pitch = 0; cam.rc = false; cam.fly = null; updButtons(); sub([L("Chase view", "追蹤視角"), L("Far chase view", "遠距追蹤"), L("Close view", "近距視角")][cam.mode]); };
 $("menuBtn").onclick = () => { $("panel").classList.toggle("open"); renderLoadout(); renderJoy(); };
@@ -1696,10 +1698,10 @@ async function choose(name){
 }
 
 // ===== main loop =====
-let lastT = 0, lastDt = 0.016;
+let lastT = 0, lastDt = 0.016, timeX = 1;   // time compression x1/x2/x4/x8 (bTime)
 function frame(t){
   const dt = Math.min(0.05, (t - (lastT || t)) / 1000); lastT = t; lastDt = dt || 0.016;
-  if (P.s){ readInput(); const n = Math.ceil(lastDt / 0.01); for (let i = 0; i < n; i++) step(lastDt / n); stepPark(lastDt); }
+  if (P.s){ readInput(); const sdt = lastDt * timeX, n = Math.ceil(sdt / 0.01); for (let i = 0; i < n; i++) step(sdt / n); stepPark(sdt); }
   render(); hud(); drawOverlay(); requestAnimationFrame(frame);
 }
 
