@@ -127,6 +127,10 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
       <button id="flipH" title="Flip horizontally">⇋ Flip H</button><button id="flipV" title="Flip vertically">⇵ Flip V</button>
       <button id="allBtn" title="Select all (Ctrl+A)">All</button><button id="noneBtn" title="Deselect / place the pasted pixels (Esc)">Done</button>
     </div>
+    <div class="row"><label>Rotate <input type="number" id="rotA" value="0" step="1" style="width:62px" title="Angle in degrees, clockwise (type a value and press Enter)">°</label>
+      <button id="rotL90" title="Rotate 90° counter-clockwise">⟲90</button><button id="rotR90" title="Rotate 90° clockwise">⟳90</button>
+      <button id="rotL15" title="Rotate 15° counter-clockwise">−15</button><button id="rotR15" title="Rotate 15° clockwise">+15</button></div>
+    <p class="note">Or drag the round handle above the selection to rotate it to any angle (Shift: 15° steps). Rotation always resamples the original pixels, so turning back and forth does not blur them.</p>
     <div class="row"><label>Replace <input type="text" id="repA" size="3" value="" placeholder="98" title="Index to replace (hex)"></label>
       <label>with <input type="text" id="repB" size="3" value="" placeholder="FF" title="New index (hex)"></label><button id="repBtn" title="Replace one index with another (inside the selection when there is one)">Replace</button></div>
     <p class="note">Painting, fill and replace stay inside the selection when one is active.</p>
@@ -175,6 +179,8 @@ FAI18N.register({
   "Show FF as checkerboard": "FF 顯示成棋盤格", "Mark colours used in the PIC": "標出 PIC 有用到的顏色", "Tool options": "工具選項", "Brush size": "筆刷大小", "Round": "圓形",
   "Fill: contiguous only": "填色：只填相連區域", "Rectangle: filled": "矩形：實心", "FF in pasted pixels is transparent": "貼上時 FF 當透明", "Pixel grid when zoomed in": "放大時顯示像素格線",
   "Selection": "選取", "Copy": "複製", "Cut": "剪下", "Paste": "貼上", "Clear": "清除", "Copy (Ctrl+C)": "複製（Ctrl+C）", "Cut (Ctrl+X)": "剪下（Ctrl+X）", "Paste (Ctrl+V)": "貼上（Ctrl+V）", "Fill the selection with FF (Delete)": "選取範圍填成 FF（Delete）",
+  "Rotate": "旋轉", "Angle in degrees, clockwise (type a value and press Enter)": "角度（度，順時針；輸入數值後按 Enter）", "Rotate 90° counter-clockwise": "逆時針轉 90°", "Rotate 90° clockwise": "順時針轉 90°", "Rotate 15° counter-clockwise": "逆時針轉 15°", "Rotate 15° clockwise": "順時針轉 15°",
+  "Or drag the round handle above the selection to rotate it to any angle (Shift: 15° steps). Rotation always resamples the original pixels, so turning back and forth does not blur them.": "也可以拖曳選取範圍上方的圓形把手轉到任意角度（按住 Shift 每次 15°）。旋轉一律從原始像素重新取樣，來回轉也不會變糊。",
   "⇋ Flip H": "⇋ 左右翻轉", "⇵ Flip V": "⇵ 上下翻轉", "Flip horizontally": "左右翻轉", "Flip vertically": "上下翻轉", "All": "全選", "Done": "完成", "Select all (Ctrl+A)": "全選（Ctrl+A）", "Deselect / place the pasted pixels (Esc)": "取消選取／放下貼上的像素（Esc）",
   "Replace": "取代", "with": "換成", "Index to replace (hex)": "要取代的色號（16 進位）", "New index (hex)": "新色號（16 進位）", "Replace one index with another (inside the selection when there is one)": "把一個色號換成另一個（有選取時只在選取範圍內）",
   "Painting, fill and replace stay inside the selection when one is active.": "有選取範圍時，畫筆、填色和取代都只作用在範圍內。",
@@ -307,6 +313,9 @@ function draw(){
     const a = [X0 + r.x * z + .5, Y0 + r.y * z + .5, r.w * z - 1, r.h * z - 1];
     cx.strokeStyle = "#000"; cx.strokeRect(...a); cx.lineDashOffset = 4 * dpr; cx.strokeStyle = col; cx.strokeRect(...a); cx.restore(); };
   if (flt) ants(flt, "#ffd54a"); else if (sel) ants(sel, "#fff");
+  if ((flt || sel) && (tool === "select" || tool === "lasso") && !lassoPts){ const hd = rotHandle(); cx.save(); cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cx.strokeStyle = "rgba(255,213,74,.8)"; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(hd.cx, hd.cy); cx.lineTo(hd.hx, hd.hy); cx.stroke();
+    cx.fillStyle = "#ffd54a"; cx.strokeStyle = "#000"; cx.beginPath(); cx.arc(hd.hx, hd.hy, 6, 0, 7); cx.fill(); cx.stroke(); cx.restore(); }
   if (lassoPts && lassoPts.length > 1){ cx.save(); cx.lineWidth = 1.5 * dpr; cx.beginPath(); lassoPts.forEach(([px_, py_], i) => cx[i ? "lineTo" : "moveTo"](X0 + px_ * z, Y0 + py_ * z)); cx.closePath();
     cx.strokeStyle = "#000"; cx.setLineDash([]); cx.stroke(); cx.strokeStyle = "#ffd54a"; cx.setLineDash([4 * dpr, 4 * dpr]); cx.stroke(); cx.restore(); }
   if (preview){ cx.strokeStyle = "rgba(255,255,255,.7)"; cx.lineWidth = 1; cx.strokeRect(X0 + preview.x * z + .5, Y0 + preview.y * z + .5, preview.w * z - 1, preview.h * z - 1); }
@@ -457,7 +466,7 @@ function unionSel(a, b){ if (!a) return b; if (!b) return a;
   for (const r of [a, b]) for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) if (mIn(r, x, y)) m[(r.y - u.y + y) * u.w + r.x - u.x + x] = 1;
   return { ...u, m }; }
 function lift(){ if (!sel || flt) return; const base = pic.px.slice(); flt = { ...sel, px: grab(sel), base }; clearRect(sel); sel = null; }
-function commitFloat(){ if (!flt) return; const f = flt; flt = null; pushUndo(f.base || pic.px.slice()); const T = $("pasteT").checked;
+function commitFloat(){ if (!flt) return; const f = flt; flt = null; $("rotA").value = 0; pushUndo(f.base || pic.px.slice()); const T = $("pasteT").checked;
   for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++){ const X = f.x + x, Y = f.y + y; if (X < 0 || Y < 0 || X >= pic.w || Y >= pic.h || !mIn(f, x, y)) continue; const c = f.px[y * f.w + x]; if (c === 0xFF && T) continue; pic.px[Y * pic.w + X] = c; }
   sel = selFromFloat(f); countUsed(); paintPal(); queue(); }
 function copySel(){ if (flt){ clip = { w: flt.w, h: flt.h, px: flt.px.slice(), m: flt.m && flt.m.slice() }; return true; } if (!sel) return false; clip = { ...sel, px: grab(sel) }; return true; }
@@ -471,7 +480,38 @@ $("pasteBtn").onclick = () => { if (pic && clip){ pasteBlock(clip); selTool(); }
 $("delBtn").onclick = () => { if (!pic) return; if (flt){ doUndo(); return; } if (sel){ pushUndo(); clearRect(sel); countUsed(); paintPal(); queue(); } };
 function flip(hz){ if (!pic) return; if (!flt){ if (!sel) sel = { x: 0, y: 0, w: pic.w, h: pic.h }; lift(); }
   const { w, h } = flt, fl = a => { const n = new Uint8Array(a.length); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) n[y * w + x] = hz ? a[y * w + w - 1 - x] : a[(h - 1 - y) * w + x]; return n; };
+  if (flt.src){ const S = flt.src, f2 = a => { const n = new Uint8Array(a.length); for (let y = 0; y < S.h; y++) for (let x = 0; x < S.w; x++) n[y * S.w + x] = hz ? a[y * S.w + S.w - 1 - x] : a[(S.h - 1 - y) * S.w + x]; return n; };
+    S.px = f2(S.px); if (S.m) S.m = f2(S.m); rotateTo(-flt.ang); return; }
   flt.px = fl(flt.px); if (flt.m) flt.m = fl(flt.m); queue(); }
+
+// ---- rotation: the floating block keeps its unrotated source and is resampled (nearest pixel) from it at the total angle ----
+function ensureFloat(){ if (!pic) return false; if (!flt){ if (!sel) return false; lift(); }
+  if (!flt.src){ flt.src = { w: flt.w, h: flt.h, px: flt.px.slice(), m: flt.m && flt.m.slice() }; flt.ang = 0; }
+  return true; }
+function rotateTo(deg){ if (!ensureFloat()) return; deg = ((deg % 360) + 540) % 360 - 180; if (Math.abs(deg + 180) < 1e-9) deg = 180;
+  const S = flt.src, a = deg * Math.PI / 180, co = Math.cos(a), si = Math.sin(a), q = Math.abs(deg % 90) < 1e-9;
+  const cs = q ? Math.round(co) : co, sn = q ? Math.round(si) : si;
+  const W = Math.max(1, Math.round(q ? Math.abs(cs) * S.w + Math.abs(sn) * S.h : Math.ceil(Math.abs(co) * S.w + Math.abs(si) * S.h - 1e-6)));
+  const H = Math.max(1, Math.round(q ? Math.abs(sn) * S.w + Math.abs(cs) * S.h : Math.ceil(Math.abs(si) * S.w + Math.abs(co) * S.h - 1e-6)));
+  // centre in picture pixels: kept while the block is only rotated, taken from the box again after a move
+  if (flt.cx == null || flt.x !== flt.lx || flt.y !== flt.ly){ flt.cx = flt.x + flt.w / 2; flt.cy = flt.y + flt.h / 2; }
+  const px = new Uint8Array(W * H).fill(0xFF), m = new Uint8Array(W * H);
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++){
+    const dx = i + .5 - W / 2, dy = j + .5 - H / 2, sx = Math.floor(cs * dx + sn * dy + S.w / 2 + 1e-7), sy = Math.floor(-sn * dx + cs * dy + S.h / 2 + 1e-7);
+    if (sx < 0 || sy < 0 || sx >= S.w || sy >= S.h || (S.m && !S.m[sy * S.w + sx])) continue;
+    px[j * W + i] = S.px[sy * S.w + sx]; m[j * W + i] = 1; }
+  flt.w = W; flt.h = H; flt.px = px; flt.m = m; flt.ang = deg;
+  flt.x = Math.round(flt.cx - W / 2); flt.y = Math.round(flt.cy - H / 2); flt.lx = flt.x; flt.ly = flt.y;
+  $("rotA").value = Math.round(deg * 10) / 10; $("stSel").textContent = `${L("rotated", "旋轉")} ${Math.round(deg * 10) / 10}°  ${W}×${H}`; queue(); }
+const curAng = () => flt && flt.src ? flt.ang : 0;
+$("rotL90").onclick = () => rotateTo(curAng() - 90); $("rotR90").onclick = () => rotateTo(curAng() + 90);
+$("rotL15").onclick = () => rotateTo(curAng() - 15); $("rotR15").onclick = () => rotateTo(curAng() + 15);
+$("rotA").addEventListener("change", () => rotateTo(+$("rotA").value || 0));
+$("rotA").addEventListener("keydown", e => { if (e.key === "Enter"){ rotateTo(+$("rotA").value || 0); e.preventDefault(); } });
+// handle: a dot above the selection's centre (screen px), turned with the current angle
+function rotHandle(){ const r = flt || sel; if (!r) return null; const S = flt && flt.src ? flt.src : r, a = curAng() * Math.PI / 180;
+  const cx = view.ox + (r.x + r.w / 2) * view.z, cy = view.oy + (r.y + r.h / 2) * view.z, R = S.h / 2 * view.z + 22;
+  return { cx, cy, R, hx: cx + R * Math.sin(a), hy: cy - R * Math.cos(a) }; }
 $("flipH").onclick = () => flip(true); $("flipV").onclick = () => flip(false);
 $("allBtn").onclick = () => { if (!pic) return; commitFloat(); sel = { x: 0, y: 0, w: pic.w, h: pic.h }; selTool(); queue(); };
 $("noneBtn").onclick = () => { if (!pic) return; if (flt) commitFloat(); else sel = null; queue(); };
@@ -485,7 +525,7 @@ document.addEventListener("paste", e => { if (!pic || /INPUT|TEXTAREA/.test(docu
 
 // ===================== pointer =====================
 const selTool = () => { if (tool !== "lasso") setTool("select"); };
-function setTool(t){ tool = t; for (const b of document.querySelectorAll("#tools [data-tool]")) b.classList.toggle("on", b.dataset.tool === t); cursor(); }
+function setTool(t){ tool = t; for (const b of document.querySelectorAll("#tools [data-tool]")) b.classList.toggle("on", b.dataset.tool === t); cursor(); draw(); }
 document.querySelectorAll("#tools [data-tool]").forEach(b => b.onclick = () => setTool(b.dataset.tool));
 const cursor = () => { cv.style.cursor = spaceDown || tool === "hand" ? "grab" : tool === "picker" || altDown ? "crosshair" : tool === "select" || tool === "lasso" ? "default" : "crosshair"; };
 const toPixF = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left - view.ox) / view.z, (e.clientY - r.top - view.oy) / view.z]; };
@@ -499,6 +539,8 @@ cv.addEventListener("pointerdown", e => {
   if (tool === "picker" || e.altKey){ pick(x, y, e.button === 2); drag = { k: "pick", right: e.button === 2 }; return; }
   if (tool === "select" || tool === "lasso"){
     const inside = r2 => r2 && x >= r2.x && y >= r2.y && x < r2.x + r2.w && y < r2.y + r2.h && mIn(r2, x - r2.x, y - r2.y);
+    const hd = (flt || sel) && rotHandle(), sx = e.clientX - r.left, sy = e.clientY - r.top;
+    if (hd && Math.hypot(sx - hd.hx, sy - hd.hy) <= 10){ ensureFloat(); const h2 = rotHandle(); drag = { k: "rot", cx: h2.cx, cy: h2.cy }; return; }
     if (!e.shiftKey && (inside(flt) || inside(sel))){ if (!flt) lift(); drag = { k: "move", x, y, fx: flt.x, fy: flt.y }; return; }
     commitFloat(); const keep = e.shiftKey ? sel : null; sel = keep;
     if (tool === "lasso"){ lassoPts = [toPixF(e)]; drag = { k: "lasso", keep }; } else drag = { k: "sel", x, y, keep };
@@ -520,6 +562,8 @@ cv.addEventListener("pointermove", e => {
   if (drag.k === "pick"){ pick(x, y, drag.right); return; }
   if (drag.k === "lasso"){ const q = toPixF(e), l = lassoPts[lassoPts.length - 1]; if (Math.hypot(q[0] - l[0], q[1] - l[1]) * view.z >= 2){ lassoPts.push(q); draw(); } return; }
   if (drag.k === "sel"){ sel = unionSel(drag.keep, norm(drag.x, drag.y, x, y)); $("stSel").textContent = sel ? `${L("selection", "選取")} ${sel.x},${sel.y} ${sel.w}×${sel.h}` : ""; draw(); return; }
+  if (drag.k === "rot"){ const r = cv.getBoundingClientRect(); let a = Math.atan2(e.clientX - r.left - drag.cx, -(e.clientY - r.top - drag.cy)) * 180 / Math.PI;
+    a = e.shiftKey ? Math.round(a / 15) * 15 : Math.round(a); if (a !== curAng()) rotateTo(a); return; }
   if (drag.k === "move"){ flt.x = drag.fx + x - drag.x; flt.y = drag.fy + y - drag.y; $("stSel").textContent = `${L("moving", "移動")} ${flt.x},${flt.y} ${flt.w}×${flt.h}`; queue(); return; }
   if (drag.k === "paint"){ if (x === drag.x && y === drag.y) return; lineTo(drag.x, drag.y, x, y, (a, b) => dab(a, b, drag.c)); drag.x = x; drag.y = y; queue(); return; }
   pic.px.set(drag.base);
@@ -560,7 +604,7 @@ addEventListener("keyup", e => { if (e.key === " "){ spaceDown = false; cursor()
 addEventListener("blur", () => { spaceDown = altDown = false; });
 
 // scripting / tests
-window.picEditor = { parsePIC, buildPIC, newPIC, get pic(){ return pic; }, open: openBytes, save: () => buildPIC(pic) };
+window.picEditor = { parsePIC, buildPIC, newPIC, get pic(){ return pic; }, open: openBytes, save: () => buildPIC(pic), rotHandle, rotateTo };
 
 $("langSlot").append(FAI18N.picker()); FAI18N.apply(); FAI18N.onChange(() => { fileInfo(); setDirty(dirty); });
 setTool("pencil"); paintPal();
