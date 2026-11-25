@@ -1684,7 +1684,7 @@ $("menuBtn").onclick = () => { $("panel").classList.toggle("open"); renderLoadou
 $("selFM").onchange = () => { try { localStorage.setItem("fa_flight_fm", $("selFM").value); } catch(e){} spawn(); };
 try { const v = localStorage.getItem("fa_flight_fm"); if (v) $("selFM").value = v; } catch(e){}
 { const sel = $("selShape"), grp = (label, names) => { const g = document.createElement("optgroup"); g.label = label; for (const n of names){ const o = document.createElement("option"); o.value = n; o.textContent = n; g.appendChild(o); } sel.appendChild(g); };
-  grp("F-14 / F/A-18", ["F14", "F14J", "FIR", "FBC", ...F18S]); grp("Ships", [...SHIPS].filter(n => SH_NAMES.includes(n))); grp("All SH", SH_NAMES); sel.value = "F14"; }
+  grp("F-14 / F/A-18", ["F14", "F14J", "F14S", "F14W", "F14B", "FIR", "FBC", ...F18S]); grp("Ships", [...SHIPS].filter(n => SH_NAMES.includes(n))); grp("All SH", SH_NAMES); sel.value = "F14"; }
 $("bMission").onclick = async () => { $("panel").classList.remove("open"); $("selMission").value = "canyon"; await buildCanyon(); await choose($("selShape").value); };
 $("bGo").onclick = async () => { $("panel").classList.remove("open"); if ($("selMission").value === "canyon") await buildCanyon(); await choose($("selShape").value); };
 async function choose(name){
