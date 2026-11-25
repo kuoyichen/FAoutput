@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ticonderoga helicopter deck</title>
+<meta name="description" content="FAshion release #9: helicopters can land on and take off from the Ticonderoga cruiser in Fighters Anthology, ride along while the ship sails, and park in its new hangar. A rebuilt TICON.SH and two changed lines in TICON.NT, no FA.EXE patch.">
+<style>
+:root{ --bg:#0e1216; --card:#161c22; --card2:#1b232b; --line:#26303a; --text:#e2e8ee; --muted:#8a96a4; --accent:#ffd54a; --cyan:#6fd3ff; --ok:#5fd38a; --bad:#ff6b6b; --warn:#ffb347; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}
+a{color:var(--cyan)}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+header{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:12px 16px;background:#0e1216ee;border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+header .crumb{color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#langSlot{margin-left:auto}
+.fa-lang{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font:inherit;font-size:13px}
+main{max-width:980px;margin:0 auto;padding:24px 16px 60px}
+.kicker{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.6px;text-transform:uppercase}
+h1{font-size:clamp(30px,6vw,46px);line-height:1.1;margin:8px 0 8px}
+h1 b{color:var(--accent)}
+h2{font-size:22px;margin:44px 0 6px}
+h3{font-size:17px;margin:18px 0 6px}
+.lead{font-size:17px;color:#c4ccd5;max-width:760px}
+.muted{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+.dl{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:18px}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#1a1a1a;font-weight:700;text-decoration:none;border-radius:10px;padding:11px 18px}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:none;color:var(--text);border:1px solid var(--line);font-weight:600}
+code{font:13px/1.4 ui-monospace,Consolas,monospace;background:#0b0f13;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+figure{margin:16px 0}
+figure img{width:100%;display:block;border-radius:12px;border:1px solid var(--line);background:#161c22}
+figcaption{color:var(--muted);font-size:13px;margin-top:6px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+.bad{color:var(--bad);font-weight:700}.ok{color:var(--ok);font-weight:700}
+.note{border-left:3px solid var(--warn);padding:8px 12px;background:#ffb3470f;border-radius:0 8px 8px 0;margin:12px 0}
+.flow{display:grid;gap:8px;margin:12px 0}
+.flow div{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:14px}
+.flow div b{color:var(--accent)}
+ol.steps{padding-left:0;list-style:none;counter-reset:s}
+ol.steps li{counter-increment:s;position:relative;padding:4px 0 12px 42px}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:2px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#1a1a1a;font-weight:800;display:grid;place-items:center}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+@media (max-width:700px){ .two{grid-template-columns:1fr} }
+</style>
+<script src="fashion_i18n.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <span class="crumb">Ticonderoga helicopter deck</span>
+  <span id="langSlot"></span>
+</header>
+<main>
+  <div class="kicker">Release #9 · Nov 25, 2026</div>
+  <h1 data-lang="en">Helicopters can now land on the <b>Ticonderoga</b></h1>
+  <h1 data-lang="zh">直昇機現在可以在<b>提康德羅加號</b>上起降了</h1>
+  <p class="lead" data-lang="en">In stock Fighters Anthology the Aegis cruiser has a helicopter deck painted on it, but nothing can touch down there: a helicopter just sinks through it. Now the deck is solid. Land on it, take off from it, taxi into the new hangar, and stay put while the ship sails, the same way aircraft ride on the Nimitz or the Wasp. The autopilot lands on the deck too.</p>
+  <p class="lead" data-lang="zh">原版 Fighters Anthology 的神盾巡洋艦上雖然畫了直昇機甲板，但根本降不下去，直昇機會直接穿過去。現在甲板是實心的了：可以降落、起飛、滑進新的機庫，軍艦航行時你會跟著一起移動，就像停在尼米茲號或黃蜂號上一樣。自動駕駛也會降落在甲板上。</p>
+  <div class="dl">
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/TICON.SH" download>⬇ <span data-lang="en">Download TICON.SH</span><span data-lang="zh">下載 TICON.SH</span></a>
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/NT/TICON.NT" download>⬇ <span data-lang="en">Download TICON.NT</span><span data-lang="zh">下載 TICON.NT</span></a>
+    <a class="btn ghost" href="#install"><span data-lang="en">How to install</span><span data-lang="zh">安裝方式</span></a>
+    <span class="muted" style="font-size:13px">TICON.SH 21,504 B + TICON.NT · FA 1.02f · <span data-lang="en">no FA.EXE patch</span><span data-lang="zh">不改 FA.EXE</span></span>
+  </div>
+
+  <figure><img src="img/ticon/heli_deck_side.png" alt="A helicopter parked on the Ticonderoga's flight deck while the ship sails" loading="lazy"><figcaption data-lang="en">Parked on the flight deck behind the superstructure while the cruiser sails on.</figcaption><figcaption data-lang="zh">停在上層結構後方的飛行甲板上，巡洋艦照常航行。</figcaption></figure>
+  <figure><img src="img/ticon/heli_deck_above.png" alt="The Ticonderoga from above with a helicopter on deck" loading="lazy"><figcaption data-lang="en">From above: the rebuilt cruiser with its SPY-1 radar faces, masts, guns and boats, and a helicopter on the deck by the hangar.</figcaption><figcaption data-lang="zh">從上方看：重做的巡洋艦，有 SPY-1 雷達面、桅杆、艦砲和小艇，直昇機停在機庫旁的甲板上。</figcaption></figure>
+  <p class="muted" style="font-size:13px" data-lang="en">Screenshots from FA 1.02f with the shipped files, taken by Kuoyi.</p>
+  <p class="muted" style="font-size:13px" data-lang="zh">以上是 Kuoyi 用發布版檔案在 FA 1.02f 裡的實機截圖。</p>
+
+  <h2 data-lang="en">What you can do now</h2><h2 data-lang="zh">現在可以做什麼</h2>
+  <div class="flow">
+    <div data-lang="en"><b>Land and take off.</b> Bring any helicopter down onto the flight deck behind the superstructure. It stops on the deck instead of falling through, and you can lift off again whenever you like.</div>
+    <div data-lang="zh"><b>降落和起飛。</b>任何直昇機都可以降在上層結構後方的飛行甲板上，會停在甲板上不會掉下去，想走隨時都可以再起飛。</div>
+    <div data-lang="en"><b>Ride the ship.</b> Once you are down, you move with the cruiser as it sails and turns, the way you do on a carrier. Without that, the ship would sail away from under you.</div>
+    <div data-lang="zh"><b>跟著軍艦走。</b>降落之後，軍艦航行或轉彎時你會跟著移動，就像在航艦上一樣。少了這一點，船會從你腳下開走。</div>
+    <div data-lang="en"><b>Use the hangar.</b> The aft deckhouse now has an open hangar with room for a helicopter. The landing surface runs from the deck into the hangar, so you can taxi or hover inside and park there.</div>
+    <div data-lang="zh"><b>使用機庫。</b>後段艦橋現在有一個開放式機庫，放得下一架直昇機。降落面從甲板一路延伸進機庫，可以滑行或低空懸停進去停好。</div>
+    <div data-lang="en"><b>Let the autopilot land.</b> The ship now has landing points like the Wasp, placed on the flight deck, so an automatic landing aims for the deck and not the middle of the ship.</div>
+    <div data-lang="zh"><b>讓自動駕駛降落。</b>軍艦現在有和黃蜂號一樣的降落點，就放在飛行甲板上，所以自動降落會對準甲板，而不是船中間。</div>
+  </div>
+
+  <h2 data-lang="en">How it works</h2><h2 data-lang="zh">怎麼做到的</h2>
+  <p class="muted" data-lang="en">FA decides whether something is a landing surface from two places: the collision boxes in the shape, and the object type in the NT file. Both had to change. Nothing in FA.EXE was touched.</p>
+  <p class="muted" data-lang="zh">FA 判斷一個東西能不能降落，要看兩個地方：外形檔裡的碰撞框，和 NT 檔裡的物件類型。兩邊都要改，FA.EXE 完全沒有動。</p>
+  <div class="scroll"><table>
+    <thead><tr><th data-lang="en">File</th><th data-lang="zh">檔案</th><th data-lang="en">Change</th><th data-lang="zh">改了什麼</th><th data-lang="en">Why</th><th data-lang="zh">原因</th></tr></thead>
+    <tbody>
+      <tr><td>TICON.SH</td><td data-lang="en">A landable box (type 0x10, the kind runways and carrier decks use) over the flight deck and into the hangar. The hull box now starts in front of it.</td><td data-lang="zh">在飛行甲板上加一個可降落的碰撞框（類型 0x10，跑道和航艦甲板用的那種），一路延伸進機庫。船身的碰撞框改成從它前面開始。</td><td data-lang="en">In the stock shape the ship is one plain solid box that sits well above the deck, so a helicopter could only hit it or pass through.</td><td data-lang="zh">原版外形整艘船是一個普通的實心框，高度比甲板高很多，直昇機只會撞上或穿過去。</td></tr>
+      <tr><td>TICON.SH</td><td data-lang="en">Named landing points (the same set the Wasp uses) at the centre of the flight deck.</td><td data-lang="zh">在飛行甲板中央加上具名降落點（和黃蜂號同一組）。</td><td data-lang="en">The carrier code looks these points up for the approach and the autopilot. Without them it aims at the middle of the ship.</td><td data-lang="zh">航艦程式會用這些點來進場和自動駕駛，沒有的話會對準船的中間。</td></tr>
+      <tr><td>TICON.SH</td><td data-lang="en">A rebuilt detailed model: 581 vertices, one open hangar under the aft deckhouse, SPY-1 radar faces, 3D Mk 45 guns, CIWS, stacks, boats and masts. The far-away models are the factory ones.</td><td data-lang="zh">重做的精細模型：581 個頂點，後段艦橋下一個開放式機庫，SPY-1 雷達面，立體的 Mk 45 艦砲、方陣快砲、煙囪、小艇和桅杆。遠距離的模型保持原廠。</td><td data-lang="en">The old model had no hangar to park in.</td><td data-lang="zh">舊模型沒有可以停進去的機庫。</td></tr>
+      <tr><td>TICON.NT</td><td data-lang="en">Type flags <code>$131</code> → <code>$408131</code></td><td data-lang="zh">類型旗標 <code>$131</code> → <code>$408131</code></td><td data-lang="en">Marks the object as something aircraft can stand on, like a runway or a rooftop.</td><td data-lang="zh">把物件標成飛機可以停在上面的東西，像跑道或屋頂。</td></tr>
+      <tr><td>TICON.NT</td><td data-lang="en">utilProc <code>_GVProc</code> → <code>_CARRIERProc</code></td><td data-lang="zh">utilProc <code>_GVProc</code> → <code>_CARRIERProc</code></td><td data-lang="en">FA has no general "ride on a moving platform" rule. Every ship you can land on in every LIB (47 of them) runs <code>_CARRIERProc</code>, and that is what carries a parked aircraft along. The flags alone kept the helicopter on the deck but left it behind.</td><td data-lang="zh">FA 沒有通用的「跟著移動平台走」規則。所有 LIB 裡能降落的 47 艘船都是用 <code>_CARRIERProc</code>，就是它讓停著的飛機跟著船走。只改旗標的話，直昇機停得住，但會被船留在原地。</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 data-lang="en">Things to know</h2><h2 data-lang="zh">使用注意事項</h2>
+  <div class="flow">
+    <div data-lang="en"><b>Use both files.</b> TICON.SH alone gives you the new ship and a deck you can stop on, but you are left behind when it sails. TICON.NT alone does nothing useful. Install them together.</div>
+    <div data-lang="zh"><b>兩個檔都要裝。</b>只裝 TICON.SH 會有新的船和停得住的甲板，但船開走時你會留在原地；只裝 TICON.NT 沒有作用。請一起安裝。</div>
+    <div data-lang="en"><b>Check which shape your TICON.NT loads.</b> Some LIBs (for example the JK pack) carry a TICON.NT that draws <code>aegis.SH</code>. This TICON.NT is the FA_2.LIB one and loads <code>ticon.SH</code>.</div>
+    <div data-lang="zh"><b>注意 TICON.NT 載入哪個外形。</b>有些 LIB（例如 JK 套件）裡的 TICON.NT 畫的是 <code>aegis.SH</code>。這個 TICON.NT 是 FA_2.LIB 的版本，載入的是 <code>ticon.SH</code>。</div>
+    <div data-lang="en"><b>Seen from outside, a helicopter in the hangar can show through the hangar walls.</b> FA sorts whole objects by distance before it draws them, so a shape cannot hide another object behind its own walls. This is a limit of FA.EXE, and it is left as it is.</div>
+    <div data-lang="zh"><b>從外面看，停在機庫裡的直昇機可能會透出機庫牆壁。</b>FA 是整個物件依距離排序後才畫，外形沒辦法用自己的牆擋住另一個物件。這是 FA.EXE 的限制，維持現狀。</div>
+  </div>
+
+  <h2 id="install" data-lang="en">How to install</h2><h2 data-lang="zh">安裝方式</h2>
+  <ol class="steps" data-lang="en">
+    <li><b>Back up</b> any <code>TICON.SH</code> and <code>TICON.NT</code> you already have as loose files.</li>
+    <li>Copy <code>TICON.SH</code> to where your FA install loads add-on SH files, and <code>TICON.NT</code> to where it loads loose NT files (loose files override the copies inside the LIBs).</li>
+    <li>Start a mission with a Ticonderoga, fly a helicopter to it, and set down on the deck behind the superstructure.</li>
+  </ol>
+  <ol class="steps" data-lang="zh">
+    <li><b>先備份</b>你原本放在外面的 <code>TICON.SH</code> 和 <code>TICON.NT</code>。</li>
+    <li>把 <code>TICON.SH</code> 放到 FA 讀取外加 SH 檔的地方，<code>TICON.NT</code> 放到讀取外加 NT 檔的地方（外面的檔案會蓋過 LIB 裡的版本）。</li>
+    <li>開一場有提康德羅加號的任務，開直昇機飛過去，降落在上層結構後方的甲板上。</li>
+  </ol>
+  <div class="note" data-lang="en">To undo, delete the two files (or put your backups back). The original ship comes back from the LIB.</div>
+  <div class="note" data-lang="zh">要還原，刪掉這兩個檔案（或放回備份）就好，原本的船會從 LIB 讀回來。</div>
+  <p class="muted" data-lang="en">The ship also shows in the <a href="sh_gallery.html">SH gallery</a>. More about landing surfaces in FA: <a href="https://github.com/kuoyichen/FAoutput/blob/main/skill/SH_edit_note.MD">SH edit notes on GitHub</a>.</p>
+  <p class="muted" data-lang="zh">這艘船也可以在 <a href="sh_gallery.html">SH 模型庫</a>裡看。FA 降落面的更多說明：<a href="https://github.com/kuoyichen/FAoutput/blob/main/skill/SH_edit_note.MD">GitHub 上的 SH 修改筆記</a>。</p>
+</main>
+<footer data-lang="en">FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>). Keep a backup of your original files.</footer>
+<footer data-lang="zh">FAshion 是 hawke 為 Jane's Fighters Anthology 做的同好專案（<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>）。請保留原本檔案的備份。</footer>
+<script>
+"use strict";
+FAI18N.register({ "FAshion home": "FAshion 首頁", "Ticonderoga helicopter deck": "提康德羅加號直昇機甲板", "Release #9 · Nov 25, 2026": "發布 #9 · 2026 年 11 月 25 日", "no FA.EXE patch": "不改 FA.EXE" });
+document.getElementById("langSlot").append(FAI18N.picker()); FAI18N.apply();
+</script>
+</body>
+</html>
