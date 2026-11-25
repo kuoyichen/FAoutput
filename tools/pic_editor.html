@@ -82,6 +82,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     <button data-tool="line" title="Line (L) — Shift: 45° steps">╱</button>
     <button data-tool="rect" title="Rectangle (R)">▭</button>
     <button data-tool="select" title="Select region (M) — drag inside to move it">⬚</button>
+    <button data-tool="lasso" title="Freehand select (F) — draw around any shape; Shift adds to the selection; drag inside to move it">➰</button>
     <button data-tool="hand" title="Pan (H) — or hold Space / use the middle button">✋</button>
     <hr>
     <button id="undoBtn" title="Undo (Ctrl+Z)">↶</button>
@@ -134,10 +135,10 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
     <div id="fileInfo" class="note">No PIC loaded.</div>
 
     <h3>Keys</h3>
-    <div class="keys" data-lang="en"><kbd>B</kbd> pencil <kbd>E</kbd> eraser <kbd>I</kbd> eyedropper <kbd>G</kbd> fill <kbd>L</kbd> line <kbd>R</kbd> rectangle <kbd>M</kbd> select <kbd>H</kbd> pan<br>
+    <div class="keys" data-lang="en"><kbd>B</kbd> pencil <kbd>E</kbd> eraser <kbd>I</kbd> eyedropper <kbd>G</kbd> fill <kbd>L</kbd> line <kbd>R</kbd> rectangle <kbd>M</kbd> select <kbd>F</kbd> freehand select <kbd>H</kbd> pan<br>
       <kbd>Alt</kbd> pick colour · <kbd>Space</kbd> pan · wheel zoom · <kbd>X</kbd> swap colours · <kbd>[</kbd> <kbd>]</kbd> brush size<br>
       <kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd> undo/redo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>X</kbd>/<kbd>V</kbd> copy/cut/paste · arrows nudge a selection · <kbd>Esc</kbd> done · <kbd>Ctrl</kbd>+<kbd>S</kbd> save</div>
-    <div class="keys" data-lang="zh"><kbd>B</kbd> 畫筆 <kbd>E</kbd> 橡皮擦 <kbd>I</kbd> 吸色 <kbd>G</kbd> 填色 <kbd>L</kbd> 直線 <kbd>R</kbd> 矩形 <kbd>M</kbd> 選取 <kbd>H</kbd> 平移<br>
+    <div class="keys" data-lang="zh"><kbd>B</kbd> 畫筆 <kbd>E</kbd> 橡皮擦 <kbd>I</kbd> 吸色 <kbd>G</kbd> 填色 <kbd>L</kbd> 直線 <kbd>R</kbd> 矩形 <kbd>M</kbd> 選取 <kbd>F</kbd> 隨意圈選 <kbd>H</kbd> 平移<br>
       <kbd>Alt</kbd> 吸色・<kbd>Space</kbd> 平移・滾輪縮放・<kbd>X</kbd> 交換顏色・<kbd>[</kbd> <kbd>]</kbd> 筆刷大小<br>
       <kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd> 復原／重做・<kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>X</kbd>/<kbd>V</kbd> 複製／剪下／貼上・方向鍵微移選取・<kbd>Esc</kbd> 完成・<kbd>Ctrl</kbd>+<kbd>S</kbd> 存檔</div>
     <p class="note" style="margin-top:14px">by <b>hawke</b> (kuoyichen) · <a href="sh_texture.html" style="color:var(--muted)">see a PIC on its SH</a></p>
@@ -165,7 +166,7 @@ FAI18N.register({
   "Pencil (B) — left: primary colour, right: secondary": "畫筆（B）— 左鍵：主色，右鍵：副色", "Eraser (E) — paints index FF (transparent)": "橡皮擦（E）— 畫成色號 FF（透明）",
   "Eyedropper (I) — left: primary, right: secondary. Hold Alt with any tool": "吸色（I）— 左鍵設主色、右鍵設副色；任何工具按住 Alt 也能吸色",
   "Fill (G)": "填色（G）", "Line (L) — Shift: 45° steps": "直線（L）— Shift：45° 角", "Rectangle (R)": "矩形（R）",
-  "Select region (M) — drag inside to move it": "選取區塊（M）— 在選取範圍內拖曳可移動", "Pan (H) — or hold Space / use the middle button": "平移（H）— 或按住 Space／滑鼠中鍵",
+  "Select region (M) — drag inside to move it": "選取區塊（M）— 在選取範圍內拖曳可移動", "Freehand select (F) — draw around any shape; Shift adds to the selection; drag inside to move it": "隨意圈選（F）— 沿任意形狀圈起來；按住 Shift 可加選；在範圍內拖曳可移動", "Pan (H) — or hold Space / use the middle button": "平移（H）— 或按住 Space／滑鼠中鍵",
   "Undo (Ctrl+Z)": "復原（Ctrl+Z）", "Redo (Ctrl+Y)": "重做（Ctrl+Y）", "Zoom in (+)": "放大（+）", "Zoom out (−)": "縮小（−）", "Fit to window (0)": "符合視窗（0）", "Actual size (1)": "實際大小（1）",
   "Open a PIC texture": "開啟 PIC 貼圖", "Pick one from the repository list, open a file from your disk, or drop a .PIC here.": "從倉庫清單挑一個、從電腦開啟，或把 .PIC 拖到這裡。",
   "Colour": "顏色", "Primary colour (left button)": "主色（左鍵）", "Secondary colour (right button)": "副色（右鍵）", "Swap primary and secondary (X)": "交換主色和副色（X）", "Set primary to FF (transparent)": "主色設成 FF（透明）",
@@ -245,9 +246,11 @@ let pic = null, name = "", dirty = false;
 let gamePal = null, userPal = null;
 let prim = 0x98, sec = 0xFF, tool = "pencil";
 const view = { z: 1, ox: 0, oy: 0 };
-let sel = null;        // {x,y,w,h} marquee
-let flt = null;        // floating pixels {x,y,w,h,px,base}
-let clip = null;       // {w,h,px}
+let sel = null;        // {x,y,w,h,m?} marquee; m = optional Uint8Array(w*h) mask from the lasso (1 = selected)
+let flt = null;        // floating pixels {x,y,w,h,px,base,m?}
+let clip = null;       // {w,h,px,m?}
+let lassoPts = null;   // freehand path being drawn (pixel units, fractional)
+const mIn = (r, x, y) => !r.m || r.m[y * r.w + x] === 1;   // local coords inside a mask
 const undo = [], redo = [];
 const cv = $("cv"), cx = cv.getContext("2d");
 const off = document.createElement("canvas"), ox = off.getContext("2d");
@@ -269,7 +272,7 @@ function rebuild(){
   for (let i = 0; i < w * h; i++) rgba[i] = lut[px[i]];
   if (flt) for (let y = 0; y < flt.h; y++) for (let x = 0; x < flt.w; x++){
     const X = flt.x + x, Y = flt.y + y; if (X < 0 || Y < 0 || X >= w || Y >= h) continue;
-    const c = flt.px[y * flt.w + x]; if (c === 0xFF && $("pasteT").checked) continue; rgba[Y * w + X] = lut[c]; }
+    if (!mIn(flt, x, y)) continue; const c = flt.px[y * flt.w + x]; if (c === 0xFF && $("pasteT").checked) continue; rgba[Y * w + X] = lut[c]; }
   ox.putImageData(img, 0, 0);
   draw();
 }
@@ -295,9 +298,17 @@ function draw(){
     cx.stroke(); }
   cx.strokeStyle = "#3d4855"; cx.lineWidth = 1; cx.strokeRect(X0 - .5, Y0 - .5, pic.w * z + 1, pic.h * z + 1);
   const ants = (r, col) => { cx.save(); cx.lineWidth = 1 * dpr; cx.setLineDash([4 * dpr, 4 * dpr]);
+    if (r.m){ // outline of a lasso mask: every edge between a selected and an unselected pixel
+      const path = new Path2D(), sx = X0 + r.x * z, sy = Y0 + r.y * z, seg = (a, b, c2, d) => { path.moveTo(sx + a * z, sy + b * z); path.lineTo(sx + c2 * z, sy + d * z); };
+      for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++){ if (!r.m[y * r.w + x]) continue;
+        if (y === 0 || !r.m[(y - 1) * r.w + x]) seg(x, y, x + 1, y); if (y === r.h - 1 || !r.m[(y + 1) * r.w + x]) seg(x, y + 1, x + 1, y + 1);
+        if (x === 0 || !r.m[y * r.w + x - 1]) seg(x, y, x, y + 1); if (x === r.w - 1 || !r.m[y * r.w + x + 1]) seg(x + 1, y, x + 1, y + 1); }
+      cx.strokeStyle = "#000"; cx.stroke(path); cx.lineDashOffset = 4 * dpr; cx.strokeStyle = col; cx.stroke(path); cx.restore(); return; }
     const a = [X0 + r.x * z + .5, Y0 + r.y * z + .5, r.w * z - 1, r.h * z - 1];
     cx.strokeStyle = "#000"; cx.strokeRect(...a); cx.lineDashOffset = 4 * dpr; cx.strokeStyle = col; cx.strokeRect(...a); cx.restore(); };
   if (flt) ants(flt, "#ffd54a"); else if (sel) ants(sel, "#fff");
+  if (lassoPts && lassoPts.length > 1){ cx.save(); cx.lineWidth = 1.5 * dpr; cx.beginPath(); lassoPts.forEach(([px_, py_], i) => cx[i ? "lineTo" : "moveTo"](X0 + px_ * z, Y0 + py_ * z)); cx.closePath();
+    cx.strokeStyle = "#000"; cx.setLineDash([]); cx.stroke(); cx.strokeStyle = "#ffd54a"; cx.setLineDash([4 * dpr, 4 * dpr]); cx.stroke(); cx.restore(); }
   if (preview){ cx.strokeStyle = "rgba(255,255,255,.7)"; cx.lineWidth = 1; cx.strokeRect(X0 + preview.x * z + .5, Y0 + preview.y * z + .5, preview.w * z - 1, preview.h * z - 1); }
   $("stZ").textContent = (view.z >= 1 ? view.z : view.z.toFixed(2)) + "×";
 }
@@ -392,7 +403,7 @@ function importImage(f){ if (!pic) return msg(L("Open or create a PIC first", "�
   const im = new Image(); im.onload = () => { const c = document.createElement("canvas"); c.width = im.width; c.height = im.height; const g = c.getContext("2d"); g.drawImage(im, 0, 0);
     const d = g.getImageData(0, 0, c.width, c.height).data, near = nearestLUT(), px = new Uint8Array(c.width * c.height);
     for (let i = 0; i < px.length; i++) px[i] = d[4*i+3] < 128 ? 255 : near(d[4*i], d[4*i+1], d[4*i+2]);
-    URL.revokeObjectURL(im.src); pasteBlock({ w: c.width, h: c.height, px }); setTool("select"); msg(L(`Imported ${c.width}×${c.height}; drag it into place, then press Esc`, `已匯入 ${c.width}×${c.height}，拖到位置後按 Esc`)); };
+    URL.revokeObjectURL(im.src); pasteBlock({ w: c.width, h: c.height, px }); selTool(); msg(L(`Imported ${c.width}×${c.height}; drag it into place, then press Esc`, `已匯入 ${c.width}×${c.height}，拖到位置後按 Esc`)); };
   im.src = URL.createObjectURL(f); }
 $("imgIn").onchange = e => { const f = e.target.files[0]; if (f) importImage(f); e.target.value = ""; };
 
@@ -404,7 +415,7 @@ function doRedo(){ if (!pic || !redo.length) return; commitFloat(); undo.push(pi
 $("undoBtn").onclick = doUndo; $("redoBtn").onclick = doRedo;
 
 // ===================== painting =====================
-const inSel = (x, y) => !sel || (x >= sel.x && y >= sel.y && x < sel.x + sel.w && y < sel.y + sel.h);
+const inSel = (x, y) => !sel || (x >= sel.x && y >= sel.y && x < sel.x + sel.w && y < sel.y + sel.h && mIn(sel, x - sel.x, y - sel.y));
 function put(x, y, c){ if (x < 0 || y < 0 || x >= pic.w || y >= pic.h || !inSel(x, y)) return; pic.px[y * pic.w + x] = c; }
 function dab(x, y, c){ const s = Math.max(1, +$("size").value | 0), r = s / 2, round = $("round").checked && s > 2, o = Math.floor((s - 1) / 2);
   for (let j = 0; j < s; j++) for (let i = 0; i < s; i++){ if (round){ const dx = i - o - (s % 2 ? 0 : .5) , dy = j - o - (s % 2 ? 0 : .5); if (dx*dx + dy*dy > r*r) continue; } put(x - o + i, y - o + j, c); } }
@@ -422,24 +433,47 @@ function rectShape(x0, y0, x1, y1, c){ const a = Math.min(x0, x1), b = Math.max(
 // ===================== selection / clipboard =====================
 const norm = (x0, y0, x1, y1) => { const x = Math.max(0, Math.min(x0, x1)), y = Math.max(0, Math.min(y0, y1)), X = Math.min(pic.w - 1, Math.max(x0, x1)), Y = Math.min(pic.h - 1, Math.max(y0, y1)); return X < x || Y < y ? null : { x, y, w: X - x + 1, h: Y - y + 1 }; };
 function grab(r){ const px = new Uint8Array(r.w * r.h); for (let y = 0; y < r.h; y++) px.set(pic.px.subarray((r.y + y) * pic.w + r.x, (r.y + y) * pic.w + r.x + r.w), y * r.w); return px; }
-function clearRect(r, c = 0xFF){ for (let y = 0; y < r.h; y++) pic.px.fill(c, (r.y + y) * pic.w + r.x, (r.y + y) * pic.w + r.x + r.w); }
+function clearRect(r, c = 0xFF){ for (let y = 0; y < r.h; y++){ if (!r.m){ pic.px.fill(c, (r.y + y) * pic.w + r.x, (r.y + y) * pic.w + r.x + r.w); continue; }
+  for (let x = 0; x < r.w; x++) if (r.m[y * r.w + x]) pic.px[(r.y + y) * pic.w + r.x + x] = c; } }
+// a floating block placed back: its part inside the picture becomes the selection again (mask cropped to match)
+function selFromFloat(f){ const s = norm(f.x, f.y, f.x + f.w - 1, f.y + f.h - 1); if (!s || !f.m) return s;
+  const m = new Uint8Array(s.w * s.h); let n = 0; for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) n += m[y * s.w + x] = f.m[(s.y - f.y + y) * f.w + s.x - f.x + x];
+  return n ? { ...s, m } : null; }
+// freehand path → mask: pixels whose centre is inside the closed path (even-odd), plus the pixels the path runs through
+function lassoSel(pts){ if (pts.length < 2) return null;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const [x, y] of pts){ x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  const b = norm(Math.floor(x0), Math.floor(y0), Math.floor(x1), Math.floor(y1)); if (!b) return null;
+  const m = new Uint8Array(b.w * b.h), n = pts.length;
+  for (let y = 0; y < b.h; y++){ const cy = b.y + y + .5, xs = [];
+    for (let i = 0, j = n - 1; i < n; j = i++){ const [ax, ay] = pts[i], [bx, by] = pts[j]; if ((ay > cy) !== (by > cy)) xs.push(ax + (cy - ay) * (bx - ax) / (by - ay)); }
+    xs.sort((a, c) => a - c);
+    for (let k = 0; k + 1 < xs.length; k += 2) for (let x = Math.max(0, Math.ceil(xs[k] - .5 - b.x)); x < b.w && b.x + x + .5 <= xs[k + 1]; x++) m[y * b.w + x] = 1; }
+  for (let i = 0; i < n; i++){ const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % n];
+    lineTo(Math.floor(ax), Math.floor(ay), Math.floor(bx), Math.floor(by), (x, y) => { x -= b.x; y -= b.y; if (x >= 0 && y >= 0 && x < b.w && y < b.h) m[y * b.w + x] = 1; }); }
+  return { ...b, m }; }
+// Shift + lasso / rectangle adds to the current selection
+function unionSel(a, b){ if (!a) return b; if (!b) return a;
+  const u = norm(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.max(a.x + a.w, b.x + b.w) - 1, Math.max(a.y + a.h, b.y + b.h) - 1), m = new Uint8Array(u.w * u.h);
+  for (const r of [a, b]) for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) if (mIn(r, x, y)) m[(r.y - u.y + y) * u.w + r.x - u.x + x] = 1;
+  return { ...u, m }; }
 function lift(){ if (!sel || flt) return; const base = pic.px.slice(); flt = { ...sel, px: grab(sel), base }; clearRect(sel); sel = null; }
 function commitFloat(){ if (!flt) return; const f = flt; flt = null; pushUndo(f.base || pic.px.slice()); const T = $("pasteT").checked;
-  for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++){ const X = f.x + x, Y = f.y + y; if (X < 0 || Y < 0 || X >= pic.w || Y >= pic.h) continue; const c = f.px[y * f.w + x]; if (c === 0xFF && T) continue; pic.px[Y * pic.w + X] = c; }
-  sel = norm(f.x, f.y, f.x + f.w - 1, f.y + f.h - 1); countUsed(); paintPal(); queue(); }
-function copySel(){ if (flt){ clip = { w: flt.w, h: flt.h, px: flt.px.slice() }; return true; } if (!sel) return false; clip = { ...sel, px: grab(sel) }; return true; }
+  for (let y = 0; y < f.h; y++) for (let x = 0; x < f.w; x++){ const X = f.x + x, Y = f.y + y; if (X < 0 || Y < 0 || X >= pic.w || Y >= pic.h || !mIn(f, x, y)) continue; const c = f.px[y * f.w + x]; if (c === 0xFF && T) continue; pic.px[Y * pic.w + X] = c; }
+  sel = selFromFloat(f); countUsed(); paintPal(); queue(); }
+function copySel(){ if (flt){ clip = { w: flt.w, h: flt.h, px: flt.px.slice(), m: flt.m && flt.m.slice() }; return true; } if (!sel) return false; clip = { ...sel, px: grab(sel) }; return true; }
 function pasteBlock(b){ commitFloat(); const r = cv.getBoundingClientRect();
   const vx = Math.max(0, Math.floor(-view.ox / view.z)), vy = Math.max(0, Math.floor(-view.oy / view.z));
   const x = sel ? sel.x : Math.min(vx, Math.max(0, pic.w - b.w)), y = sel ? sel.y : Math.min(vy, Math.max(0, pic.h - b.h));
-  flt = { x, y, w: b.w, h: b.h, px: b.px.slice(), base: null }; sel = null; queue(); }
+  flt = { x, y, w: b.w, h: b.h, px: b.px.slice(), m: b.m && b.m.slice(), base: null }; sel = null; queue(); }
 $("copyBtn").onclick = () => { if (copySel()) msg(L("Copied", "已複製")); };
 $("cutBtn").onclick = () => { if (!pic) return; if (flt){ copySel(); doUndo(); return; } if (copySel()){ pushUndo(); clearRect(sel); countUsed(); paintPal(); queue(); } };
-$("pasteBtn").onclick = () => { if (pic && clip){ pasteBlock(clip); setTool("select"); } };
+$("pasteBtn").onclick = () => { if (pic && clip){ pasteBlock(clip); selTool(); } };
 $("delBtn").onclick = () => { if (!pic) return; if (flt){ doUndo(); return; } if (sel){ pushUndo(); clearRect(sel); countUsed(); paintPal(); queue(); } };
 function flip(hz){ if (!pic) return; if (!flt){ if (!sel) sel = { x: 0, y: 0, w: pic.w, h: pic.h }; lift(); }
-  const { w, h, px } = flt, n = new Uint8Array(px.length); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) n[y * w + x] = hz ? px[y * w + w - 1 - x] : px[(h - 1 - y) * w + x]; flt.px = n; queue(); }
+  const { w, h } = flt, fl = a => { const n = new Uint8Array(a.length); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) n[y * w + x] = hz ? a[y * w + w - 1 - x] : a[(h - 1 - y) * w + x]; return n; };
+  flt.px = fl(flt.px); if (flt.m) flt.m = fl(flt.m); queue(); }
 $("flipH").onclick = () => flip(true); $("flipV").onclick = () => flip(false);
-$("allBtn").onclick = () => { if (!pic) return; commitFloat(); sel = { x: 0, y: 0, w: pic.w, h: pic.h }; setTool("select"); queue(); };
+$("allBtn").onclick = () => { if (!pic) return; commitFloat(); sel = { x: 0, y: 0, w: pic.w, h: pic.h }; selTool(); queue(); };
 $("noneBtn").onclick = () => { if (!pic) return; if (flt) commitFloat(); else sel = null; queue(); };
 $("repBtn").onclick = () => { if (!pic) return; const a = parseInt($("repA").value, 16), b = parseInt($("repB").value, 16);
   if (!(a >= 0 && a < 256 && b >= 0 && b < 256)) return msg(L("Type two hex indices, e.g. 98 and 97", "請輸入兩個 16 進位色號，例如 98 和 97"), true);
@@ -447,12 +481,14 @@ $("repBtn").onclick = () => { if (!pic) return; const a = parseInt($("repA").val
   msg(L(`Replaced ${n} pixels`, `已取代 ${n} 個像素`)); countUsed(); paintPal(); queue(); };
 // pasting an image from the system clipboard (screenshots, other editors)
 document.addEventListener("paste", e => { if (!pic || /INPUT|TEXTAREA/.test(document.activeElement?.tagName)) return; const it = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith("image/"));
-  if (it){ e.preventDefault(); importImage(it.getAsFile()); } else if (clip){ e.preventDefault(); pasteBlock(clip); setTool("select"); } });
+  if (it){ e.preventDefault(); importImage(it.getAsFile()); } else if (clip){ e.preventDefault(); pasteBlock(clip); selTool(); } });
 
 // ===================== pointer =====================
+const selTool = () => { if (tool !== "lasso") setTool("select"); };
 function setTool(t){ tool = t; for (const b of document.querySelectorAll("#tools [data-tool]")) b.classList.toggle("on", b.dataset.tool === t); cursor(); }
 document.querySelectorAll("#tools [data-tool]").forEach(b => b.onclick = () => setTool(b.dataset.tool));
-const cursor = () => { cv.style.cursor = spaceDown || tool === "hand" ? "grab" : tool === "picker" || altDown ? "crosshair" : tool === "select" ? "default" : "crosshair"; };
+const cursor = () => { cv.style.cursor = spaceDown || tool === "hand" ? "grab" : tool === "picker" || altDown ? "crosshair" : tool === "select" || tool === "lasso" ? "default" : "crosshair"; };
+const toPixF = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left - view.ox) / view.z, (e.clientY - r.top - view.oy) / view.z]; };
 const toPix = e => { const r = cv.getBoundingClientRect(); return [Math.floor((e.clientX - r.left - view.ox) / view.z), Math.floor((e.clientY - r.top - view.oy) / view.z)]; };
 let drag = null, spaceDown = false, altDown = false;
 cv.addEventListener("contextmenu", e => e.preventDefault());
@@ -461,10 +497,12 @@ cv.addEventListener("pointerdown", e => {
   const c = e.button === 2 ? sec : prim;
   if (e.button === 1 || spaceDown || tool === "hand"){ drag = { k: "pan", sx: e.clientX, sy: e.clientY, ox: view.ox, oy: view.oy }; cv.style.cursor = "grabbing"; return; }
   if (tool === "picker" || e.altKey){ pick(x, y, e.button === 2); drag = { k: "pick", right: e.button === 2 }; return; }
-  if (tool === "select"){
-    const inside = r2 => r2 && x >= r2.x && y >= r2.y && x < r2.x + r2.w && y < r2.y + r2.h;
-    if (inside(flt) || inside(sel)){ if (!flt) lift(); drag = { k: "move", x, y, fx: flt.x, fy: flt.y }; return; }
-    commitFloat(); sel = null; drag = { k: "sel", x, y }; queue(); return; }
+  if (tool === "select" || tool === "lasso"){
+    const inside = r2 => r2 && x >= r2.x && y >= r2.y && x < r2.x + r2.w && y < r2.y + r2.h && mIn(r2, x - r2.x, y - r2.y);
+    if (!e.shiftKey && (inside(flt) || inside(sel))){ if (!flt) lift(); drag = { k: "move", x, y, fx: flt.x, fy: flt.y }; return; }
+    commitFloat(); const keep = e.shiftKey ? sel : null; sel = keep;
+    if (tool === "lasso"){ lassoPts = [toPixF(e)]; drag = { k: "lasso", keep }; } else drag = { k: "sel", x, y, keep };
+    queue(); return; }
   commitFloat();
   if (tool === "fill"){ if (x >= 0 && y >= 0 && x < pic.w && y < pic.h && inSel(x, y)){ pushUndo(); flood(x, y, c); countUsed(); paintPal(); queue(); } return; }
   pushUndo();
@@ -480,7 +518,8 @@ cv.addEventListener("pointermove", e => {
   if (!drag) return;
   if (drag.k === "pan"){ view.ox = drag.ox + e.clientX - drag.sx; view.oy = drag.oy + e.clientY - drag.sy; draw(); return; }
   if (drag.k === "pick"){ pick(x, y, drag.right); return; }
-  if (drag.k === "sel"){ sel = norm(drag.x, drag.y, x, y); $("stSel").textContent = sel ? `${L("selection", "選取")} ${sel.x},${sel.y} ${sel.w}×${sel.h}` : ""; draw(); return; }
+  if (drag.k === "lasso"){ const q = toPixF(e), l = lassoPts[lassoPts.length - 1]; if (Math.hypot(q[0] - l[0], q[1] - l[1]) * view.z >= 2){ lassoPts.push(q); draw(); } return; }
+  if (drag.k === "sel"){ sel = unionSel(drag.keep, norm(drag.x, drag.y, x, y)); $("stSel").textContent = sel ? `${L("selection", "選取")} ${sel.x},${sel.y} ${sel.w}×${sel.h}` : ""; draw(); return; }
   if (drag.k === "move"){ flt.x = drag.fx + x - drag.x; flt.y = drag.fy + y - drag.y; $("stSel").textContent = `${L("moving", "移動")} ${flt.x},${flt.y} ${flt.w}×${flt.h}`; queue(); return; }
   if (drag.k === "paint"){ if (x === drag.x && y === drag.y) return; lineTo(drag.x, drag.y, x, y, (a, b) => dab(a, b, drag.c)); drag.x = x; drag.y = y; queue(); return; }
   pic.px.set(drag.base);
@@ -489,7 +528,9 @@ cv.addEventListener("pointermove", e => {
   else rectShape(drag.x, drag.y, x, y, drag.c);
   queue();
 });
-const endDrag = () => { if (!drag) return; const k = drag.k; drag = null; cursor(); if (/paint|line|rect/.test(k)){ countUsed(); paintPal(); } draw(); };
+const endDrag = () => { if (!drag) return; const k = drag.k;
+  if (k === "lasso"){ sel = unionSel(drag.keep, lassoSel(lassoPts)); lassoPts = null; $("stSel").textContent = sel ? `${L("selection", "選取")} ${sel.x},${sel.y} ${sel.w}×${sel.h}` : ""; }
+  drag = null; cursor(); if (/paint|line|rect/.test(k)){ countUsed(); paintPal(); } draw(); };
 cv.addEventListener("pointerup", endDrag); cv.addEventListener("pointercancel", endDrag);
 cv.addEventListener("pointerleave", () => { if (preview){ preview = null; draw(); } });
 function pick(x, y, right){ if (x < 0 || y < 0 || x >= pic.w || y >= pic.h) return; const v = pic.px[y * pic.w + x]; if (right) sec = v; else prim = v; paintPal(); }
@@ -505,7 +546,7 @@ addEventListener("keydown", e => {
   if (mod){ if (k === "z" && !e.shiftKey) doUndo(); else if (k === "y" || k === "z") doRedo(); else if (k === "s") save(); else if (k === "c") $("copyBtn").onclick(); else if (k === "x") $("cutBtn").onclick(); else if (k === "a") $("allBtn").onclick(); else if (k === "v") return; else return; e.preventDefault(); return; }
   if (e.key === " "){ spaceDown = true; cursor(); e.preventDefault(); return; }
   if (e.key === "Alt"){ altDown = true; cursor(); e.preventDefault(); return; }
-  const T = { b: "pencil", p: "pencil", e: "eraser", i: "picker", g: "fill", l: "line", r: "rect", m: "select", h: "hand" };
+  const T = { b: "pencil", p: "pencil", e: "eraser", i: "picker", g: "fill", l: "line", r: "rect", m: "select", f: "lasso", h: "hand" };
   if (T[k]){ setTool(T[k]); return; }
   if (k === "x"){ $("swapBtn").onclick(); return; }
   if (k === "escape" || k === "enter"){ $("noneBtn").onclick(); return; }
