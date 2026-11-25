@@ -397,7 +397,7 @@ function parseModel(u8in) {
   const siteSeen = new Set(); let si = 0;
 
   // linear pass
-  let lod = -1, map = [];
+  let lod = -1, map = []; const tramp = new Set();
   for (let o = start; o < appendStart - 1;) {
     while (si < sites.length && sites[si][0] <= o) { walk(sites[si][1], map.slice(), 0, Math.max(lod, 0), 0, siteSeen); si++; }
     if (hooks.has(o)) { walk(hooks.get(o), map.slice(), 0, Math.max(lod, 0), 0, new Set()); o += 7; continue; }
@@ -452,6 +452,21 @@ function parseModel(u8in) {
       }
     }
     if (op === 0xF6 && lod >= 0) { const s = dv.getUint16(o + 1, true); if (map[s]) { addF6(o, map, lod); o += 7; continue; } }
+    // face trampolines (f14b.py, f14s.py / boltext.py): a face of the original code became `38 rel16` to a face moved into the nose
+    // spare or into the raw slack after the signature, which ends with a `38` jump back. Draw those faces here, with the slot map
+    // of the jump site (the stabilizer faces of F14B use the stabilizer part's vertices), and skip them in the linear pass.
+    if (op === 0x38 && lod >= 0 && c[o + 3] !== 0x38) {
+      let t = o + 3 + dv.getInt16(o + 1, true); const got = [];
+      if (Math.abs(t - o) > 0x400 && t > start && t < c.length - 12 && (c[t] === 0xFC || c[t] === 0x38) && !tramp.has(t)) {
+        for (let g = 0; g < 16 && t > start && t < c.length - 12; g++) {
+          if (c[t] === 0xFC) { const F = readFace(c, dv, t, c.length); if (!F || F.end > c.length) break; got.push(F); t = F.end; }
+          else if (c[t] === 0x38) { const t2 = t + 3 + dv.getInt16(t + 1, true); if (Math.abs(t2 - o) < 0x400) break; t = t2; }
+          else break;
+        }
+        for (const F of got) if (addFace(F, map, lod, false, true)) tramp.add(F.o);
+      }
+    }
+    if (op === 0xFC && lod >= 0 && tramp.has(o)) { const F = readFace(c, dv, o, c.length); if (F) { o = F.end; continue; } }
     if (op === 0xFC && lod >= 0) { const F = readFace(c, dv, o, appendStart); if (F && addFace(F, map, lod, false, true)) { o = F.end; continue; } }
     o++;
   }
