@@ -138,3 +138,53 @@ def run(src, psrc, dst, pdst, spec):
     assert len(out) < 65536, f'SH {len(out)} B, FA needs < 65536'
     open(dst, 'wb').write(out); open(pdst, 'wb').write(pb)
     print(f'{dst}: gear {len(blk)} B at CODE+{tail:#x}, file {len(out)}; gear F0s {[hex(v) for v in starts.values()]}')
+
+
+def part_uvs(c, p):
+    """UV rectangles (u0, v0, u1, v1) of the textured faces of the part whose 82 is at p."""
+    p += 6 + 6 * struct.unpack_from('<H', c, p + 2)[0]; out = []
+    while c[p] == 0xFC:
+        fl = struct.unpack_from('<H', c, p + 1)[0]; q = p + 5
+        if fl & 0x60: q += 6 + (3 if fl & 0x200 else 6)
+        k = c[q]; q += 1 + (2 * k if fl & 0x400 else k)
+        if fl & 4:
+            if fl & 0x100: u = list(c[q:q + 2 * k]); q += 2 * k
+            else: u = list(struct.unpack_from('<%dH' % (2 * k), c, q)); q += 4 * k
+            out.append((min(u[0::2]), min(u[1::2]), max(u[0::2]), max(u[1::2])))
+        p = q
+    return out, p
+
+
+def auto_hubs(path, pic, parts, rm=14, rn=10, vmax=255):
+    """Hub texture spots for up_gear: the PIC rectangles used only by the old gear billboards (in `parts`) are
+    cleared and become free, with any other 0xFF pixel no face uses.  Returns dict(hub_main, hub_nose, clear,
+    span_end) to merge into a spec."""
+    import numpy as np
+    from up_ab import used_uv
+    from shview import loadpic
+    from sh_inspect import load
+    _, _, _, _, c = load(path)
+    mine = []; span = {}
+    for side, p in parts.items():
+        r, e = part_uvs(c, p); mine += r; span[side] = e
+    allb = [tuple(b) for b in used_uv(path)]
+    excl = sorted({r for r in mine if allb.count(r) == mine.count(r)})
+    img = loadpic(pic); h, w = img.shape
+    used = np.zeros((h, w), bool)
+    for u0, v0, u1, v1 in allb:
+        if (u0, v0, u1, v1) not in excl: used[max(0, v0):v1 + 1, max(0, u0):u1 + 1] = True
+    ok = (img == 255) & ~used
+    for u0, v0, u1, v1 in excl: ok[v0:v1 + 1, u0:u1 + 1] = ~used[v0:v1 + 1, u0:u1 + 1]
+    out = []
+    for rad in (rm, rn):
+        S_ = 2 * rad + 3
+        I = np.zeros((h + 1, w + 1), int); I[1:, 1:] = np.cumsum(np.cumsum(ok, 0), 1)
+        hit = None
+        for v in range(0, min(h, vmax + 1) - S_):
+            for u in range(0, w - S_):
+                if I[v + S_, u + S_] - I[v, u + S_] - I[v + S_, u] + I[v, u] == S_ * S_: hit = (u, v); break
+            if hit: break
+        assert hit, ('no room for hub', rad)
+        ok[hit[1]:hit[1] + S_, hit[0]:hit[0] + S_] = False
+        out.append((hit[0] + rad + 1, hit[1] + rad + 1, rad))
+    return dict(hub_main=out[0], hub_nose=out[1], clear=list(excl), span_end=span)

@@ -14,9 +14,10 @@ from up_ab import free_slots
 from fs_core import find_thunk
 
 
-def run(src, psrc, dst, pdst, old, length, grow=3000):
-    slots = free_slots(src, psrc)
-    if len(slots) < 3: slots = free_slots(src, psrc, need_ff=False)
+def run(src, psrc, dst, pdst, old, length, grow=3000, ignore=()):
+    ignore = [tuple(r) for r in ignore]             # PIC areas of faces that a later step removes (old gear billboards)
+    slots = free_slots(src, psrc, ignore=ignore)
+    if len(slots) < 3: slots = free_slots(src, psrc, need_ff=False, ignore=ignore)
     assert len(slots) == 3, slots
     pb = bytearray(open(psrc, 'rb').read()); P = read_pic(pb)
     for k, (fu, fv, rot) in enumerate(slots):
@@ -42,17 +43,18 @@ def run(src, psrc, dst, pdst, old, length, grow=3000):
     vb = struct.pack('<BBHH', 0x82, 0, n, t) + b''.join(struct.pack('<3h', *v) for v in V)
     faces = []; p = old + 6 + 6 * n
     while c[p] == 0xFC:
-        fl = struct.unpack_from('<H', c, p + 1)[0]; assert fl & 0x604 == 0x604 and not fl & 0x100 and c[p + 14] == 4, hex(fl)
-        hdr = bytearray(c[p:p + 14]); idx = list(struct.unpack_from('<4H', c, p + 15))
+        fl = struct.unpack_from('<H', c, p + 1)[0]; nv = c[p + 14]
+        assert fl & 0x604 == 0x604 and fl & 0x60 and fl & 0x200 and not fl & 0x100 and nv >= 3, hex(fl)
+        hdr = bytearray(c[p:p + 14]); idx = list(struct.unpack_from('<%dH' % nv, c, p + 15))
         P3 = [V[i - t // 8] for i in idx]
-        struct.pack_into('<3b', hdr, 11, sum(q[0] for q in P3) // 4, sum(q[2] for q in P3) // 4, (NOZ + TAIL) // 2)
-        faces.append((hdr, idx)); p += 39
+        struct.pack_into('<3b', hdr, 11, sum(q[0] for q in P3) // nv, sum(q[2] for q in P3) // nv, (NOZ + TAIL) // 2)
+        faces.append((hdr, idx)); p += 15 + 6 * nv
     assert c[p] == 0x1E and len(faces) >= 2, (hex(p), len(faces))
 
     def fbytes(hdr, idx, sl):
         P3 = [V[i - t // 8] for i in idx]; ax = 2 if len({q[0] for q in P3}) == 1 else 0
         lo, hi = min(q[ax] for q in P3), max(q[ax] for q in P3)
-        out = bytearray(hdr) + b'\x04' + struct.pack('<4H', *idx)
+        out = bytearray(hdr) + bytes([len(idx)]) + struct.pack('<%dH' % len(idx), *idx)
         for q in P3:
             out += struct.pack('<HH', *(round(z) for z in uvf(sl, (q[1] - TAIL) / (NOZ - TAIL), (q[ax] - lo) / (hi - lo))))
         return out

@@ -38,10 +38,11 @@ def find_profile(c, th):
     return None
 
 
-def free_slots(path, pic, n=3, need_ff=True):
+def free_slots(path, pic, n=3, need_ff=True, ignore=()):
     img = loadpic(pic); h, w = img.shape
     used = np.zeros((h, w), bool)
-    for u0, v0, u1, v1 in used_uv(path): used[max(0, v0):v1 + 1, max(0, u0):u1 + 1] = True
+    for u0, v0, u1, v1 in used_uv(path):
+        if (u0, v0, u1, v1) not in ignore: used[max(0, v0):v1 + 1, max(0, u0):u1 + 1] = True
     ok = ((img == 255) if need_ff else True) & ~used
     # integral image for rectangle checks
     S = np.zeros((h + 1, w + 1), int); S[1:, 1:] = np.cumsum(np.cumsum(ok, 0), 1)
