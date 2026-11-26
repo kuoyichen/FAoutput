@@ -217,8 +217,9 @@ class Gear:
     """A retracting gear part: mesh in its own frame (pivot at origin, x right, y fwd, z up), drawn by C4 at
     pos while _PLgearDown == 1; the C4 angle `field` (0x08 heading, 0x0A pitch, 0x0C roll) = _PLgearPos >> 1
     (negated if neg): 0 down .. 16383 (90 deg) up."""
-    def __init__(s, name, M, pos, field=0x0A, neg=False, shift=1):
+    def __init__(s, name, M, pos, field=0x0A, neg=False, shift=1, var='GEARDOWN', anim=True):
         s.name, s.M, s.pos, s.field, s.neg, s.shift = name, M, tuple(int(round(v)) for v in pos), field, neg, shift
+        s.var, s.anim = var, anim      # anim=False: a static part drawn while `var` != 0 (e.g. var='AB' for a flame)
 
 
 class Disc:
@@ -278,8 +279,11 @@ def build(donor, out, M, gears=(), discs=(), pic_name=None, pic_src=None, pic_ou
         pdat = part_data[G.name]; px, py, pz = G.pos
         def e(a, G=G):
             ops = SAR(G.shift) + (NEG if G.neg else b'')
-            a.cond('GEARDOWN', 'RESUME', lambda: a.patch_c4('GEARPOS', G.field, ops, 'RESUME',
-                                                              lambda: a.c4((G.pos[0], G.pos[2], G.pos[1]), (0, 0, 0), 'part_' + G.name)))
+            if not G.anim:
+                a.cond(G.var, 'RESUME', lambda: a.c4((G.pos[0], G.pos[2], G.pos[1]), (0, 0, 0), 'part_' + G.name))
+                return
+            a.cond(G.var, 'RESUME', lambda: a.patch_c4('GEARPOS', G.field, ops, 'RESUME',
+                                                         lambda: a.c4((G.pos[0], G.pos[2], G.pos[1]), (0, 0, 0), 'part_' + G.name)))
         objs.append(Obj('gear_' + G.name, pdat['lo'] + G.pos, pdat['hi'] + G.pos, e))
     for D in discs:
         ids = dv[D.name]; Pc = np.array([M.V[i] for i in ids])

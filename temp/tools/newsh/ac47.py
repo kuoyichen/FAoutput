@@ -14,7 +14,7 @@ from mesh import Mesh
 
 U = 3.0
 S0 = 25.0
-TAN, GREEN, DGREEN, BLACK, GLASS, TYRE, GREY, EXH = 86, 104, 99, 68, 74, 68, 147, 158
+TAN, GREEN, DGREEN, BLACK, GLASS, TYRE, GREY, EXH = 86, 105, 108, 68, 74, 68, 147, 158
 
 
 def P(s, x=0.0, z=0.0): return (x * U, (S0 - s) * U, z * U)

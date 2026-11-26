@@ -13,7 +13,7 @@ from mesh import Mesh
 
 U = 3.0                   # SH units per ft
 S0 = 10.0                 # ft from the nose to the origin (about the CG)
-BLUE, GLASS, BLACK, TYRE, GREY, METAL, EXH = 152, 74, 68, 68, 147, 150, 158   # BLUE = the skin colour (light gull grey)
+BLUE, GLASS, BLACK, TYRE, GREY, METAL, EXH = 148, 74, 68, 68, 147, 150, 158   # BLUE = the skin colour (light gull grey)
 
 
 def P(s, x=0.0, z=0.0): return (x * U, (S0 - s) * U, z * U)
