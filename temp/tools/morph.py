@@ -48,5 +48,13 @@ def remap(path_in, path_out, warp, starts, var_sets=None):
         X, U, F = struct.unpack_from('<3h', c, p + 2)
         x, f, u = warp((X, F, U))
         struct.pack_into('<3h', d, ro + p + 2, cl(x), cl(u), cl(f))
+    if c[0x0E:0x10] == b'\xf2\x00':                  # F2 bbox (resting height = ground - ymin, gun box): same warp
+        t = 0x12 + struct.unpack_from('<H', c, 0x10)[0]
+        r = struct.unpack_from('<i', c, t)[0]; b = struct.unpack_from('<6h', c, t + 4)
+        nb = (warp((b[0], 0, 0))[0], warp((b[1], 0, 0))[0], warp((0, 0, b[2]))[2], warp((0, 0, b[3]))[2],
+              warp((0, b[4], 0))[1], warp((0, b[5], 0))[1])
+        k = max(abs(nb[i]) / max(1, abs(b[i])) for i in range(6))
+        struct.pack_into('<i6h', d, ro + t, int(r * k) if k > 1 else r, *(cl(v) for v in nb))
+        print(f'F2 bbox {b} -> {tuple(cl(v) for v in nb)}')
     open(path_out, 'wb').write(d)
     print(f'{path_out}: {len(N)} planes, {len(C4)} C4 positions remapped')

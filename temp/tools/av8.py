@@ -3,7 +3,8 @@
 Steps: whole shape scaled 0.93 (stock 49.7 ft long / 32.7 ft span vs real 46.3 / 30.3 ft; BSP planes and part
 positions follow) -> PT stations scaled with it -> stores (AV8: single-sided inner stations drawn on their own
 side; fixed GAU-12 gun pod + ammo pod under the belly) -> 3D gear: single nose wheel, twin main wheels on the
-centreline, wing outriggers, every wheel on the stock main-gear ground line.  HAR7 gets its own copy HAR7.SH
+centreline, wing outriggers, every wheel on the F2 ground line (stock ymin -21 x 0.93 = -20; the stock mains
+stopped 3 units short of it, so the jet floated).  HAR7 gets its own copy HAR7.SH
 (its PT has a different station list) with the same texture.
 Usage: av8.py OUTDIR"""
 import os, sys
@@ -17,7 +18,7 @@ ABS = [0x80, 0x341d, 0x3fc7, 0x4311]
 LODS = [0x80, 0x341d, 0x4311]
 warp = lambda v: tuple(a * S_ for a in v)
 PARTS = {'N': 0x33bf, 'M': 0x32a8, 'R': 0x31ed, 'L': 0x312c}
-GROUND = -18                                     # stock main-gear wheel bottom (world up)
+GROUND = -20                                     # stock F2 ymin -21 (nose wheel bottom; the stock mains stopped at -18) x 0.93
 
 
 def make_pt(name, dst):
