@@ -13,6 +13,7 @@
     ["see_editor.html", "SEE Editor", "SEE 編輯器", "Seekers / radars (.SEE)",      "尋標器 / 雷達 (.SEE)",   "◎"],
     ["ecm_editor.html", "ECM Editor", "ECM 編輯器", "Jammers / countermeasures (.ECM)", "干擾器 / 反制 (.ECM)", "≋"],
     ["pic_editor.html", "PIC Editor", "PIC 編輯器", "Textures (.PIC)",              "貼圖 (.PIC)",            "◩"],
+    ["snd_editor.html", "Sound Editor", "聲音編輯器", "Sounds (.11K .8K .5K), MP3 import", "聲音 (.11K .8K .5K)、MP3 匯入", "♪"],
   ];
   window.FAEDITORS = EDITORS;
   const I = window.FAI18N;
