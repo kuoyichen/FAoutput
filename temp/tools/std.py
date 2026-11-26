@@ -124,3 +124,10 @@ def stub_parts(src, dst, keys, t=None):
     d[ro + t:ro + t + len(blk)] = blk
     open(dst, 'wb').write(d)
     return parts
+
+
+def set_f2_ymin(path, ymin):
+    from sh_inspect import load
+    d, pe, secs, code, c = load(path); d = bytearray(d)
+    t = 0x12 + struct.unpack_from('<H', c, 0x10)[0]
+    struct.pack_into('<h', d, code['ro'] + t + 8, ymin); open(path, 'wb').write(d)
