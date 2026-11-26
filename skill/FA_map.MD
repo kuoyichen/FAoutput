@@ -232,3 +232,10 @@ y..y+3 as `rot90(flipud(tile), ROT)` with row 0 = south (fits the coasts best).
 texture tiles (pick the tiles folder) as overlays; raise / lower / smooth / flatten / set / restore /
 pick brushes, protect sea and objects, contours, a 3D preview of the area under the cursor, height
 PNG export / import; Save writes the original file back with only the height bytes changed.
+
+**3D mesh editing** (`P` opens 3D, `Enter` / ⛶ makes it full size, `W` mesh lines): drag a grid point
+up or down to set its height (whole steps by default, at most half a step per pixel); *Pull radius*
+drags its neighbours along with a cosine falloff. Drag empty ground or the right button to orbit,
+middle button or Shift+drag (or arrow keys) to move, wheel to zoom. The point under the mouse is
+found by casting a ray onto the terrain and keeping only points the eye can see, so raised spikes
+and points on slopes facing away pick correctly. Each drag is one undo step.
