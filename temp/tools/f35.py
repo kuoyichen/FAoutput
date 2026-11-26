@@ -155,12 +155,55 @@ def door_extra(S, top_u, hinge_f, length=17, half=6):
     old = S.PYLON_UNITS
     S.PYLON_UNITS = lambda: old() + [('pyHOLE', 'hole', (0, top_u, hinge_f), top_u + 1), ('pyDOOR', 'door', (0, top_u + 1, hinge_f), top_u + 12)]
 
+def prism(stations, sec, col):
+    """Fairing along fwd: stations [(fwd, base up, scale)], section [(x, up above base)] (scale 0 = tip)."""
+    from fs_core import orient, FLAT
+    V, R = [], []
+    for f, b, k in stations:
+        if k == 0: V.append((0, round(f), round(b))); R.append([len(V) - 1] * len(sec)); continue
+        R.append([]);
+        for x, z in sec: V.append((round(x * k), round(f), round(b + z * k))); R[-1].append(len(V) - 1)
+    F = []
+    for A, B in zip(R, R[1:]):
+        for j in range(len(sec)):
+            q = [A[j], A[(j + 1) % len(sec)], B[(j + 1) % len(sec)], B[j]]
+            q = [v for i, v in enumerate(q) if v != q[i - 1]]
+            if len(q) >= 3: F.append((FLAT, col, q))
+    for (f, b, k), r in ((stations[0], R[0]), (stations[-1], R[-1])):
+        if k: F.append((FLAT, 160 if f == stations[0][0] else col, list(r)))
+    return V, orient(V, F)
+
+
+def gun_extra(S):
+    """F-35A GAU-22/A: fairing on the left shoulder behind the canopy, muzzle (black) at its front end."""
+    sec = [(-2.5, -1.5), (-2.5, 1.5), (-1.2, 3), (1.2, 3), (2.5, 1.5), (2.5, -1.5)]     # base on the skin
+    st = [(34, 6, .8), (31, 7, 1), (24, 8, 1), (16, 9, 1), (8, 10, .9), (2, 11, .6), (-6, 11, 0)]
+    S.PYLONS['gun'] = prism(st, sec, 154)
+    old = S.PYLON_UNITS
+    S.PYLON_UNITS = lambda: old() + [('pyGUN', 'gun', (-9, 0, 0), 14)]
+
+
+def hook_extra(S):
+    """F-35C tail hook: stowed shaft in a belly fairing aft of the bays, black hook point at its end."""
+    sec = [(-1.5, 1), (-1.5, -1.5), (-1, -3), (1, -3), (1.5, -1.5), (1.5, 1)]
+    st = [(-30, -7, 0), (-34, -7, 1), (-46, -6, 1), (-58, -5, 1), (-61, -5, .8)]
+    Vh, Fh = prism(st, sec, 152)
+    n = len(Vh); Vh = Vh + [(-1, -61, -7), (1, -61, -7), (1, -64, -10), (-1, -64, -10)]
+    from fs_core import FLAT
+    Fh = Fh + [(FLAT, 160, [n, n + 1, n + 2, n + 3]), (FLAT, 160, [n + 3, n + 2, n + 1, n])]
+    S.PYLONS['hook'] = (Vh, Fh)
+    old = S.PYLON_UNITS
+    S.PYLON_UNITS = lambda: old() + [('pyHOOK', 'hook', (0, 0, 0), -4)]
+
+
 def stores_extra_for(var, top=None):
     def ex(S):
         for k in [k for k in S.SLOTS if S.SLOTS[k][0] in (4, 5)]: del S.SLOTS[k]
         S.FALL_SLOTS = {k: i for i, k in enumerate([k for k in ('R6', 'L6', 'R7', 'L7') if k in S.SLOTS])}
         for k in (S.AIM54,): S.SHAPES[k] = S.SHAPES[S.AAM]
         if var == 'B': door_extra(S, *top)
+        if var == 'A': gun_extra(S)
+        if var == 'C': hook_extra(S)
     return ex
 
 def top_at(path, f0, f1):
