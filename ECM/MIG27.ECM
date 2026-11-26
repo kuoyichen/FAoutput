@@ -1,0 +1,26 @@
+[brent's_relocatable_format]
+    byte 9
+	ptr si_names
+    word 0
+    byte $0
+    word $0
+    byte 5
+    byte 60
+    byte 95
+    byte 24
+    byte 5
+    byte 60
+    byte 159
+    byte 31
+    byte 25
+    word 100
+    byte 15
+    byte 5
+    byte 25
+    word 100
+    byte 0
+:si_names
+	string ""
+	string "(5) 60C/F"
+	string "MIG27.ECM"
+	end

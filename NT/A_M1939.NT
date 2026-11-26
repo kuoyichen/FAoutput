@@ -1,0 +1,122 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 3
+    word 210
+    word 162
+	ptr ot_names
+    dword $0
+    word $800
+    dword 0
+    dword 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 1956
+    word 78
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 1
+    word 255
+    word 255
+    word 255
+    word 255
+    word 255
+    byte 21
+    byte 0
+    dword 0
+    word 100
+
+;---------------- movement info ----------------
+
+    word 16380
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    dword ^0
+    dword ^0
+    dword ^0
+    dword ^0
+	symbol _GVProc	; utilProc
+
+;---------------- sound info ----------------
+
+	ptr loopSound
+	ptr secondSound
+    dword 0
+    dword 0
+    byte 1
+    word 2500
+    word 25
+    word 20
+    word 20
+    word 1000
+    word 0
+    word 0
+    word 0
+    dword 0
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+
+;---------------- START OF NPC_TYPE ----------------
+
+    dword $0
+    dword 0
+    byte 40
+    byte 80
+    byte 40
+    word 32767
+    word 195
+    byte 1
+	ptr hards
+
+;---------------- END OF NPC_TYPE ----------------
+
+:hards
+;-------- hardpoint 0
+    word $8
+    word 0
+    word 30
+    word 0
+    word 0
+    word 0
+    word 0
+    word 16380
+	ptr defaultTypeName0
+    byte 0
+    word 32767
+    byte 0
+:ot_names
+	string "M1939 Zone"
+	string "M1939 37mm AAA Zone"
+	string "A_M1939.NT"
+:loopSound
+	string "&TANK.11K"
+:secondSound
+	string "&TURRET.11K"
+:defaultTypeName0
+	string "A_M1939.JT"
+	end

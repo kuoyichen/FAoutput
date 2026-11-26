@@ -1,0 +1,26 @@
+[brent's_relocatable_format]
+    byte 9
+	ptr si_names
+    word 0
+    byte $0
+    word $70
+    byte 0
+    byte 45
+    byte 95
+    byte 24
+    byte 0
+    byte 45
+    byte 159
+    byte 31
+    byte 55
+    word 100
+    byte 35
+    byte 5
+    byte 35
+    word 100
+    byte 0
+:si_names
+	string ""
+	string "55R CW/P"
+	string "F18.ECM"
+	end

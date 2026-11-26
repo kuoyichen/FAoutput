@@ -1,0 +1,26 @@
+[brent's_relocatable_format]
+    byte 9
+	ptr si_names
+    word 573
+    byte $1
+    word $f0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 70
+    word 100
+    byte 45
+    byte 5
+    byte 40
+    word 100
+    byte 0
+:si_names
+	string "ALQ-131"
+	string "ALQ-131 ECM"
+	string "ALQ167.ECM"
+	end
