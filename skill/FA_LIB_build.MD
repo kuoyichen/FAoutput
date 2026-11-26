@@ -269,7 +269,9 @@ entry data
   and the JKPFA54 ToolKit LIBs unpack byte-identical to their ToolKit project folders.
 * Every compressed entry is unpacked again before it is stored in the cache, so a bad entry can't be written.
 * Same input gives the same LIB bytes on every build (folder or zip source).
-* In-game test: see the LIB 製作 thread (FA_JKPFA54_D.LIB rebuilt by falib in place of the ToolKit one).
+* In-game test passed (2026-11-26): FA_JKPFA54_D.LIB rebuilt by falib (same 390 files, falib's own
+  compression) replaced the ToolKit one in Kuoyi's game folder; the AC-130 (only in that LIB, no loose
+  file) loads and flies.
 
 ## 10. Speed
 
