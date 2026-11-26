@@ -67,7 +67,20 @@ K = dict(
        # RA-5C Vigilante: 76.5 ft, 53 ft span, high 37.5 deg wing, box intakes, twin J79 afterburners, low tailplane
        'RA5': dict(L=76.5, span=26.5, sweep=37.5, wle=33.0, wch=24.0, tch=5.5, dih=-2.0, fs=1.5, canopy='framed', ab=True, radome=False,
                    fin=(55.0, 18.0, 15.0, 6.0), tail=(63.0, 10.0, 11.0, 4.0), gear=(42.0, 7.8), nose=12.0, ground=7.6, wh=2.6, th=-0.8,
-                   solid=True, nosecol=148, side=(20.0, 34.0, 2.0, -2.6), iw=2.2, c0=11.0, col=148, twin=1.7, gz=-1.6, fsw=40.0)})
+                   solid=True, nosecol=148, side=(20.0, 34.0, 2.0, -2.6), iw=2.2, c0=11.0, col=148, twin=1.7, gz=-1.6, fsw=40.0),
+       # F2H-2 Banshee: 40.2 ft, 41.7 ft span over the tip tanks, J34s in the wing roots, Glossy Sea Blue
+       'F2H': dict(L=40.2, span=19.4, sweep=0.0, wle=14.0, wch=10.0, tch=5.0, dih=3.0, fs=1.0, canopy='bubble', ab=False, radome=False,
+                   fin=(30.0, 8.5, 10.0, 3.6), tail=(33.0, 5.4, 7.6, 3.0), gear=(19.0, 6.2), nose=6.0, ground=6.4, tsw=6.0, fsw=28.0,
+                   tiptank=True, solid=True, side=(12.0, 26.0, 0.9, -1.8), iw=2.0, c0=7.0, col=141, twin=1.5),
+       # F-89J Scorpion: 53.8 ft, 59.8 ft span over the tip pods, engines low on the fuselage sides, tailplane high on the fin
+       'F89': dict(L=53.8, span=28.0, sweep=0.0, wle=19.0, wch=13.0, tch=6.5, dih=0.0, fs=1.2, canopy='framed', ab=True, radome=False,
+                   fin=(40.0, 11.0, 12.5, 4.5), tail=(47.5, 6.5, 9.0, 3.4), gear=(26.0, 6.6), nose=8.0, ground=7.0, tsw=4.0, fsw=35.0, th=5.5,
+                   tiptank=True, solid=True, nosecol=68, side=(15.0, 40.0, -0.6, -3.2), iw=2.3, c0=9.0, col=148, twin=3.7, wh=0.2, abpos=(40.6, -1.6)),
+       # U-2R: 63 ft, 103 ft span, side intakes, long straight wing, bicycle gear (main twin wheels forward, tail wheels aft;
+       # the drop-off pogo outriggers are left out), black overall
+       'U2': dict(L=63.0, span=51.5, sweep=0.0, wle=22.0, wch=12.5, tch=3.6, dih=1.5, fs=1.1, canopy='framed', ab=False, radome=False,
+                  fin=(48.0, 11.5, 11.0, 4.5), tail=(54.5, 6.5, 10.0, 3.2), gear=(20.0, 0.6), nose=50.0, ground=4.8, tsw=6.0, fsw=25.0,
+                  solid=True, side=(12.0, 19.0, 0.6, -1.0), iw=1.0, c0=8.0, col=68, gz=-2.4)})
 
 
 def body(M, k):
@@ -172,7 +185,8 @@ def flame():
 OUT = {'F': ('F86N', [('F86F.PT', 'f86')]), 'D': ('F86DN', [('F86D.PT', 'f86'), ('F86K.PT', 'f86')]),
        '84F': ('F84FN', [('F84F.PT', 'f86')]), '84E': ('F84EN', [('F84E.PT', 'f84')]), '100': ('F100N', [('F100D.PT', 'mig21')]),
        '80': ('F80N', [('F80.PT', 'bast')]), '94': ('F94N', [('F94.PT', 'bast')]), '9F': ('F9F5N', [('F9F.PT', 'f9f5')]),
-       '9F6': ('F9F6N', [('F9F6.PT', 'dem')]), '106': ('F106N', [('F106.PT', 'mrg')]), '102': ('F102N', [('F102A.PT', 'mrg')]), 'RA5': ('RA5CN', [('RA5.PT', 'ra5c')])}
+       '9F6': ('F9F6N', [('F9F6.PT', 'dem')]), '106': ('F106N', [('F106.PT', 'mrg')]), '102': ('F102N', [('F102A.PT', 'mrg')]), 'RA5': ('RA5CN', [('RA5.PT', 'ra5c')]),
+       'F2H': ('F2HN', [('F2H2.PT', 'f2h')]), 'F89': ('F89N', [('F89J.PT', 'f89')]), 'U2': ('U2RN', [('U2.PT', 'u2dr')])}
 
 
 def build(kind, out):
@@ -184,7 +198,8 @@ def build(kind, out):
     nz = -2.2 if not k['radome'] else -2.2
     g.append(core.Gear('N', nose_gear(G + nz - 0.8), P(k['nose'], 0, nz), field=0x0A, neg=True))
     if k['ab'] and k.get('twin'):
-        for sx, n in ((1, 'AR'), (-1, 'AL')): g.append(core.Gear(n, flame(), P(k['L'] - 0.55, sx * k['twin'], 0.05), var='AB', anim=False))
+        fs_, fz = k.get('abpos', (k['L'] - 0.55, 0.05))
+        for sx, n in ((1, 'AR'), (-1, 'AL')): g.append(core.Gear(n, flame(), P(fs_, sx * k['twin'], fz), var='AB', anim=False))
     elif k['ab']: g.append(core.Gear('AB', flame(), P(k['L'] - 0.55, 0, 0.05), var='AB', anim=False))
     name, pts = OUT[kind]
     core.build(os.path.join(REPO, 'SH', 'F86.SH'), os.path.join(out, name + '.SH'), M, g, [], smooth_ok=lambda c: c not in (BLACK, GLASS))
