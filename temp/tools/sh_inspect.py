@@ -17,7 +17,8 @@ def load(path):
 def thunks(d, secs, code, c):
     """CODE offset of each import thunk (ff 25 [IAT]) -> import name"""
     tail = c.find(SIG); out = {}
-    idata = next(s for s in secs if s['name'] == '.idata')
+    idata = next((s for s in secs if s['name'] == '.idata'), None)
+    if idata is None: return {}                 # helicopter / prop SHs: no imports, no variables
     rva2off = lambda r: idata['ro'] + r - idata['va']
     p = tail + len(SIG)
     while p + 6 <= len(c):

@@ -21,7 +21,7 @@ def max_slot(c, tail):
         else: p += 1
     return hi
 
-def run(src, pt, dst, extra=None):
+def run(src, pt, dst, extra=None, static=False):
     d = open(src, 'rb').read()
     _, _, _, _, c = load(src)
     tail = c.find(S.SIG)
@@ -30,7 +30,7 @@ def run(src, pt, dst, extra=None):
     print('store vertex base', S.BASE)
     U.configure(d, pt)
     if extra: extra(S)
-    out, _ = S.make(d)
+    out, _ = S.make(d, static)
     assert len(out) < 65536, len(out)
     open(dst, 'wb').write(out); print(dst, len(out))
 

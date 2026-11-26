@@ -611,7 +611,7 @@ def build(d, static=False, debug=False):
     assert c[ROOT] in (0x06, 0x0C, 0x0E, 0x10, 0x6C) and c[ROOT+1] == 0, 'root is not a plane node'
     NL = 18 if c[ROOT] == 0x06 else 10 if c[ROOT] == 0x6C else 14   # 6C = 1D eye test (F-15)                # 06 = 3D plane (18 B); 0C/0E/10 = 2D planes (14 B, F18C/E/T)
     tail = bytes(c).find(SIG)
-    thunk_old = find_thunk(c, tail)
+    thunk_old = find_thunk(c, tail) if not static else 0   # static: no F0 (helicopter SHs have no imports)
 
     def part_bytes(V, F):
         b = bytearray(struct.pack('<BBHH', 0x82, 0, len(V), BASE*8))
@@ -620,9 +620,9 @@ def build(d, static=False, debug=False):
         return HDR + b + b'\x00' * (len(b) % 2)
     # C4 (0x4d3194) reads 3 words just BEFORE its target (model extents x, up, fwd) to pick the eye precision shift;
     # garbage there (negative/huge) wrecks the eye and the part is not drawn.  Copy the header of the file's own parts.
-    hc = next(t for t in (i + 16 + struct.unpack_from('<h', c, i+14)[0] for i in range(len(c) - 16)
-                          if c[i] == 0xC4 and c[i+1] == 0) if 6 <= t < len(c) - 2 and c[t] == 0x82 and c[t+1] == 0)
-    HDR = bytes(c[hc-6:hc])
+    hc = next((t for t in (i + 16 + struct.unpack_from('<h', c, i+14)[0] for i in range(len(c) - 16)
+                          if c[i] == 0xC4 and c[i+1] == 0) if 6 <= t < len(c) - 2 and c[t] == 0x82 and c[t+1] == 0), None)
+    HDR = bytes(c[hc-6:hc]) if hc else bytes.fromhex('cb0044007a01')   # no C4 parts (helicopters): AUR.SH's part header
     assert all(v > 0 for v in struct.unpack('<3h', HDR)), HDR
     shapes = {k: aft(f()) for k, f in SHAPES.items()}
     parts = {('K', k): part_bytes(*v) for k, v in shapes.items()}
