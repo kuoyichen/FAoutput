@@ -139,6 +139,15 @@ def explode(src, expected_size=None, report_used=False):
     return bytes(out)
 
 
+_LEN_BITS = {l: _LEN_ENC[s][1] + _EXTRA[s] for l, (s, e) in _LEN_SYM.items()}
+_DIST_BITS = [_DIST_ENC[i][1] for i in range(64)]
+
+
+def _match_bits(length, dist, dict_bits):
+    sh = 2 if length == 2 else dict_bits
+    return 1 + _LEN_BITS[length] + _DIST_BITS[(dist - 1) >> sh] + sh
+
+
 def implode(data, dict_bits=6, max_chain=48):
     """Compress with PKWare DCL (binary literals, 4K dictionary by default)."""
     out = bytearray()
@@ -165,20 +174,24 @@ def implode(data, dict_bits=6, max_chain=48):
     window = 64 << dict_bits
     n = len(data)
     head, prev = {}, [0] * n
+    ins = 0                      # next position to add to the hash chains
 
-    def insert(j):
-        if j + 3 <= n:
-            key = data[j:j + 3]
-            prev[j] = head.get(key, -1)
-            head[key] = j
+    def insert_to(end):
+        nonlocal ins
+        while ins < end:
+            if ins + 3 <= n:
+                key = data[ins:ins + 3]
+                prev[ins] = head.get(key, -1)
+                head[key] = ins
+            ins += 1
 
-    i = 0
-    while i < n:
+    def find(i):
+        """Longest match at i (positions before i are in the chains): (length, dist) or None."""
         best_len = best_dist = 0
         if i + 3 <= n:
             cand, chain, limit = head.get(data[i:i + 3], -1), 0, min(518, n - i)
             while cand >= 0 and i - cand <= window and chain < max_chain:
-                if data[cand + best_len] == data[i + best_len] if best_len < limit else False:
+                if best_len < limit and data[cand + best_len] == data[i + best_len]:
                     k = 3
                     while k < limit and data[cand + k] == data[i + k]:
                         k += 1
@@ -191,23 +204,41 @@ def implode(data, dict_bits=6, max_chain=48):
         if best_len < 3 and i + 2 <= n:
             j = data.rfind(data[i:i + 2], max(0, i - 256), i + 1)
             if 0 <= j < i:
-                best_len, best_dist = 2, i - j
-        if best_len >= 2:
-            sym, ext = _LEN_SYM[best_len]
+                return 2, i - j
+        return (best_len, best_dist) if best_len >= 3 else None
+
+    def literal(i):
+        put(0, 1)
+        put(data[i], 8)
+
+    i = 0
+    while i < n:
+        insert_to(i)
+        m = find(i)
+        # lazy matching: if the match starting one byte later is cheaper per byte,
+        # send this byte as a literal and take that one instead (like PKWare's own encoder)
+        while m and m[0] < 64 and i + 1 < n:
+            insert_to(i + 1)
+            m2 = find(i + 1)
+            if m2 and m2[0] > m[0] and (9 + _match_bits(*m2, dict_bits)) * m[0] < _match_bits(*m, dict_bits) * (1 + m2[0]):
+                literal(i)
+                i += 1
+                m = m2
+            else:
+                break
+        if m:
+            length, dist = m
+            sym, ext = _LEN_SYM[length]
             put(1, 1)
             put_code(_LEN_ENC[sym])
             put(ext, _EXTRA[sym])
-            d = best_dist - 1
-            sh = 2 if best_len == 2 else dict_bits
+            d = dist - 1
+            sh = 2 if length == 2 else dict_bits
             put_code(_DIST_ENC[d >> sh])
             put(d & ((1 << sh) - 1), sh)
-            for j in range(i, i + best_len):
-                insert(j)
-            i += best_len
+            i += length
         else:
-            put(0, 1)
-            put(data[i], 8)
-            insert(i)
+            literal(i)
             i += 1
     sym, ext = _LEN_SYM[519]
     put(1, 1)
@@ -499,8 +530,12 @@ def _cache_dir():
 
 
 # ---------------------------------------------------------------- compression cache
+ENCODER_VERSION = 'v2'   # change when implode() output changes, so old cache entries are not reused
+STORE_RATIO = 0.90       # a file that compresses to 90% or more of its size is stored, as EA did
+
+
 def _cache_path(digest):
-    return os.path.join(_cache_dir(), 'pk', digest[:2], digest + '.pk')
+    return os.path.join(_cache_dir(), 'pk-' + ENCODER_VERSION, digest[:2], digest + '.pk')
 
 
 def _compress_job(args):
@@ -516,8 +551,12 @@ def _compress_job(args):
     return digest
 
 
-def pack_all(datas, store=False, jobs=None):
-    """datas: {name: bytes} -> {name: (flag, payload)} using the cache."""
+def pack_all(datas, store=False, jobs=None, store_ratio=STORE_RATIO):
+    """datas: {name: bytes} -> {name: (flag, payload)} using the cache.
+
+    Files whose compressed form is store_ratio or more of their size are stored (flag 0):
+    the LIB grows by at most 10% of those files and the game skips unpacking them.
+    """
     if store:
         return {n: (FLAG_STORED, d) for n, d in datas.items()}
     digests = {n: hashlib.sha1(d).hexdigest() for n, d in datas.items()}
@@ -537,7 +576,11 @@ def pack_all(datas, store=False, jobs=None):
                     pass
     out = {}
     for n, dg in digests.items():
-        out[n] = (FLAG_PKWARE, _read(_cache_path(dg)))
+        payload = _read(_cache_path(dg))
+        if len(payload) >= store_ratio * len(datas[n]):
+            out[n] = (FLAG_STORED, datas[n])
+        else:
+            out[n] = (FLAG_PKWARE, payload)
     return out
 
 
