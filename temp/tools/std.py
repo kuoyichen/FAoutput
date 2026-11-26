@@ -7,7 +7,7 @@ sys.path.insert(0, HERE)
 
 
 def chain(src, pic, out, name, picname, pt=None, extra=None, parts=None, gear=None, flame=None, rm=12, rn=9,
-          keep_old=False, morph=None):
+          keep_old=False, morph=None, flame_at=None):
     import up_stores, up_gear, up_ab2, f16
     from f14_gear import read_pic, put
     from sh_inspect import load
@@ -35,7 +35,7 @@ def chain(src, pic, out, name, picname, pt=None, extra=None, parts=None, gear=No
             while c[p] in (0x6C, 0x38): p += 10 if c[p] == 0x6C else 3
             return c[p] == 0xFC and struct.unpack_from('<H', c, p + 1)[0] & 4
         slots = None
-        fl = flames(cur); fl = [t for t in fl if tex(t)] or fl
+        fl = flame_at or flames(cur); fl = [t for t in fl if tex(t)] or fl
         for k, old in enumerate(fl):
             ns, np_ = os.path.join(out, name + '_f%d.SH' % k), os.path.join(out, name + '_f%d.PIC' % k)
             slots = up_ab2.run(cur, cpic, ns, np_, old=old, length=flame, ignore=pre, slots=slots); cur, cpic = ns, np_
