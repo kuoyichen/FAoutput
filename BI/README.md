@@ -8,7 +8,7 @@ Copied from `SH\AI` on Kuoyi's PC (2026-11-26).
 | Pair | Used for (from header comments) |
 |------|----------------------------------|
 | F | generic fighter |
-| F117 | F-117 copy of the fighter program (header still says f.ai) |
+| F117 | fighter program for the F-117; ground attack is a straight high pass instead of pop-up/dive-bomb (header still says f.ai) |
 | MOTH | giant moth (the monster in the Fighters Anthology bonus missions) |
 | B | bomber |
 | AC130 | AC-130 gunship |
