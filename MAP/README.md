@@ -2,11 +2,11 @@
 
 Uploaded from Kuoyi's `SH\MAP` folder (structure kept).
 
-Top level: the game's 17 theaters, one set per map code (APA, BAL, CUB, EGY, FRA, GRE, IRA, KURILE, LFA, NSK, PGU, SPA, TVIET, UKR, VLA, WTA):
+Top level: 16 theaters, one set per map code (APA, BAL, CUB, EGY, FRA, GRE, IRA, KURILE, LFA, NSK, PGU, SPA, TVIET, UKR, VLA, WTA):
 
 | ext | what |
 |-----|------|
-| `.MM` | map/mission placement file for the theater |
+| `.MM` | theater map file (objects/placement; format not decoded yet) |
 | `.T2` | terrain grid (199,829 bytes for the large maps, 126,899 for the smaller EGY/FRA/UKR/VLA) |
 | `.PIC` | terrain texture (`KURIL.PIC` belongs to KURILE, `VIET.PIC` to TVIET) |
 
