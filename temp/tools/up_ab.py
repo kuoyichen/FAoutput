@@ -83,3 +83,22 @@ def run(src, psrc, dst, pdst, grow=3000, ratio=57 / 35):
 if __name__ == '__main__':
     a = sys.argv[1:]
     run(a[0], a[1], a[2], a[3], int(a[5]) if len(a) > 5 and a[4] == '--grow' else 3000)
+
+
+def free_rects(path, pic, sizes, need_ff=True, avoid=(), vmax=None):
+    """Top-left corners of free (0xFF, no textured face) rectangles of the given (w, h) sizes, not overlapping."""
+    img = loadpic(pic); h, w = img.shape
+    used = np.zeros((h, w), bool)
+    for u0, v0, u1, v1 in list(used_uv(path)) + list(avoid): used[max(0, v0):v1 + 1, max(0, u0):u1 + 1] = True
+    ok = ((img == 255) if need_ff else True) & ~used
+    out = []
+    for W, H in sizes:
+        S = np.zeros((h + 1, w + 1), int); S[1:, 1:] = np.cumsum(np.cumsum(ok, 0), 1)
+        hit = None
+        for v in range(0, min(h, vmax or h) - H):
+            for u in range(0, w - W):
+                if S[v + H, u + W] - S[v, u + W] - S[v + H, u] + S[v, u] == W * H: hit = (u, v); break
+            if hit: break
+        assert hit, ('no free', W, H)
+        out.append(hit); ok[hit[1]:hit[1] + H, hit[0]:hit[0] + W] = False
+    return out

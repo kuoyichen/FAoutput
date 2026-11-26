@@ -73,29 +73,44 @@ def run(src, psrc, dst, pdst, spec):
     tail = bytes(c).find(SIG)
     thunk = find_thunk(c, tail)
     base, wbase = spec.get('base', 594), spec.get('wbase', 668)
-    blk = bytearray(); starts = {}; c4s = {}
-    for side, g in spec['gear'].items():
-        starts[side] = tail + len(blk)
-        hub = spec['hub_nose'] if side == 'N' else spec['hub_main']
-        b, w = part_block(g, tail + len(blk), header, base, wbase, hub); blk += b; c4s[side] = w
-    while len(blk) % 4: blk += b'\x00'
-    tbl = tail + len(blk); blk += bytes(32 * 8)
+    import keystone
+    ks = keystone.Ks(keystone.KS_ARCH_X86, keystone.KS_MODE_32)
+    # each gear: [F0 spin x86; push part VA; push do_start_interp; ret] + part, all in the new block; the old part
+    # start becomes a 13-byte F0 jump (fits any old billboard part)
+    sides = list(spec['gear'])
+    tbl_guess = 0
+    def assemble(tbl):
+        blk = bytearray(); starts = {}; relocs = []; fix = []
+        for side in sides:
+            g = spec['gear'][side]; hub = spec['hub_nose'] if side == 'N' else spec['hub_main']
+            f0 = tail + len(blk)
+            dummy = bytes(ks.asm(G.spin_x86(f0 + 9, tbl, [f0 + 200]), 0)[0])
+            plen = 2 + len(dummy) + 11
+            b, w = part_block(g, f0 + plen, header, base, wbase, hub)
+            body = bytes(ks.asm(G.spin_x86(f0 + 9, tbl, [x + 10 for x in w]), 0)[0])
+            assert len(body) == len(dummy) and body[2] == 0xE8
+            starts[side] = f0
+            blk += b'\xf0\x00' + body + b'\x68' + struct.pack('<I', code['va'] + f0 + plen) + b'\x68'
+            fix.append(len(blk)); blk += b'\0\0\0\0\xc3'
+            relocs += [len(blk) - 10, len(blk) - 5]
+            blk += b
+        while len(blk) % 4: blk += b'\x00'
+        return blk, starts, relocs, fix
+    blk, starts, relocs, fix = assemble(0)
+    tbl = tail + len(blk)
+    blk, starts, relocs, fix = assemble(tbl)
+    assert tail + len(blk) == tbl
+    blk += bytes(32 * 8)
     room = nxt - code['va'] - len(c)
     if len(blk) > room: sys.exit(f'no room: need {len(blk)}, have {room}')
     L = len(blk)
-    import keystone
-    ks = keystone.Ks(keystone.KS_ARCH_X86, keystone.KS_MODE_32)
-    relocs = []
+    for p in fix: struct.pack_into('<I', blk, p, code['va'] + thunk + L)
     for side, old in OLD.items():
-        Lpos = old + 2 + 2 + 5
-        body = bytes(ks.asm(G.spin_x86(Lpos, tbl, [a + 10 for a in c4s[side]]), 0)[0])
-        assert body[2] == 0xE8
-        pp = old + 2 + len(body)
-        tr = b'\xf0\x00' + body + b'\x68' + struct.pack('<I', code['va'] + starts[side]) + b'\x68' + struct.pack('<I', 0x1000 + thunk + L) + b'\xc3'
+        tr = b'\xf0\x00\x68' + struct.pack('<I', code['va'] + starts[side]) + b'\x68' + struct.pack('<I', code['va'] + thunk + L) + b'\xc3'
         assert old + len(tr) <= SPAN[side], (side, len(tr), hex(SPAN[side] - old))
         c[old:old + len(tr)] = tr
-        relocs += [pp + 1 - tail, pp + 6 - tail]
+        relocs += [old + 3 - tail, old + 8 - tail]
     out = shrink_reloc(insert_blocks(d, pe, secs, code, c, tail, bytes(blk), extra_relocs=relocs))
     assert len(out) < 65536, f'SH {len(out)} B, FA needs < 65536'
     open(dst, 'wb').write(out); open(pdst, 'wb').write(pb)
-    print(f'{dst}: gear {len(blk)} B at CODE+{tail:#x}, file {len(out)}; parts {[hex(v) for v in starts.values()]}')
+    print(f'{dst}: gear {len(blk)} B at CODE+{tail:#x}, file {len(out)}; gear F0s {[hex(v) for v in starts.values()]}')

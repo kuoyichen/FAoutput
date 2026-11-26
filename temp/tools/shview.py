@@ -132,7 +132,7 @@ class SH:
                             vis = sum(nrm[j] * (le[j] - loc[0][j]) for j in range(3)) >= 0
                         if vis:
                             wn = rf(nrm) if nrm else None
-                            out.append(dict(P=[vt[i][0] for i in idx], uv=uv, col=col & 0xFF, fl=fl, n=wn, at=p))
+                            out.append(dict(P=[vt[i][0] for i in idx], vi=idx, uv=uv, col=col & 0xFF, fl=fl, n=wn, at=p))
                     p = q
                 elif op == 0xF6: p += 7
                 elif op in (0xD0, 0xE0) and c[p + 1] == 0: p += 4
