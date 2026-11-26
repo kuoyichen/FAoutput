@@ -11,17 +11,18 @@ sys.path.insert(0, HERE)
 import std
 
 
-def tw(top, gl, r, dx, sr, back=8, fwd=0, quad=None):
+def tw(top, gl, r, dx, sr, back=8, fwd=0, quad=None, pair=None):
     x, f, _ = top
     g = dict(top=top, bot=(x, f + fwd, gl + r), wheel=(x, f + fwd, gl + r), r=r, w=(-1, 1), twin=dx, sr=sr,
              braces=[((x, f + fwd, (top[2] + gl) // 2), (x, f + back, top[2]))])
     if quad: g['quad'] = quad
+    if pair: g['pair'] = pair
     return g
 
 
 VAR = {
     'AFO': dict(G=-26, parts={'R': 0x4d32, 'L': 0x5017, 'N': 0x52fc}, c4={'R': 0x2c98, 'L': 0x4517, 'N': 0x2e13},
-                gear=lambda gl: {'R': tw((0, -4, 0), gl('R'), 3, 3, 1.3, -18, quad=-9), 'L': tw((0, -4, 0), gl('L'), 3, 3, 1.3, -18, quad=-9),
+                gear=lambda gl: {'R': tw((0, -4, 0), gl('R'), 3, 3, 1.3, -18, quad=-9, pair=(19, 10, 1)), 'L': tw((0, -4, 0), gl('L'), 3, 3, 1.3, -18, quad=-9, pair=(-18, 10, 1)),
                                  'N': tw((0, 0, 0), gl('N'), 2, 2, 1.0, 8)}),
     'JSTRT': dict(G=-20, parts={'R': 0x43d5, 'L': 0x44a6, 'N': 0x4577}, c4={'R': 0x26c5, 'L': 0x343b, 'N': 0x35de},
                   gear=lambda gl: {'R': tw((0, 4, 0), gl('R'), 3, 3, 1.2, -10, quad=-8), 'L': tw((0, 4, 0), gl('L'), 3, 3, 1.2, -10, quad=-8),

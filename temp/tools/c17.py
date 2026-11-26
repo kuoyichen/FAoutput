@@ -15,7 +15,7 @@ GROUND = -53
 
 def gear(pos):
     gl = lambda k: GROUND - pos[k]
-    m = lambda k: dict(top=(0, -8, 0), bot=(0, -8, gl(k) + 5), wheel=(0, -8, gl(k) + 5), r=5, w=(-2, 2), twin=6, quad=-12, sr=1.3,
+    m = lambda k: dict(top=(0, -8, 0), bot=(0, -8, gl(k) + 5), wheel=(0, -8, gl(k) + 5), r=5, w=(-2, 2), twin=5, tri=True, quad=-13, tandem=True, sr=1.3,
                        braces=[((0, -8, gl(k) // 2), (0, -20, 0))])
     return {'R': m('R'), 'L': m('L'),
             'N': dict(top=(0, 0, 0), bot=(0, 0, gl('N') + 4), wheel=(0, 0, gl('N') + 4), r=4, w=(-1, 1), twin=3, sr=1.2,

@@ -47,24 +47,35 @@ def twin_block(g, at, header, base, wbase, hub):
     tl = tread(st, (wx - dx, wy, wz), g['r'], x0, x1); trr = tread(st, (wx + dx, wy, wz), g['r'], x0, x1)
     wp = wheel_part(wbase, g['r'], hub, x0, x1)
     assert base + len(st.V) <= wbase, len(st.V)
+    tri = g.get('tri'); tc = tread(st, (wx, wy, wz), g['r'], x0, x1) if tri else None
     out = bytearray(st.bytes())
     TL = st.group(tl)[0][:-1]; TR = st.group(trr)[0][:-1]; S, _ = st.group(sf)
+    TC = st.group(tc)[0][:-1] if tri else b''
     WB = header + wp.bytes() + wp.group(range(len(wp.F)))[0]
     pl, pr = wx - dx + x1 + 0.5, wx + dx + x0 - 0.5
-    N1 = at + len(out); WL = N1 + 20; N2 = WL + len(TL) + 17; WR = N2 + 20; sp = WR + len(TR) + 17; wpos = sp + len(S) + 6
+    N1 = at + len(out); WL = N1 + 20; N2 = WL + len(TL) + 17; WR = N2 + 20; sp = WR + len(TR) + 17
     CL, CR = WL + len(TL), WR + len(TR)
+    if tri:     # centre wheel under the strut: an up plane at the tyre top draws the lower of the two first
+        N3 = sp; WC = N3 + 20; CC = WC + len(TC); sp = CC + 17; wpos = sp + len(S) + 6
+    else: wpos = sp + len(S) + 6
     out += node(N1, (16384, 0, 0), (round(-pl), 0, 0), WL, N2) + TL + c4(CL, (wx - dx, wz, wy), wpos) + b'\x1e'
-    out += node(N2, (16384, 0, 0), (round(-pr), 0, 0), sp, WR) + TR + c4(CR, (wx + dx, wz, wy), wpos) + b'\x1e' + S + WB
+    out += node(N2, (16384, 0, 0), (round(-pr), 0, 0), N3 if tri else sp, WR) + TR + c4(CR, (wx + dx, wz, wy), wpos) + b'\x1e'
+    if tri:
+        out += node(N3, (0, 16384, 0), (0, round(-(wz + g['r'])), 0), WC, sp) + TC + c4(CC, (wx, wz, wy), wpos) + b'\x1e'
+    out += S + WB
     assert out[wpos - at] == 0x82 and out[CL - at] == 0xC4 and out[CR - at] == 0xC4
-    return bytes(out), [CL, CR]
+    return bytes(out), [CL, CC, CR] if tri else [CL, CR]
 
 
 def quad_block(g, at, header, base, wbase, hub):
     """Four-wheel bogie: front twin axle on the leg (g as a twin gear) and a rear twin axle g['quad'] units behind
     it on a bogie beam; an fwd plane between the axles draws the far axle first."""
     bx, by, bz = g['bot']; wx, wy, wz = g['wheel']; dq = g['quad']
-    front = {k: v for k, v in g.items() if k != 'quad'}
-    rear = dict(front, top=(wx, wy, wz), bot=(wx, wy + dq, wz), wheel=(wx, wy + dq, wz), braces=[], sr=g.get('sr', 1) * 0.7)
+    front = {k: v for k, v in g.items() if k not in ('quad', 'tandem')}
+    if g.get('tandem'):         # two separate legs (C-17): the rear leg is the front one moved dq along fwd
+        sh = lambda p: (p[0], p[1] + dq, p[2])
+        rear = dict(front, top=sh(g['top']), bot=sh(g['bot']), wheel=sh(g['wheel']), braces=[(sh(a), sh(b)) for a, b in g.get('braces', [])])
+    else: rear = dict(front, top=(wx, wy, wz), bot=(wx, wy + dq, wz), wheel=(wx, wy + dq, wz), braces=[], sr=g.get('sr', 1) * 0.7)
     A = at + 20
     rb, rc = twin_block(rear, A, header, base, wbase, hub)
     B = A + len(rb)
@@ -74,7 +85,26 @@ def quad_block(g, at, header, base, wbase, hub):
     return bytes(out), rc + fc
 
 
+def pair_block(g, at, header, base, wbase, hub):
+    """Two gear legs in one part (747: body gear on the part, wing gear g['pair'] = (dx, dfwd, dup_top) beside it);
+    a plane between them across the offset draws the far one first."""
+    dx, df, du = g['pair']
+    one = {k: v for k, v in g.items() if k != 'pair'}
+    sh = lambda p, u=0: (p[0] + dx, p[1] + df, p[2] + u)
+    two = dict(one, top=sh(g['top'], du), bot=sh(g['bot']), wheel=sh(g['wheel']),
+               braces=[(sh(a), sh(b, du)) for a, b in g.get('braces', [])])
+    L = math.hypot(dx, df); n = (round(16384 * dx / L), 0, round(16384 * df / L))
+    wx, wy, wz = g['wheel']; m = (wx + dx / 2, wy + df / 2)
+    pt = (round(-m[0]), 0, round(-m[1]))                 # node point (negated, as in twin / quad)
+    A = at + 20
+    ab, ac = part_block(one, A, header, base, wbase, hub)   # eye on the +offset side: the first leg is far
+    B = A + len(ab)
+    bb, bc = part_block(two, B, header, base, wbase, hub)
+    return node(at, n, pt, A, B) + ab + bb, ac + bc
+
+
 def part_block(g, at, header, base, wbase, hub):
+    if 'pair' in g: return pair_block(g, at, header, base, wbase, hub)
     if 'quad' in g: return quad_block(g, at, header, base, wbase, hub)
     if 'twin' in g: return twin_block(g, at, header, base, wbase, hub)
     st, sfaces, tr, (n, d), wp = build(g, base, wbase, hub)
@@ -101,7 +131,8 @@ def run(src, psrc, dst, pdst, spec):
     d = bytearray(open(src, 'rb').read())
     pe, opt, secs = pe_sections(d)
     code = next(s for s in secs if s['name'] == 'CODE'); nxt = min(s['va'] for s in secs if s['va'] > code['va'])
-    need = 1200 * len(spec['gear']) + 1000              # ~1.2-1.5 KB per gear
+    mult = lambda g: (2 if 'quad' in g else 1) * (2 if 'pair' in g else 1) * (1.5 if g.get('tri') else 1)
+    need = int(sum(1500 * mult(g) for g in spec['gear'].values())) + 1000     # ~1.5 KB per leg / axle pair
     if nxt - code['va'] - code['vs'] < need:
         d = bytearray(grow_vas(d, (need + 0xFFF) // 0x1000 * 0x1000)); pe, opt, secs = pe_sections(d)
         code = next(s for s in secs if s['name'] == 'CODE'); nxt = min(s['va'] for s in secs if s['va'] > code['va'])
