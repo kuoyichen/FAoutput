@@ -11,6 +11,11 @@ LIBs `JKP600_A.LIB` … `JKP600_S.LIB`): built on Kuoyi's PC in `C:\Users\hawke\
 from `Lib pack\OK` (newest files: they win), `Lib pack\JKP54A-E` (the ToolKit projects) and the
 installed `_MAP.LIB` / `_MUSIC.LIB`; all sources staged one copy per file in `JKP600\src\<EXT>\`.
 Rebuild there with `python ..\falib\falib.py build JKP600.txt --src src --out . --toolkit`.
+
+**Version rule (Kuoyi, 2026-11-26): every new build gets the next number** — JKP600, JKP601, JKP602 …
+(LIBs `JKP601_A.LIB` …, ToolKit folders `JKP601_A\` …). Never rebuild a released number with
+different content. `python falib.py bump JKP600.txt` writes `JKP601.txt` with every LIB renamed;
+then build it into a new folder, e.g. `--out ..\JKP601`. Keep the set file of every released build.
 Web page for LIB makers: https://fashion-hawke.vercel.app/tools/lib_release.html
 
 ## 1. Rules FA.EXE imposes on a LIB (read this first)
@@ -99,7 +104,7 @@ F14.SH
 | remove a file from the mod | delete its line under `[files]` |
 | add a new LIB | add one `[rules]` line, e.g. `JKPFA6_G.LIB *.FNT` (free letters G-L, N-R, T-Z; 20-LIB limit) |
 | move some files to another LIB | add a rule above the general one, e.g. `JKPFA6_G.LIB F14*.PT` |
-| start version 7 | copy the set file to `LIB/JKPFA7.txt`, rename the LIBs to `JKPFA7_?.LIB` |
+| next build number | `python tools/falib.py bump LIB/JKP600.txt` → `LIB/JKP601.txt` with LIBs `JKP601_?.LIB` |
 | build just one LIB | `build ... --only D` |
 | quick test build | `build ... --store` (no compression) |
 
