@@ -8,6 +8,7 @@ Needs only Python 3.8+ (no extra packages). See skill/FA_LIB_build.MD.
   python tools/falib.py verify  build_or_game_folder_or_LIBs [--set LIB/JKPFA6.txt --src .]
   python tools/falib.py check   LIB/JKPFA6.txt --src . [--src EXTRA] [--game GAME_FOLDER]
   python tools/falib.py import  JKPFA6/JKPFA6C --set LIB/JKPFA6.txt --to . [--src EXTRA] [--dry-run]
+  python tools/falib.py bump    LIB/JKP600.txt        (next build number: JKP601.txt, LIBs JKP601_*)
   python tools/falib.py build   LIB/JKPFA6.txt --src . [--src EXTRA] --out JKPFA6 [--toolkit] [--only D] [--store]
 
 build always ends with verify; ship a LIB only after "RESULT: PASSED".
@@ -1136,6 +1137,30 @@ def cmd_import(a):
     return 0
 
 
+def cmd_bump(a):
+    """Next build number: JKP600.txt -> JKP601.txt with every LIB renamed JKP600_X -> JKP601_X."""
+    import re
+    base = os.path.basename(a.set)
+    m = re.match(r'^(.*?)(\d+)(\.txt)$', base, re.I)
+    if not m:
+        raise FALibError(f'{base}: the set file name must end in a number, e.g. JKP600.txt')
+    old = m.group(1) + m.group(2)
+    new = m.group(1) + str(int(m.group(2)) + 1).zfill(len(m.group(2)))
+    dest = os.path.join(os.path.dirname(a.set), new + m.group(3))
+    if os.path.exists(dest):
+        raise FALibError(f'{dest} already exists')
+    with open(a.set, encoding='utf-8') as f:
+        text = f.read()
+    text = re.sub(r'\b' + re.escape(old) + r'(_[A-Z0-9]+\.LIB)\b', new + r'\1', text, flags=re.I)
+    text = text.replace(old + '.txt', new + '.txt')
+    with open(dest, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(text)
+    s = SetFile(dest)                       # make sure it is still valid
+    print(f'wrote {dest}: LIBs {", ".join(lib for lib, _ in s.rules)}')
+    print(f'next: python falib.py build {os.path.basename(dest)} --src src --out ..\\{new} --toolkit')
+    return 0
+
+
 def cmd_build(a):
     t0 = time.time()
     s, plan, datas, labels, errors = _load(a)
@@ -1245,10 +1270,12 @@ def main(argv=None):
     x.add_argument('--remove-missing', action='store_true',
                    help='drop set-file lines for files the ToolKit project no longer lists')
     x.add_argument('--dry-run', action='store_true', help='only show what would change')
+    x = sub.add_parser('bump', help='next build: copy JKP600.txt to JKP601.txt with the LIBs renamed JKP601_*')
+    x.add_argument('set', help='current set file, e.g. JKP600.txt')
     a = p.parse_args(argv)
     try:
         return {'list': cmd_list, 'unpack': cmd_unpack, 'verify': cmd_verify,
-                'check': cmd_check, 'build': cmd_build, 'import': cmd_import}[a.cmd](a) or 0
+                'check': cmd_check, 'build': cmd_build, 'import': cmd_import, 'bump': cmd_bump}[a.cmd](a) or 0
     except FALibError as ex:
         print('ERROR', ex)
         return 1
