@@ -47,16 +47,22 @@ def pylon(h):
     return V, orient(V, [(FLAT, OLIVE, x) for x in q])
 
 
-def stores_extra(S):
-    import fa_weapons
+def stores_extra_for(IN=IN, OUT=OUT, F0=F0, ATT_U=ATT_U, ph=2, rack_out=False):
+    """rack_out: missile launcher on the outboard pylon, rocket pod inboard (AH-1); else Hellfires inboard (AH-64)."""
+    def ex(S): stores_extra(S, IN, OUT, F0, ATT_U, ph, rack_out)
+    return ex
+
+
+def stores_extra(S, IN=IN, OUT=OUT, F0=F0, ATT_U=ATT_U, ph=2, rack_out=False):
     hf, rp = hellfire_rack(), rocket_pod()
     for k in list(S.SHAPES): S.SHAPES[k] = (lambda v: (lambda: v))(hf)
     S.SHAPES[S.AAM] = (lambda: rp)
-    S.SLOTS = {'R4': (4, 2, S.ARM, (IN, ATT_U, F0)), 'L4': (4, 1, S.ARM, (-IN, ATT_U, F0)),
-               'R5': (5, 2, S.AAM, (OUT, ATT_U, F0)), 'L5': (5, 1, S.AAM, (-OUT, ATT_U, F0))}
+    ki, ko = (S.AAM, S.ARM) if rack_out else (S.ARM, S.AAM)
+    S.SLOTS = {'R4': (4, 2, ki, (IN, ATT_U, F0)), 'L4': (4, 1, ki, (-IN, ATT_U, F0)),
+               'R5': (5, 2, ko, (OUT, ATT_U, F0)), 'L5': (5, 1, ko, (-OUT, ATT_U, F0))}
     S.FALL_SLOTS = {}
-    S.PYLONS = {'py': pylon(2)}
-    S.PYLON_UNITS = lambda: [('py' + s, 'py', S.SLOTS[s][3], ATT_U + 2) for s in S.SLOTS]
+    S.PYLONS = {'py': pylon(ph)}
+    S.PYLON_UNITS = lambda: [('py' + s, 'py', S.SLOTS[s][3], ATT_U + ph) for s in S.SLOTS]
 
 
 VAR = {'APA': 'AH64D', 'APL': 'AH64'}
@@ -76,7 +82,7 @@ def build(out):
     os.makedirs(out, exist_ok=True)
     for sh, pt in VAR.items():
         make_pt(pt, os.path.join(out, pt + '.PT'))
-        up_stores.run(os.path.join(ROOT, 'SH', sh + '.SH'), os.path.join(out, pt + '.PT'), os.path.join(out, sh + '.SH'), stores_extra, static=True)
+        up_stores.run(os.path.join(ROOT, "SH", sh + ".SH"), os.path.join(out, pt + ".PT"), os.path.join(out, sh + ".SH"), stores_extra_for(), static=True)
         shutil.copy(os.path.join(ROOT, 'PIC', '_' + sh + '.PIC'), os.path.join(out, '_' + sh + '.PIC'))
         std.render(os.path.join(out, sh + '.SH'), os.path.join(out, '_' + sh + '.PIC'), os.path.join(out, 'preview_' + sh + '.png'))
 
