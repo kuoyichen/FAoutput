@@ -37,7 +37,30 @@ def build(g, base, wbase, hub):
     return st, faces, tr, split, wp
 
 
+def twin_block(g, at, header, base, wbase, hub):
+    """Twin wheels (nose of carrier jets): strut in the middle, axle through both hubs, wheels at wheel.x +- twin."""
+    st = Part(base)
+    tx, ty, tz = g['top']; bx, by, bz = g['bot']; wx, wy, wz = g['wheel']; dx = g['twin']; x0, x1 = g['w']
+    sf = prism(st, (tx, ty, tz), (bx, by, bz - 1), 1.42 * g.get('sr', 1), 4, STRUT, rot=math.pi / 4, caps=(False, True))
+    sf += prism(st, (wx - dx, wy, wz), (wx + dx, wy, wz), 1.0, 4, BRACE, caps=(False, False))
+    for a, b in g.get('braces', []): sf += prism(st, a, b, 0.6, 4, BRACE, rot=math.pi / 4)
+    tl = tread(st, (wx - dx, wy, wz), g['r'], x0, x1); trr = tread(st, (wx + dx, wy, wz), g['r'], x0, x1)
+    wp = wheel_part(wbase, g['r'], hub, x0, x1)
+    assert base + len(st.V) <= wbase, len(st.V)
+    out = bytearray(st.bytes())
+    TL = st.group(tl)[0][:-1]; TR = st.group(trr)[0][:-1]; S, _ = st.group(sf)
+    WB = header + wp.bytes() + wp.group(range(len(wp.F)))[0]
+    pl, pr = wx - dx + x1 + 0.5, wx + dx + x0 - 0.5
+    N1 = at + len(out); WL = N1 + 20; N2 = WL + len(TL) + 17; WR = N2 + 20; sp = WR + len(TR) + 17; wpos = sp + len(S) + 6
+    CL, CR = WL + len(TL), WR + len(TR)
+    out += node(N1, (16384, 0, 0), (round(-pl), 0, 0), WL, N2) + TL + c4(CL, (wx - dx, wz, wy), wpos) + b'\x1e'
+    out += node(N2, (16384, 0, 0), (round(-pr), 0, 0), sp, WR) + TR + c4(CR, (wx + dx, wz, wy), wpos) + b'\x1e' + S + WB
+    assert out[wpos - at] == 0x82 and out[CL - at] == 0xC4 and out[CR - at] == 0xC4
+    return bytes(out), [CL, CR]
+
+
 def part_block(g, at, header, base, wbase, hub):
+    if 'twin' in g: return twin_block(g, at, header, base, wbase, hub)
     st, sfaces, tr, (n, d), wp = build(g, base, wbase, hub)
     out = bytearray(st.bytes())
     T = st.group(tr)[0][:-1]
@@ -84,7 +107,8 @@ def run(src, psrc, dst, pdst, spec):
         for side in sides:
             g = spec['gear'][side]; hub = spec['hub_nose'] if side == 'N' else spec['hub_main']
             f0 = tail + len(blk)
-            dummy = bytes(ks.asm(G.spin_x86(f0 + 9, tbl, [f0 + 200]), 0)[0])
+            nw = len(part_block(g, f0 + 400, header, base, wbase, hub)[1])
+            dummy = bytes(ks.asm(G.spin_x86(f0 + 9, tbl, [f0 + 200 + 20 * i for i in range(nw)]), 0)[0])
             plen = 2 + len(dummy) + 11
             b, w = part_block(g, f0 + plen, header, base, wbase, hub)
             body = bytes(ks.asm(G.spin_x86(f0 + 9, tbl, [x + 10 for x in w]), 0)[0])
