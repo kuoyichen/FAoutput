@@ -10,7 +10,7 @@ Usage: av8.py OUTDIR"""
 import os, sys
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.join(HERE, '..', '..')
 sys.path.insert(0, HERE)
-from pt_edit import set_hp
+from pt_edit import set_hp, scale_eye
 import morph
 
 S_ = 0.93
@@ -23,6 +23,7 @@ GROUND = -20                                     # stock F2 ymin -21 (nose wheel
 
 def make_pt(name, dst):
     t = open(os.path.join(ROOT, 'PT', name + '.PT'), encoding='latin1', newline='').read()
+    t = scale_eye(t, S_, S_, S_)
     if name == 'AV8':
         t = set_hp(t, 5, x=-19); t = set_hp(t, 6, x=19); t = set_hp(t, 7, x=26, f=-20); t = set_hp(t, 8, x=30, f=-23)
         t = set_hp(t, 4, u=-16, f=-2)
