@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ECM Editor</title>
+<style>
+:root{ --bg:#14181d; --card:#1d232b; --card2:#232a33; --line:#2e3742; --text:#dde3ea; --muted:#8b96a5; --accent:#ffd54a; --bad:#ff6a50; --ok:#7bd88f; --chaff:#6fc3ff; --flare:#ff9b45; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0 8px 0 0;font-weight:600}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+button,select,input,label.btn{background:#262e38;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font:inherit}
+button,label.btn{cursor:pointer}
+button:hover,label.btn:hover{border-color:var(--muted)}
+button.prim{background:var(--accent);color:#14181d;font-weight:600;border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:default}
+input[type=number]{width:84px;text-align:right}
+input.raw8{width:58px;color:var(--muted)}
+input[type=checkbox]{accent-color:var(--accent)}
+a{color:#8fc3ff}
+#msg{color:var(--accent)} #msg.err{color:var(--bad)}
+#title{padding:10px 16px 0;font-size:16px;font-weight:700;color:#8fc3ff}
+#title span{color:var(--muted);font-weight:400;font-size:12px;margin-left:8px}
+#wrap{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:14px;padding:10px 16px 40px}
+fieldset{border:1px solid var(--line);border-radius:8px;padding:8px 10px 10px;margin:0;background:var(--card);min-width:0}
+legend{color:#ff8f70;font-weight:700;padding:0 6px}
+legend .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:0}
+h2{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:16px 0 8px;font-weight:600}
+h2:first-child{margin-top:0}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));align-items:start}
+.row{display:flex;align-items:center;gap:8px;margin:4px 0}
+.row>label:first-child{flex:1;min-width:0}
+.row input[type=text]{flex:1.6;min-width:0}
+.unit{color:var(--muted);font-size:12px;min-width:30px}
+.note{color:var(--muted);font-size:12px;margin:6px 0 0}
+.chk{display:flex;align-items:center;gap:6px;margin:4px 0;cursor:pointer}
+.chk code{color:var(--muted);font-size:11px;margin-left:auto}
+.g{color:#c9a65a;font-size:11px;cursor:help}
+.wide{grid-column:1/-1}
+#side{min-width:0}
+#side fieldset{margin-bottom:12px}
+#dirSvg{width:100%;display:block;background:radial-gradient(#2a323c,#181d23);border-radius:6px}
+#users{display:flex;flex-wrap:wrap;gap:4px 6px}
+#users a{background:var(--card2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;text-decoration:none;font-size:12px;white-space:nowrap}
+#users a:hover{border-color:var(--accent)}
+.raw{border-collapse:collapse;font:12px ui-monospace,Consolas,monospace;width:100%}
+.raw td,.raw th{padding:2px 6px;border-top:1px solid var(--line);text-align:left}
+.raw th{color:var(--muted);font:600 11px system-ui,sans-serif}
+.raw input{width:90px;font:inherit;padding:1px 4px}
+.raw .lab{color:var(--text);font-family:system-ui,sans-serif}
+.raw tr.chg td{background:rgba(255,213,74,.07)}
+#pRaw{overflow-x:auto}
+header select{max-width:100%}
+pre#src{background:#11151a;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:12px ui-monospace,Consolas,monospace;max-height:340px;overflow:auto;margin:0;white-space:pre}
+dialog{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;max-width:440px}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+.small{font-size:12px;color:var(--muted)}
+ul.facts{margin:4px 0 0;padding-left:18px;color:var(--muted);font-size:12px}
+ul.facts li{margin:3px 0}
+ul.facts b{color:var(--text);font-weight:600}
+@media (max-width:1000px){ #wrap{grid-template-columns:1fr} }
+@media (max-width:600px){ header,#wrap,#title{padding-left:10px;padding-right:10px} .raw input{width:70px} }
+</style>
+<script src="fashion_i18n.js"></script>
+<script src="ecm_core.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <h1>ECM Editor</h1>
+  <select id="ecmList" title="ECM countermeasure files in the FAoutput repository"><option value="">ECM file…</option></select>
+  <label class="btn" title="Open an .ECM file from your disk">📂 Open .ECM<input type="file" id="ecmFile" accept=".ecm,.ECM" hidden></label>
+  <button id="saveBtn" disabled title="Download the edited .ECM file">⬇ Save .ECM</button>
+  <button id="ghBtn" disabled title="Write this ECM file to ECM/ on GitHub (admin key required)">☁ Commit to GitHub</button>
+  <a href="pt_editor.html" style="color:var(--muted)" title="Aircraft editor">PT Editor</a>
+  <a href="jt_editor.html" style="color:var(--muted)" title="Ordnance editor">JT Editor</a>
+  <span id="langSlot"></span>
+  <span id="msg"></span>
+</header>
+<div id="title"></div>
+<div id="wrap">
+  <main style="min-width:0">
+    <h2>ECM</h2>
+    <div class="grid" id="pMain"></div>
+    <h2>ECM Jamming Info</h2>
+    <div class="grid" id="pJam"></div>
+    <h2>All values</h2>
+    <div id="pRaw"></div>
+    <h2>File text</h2>
+    <pre id="src"></pre>
+  </main>
+  <div id="side">
+    <fieldset><legend>Launch direction</legend>
+      <svg id="dirSvg" viewBox="0 0 360 200"></svg>
+      <p class="note" id="dirNote"></p>
+    </fieldset>
+    <fieldset><legend>Carried by</legend>
+      <div id="users"></div>
+      <p class="note" id="usersNote"></p>
+    </fieldset>
+    <fieldset><legend>How FA.EXE uses it</legend>
+      <div data-lang="en"><ul class="facts">
+        <li>An ECM is loaded on a PT hardpoint like a weapon (the hardpoint's default type names the .ECM). One aircraft can carry several, e.g. A-10A: F18.ECM + A10.ECM.</li>
+        <li><b>J key</b> turns the jammers on: radar jamming needs an ECM with <b>Jammer Installed</b>, IR jamming one with <b>IR Jamming</b>. The first matching hardpoint wins.</li>
+        <li><b>Missile Miss %</b> lowers an incoming missile's per-tick chance of keeping its lock: strength × (100 − miss%) / 100. Radar for radar missiles, IR for heat seekers.</li>
+        <li><b>Increase to RCS / ICS</b> is added to the jamming aircraft's radar / IR signature. A radar jammer also makes the aircraft visible to anti-radiation missiles.</li>
+        <li><b>CW / Pulse / Frequency Hop</b> decide which radar seekers the RCS increase applies to (matched against the seeker's own bits).</li>
+        <li><b>Max Detect Cone</b> is read as a range in nautical miles: inside it, a hostile jammer shows as jamming on the player's radar display.</li>
+        <li>Jamming protects only the aircraft carrying it; an EA-6B does not shield its wingmen.</li>
+      </ul></div>
+      <div data-lang="zh"><ul class="facts">
+        <li>ECM 和武器一樣裝在 PT 掛點上（掛點的預設類型寫 .ECM 檔名）。一架飛機可以掛好幾個，例如 A-10A：F18.ECM + A10.ECM。</li>
+        <li><b>J 鍵</b>開啟干擾：雷達干擾要有勾選 <b>Jammer Installed</b> 的 ECM，紅外線干擾要有勾選 <b>IR Jamming</b> 的 ECM。用第一個符合的掛點。</li>
+        <li><b>飛彈失誤 %</b> 降低來襲飛彈每一刻保持鎖定的機率：強度 ×（100 − 失誤%）/ 100。雷達值對雷達飛彈，紅外線值對熱追蹤飛彈。</li>
+        <li><b>RCS / ICS 增加量</b>加在干擾機自己的雷達／紅外線訊號上。開雷達干擾也會讓反輻射飛彈看得到這架飛機。</li>
+        <li><b>CW / 脈衝 / 跳頻</b>決定 RCS 增加量對哪些雷達導引頭有效（和導引頭自己的位元比對）。</li>
+        <li><b>最大偵測錐</b>被當成海浬距離：在這個距離內，敵方干擾機會在玩家雷達畫面上顯示為干擾。</li>
+        <li>干擾只保護掛載它的飛機本身；EA-6B 不會保護僚機。</li>
+      </ul></div>
+      <p class="note"><span data-lang="en">From the FA.EXE study in skill/FA_ecm.MD; not yet checked in game.</span><span data-lang="zh">來自 skill/FA_ecm.MD 的 FA.EXE 分析，尚未在遊戲中驗證。</span></p>
+    </fieldset>
+  </div>
+</div>
+<dialog id="ghDlg">
+  <h3 style="margin:0 0 8px">Commit to GitHub</h3>
+  <p class="small" id="ghWhat"></p>
+  <div class="row"><label>Admin key</label><input type="password" id="ghKey" autocomplete="current-password"></div>
+  <div class="row"><label>Commit message</label><input type="text" id="ghMsgIn"></div>
+  <p class="small" id="ghRes"></p>
+  <div class="row" style="justify-content:flex-end"><button id="ghCancel">Cancel</button><button id="ghGo" class="prim">Commit</button></div>
+</dialog>
+<script>
+"use strict";
+// ======================================================================================================
+// ECM Editor: Fighters Anthology countermeasure (.ECM) files. Parsing / saving and the field map: ecm_core.js.
+// The form follows the original FA editor's "ECM" and "ECM Jamming Info" dialogs. Every byte the user does not change is kept.
+// ======================================================================================================
+const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh), E = ECMCore;
+const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
+const VERCEL = "https://fashion-hawke.vercel.app";
+let ecm = null, ecmName = "", orig = null, dirty = false, index = {};
+const msg = (t, err) => { $("msg").textContent = t || ""; $("msg").className = err ? "err" : ""; };
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const bytesToStr = u8 => { let s = ""; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return s; };
+const strToBytes = s => { const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 255; return u; };
+async function fetchAny(path){
+  const urls = []; if (/^https?:$/.test(location.protocol)) urls.push(new URL("../" + path, location.href).href); urls.push(REMOTE + path);
+  for (const u of urls){ try { const r = await fetch(u, { cache: "no-cache" }); if (r.ok) return new Uint8Array(await r.arrayBuffer()); } catch(e){} }
+  return null;
+}
+function touch(){ dirty = true; $("saveBtn").disabled = !ecm; renderTitle(); renderSide(); renderRaw(); renderSrc(); }
+
+// ---------- form ----------
+const box = (en, zh, inner, note, sw) => `<fieldset><legend>${sw ? `<span class="sw" style="background:${sw}"></span>` : ""}${L(en, zh)}</legend>${inner}${note ? `<p class="note">${note}</p>` : ""}</fieldset>`;
+const fNum = (key, en, zh, unit, max) => `<div class="row"><label>${L(en, zh)}</label><input type="number" data-key="${key}" min="0" max="${max ?? 255}" step="1"><span class="unit">${unit || ""}</span></div>`;
+// an angle byte: degrees (editable) + the stored byte (editable)
+const fAng = (key, en, zh, pitch) => `<div class="row"><label>${L(en, zh)}</label><input type="number" data-ang="${key}" data-pitch="${pitch ? 1 : ""}" step="any" title="${esc(L("degrees", "度"))}"><span class="unit">°</span><input type="number" class="raw8" data-key="${key}" min="0" max="255" step="1" title="${esc(L("stored byte (256 = one turn)", "檔案中的位元組（256 = 一圈）"))}"></div>`;
+const fStr = (n, en, zh) => `<div class="row"><label>${L(en, zh)}</label><input type="text" data-name="${n}" spellcheck="false" maxlength="60"></div>`;
+const G = t => ` <span class="g" title="${esc(t)}">?</span>`;
+function renderForms(){
+  if (!ecm){ $("pMain").innerHTML = $("pJam").innerHTML = ""; return; }
+  const cm = (k, en, zh, sw) => box(en, zh, fNum(k + "Qty", "Quantity", "數量") + fNum(k + "Chance", "Chance", "機率", "%", 100) +
+    fAng(k + "Head", "Launch Heading", "發射方位") + fAng(k + "Pitch", "Launch Pitch", "發射俯仰", true), "", sw);
+  $("pMain").innerHTML =
+    box("ECM", "ECM", fStr(0, "Internal Name", "內部名稱") + fStr(2, "Object Name", "物件名稱") + fStr(1, "Description", "說明") + fNum("weight", "Weight", "重量", "lbs", 65535) +
+      `<div class="row"><label>${L("Flags byte (+07)", "旗標位元組（+07）")}${G(L("Not in the original dialogs. It is 1 on the pod ECMs (ALQ-119, ALQ-131, ALE-44, BOZ 107, Remora) and 0 on the built-in ones; what FA does with it is not known yet.", "原編輯器對話框裡沒有這一項。外掛莢艙 ECM（ALQ-119、ALQ-131、ALE-44、BOZ 107、Remora）是 1，內建的是 0；FA 怎麼用它還不清楚。"))}</label><input type="number" data-key="flags" min="0" max="255" step="1"><span class="unit"></span></div>`) +
+    cm("c", "Chaff", "干擾絲", "var(--chaff)") + cm("f", "Flares", "熱焰彈", "var(--flare)") +
+    box("Deception Jamming", "欺騙干擾", E.JAM.map(([bit, en], k) => `<label class="chk"><input type="checkbox" data-bit="${bit}"> ${L(en, ["已安裝干擾器", "連續波干擾", "脈衝干擾", "跳頻干擾", "紅外線干擾"][k])}<code>$${bit.toString(16)}</code></label>`).join("") +
+      `<div class="row"><label>${L("Stored word (+08)", "檔案中的值（+08）")}</label><input type="text" data-hex="jam" style="flex:0 0 84px;text-align:right"></div>`);
+  $("pJam").innerHTML =
+    box("Radar Jamming", "雷達干擾", fNum("rMiss", "Missile Miss %", "飛彈失誤 %", "%", 100) + fNum("rRcs", "Increase to RCS", "RCS 增加量", "", 65535) +
+      fNum("rMax", "Max Detect Cone", "最大偵測錐", L("nm?", "海浬?")) + fNum("rMin", "Min Detect Cone", "最小偵測錐"),
+      L("FA.EXE reads Max Detect Cone as the range in nautical miles at which this jammer shows on a hostile radar display.", "FA.EXE 把最大偵測錐當成海浬距離：在這個距離內，這個干擾器會顯示在敵方雷達畫面上。")) +
+    box("IR Jamming", "紅外線干擾", fNum("iMiss", "Missile Miss %", "飛彈失誤 %", "%", 100) + fNum("iIcs", "Increase to ICS", "ICS 增加量", "", 65535) + fNum("iLock", "Lock Loss Time", "失鎖時間"));
+  bind();
+}
+function bind(){
+  const root = $("wrap");
+  root.querySelectorAll("[data-key]").forEach(i => { i.value = E.get(ecm, i.dataset.key); i.onchange = () => { E.set(ecm, i.dataset.key, i.value); bind(); touch(); }; });
+  root.querySelectorAll("[data-ang]").forEach(i => { const k = i.dataset.ang, p = !!i.dataset.pitch, b = E.get(ecm, k);
+    i.value = +(p ? E.pitchDeg(b) : E.headDeg(b)).toFixed(1);
+    i.onchange = () => { E.set(ecm, k, p ? E.degToPitch(i.value) : E.degToHead(i.value)); bind(); touch(); }; });
+  root.querySelectorAll("[data-name]").forEach(i => { i.value = E.name(ecm, +i.dataset.name); i.onchange = () => { E.setName(ecm, +i.dataset.name, i.value.trim()); bind(); touch(); }; });
+  root.querySelectorAll("[data-bit]").forEach(i => { const b = +i.dataset.bit; i.checked = !!(E.get(ecm, "jam") & b);
+    i.onchange = () => { const v = E.get(ecm, "jam"); E.set(ecm, "jam", i.checked ? v | b : v & ~b); bind(); touch(); }; });
+  root.querySelectorAll("[data-hex]").forEach(i => { i.value = "$" + E.get(ecm, i.dataset.hex).toString(16);
+    i.onchange = () => { const v = parseInt(i.value.replace(/^\$|^0x/i, ""), 16); if (!isNaN(v)) { E.set(ecm, i.dataset.hex, v); touch(); } bind(); }; });
+}
+
+// ---------- launch direction (top view and rear view) ----------
+function renderSide(){
+  const svg = $("dirSvg");
+  if (!ecm){ svg.innerHTML = ""; return; }
+  const items = [["c", "var(--chaff)", L("Chaff", "干擾絲")], ["f", "var(--flare)", L("Flares", "熱焰彈")]];
+  const dir = k => { const h = E.headDeg(E.get(ecm, k + "Head")) * Math.PI / 180, p = E.pitchDeg(E.get(ecm, k + "Pitch")) * Math.PI / 180;
+    return { fwd: Math.cos(h) * Math.cos(p), side: Math.sin(h) * Math.cos(p), up: Math.sin(p) }; };
+  // top view: nose up, +side to the right. side view: nose right, up up.
+  const plane = (cx, cy, view) => view === "top"
+    ? `<path d="M${cx},${cy-34} L${cx+5},${cy-12} L${cx+34},${cy+6} L${cx+34},${cy+12} L${cx+5},${cy+6} L${cx+4},${cy+22} L${cx+14},${cy+30} L${cx-14},${cy+30} L${cx-4},${cy+22} L${cx-5},${cy+6} L${cx-34},${cy+12} L${cx-34},${cy+6} L${cx-5},${cy-12} Z" fill="#3a4550" stroke="#6b7887"/>`
+    : `<path d="M${cx+36},${cy} L${cx+14},${cy-5} L${cx-26},${cy-5} L${cx-34},${cy-22} L${cx-38},${cy-22} L${cx-36},${cy-3} L${cx-36},${cy+4} L${cx+14},${cy+5} Z" fill="#3a4550" stroke="#6b7887"/>`;
+  const arrow = (x1, y1, dx, dy, col, len) => { const n = Math.hypot(dx, dy); if (n < 0.08) return `<circle cx="${x1}" cy="${y1}" r="5" fill="none" stroke="${col}" stroke-width="2"/>`;
+    const x2 = x1 + dx / n * len * Math.min(1, n + 0.25), y2 = y1 + dy / n * len * Math.min(1, n + 0.25), a = Math.atan2(y2 - y1, x2 - x1);
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="2.5"/><path d="M${x2},${y2} L${x2 - 9*Math.cos(a - .45)},${y2 - 9*Math.sin(a - .45)} L${x2 - 9*Math.cos(a + .45)},${y2 - 9*Math.sin(a + .45)} Z" fill="${col}"/>`; };
+  let s = `<text x="90" y="16" fill="#8b96a5" font-size="11" text-anchor="middle">${esc(L("Top view (nose up)", "上視（機頭朝上）"))}</text>
+    <text x="270" y="16" fill="#8b96a5" font-size="11" text-anchor="middle">${esc(L("Side view (nose right)", "側視（機頭朝右）"))}</text>
+    <line x1="180" y1="24" x2="180" y2="190" stroke="#2e3742"/>` + plane(90, 104, "top") + plane(270, 104, "side");
+  for (const [k, col] of items){ if (!E.get(ecm, k + "Qty") && !E.get(ecm, k + "Chance")) continue; const d = dir(k);
+    s += arrow(90, 104, d.side, -d.fwd, col, 70) + arrow(270, 104, d.fwd, -d.up, col, 70); }
+  s += items.map(([k, col, t], n) => `<rect x="${12 + n * 80}" y="182" width="10" height="10" rx="2" fill="${col}"/><text x="${26 + n * 80}" y="191" fill="#dde3ea" font-size="11">${esc(t)}</text>`).join("");
+  svg.innerHTML = s;
+  $("dirNote").textContent = L("Angles are stored as bytes, 256 to a full turn; pitch is signed (191 = −65 ≈ 91° down). Heading 0 is taken as the nose and 64 as the right wing; which side is which is not yet confirmed.",
+    "角度以位元組儲存，256 = 一圈；俯仰有正負號（191 = −65 ≈ 向下 91°）。方位 0 視為機頭、64 視為右翼；左右方向尚未確認。");
+}
+function renderUsers(){
+  const u = index[ecmName]?.users || [];
+  $("users").innerHTML = u.length ? u.map(([p, n]) => `<a href="pt_editor.html?pt=${encodeURIComponent(p)}.PT" title="${esc(L("Open in the PT Editor", "在 PT 編輯器開啟"))}">${esc(p)}${n ? ` · ${esc(n)}` : ""}</a>`).join("")
+    : `<span class="small">${esc(L("No repo PT file names this ECM.", "儲存庫中沒有 PT 檔使用這個 ECM。"))}</span>`;
+  $("usersNote").textContent = u.length ? L(`${u.length} aircraft in PT/ carry ${ecmName} on a hardpoint.`, `PT/ 中有 ${u.length} 架飛機在掛點上掛 ${ecmName}。`) : "";
+}
+
+// ---------- all values ----------
+const RAW_LABELS = [["structType (9 = ECM)", "結構類型（9 = ECM）"], ["names pointer", "名稱指標"], ["Weight (lbs)", "重量（磅）"], ["Flags byte", "旗標位元組"], ["Deception jamming bits", "欺騙干擾位元"],
+  ["Chaff quantity", "干擾絲數量"], ["Chaff chance %", "干擾絲機率 %"], ["Chaff launch heading", "干擾絲發射方位"], ["Chaff launch pitch", "干擾絲發射俯仰"],
+  ["Flare quantity", "熱焰彈數量"], ["Flare chance %", "熱焰彈機率 %"], ["Flare launch heading", "熱焰彈發射方位"], ["Flare launch pitch", "熱焰彈發射俯仰"],
+  ["Radar: missile miss %", "雷達：飛彈失誤 %"], ["Radar: increase to RCS", "雷達：RCS 增加量"], ["Radar: max detect cone", "雷達：最大偵測錐"], ["Radar: min detect cone", "雷達：最小偵測錐"],
+  ["IR: missile miss %", "紅外線：飛彈失誤 %"], ["IR: increase to ICS", "紅外線：ICS 增加量"], ["IR: lock loss time", "紅外線：失鎖時間"]];
+function renderRaw(){
+  if (!ecm){ $("pRaw").innerHTML = ""; return; }
+  const rows = ecm.vals.slice(0, 20).map((e, k) => { const ch = orig && orig[k] !== e.raw;
+    return `<tr class="${ch ? "chg" : ""}"><td>+${E.OFF[k].toString(16).padStart(2, "0").toUpperCase()}</td><td>${e.kind}</td><td class="lab">${esc(L(...RAW_LABELS[k]))}</td><td>${
+      e.kind === "ptr" || k === 0 ? esc(e.raw) : `<input type="text" data-rawk="${k}" value="${esc(e.raw)}">`}</td><td>${ch ? `<span class="small">${esc(L("was", "原本"))} ${esc(orig[k])}</span>` : ""}</td></tr>`; }).join("");
+  $("pRaw").innerHTML = `<table class="raw"><tr><th>${L("offset", "位移")}</th><th>${L("kind", "型別")}</th><th>${L("field", "欄位")}</th><th>${L("value", "值")}</th><th></th></tr>${rows}</table>`;
+  $("pRaw").querySelectorAll("[data-rawk]").forEach(i => i.onchange = () => { const s = i.value.trim(), v = /^\$|^0x/i.test(s) ? parseInt(s.replace(/^\$|^0x/i, ""), 16) : parseInt(s, 10);
+    if (!isNaN(v)) E.setRaw(ecm, +i.dataset.rawk, v); bind(); touch(); });
+}
+function renderSrc(){ $("src").textContent = ecm ? E.serialize(ecm).replace(/\r\n/g, "\n") : ""; }
+
+// ======================================================================================================
+// open / save / commit
+// ======================================================================================================
+function renderTitle(){
+  if (!ecm){ $("title").innerHTML = ""; return; }
+  $("title").innerHTML = `${esc(ecmName)} &nbsp;${esc(E.name(ecm, 1) || E.name(ecm, 0))}<span>${dirty ? L("● edited, not saved", "● 已修改，尚未儲存") : ""}</span>`;
+}
+function renderAll(){ renderTitle(); renderForms(); renderSide(); renderUsers(); renderRaw(); renderSrc(); }
+function openECM(name, text){
+  let e; try { e = E.parse(text); } catch(err){ msg(L("Cannot read this ECM: ", "無法讀取這個 ECM：") + err.message, true); return; }
+  ecm = e; ecmName = name.toUpperCase(); dirty = false; orig = e.vals.map(v => v.raw);
+  try { localStorage.setItem("ecm_last", ecmName); } catch(err){}
+  $("saveBtn").disabled = false; $("ghBtn").disabled = false; $("ecmList").value = ecmName;
+  history.replaceState(null, "", "?ecm=" + encodeURIComponent(ecmName));
+  renderAll(); msg("");
+}
+const discardOk = () => !dirty || confirm(L("Discard the changes to " + ecmName + "?", "放棄對 " + ecmName + " 的修改？"));
+async function openRepoECM(name){
+  if (!discardOk()){ $("ecmList").value = ecmName; return; }
+  msg(L("Loading ", "載入 ") + name + "…");
+  const u8 = await fetchAny("ECM/" + name); if (!u8){ msg(L("Cannot download ", "無法下載 ") + name, true); return; }
+  dirty = false; openECM(name, bytesToStr(u8));
+}
+$("ecmList").onchange = () => $("ecmList").value && openRepoECM($("ecmList").value);
+$("ecmFile").onchange = async e => { const f = e.target.files[0]; if (!f) return; e.target.value = ""; if (!discardOk()) return;
+  const n = f.name.toUpperCase(); if (![...$("ecmList").options].some(o => o.value === n)) $("ecmList").add(new Option(n + " " + L("(local)", "（本機）"), n));
+  dirty = false; openECM(f.name, bytesToStr(new Uint8Array(await f.arrayBuffer()))); };
+$("saveBtn").onclick = () => {
+  if (!ecm) return; const blob = new Blob([strToBytes(E.serialize(ecm))], { type: "application/octet-stream" }), a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = ecmName; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  dirty = false; renderTitle(); msg(L("Saved ", "已儲存 ") + ecmName);
+};
+async function loadIndex(){
+  const u8 = await fetchAny("tools/ecm_index.json"); try { if (u8) index = JSON.parse(new TextDecoder().decode(u8)); } catch(e){}
+  const sel = $("ecmList"); for (const o of [...sel.options].slice(1)) o.remove();
+  const names = Object.keys(index).length ? Object.keys(index).sort() : ["A10.ECM", "EA6.ECM", "F14.ECM", "F15.ECM", "F18.ECM", "F22.ECM", "MIG29.ECM", "SU27.ECM"];
+  for (const n of names){ const d = index[n] ? (index[n].name || index[n].desc) : ""; sel.add(new Option(d ? `${n} · ${d}` : n, n)); }
+}
+const API = /vercel\.app$|^localhost$|^127\./.test(location.hostname) ? "" : VERCEL;
+$("ghBtn").onclick = () => {
+  if (!ecm) return; let key = ""; try { key = localStorage.getItem("fashion_admin_key") || ""; } catch(e){}
+  $("ghKey").value = key; $("ghMsgIn").value = `ECM editor: update ${ecmName}`; $("ghRes").textContent = "";
+  $("ghWhat").textContent = L(`Writes ECM/${ecmName} on the main branch of kuoyichen/FAoutput. Only the site admin key can do this.`, `會把 ECM/${ecmName} 寫到 kuoyichen/FAoutput 的 main 分支。只有網站管理金鑰可以使用。`);
+  $("ghDlg").showModal();
+  fetch(API + "/api/pt-commit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ check: true, adminKey: key }) })
+    .then(r => r.json()).then(j => { if ($("ghRes").textContent) return;
+      $("ghRes").textContent = !j.githubConfigured ? L("Server: GITHUB_TOKEN is not set in Vercel yet.", "伺服器：Vercel 尚未設定 GITHUB_TOKEN。")
+        : key && j.admin ? L("Server ready (GitHub token set, admin key OK).", "伺服器已就緒（GitHub token 已設定，管理金鑰正確）。") : L("Server ready (GitHub token set).", "伺服器已就緒（GitHub token 已設定）。"); })
+    .catch(() => {});
+};
+$("ghCancel").onclick = () => $("ghDlg").close();
+$("ghGo").onclick = async () => {
+  const key = $("ghKey").value.trim(); if (!key){ $("ghRes").textContent = L("Enter the admin key.", "請輸入管理金鑰。"); return; }
+  $("ghGo").disabled = true; $("ghRes").textContent = L("Committing…", "提交中…");
+  try {
+    const bytes = strToBytes(E.serialize(ecm)); let b64 = ""; for (let i = 0; i < bytes.length; i += 8192) b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+    const r = await fetch(API + "/api/pt-commit", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ adminKey: key, name: ecmName, content: btoa(b64), message: $("ghMsgIn").value.trim() }) });
+    const j = await r.json().catch(() => ({ error: "HTTP " + r.status }));
+    if (!r.ok || !j.ok) throw new Error(j.error || "HTTP " + r.status);
+    try { localStorage.setItem("fashion_admin_key", key); } catch(e){}
+    $("ghRes").innerHTML = j.unchanged ? esc(L("No change: GitHub already has this exact file.", "沒有變更：GitHub 上已經是同樣的檔案。")) : `${esc(L("Committed", "已提交"))} <a href="${esc(j.commitUrl)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc((j.sha || "").slice(0, 7))}</a>`;
+    dirty = false; renderTitle();
+  } catch(e){ $("ghRes").textContent = L("Failed: ", "失敗：") + e.message; }
+  $("ghGo").disabled = false;
+};
+
+// ======================================================================================================
+FAI18N.register({
+  "FAshion home": "FAshion 首頁", "ECM Editor": "ECM 編輯器", "PT Editor": "PT 編輯器", "JT Editor": "JT 編輯器", "Aircraft editor": "飛機編輯器", "Ordnance editor": "武器編輯器",
+  "ECM file…": "ECM 檔…", "📂 Open .ECM": "📂 開啟 .ECM", "⬇ Save .ECM": "⬇ 儲存 .ECM", "☁ Commit to GitHub": "☁ 提交到 GitHub",
+  "Open an .ECM file from your disk": "從電腦開啟 .ECM 檔", "Download the edited .ECM file": "下載修改後的 .ECM 檔",
+  "Write this ECM file to ECM/ on GitHub (admin key required)": "把這個 ECM 檔寫到 GitHub 的 ECM/（需要管理金鑰）", "ECM countermeasure files in the FAoutput repository": "FAoutput 儲存庫中的 ECM 反制檔",
+  "ECM Jamming Info": "ECM 干擾資訊", "All values": "全部數值", "File text": "檔案內容", "Launch direction": "發射方向", "Carried by": "掛載的飛機", "How FA.EXE uses it": "FA.EXE 如何使用",
+  "Commit to GitHub": "提交到 GitHub", "Admin key": "管理金鑰", "Commit message": "提交說明", "Cancel": "取消", "Commit": "提交"
+});
+$("langSlot").append(FAI18N.picker()); FAI18N.apply();
+FAI18N.onChange(() => { if (ecm) renderAll(); });
+(async () => {
+  await loadIndex();
+  let start = new URLSearchParams(location.search).get("ecm"); if (!start){ try { start = localStorage.getItem("ecm_last"); } catch(e){} }
+  start = (start || "A10.ECM").toUpperCase(); if (!/\.ECM$/.test(start)) start += ".ECM";
+  await openRepoECM(start);
+})();
+addEventListener("beforeunload", e => { if (dirty){ e.preventDefault(); e.returnValue = ""; } });
+window.ecmEditor = { get ecm(){ return ecm; }, E };
+</script>
+</body>
+</html>
