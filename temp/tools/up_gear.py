@@ -59,7 +59,23 @@ def twin_block(g, at, header, base, wbase, hub):
     return bytes(out), [CL, CR]
 
 
+def quad_block(g, at, header, base, wbase, hub):
+    """Four-wheel bogie: front twin axle on the leg (g as a twin gear) and a rear twin axle g['quad'] units behind
+    it on a bogie beam; an fwd plane between the axles draws the far axle first."""
+    bx, by, bz = g['bot']; wx, wy, wz = g['wheel']; dq = g['quad']
+    front = {k: v for k, v in g.items() if k != 'quad'}
+    rear = dict(front, top=(wx, wy, wz), bot=(wx, wy + dq, wz), wheel=(wx, wy + dq, wz), braces=[], sr=g.get('sr', 1) * 0.7)
+    A = at + 20
+    rb, rc = twin_block(rear, A, header, base, wbase, hub)
+    B = A + len(rb)
+    fb, fc = twin_block(front, B, header, base, wbase, hub)
+    mid = wy + dq / 2
+    out = node(at, (0, 0, 16384), (0, 0, round(-mid)), A, B) + rb + fb
+    return bytes(out), rc + fc
+
+
 def part_block(g, at, header, base, wbase, hub):
+    if 'quad' in g: return quad_block(g, at, header, base, wbase, hub)
     if 'twin' in g: return twin_block(g, at, header, base, wbase, hub)
     st, sfaces, tr, (n, d), wp = build(g, base, wbase, hub)
     out = bytearray(st.bytes())
