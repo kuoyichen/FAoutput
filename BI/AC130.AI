@@ -1,0 +1,153 @@
+;*****************************************************************
+; ac130.ai
+; --------
+; Custom AI program for AC-130 Spectre gunship.
+; Similar to normal bomber AI, except use a pylon left turn for ground attack.
+;*****************************************************************
+
+if do_nothing goto nothing
+if do_ir_launch goto ir_launch
+if do_radar_launch goto radar_launch
+if do_hit goto hit
+if do_evade goto evade
+if do_attack goto attack
+exit
+
+;-----------------------------------------------------------------
+; CODE FOR "NOTHING"
+;-----------------------------------------------------------------
+
+nothing:
+
+exit
+
+;-----------------------------------------------------------------
+; CODE FOR "IR LAUNCH" AND "RADAR LAUNCH"
+;
+; TBD: if near protective weather layer, and there's enough
+;		time to get to it, enter it.
+;-----------------------------------------------------------------
+
+ir_launch:
+radar_launch:
+
+;--- break
+
+%a = 90
+if percent 50 %a = -90
+wm_break %a engageP
+move h + %a engageP any corner 0
+restart
+
+;-----------------------------------------------------------------
+; CODE FOR "HIT"
+;-----------------------------------------------------------------
+
+hit:
+
+exit
+
+;-----------------------------------------------------------------
+; CODE FOR "EVADE"
+;-----------------------------------------------------------------
+
+evade:
+
+;--- if low skill, just go straight
+if chance 40251005 goto straight
+
+;-------- do "best" evasive maneuver --------
+
+;-------- if ground target, just climb to 20,000 feet, but keep on same course
+.if not tgtIsPlane
+	%a = alt
+	if %a < 20000 %a = 20000
+	moveToAlt h %a maxSpeed 5
+	restart
+.endif
+
+;--- if far from target, don't bother jinking
+.if distToTgt >= 30000
+	move htotgt + 180 0 any maxSpeed 3
+	restart
+.endif
+
+;--- choose randomly whether to pitch or turn
+.if percent 65
+
+	;-------- do pitching jink --------
+
+	;--- choose pitch for jinking
+	; (prefer dive, especially if high alt or slow speed)
+	%a = random 15 - 7
+	if %a > 0 && alt > 20000 %a = neg %a
+	if %a > 0 && alt > 5000 && speed < minSpeed + 75 %a = neg %a
+
+	;--- smaller jink pitch if target is far away from me
+	if distToTgt >= 10000 %a = %a / 2
+
+	%b = 0
+
+.else
+
+	;-------- do turning jink --------
+
+	%a = 0
+
+	;--- smaller jink angle if target is far away from me
+	%b = 15
+	if distToTgt >= 10000 %b = 8
+
+.endif
+
+;--- # jinks to do
+%c = 4 + random 4
+
+jink htotgt + 180 %a %b 10 0 %c maxspeed 4
+restart
+
+;-----------------------------------------------------------------
+; CODE FOR "ATTACK"
+;-----------------------------------------------------------------
+attack:
+
+if tgtIsPlane goto plane
+
+;-----------------------------------------------------------------
+; Attacking ground target.
+;-----------------------------------------------------------------
+
+groundAttack:
+
+%a = cornerSpeed + maxSpeed
+%a = %a / 2
+
+;-------- pylon left turn until target is destroyed!
+circle 0 4000 2000 35 %a 5
+
+restart
+
+;-----------------------------------------------------------------
+; Attacking airborne target.
+;
+; TBD: this should never happen.
+;-----------------------------------------------------------------
+
+plane:
+
+exit
+
+;-----------------------------------------------------------------
+; This section implements the various tactical moves.
+;-----------------------------------------------------------------
+
+;-----------------------------------------------------------------
+;-------- straight --------
+;-----------------------------------------------------------------
+
+straight:
+
+maneuver "STRAIGHT;GERADEAUS;TOUT DROIT"
+move h engagep any maxSpeed 6
+restart
+
