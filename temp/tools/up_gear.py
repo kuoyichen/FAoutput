@@ -85,8 +85,9 @@ def run(src, psrc, dst, pdst, spec):
     d = bytearray(open(src, 'rb').read())
     pe, opt, secs = pe_sections(d)
     code = next(s for s in secs if s['name'] == 'CODE'); nxt = min(s['va'] for s in secs if s['va'] > code['va'])
-    if nxt - code['va'] - code['vs'] < 4096:
-        d = bytearray(grow_vas(d, 0x1000)); pe, opt, secs = pe_sections(d)
+    need = 1200 * len(spec['gear']) + 1000              # ~1.2-1.5 KB per gear
+    if nxt - code['va'] - code['vs'] < need:
+        d = bytearray(grow_vas(d, (need + 0xFFF) // 0x1000 * 0x1000)); pe, opt, secs = pe_sections(d)
         code = next(s for s in secs if s['name'] == 'CODE'); nxt = min(s['va'] for s in secs if s['va'] > code['va'])
     c = bytearray(d[code['ro']:code['ro'] + code['vs']])
     OLD, SPAN = spec['parts'], spec['span_end']

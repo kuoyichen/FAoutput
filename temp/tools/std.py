@@ -7,7 +7,7 @@ sys.path.insert(0, HERE)
 
 
 def chain(src, pic, out, name, picname, pt=None, extra=None, parts=None, gear=None, flame=None, rm=12, rn=9,
-          keep_old=False, morph=None, flame_at=None):
+          keep_old=False, morph=None, flame_at=None, stub=None):
     import up_stores, up_gear, up_ab2, f16
     from f14_gear import read_pic, put
     from sh_inspect import load
@@ -40,9 +40,13 @@ def chain(src, pic, out, name, picname, pt=None, extra=None, parts=None, gear=No
             ns, np_ = os.path.join(out, name + '_f%d.SH' % k), os.path.join(out, name + '_f%d.PIC' % k)
             slots = up_ab2.run(cur, cpic, ns, np_, old=old, length=flame, ignore=pre, slots=slots); cur, cpic = ns, np_
     dst, pdst = os.path.join(out, name + '.SH'), os.path.join(out, '_' + picname + '.PIC')
+    if stub:                                         # static gear block -> stub parts in the body frame
+        g0 = os.path.join(out, name + '_g0.SH'); parts = stub_parts(cur, g0, list(gear)); cur = g0
     if parts:
         spec = dict(parts=parts, gear=gear, strip=None)
+        if stub: spec['span_end'] = {k: v + 14 for k, v in parts.items()}
         h = up_gear.auto_hubs(cur, cpic, parts, rm=rm, rn=rn, keep_old=True); h['clear'] = []
+        if stub: h.pop('span_end')
         spec.update(h)
         up_gear.run(cur, cpic, dst, pdst, spec)
     else:
@@ -82,5 +86,41 @@ def flames(path):
         on = struct.unpack_from('<I', c, q + 8)[0] - 0x1000
         if c[on:on + 2] != b'\x12\x00': continue
         t = on + 4 + struct.unpack_from('<h', c, on + 2)[0]
-        if c[t] == 0x82 and struct.unpack_from('<H', c, t + 2)[0] in (8, 12, 16) and t not in out: out.append(t)
+        if c[t] == 0x82 and struct.unpack_from('<H', c, t + 2)[0] in (8, 12, 16, 24, 32) and t not in out: out.append(t)
     return out
+
+
+def static_gear_block(path, nverts=None):
+    """82 of the stock gear when it is not a C4 part but one block under F0 (cmp _PLgearDown) -> 12 00 rel (F-111, B-1)."""
+    from sh_inspect import load, thunks
+    d, pe, secs, code, c = load(path)
+    th = thunks(d, secs, code, c)
+    gd = struct.pack('<I', 0x1000 + next(k for k, v in th.items() if v == '_PLgearDown'))
+    q = c.find(gd); on = struct.unpack_from('<I', c, q + 8)[0] - 0x1000
+    assert c[on:on + 2] == b'\x12\x00'
+    t = on + 4 + struct.unpack_from('<h', c, on + 2)[0]
+    assert c[t] == 0x82 and (nverts is None or struct.unpack_from('<H', c, t + 2)[0] == nverts), hex(t)
+    return t
+
+
+HEADER = bytes.fromhex('cb003300e200')
+
+
+def stub_parts(src, dst, keys, t=None):
+    """Rewrite the start of a static gear block into gosubs to one empty stub part per gear (6-byte range header +
+    empty 82, 20 bytes each) that up_gear then turns into 3D gear drawn in the body frame."""
+    from sh_inspect import load
+    d, pe, secs, code, c = load(src); d = bytearray(d); ro = code['ro']
+    t = t if t is not None else static_gear_block(src)
+    head = (4 * len(keys) + 1 + 3) // 4 * 4 + 2           # stub 82 lands 6 bytes into its 20-byte slot
+    parts = {k: t + head + 6 + 20 * i for i, k in enumerate(keys)}
+    blk = bytearray()
+    for i, k in enumerate(keys):
+        blk += b'\x12\x00' + struct.pack('<h', parts[k] - (t + 4 * i + 4))
+    blk += b'\x1e'; blk += bytes(head - len(blk))
+    for k in keys: blk += HEADER + b'\x82\x00\x00\x00\x00\x00' + bytes(8)
+    n = struct.unpack_from('<H', c, t + 2)[0]
+    assert len(blk) <= 6 + 6 * n, (len(blk), n)
+    d[ro + t:ro + t + len(blk)] = blk
+    open(dst, 'wb').write(d)
+    return parts
