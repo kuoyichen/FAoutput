@@ -192,3 +192,43 @@ from the cloud session; would need Kuoyi's PC). Plan: chain road/bridge segment 
 lines (bridge where a road crosses a river), city blocks on real city footprints, keep within object
 limits; optionally paint new tmap_named texture PICs from real land cover. The editor PIC can be
 redrawn from the same data.
+
+## 9. Relief that reads as 3D: what was built (2026-11-26)
+
+Real heights alone look flat in FA: one cell is 8192 ft (~2.5 km), so real mountain slopes come out at
+about 8° and FA's terrain renderer shows no depth. Kuoyi wants the feeling of flying in a valley and
+looking up at the mountains; the land / plain / sea layout only needs to be roughly right.
+
+**Method (WTA-2, chosen by Kuoyi; later used for every map).**
+1. Georeference: fit the T2 sea mask (colour 255) to Natural Earth 10m land with a grid search, then
+   Nelder-Mead over lon0, lat0, sx, sy, rot. Score = balanced accuracy (land hit rate + sea hit rate) / 2,
+   so mostly-sea maps (KURILE, LFA) are not won by "all sea". Many theaters are stylised: UKR is
+   ~5.8 km/cell and needed a start point by hand (Crimea ↔ Crimea); KURILE likewise (chain end points).
+   GRE islands are drawn freely, so the fit is only rough (86%).
+2. DEM: AWS terrarium tiles (zoom 7–9 chosen so a cell has ≥ 4 DEM pixels); per vertex
+   0.5 × mean + 0.5 × max of a 7 × 7 sample in the cell. Game land that is sea in the real data borrows
+   the nearest real land within 5 cells, otherwise a low dome.
+3. Heights in steps (256 ft):
+   `env = clip((gauss(e,1.5) − 150) / (ref − 150), 0, 1)`, `ref = clip(0.75 × max gauss(e,1.5), 1200 m, 2900 m)`,
+   `H = clip(e/1000,0,1)×3 + env^1.3 × P × 0.66 + k × (e − gauss(e,2.5))/78 × env + hills`,
+   mountain maps P = 70, k = 7, hills = 2 steps of smooth noise × (1 − env);
+   flat maps (EGY, UKR, BAL) P = 14, k = 2.5, hills 4 steps. Soft cap above 110 steps (× 0.5),
+   so peaks stay near WTA-2 (max ≈ 140 = 36k ft). Sea = 0.
+4. Lakes: build the ground-texture mosaic (see below), water = tile index 240–254, binary opening 5×5
+   (drops thin rivers), lake cell = > 4% water and ≥ 3 cells from the sea; each lake gets its
+   median height, the ring around it is averaged halfway.
+5. Objects: every MM object has ALT 0, so cells cx−1..cx+2, cy−1..cy+2 around each `pos` are 0 ft;
+   after WTA-5 a ramp (≤ 6 steps per cell) keeps them valleys, not pits.
+Only the height byte changes. Result: SH\MAP\NEW_T2\ on Kuoyi's PC (16 T2 + contour PNGs); scripts and
+fits in the project files (`maps/ALL_T2/scripts`).
+
+**Ground texture tiles.** A numbered `tmap X Y N ROT` loads `<first 3 letters of the map>N.PIC`
+(TVIET → TVI0.PIC …), from C:\work\FA_1 on Kuoyi's PC (not in the repo). APA, GRE, LFA, NSK and WTA
+use the same 68 tiles. KURILE uses `tmap_named` K*.PIC, 128×128 or 256×256. Tile pixels: 192–207 land
+shades, 217–224 shore, 240–254 rivers/lakes, 255 transparent (sea). A tile covers cells x..x+3,
+y..y+3 as `rot90(flipud(tile), ROT)` with row 0 = south (fits the coasts best).
+
+**Map Editor** (`tools/map_editor.html`): opens a T2 from MAP/ or your disk, with the MM, editor PIC and
+texture tiles (pick the tiles folder) as overlays; raise / lower / smooth / flatten / set / restore /
+pick brushes, protect sea and objects, contours, a 3D preview of the area under the cursor, height
+PNG export / import; Save writes the original file back with only the height bytes changed.
