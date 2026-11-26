@@ -78,7 +78,8 @@ def set_station(t, i, flags, x, u, f, default, maxw, count, loc):
 
 def scale_eye(t, kx, ku, kf):
     """Cockpit eye (OBJ words x, up, fwd just before `ptr hudName`) scaled with a morphed shape."""
-    m = re.search(r'word (-?\d+)(\r?\n\s*)word (-?\d+)(\r?\n\s*)word (-?\d+)(\r?\n\s*ptr hudName)', t)
+    a = t.index('sound info')
+    m = re.compile(r'word (-?\d+)(\r?\n\s*)word (-?\d+)(\r?\n\s*)word (-?\d+)(\r?\n\s*(?:ptr hudName|dword 0))').search(t, a)
     x, u, f = int(m.group(1)), int(m.group(3)), int(m.group(5))
     new = f'word {round(x * kx)}{m.group(2)}word {round(u * ku)}{m.group(4)}word {round(f * kf)}{m.group(6)}'
     return t[:m.start()] + new + t[m.end():]
