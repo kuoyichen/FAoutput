@@ -66,8 +66,8 @@ indirect write could still exist. Not verified in game.)
 | +0x18 | word | added to IR signature |
 
 ## Repo ECM files vs this code (ECM/, 38 files)
-- A jammer only works if +08 has $10 (Jammer Installed). 18 files have miss %/RCS values but
-  +08 = $0 (A10, AV8*, B1B, B52, B52H, F14, SU24, SU27, SU37, TU160, TU26, TU95, MIG27 ...):
+- A jammer only works if +08 has $10 (Jammer Installed). 15 files have miss %/RCS values but
+  +08 = $0 (A10, AV8, AV82, AV83, B1B, B52, B52H, F14, MIG27, SU24, SU27, SU37, TU160, TU26, TU95):
   their radar/IR jam values are never read by this code; only chaff/flares count.
   F14.ECM = $0, so an F-14 gets "No working jammers found".
 - Radar miss % (+12) applies to any radar missile once the jammer is on. The RCS add (+13)
