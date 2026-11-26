@@ -70,7 +70,7 @@ class SH:
         uc.mem_map(0, size)
         uc.mem_map(0x500000, 0x100000)               # FA globals: object table, eye, timeGetTime pointer
         uc.mem_map(0x7F0000, 0x10000)                # stack
-        uc.mem_write(0x5F0000, b'\xa1\x00\x01\x5f\x00\x81\x05\x00\x01\x5f\x00\x84\x03\x00\x00\xc3')   # timeGetTime stub: eax = t; t += 900 ms (AB flame grows to full in a few draws)
+        uc.mem_write(0x5F0000, b'\xa1\x00\x01\x5f\x00\x81\x05\x00\x01\x5f\x00' + struct.pack('<I', TICK) + b'\xc3')   # timeGetTime stub: eax = t; t += 900 ms (AB flame grows to full in a few draws)
         uc.mem_write(0x593758, struct.pack('<I', 0x5F0000))
         s.uc = uc; s.size = size
         return uc
@@ -181,6 +181,9 @@ class SH:
         return s.walk(starts[lod], eye, mode)
 
 
+TICK = 100                          # ms per timeGetTime call (spin + flame x86 each call it once per draw)
+
+
 def camera(yaw, pitch):
     cy, sy, cp, sp = math.cos(yaw), math.sin(yaw), math.cos(pitch), math.sin(pitch)
     fwd = np.array([sy * cp, sp, cy * cp])
@@ -249,7 +252,7 @@ def views(path, pic, out_png, vars=None, mode='zbuf', vlist=None, W=640, H=440, 
     tex = loadpic(pic) if pic else None
     vlist = vlist or DEFAULT_VIEWS
     ims = []
-    for k in range(5): sh.faces((0, 0, -dist), mode, lod)     # let time-based F0 effects settle
+    for k in range(40): sh.faces((0, 0, -dist), mode, lod)     # let time-based F0 effects settle
     for yaw, pitch in vlist:
         right, up, fwd = camera(yaw, pitch)
         eye = tuple(fwd * dist)
