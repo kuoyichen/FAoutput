@@ -18,3 +18,7 @@ Copied from `SH\AI` on Kuoyi's PC (2026-11-26).
 | LINER | airliner |
 
 `.gitattributes` marks `BI/**` as binary so the CRLF text and compiled files are stored byte-for-byte.
+
+## Compiling
+
+`python3 tools/aic.py BI/F.AI` rebuilds `BI/F.BI`. All 9 sources compile to the shipped .BI files byte-for-byte (only the build timestamp differs). The format and the language are described in `skill/FA_AI_BI.MD`.
