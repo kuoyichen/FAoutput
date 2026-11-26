@@ -46,7 +46,15 @@ radar jammer on, reads ITS ECM byte +0x15 as a range in nautical miles (dist / 0
 and, if the player is inside it, draws a jamming indication (0x43BB50, id 0x113).
 This affects the radar picture only, not missile hit chance for other aircraft.
 
-## ECM typedef fields used (offsets inside the .ECM typedef; map to file once we have one)
+## Who can switch a jammer on (2026-11-22 follow-up)
+Only two writers set +0xDE bits 0x10/0x20 on aircraft: the human player's key handler
+(0x4146AF, loads player 0x520A1C, jump table 0x415CEC) and the multiplayer receive code
+(0x46D9B7, copies a remote human's bits). No AI code sets them, and 0x452EA0 (find a jammer)
+is called only from the key handler and the radar display. So by this reading **AI aircraft,
+including an AI EA-6B, never turn a jammer on**. (Scan of direct +0xDE / 0x50CF5E writes; an
+indirect write could still exist. Not verified in game.)
+
+## ECM typedef fields used (file field names from skill/FA_ecm_file.MD)
 | off | size | use |
 |---|---|---|
 | +0x08 | word | flags: 0x10 radar jammer, 0x100 IR jammer, 0x20/0x40/0x80 seeker match bits |
@@ -57,6 +65,17 @@ This affects the radar picture only, not missile hit chance for other aircraft.
 | +0x17 | byte | IR jam % reduction |
 | +0x18 | word | added to IR signature |
 
-TODO: get Kuoyi's EA6.ECM / F14.ECM files and fill in the real values and signs.
+## Repo ECM files vs this code (ECM/, 38 files)
+- A jammer only works if +08 has $10 (Jammer Installed). 18 files have miss %/RCS values but
+  +08 = $0 (A10, AV8*, B1B, B52, B52H, F14, SU24, SU27, SU37, TU160, TU26, TU95, MIG27 ...):
+  their radar/IR jam values are never read by this code; only chaff/flares count.
+  F14.ECM = $0, so an F-14 gets "No working jammers found".
+- Radar miss % (+12) applies to any radar missile once the jammer is on. The RCS add (+13)
+  needs a type match: seeker +9 bit 1 → Pulse ($40) else CW ($20); bit 2 → also FH ($80).
+- IR jam needs $100: AC130, F15X, F22, KA50 only.
+- EA6.ECM ($f0, ALQ-99): radar miss 90 % (best of all files; F22 80, A6/ALQ-131/MIG31/SEAHAR 70),
+  RCS add 150 (others 100), display range +15 = 150 nm (others 0-50), IR miss 40 but no $100,
+  so its IR values are unused. The EA-6B also carries F14.ECM (chaff/flares, $0).
+- +1A IR lock loss time (AC130, KA50 = 3) is not traced in FA.EXE yet.
 Idea if area jamming is wanted: patch 0x4C3380/0x478200 to also take the best ECM of any
 friendly jamming aircraft within ECM +0x15 nm of the target.
