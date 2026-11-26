@@ -95,6 +95,7 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
   <a href="tools/f14_f18.html"><span class="ico">✈</span>New F-14 Tomcat with loadouts</a>
   <a href="tools/f18_showcase.html"><span class="ico">✈</span>F/A-18 Showcase</a>
   <a href="tools/fa_big.html"><span class="ico">⬆</span>FA_BIG (more LIBs)</a>
+  <a href="tools/jkp_lib.html"><span class="ico">⬢</span>JKP library (download)</a>
   <a href="tools/lib_release.html"><span class="ico">▤</span>Making LIBs that do not crash</a>
   <h3>Tools</h3>
   <a href="tools/sh_gallery.html"><span class="ico">▦</span>SH Shape Gallery</a>
@@ -130,6 +131,15 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
 <main id="releases">
   <h2>Releases</h2>
   <p class="sub">New shapes and new features for FA, newest first.</p>
+  <a class="rel" href="tools/jkp_lib.html">
+    <div><time datetime="2026-11-26">Nov 26, 2026</time><span class="no">#11</span></div>
+    <div>
+      <h3>JKP 600: the JKP library for FA</h3>
+      <p>All my FA updates now ship as one library, JKP, continuing Zephyr's JKPFA (4.55 to 5.3 beta). JKP 600 has 1,521 aircraft, weapons, units, ships, shapes, pictures, sounds, maps and music in eight LIBs, including the new F-14 family, the reshaped F/A-18s, the KC-130 and KC-135 tankers and the Ticonderoga deck. Download it, see what is in each LIB and search every file.</p>
+      <div class="chips"><span>JKP600.zip</span><span>8 LIBs</span><span>1,521 files</span><span>Thanks, Zephyr</span><span>Searchable list</span></div>
+      <span class="go">Download and browse →</span>
+    </div>
+  </a>
   <a class="rel" href="tools/lib_release.html">
     <div><time datetime="2026-11-26">Nov 26, 2026</time><span class="no">#10</span></div>
     <div>
@@ -257,7 +267,7 @@ FAI18N.register({
   "How the new F-14 and F/A-18 were made. One model used to take me half a year with fash and SketchUp, and normals could not be edited. With every FA file on GitHub and Claude Code checking each step with me, we reshaped the jets, fixed normals, added new vertices and wrote x86 into the shapes: an animated afterburner and landing gear with spinning wheels.": "新的 F-14 和 F/A-18 是怎麼做出來的。以前用 fash 和 SketchUp，一個模型要花我半年，而且法向量改不了。把 FA 的所有檔案放上 GitHub，和 Claude Code 一步步核對之後，我們修整了外形、修正法向量、增加新頂點，還在外形裡寫了 x86：會動的後燃器，以及輪子會轉的起落架。",
   "The story": "合作過程", "F/A-18 reshape": "F/A-18 外形修整", "F-14 nose": "F-14 機鼻", "Animated afterburner": "動態後燃器", "Spinning wheels": "會轉的輪子", "Hidden limits": "隱藏上限", "Read how it was done →": "看看是怎麼做的 →",
   "Ticonderoga helicopter deck": "提康德羅加號直昇機甲板",
-  "Making LIBs that do not crash": "做出不會當掉的 LIB", "Making FA LIBs that do not crash": "做出不會當掉的 FA LIB", "Nov 26, 2026": "2026 年 11 月 26 日", "Home-made LIBs that unpack fine everywhere can still crash FA when the mission builder opens or a mission starts. We found why by disassembling FA.EXE: it reads compressed files in 2 KB chunks straight past the end of the LIB. Five rules every LIB maker must follow, the falib tool that builds LIBs from the source files and follows them for you, and a LIB checker that runs in your browser.": "自製的 LIB 在任何工具裡都解得開，卻還是可能在打開任務建立或進入任務時讓 FA 當掉。我們反組譯 FA.EXE 找到原因：它用 2 KB 一塊讀壓縮檔，會一路讀到 LIB 結尾外面。這裡整理 LIB 製作者必須遵守的 5 條規則、直接從原始檔編 LIB 並自動遵守這些規則的 falib 工具，以及在瀏覽器裡就能用的 LIB 檢查器。", "FA.EXE read bug": "FA.EXE 讀取錯誤", "5 rules": "5 條規則", "LIB checker": "LIB 檢查器", "falib tool": "falib 工具", "Read the rules and check your LIBs →": "看規則並檢查你的 LIB →", "Helicopters on the Ticonderoga": "直昇機登上提康德羅加號", "Nov 25, 2026": "2026 年 11 月 25 日",
+  "Making LIBs that do not crash": "做出不會當掉的 LIB", "JKP library (download)": "JKP 資料庫（下載）", "JKP 600: the JKP library for FA": "JKP 600：FA 的 JKP 資料庫", "All my FA updates now ship as one library, JKP, continuing Zephyr's JKPFA (4.55 to 5.3 beta). JKP 600 has 1,521 aircraft, weapons, units, ships, shapes, pictures, sounds, maps and music in eight LIBs, including the new F-14 family, the reshaped F/A-18s, the KC-130 and KC-135 tankers and the Ticonderoga deck. Download it, see what is in each LIB and search every file.": "我所有的 FA 更新從此都整合成一個資料庫：JKP，延續 Zephyr 的 JKPFA（4.55 到 5.3 beta）。JKP 600 在 8 個 LIB 裡收錄 1,521 個飛機、武器、單位、船艦、模型、圖片、音效、地圖和音樂檔，包括全新 F-14 家族、重新修整的 F/A-18、KC-130 和 KC-135 加油機，以及提康德羅加號甲板。下載、看看每個 LIB 有什麼，還能搜尋每一個檔案。", "8 LIBs": "8 個 LIB", "1,521 files": "1,521 個檔", "Thanks, Zephyr": "謝謝 Zephyr", "Searchable list": "可搜尋清單", "Download and browse →": "下載並瀏覽 →", "Making FA LIBs that do not crash": "做出不會當掉的 FA LIB", "Nov 26, 2026": "2026 年 11 月 26 日", "Home-made LIBs that unpack fine everywhere can still crash FA when the mission builder opens or a mission starts. We found why by disassembling FA.EXE: it reads compressed files in 2 KB chunks straight past the end of the LIB. Five rules every LIB maker must follow, the falib tool that builds LIBs from the source files and follows them for you, and a LIB checker that runs in your browser.": "自製的 LIB 在任何工具裡都解得開，卻還是可能在打開任務建立或進入任務時讓 FA 當掉。我們反組譯 FA.EXE 找到原因：它用 2 KB 一塊讀壓縮檔，會一路讀到 LIB 結尾外面。這裡整理 LIB 製作者必須遵守的 5 條規則、直接從原始檔編 LIB 並自動遵守這些規則的 falib 工具，以及在瀏覽器裡就能用的 LIB 檢查器。", "FA.EXE read bug": "FA.EXE 讀取錯誤", "5 rules": "5 條規則", "LIB checker": "LIB 檢查器", "falib tool": "falib 工具", "Read the rules and check your LIBs →": "看規則並檢查你的 LIB →", "Helicopters on the Ticonderoga": "直昇機登上提康德羅加號", "Nov 25, 2026": "2026 年 11 月 25 日",
   "The Aegis cruiser now has a working flight deck. Land a helicopter on its stern pad, taxi it into the new hangar, and it rides along while the ship sails, then take off again. The autopilot lands on the pad too. A rebuilt TICON.SH plus two changed lines in TICON.NT, no FA.EXE patch.": "神盾巡洋艦現在有能用的飛行甲板了。直昇機可以降落在艦尾停機坪、滑進新的機庫，軍艦航行時會跟著一起走，之後再起飛。自動駕駛也會降落在停機坪上。重做的 TICON.SH 加上 TICON.NT 改兩行，不用修改 FA.EXE。",
   "Helicopter landing": "直昇機降落", "Rides the ship": "跟著軍艦移動", "Hangar": "機庫", "No EXE patch": "不改 EXE", "See it and download →": "看看並下載 →",
   "Mobile": "手機", "Takeoff & landing": "起飛與降落", "Carrier": "航艦", "Any SH": "任何 SH", "Canyon strike": "峽谷轟炸", "Start flying →": "開始飛行 →"
