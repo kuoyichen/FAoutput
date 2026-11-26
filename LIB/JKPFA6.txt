@@ -1,26 +1,27 @@
-# JKPFA54 file set: every file that goes into the JKPFA54 LIBs.
+# JKPFA6 file set: every file that goes into the JKPFA6 LIBs.
 #
 # [rules]  which LIB a file goes to. One line per LIB: the LIB name, then
 #          file patterns (* = anything). The FIRST line that matches wins,
 #          so put special cases (music) above the general ones (sounds).
 #          To add a LIB, add a line. Letters G-L, N-R, T-Z are free.
-# [files]  one file name per line, in any order (the tool sorts them).
+# [files]  one file name per line, in any order (the tool sorts them),
+#          optionally followed by the description the FA ToolKit shows.
 #          To add a file to the game: put it in the repo folder named after
 #          its extension (PT/, SH/, PIC/, 11K/ ...) and add its name here.
 #          To drop a file: delete its line. Text after # is a comment.
 #
-# Build:  python tools/falib.py build LIB/JKPFA54.txt --src . --out build
+# Build:  python tools/falib.py build LIB/JKPFA6.txt --src . --out build --toolkit
 # Skill:  skill/FA_LIB_build.MD
 
 [rules]
-FA_JKPFA54_A.LIB  *.PT *.ECM *.SEE *.HUD *.PTS    # aircraft: flight data, ECM, seekers, HUD
-FA_JKPFA54_B.LIB  *.NT *.OT                       # ground units, ships and objects
-FA_JKPFA54_C.LIB  *.JT *.GAS                      # weapons and fuel tanks
-FA_JKPFA54_D.LIB  *.SH                            # 3D shapes
-FA_JKPFA54_E.LIB  *.PIC                           # pictures and textures
-FA_JKPFA54_S.LIB  AIR*.11K                        # music (was _MUSIC.LIB)
-FA_JKPFA54_F.LIB  *.11K *.5K *.8K                 # sound effects
-FA_JKPFA54_M.LIB  *.MM *.T2                       # maps (was _MAP.LIB)
+FA_JKPFA6_A.LIB  *.PT *.ECM *.SEE *.HUD *.PTS    # aircraft: flight data, ECM, seekers, HUD
+FA_JKPFA6_B.LIB  *.NT *.OT                       # ground units, ships and objects
+FA_JKPFA6_C.LIB  *.JT *.GAS                      # weapons and fuel tanks
+FA_JKPFA6_D.LIB  *.SH                            # 3D shapes
+FA_JKPFA6_E.LIB  *.PIC                           # pictures and textures
+FA_JKPFA6_S.LIB  AIR*.11K                        # music (was _MUSIC.LIB)
+FA_JKPFA6_F.LIB  *.11K *.5K *.8K                 # sound effects
+FA_JKPFA6_M.LIB  *.MM *.T2                       # maps (was _MAP.LIB)
 
 [files]
 $272FFAR.PIC
@@ -265,30 +266,30 @@ AIM9B.JT
 AIM9D.JT
 AIM9M.JT
 AIM9X.JT
-AIR004.11K
-AIR006.11K
-AIR007.11K
-AIR018.11K
-AIR024.11K
-AIR038.11K
-AIR039.11K
-AIR062.11K
-AIR065.11K
-AIR067.11K
-AIR080.11K
-AIR081.11K
-AIR090.11K
-AIR107.11K
-AIR108.11K
-AIR109.11K
-AIR110.11K
-AIR116.11K
-AIR117.11K
-AIR118.11K
-AIR119.11K
-AIR121.11K
-AIR122.11K
-AIR123.11K
+AIR004.11K    sound file
+AIR006.11K    sound file
+AIR007.11K    sound file
+AIR018.11K    sound file
+AIR024.11K    sound file
+AIR038.11K    sound file
+AIR039.11K    sound file
+AIR062.11K    sound file
+AIR065.11K    sound file
+AIR067.11K    sound file
+AIR080.11K    sound file
+AIR081.11K    sound file
+AIR090.11K    sound file
+AIR107.11K    sound file
+AIR108.11K    sound file
+AIR109.11K    sound file
+AIR110.11K    sound file
+AIR116.11K    sound file
+AIR117.11K    sound file
+AIR118.11K    sound file
+AIR119.11K    sound file
+AIR121.11K    sound file
+AIR122.11K    sound file
+AIR123.11K    sound file
 AIR2A.JT
 ALARM.JT
 ALBY.NT
@@ -339,7 +340,7 @@ AS7.JT
 ASA5.NT
 ASROC.JT
 ASTOVL.PT
-ASTOVLE.HUD
+ASTOVLE.HUD   F/A- 18E Super Hornet
 ASTOVLF.PT
 ASTOVLV.PT
 ASTV.SH
@@ -556,14 +557,14 @@ F111C.PT
 F117.PT
 F12.PT
 F14.ECM
-F14.HUD
-F14.PT
+F14.HUD       F-14A Tomcat
+F14.PT        F-14A Tomcat
 F14.SH
 F14D.PT
 F14I.PT
 F14IR.SEE
 F14R.SEE
-F14X.PT
+F14X.PT       F-14A Black Cat
 F14_S.SH
 F15.ECM
 F15.PT
@@ -593,15 +594,15 @@ F18.SH
 F18A.PT
 F18C.PT
 F18C.SH
-F18E.PT
+F18E.PT       F/A-18E Super Hornet
 F18E.SH
 F18F.PT
 F18F.SH
 F18G.PT
 F18G.SH
 F18R.SEE
-F18T.PT
-F18T.SH
+F18T.PT       F/A- 18E Blue Angle
+F18T.SH       F/A- 18E Hornet Shape
 F18U.PT
 F18U.SH
 F22.ECM
@@ -1015,9 +1016,9 @@ RBK250.JT
 RBK500.JT
 REACTB.OT
 REACTR.OT
-REDA.HUD
-REDA.PT
-REDA.PTS
+REDA.HUD      BAe Hawk (Red Arrow)
+REDA.PT       BAe Hawk (Red Arrow)
+REDA.PTS      BAe Hawk (Red Arrow)
 REDCR.SEE
 REDOM.OT
 RELAY.OT
@@ -1380,7 +1381,7 @@ _F18C.PIC
 _F18E.PIC
 _F18F.PIC
 _F18G.PIC
-_F18T.PIC
+_F18T.PIC     F/A- 18E Hornet
 _F18U.PIC
 _F22N.PIC
 _F2H.PIC

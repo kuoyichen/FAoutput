@@ -5,9 +5,9 @@ Needs only Python 3.8+ (no extra packages). See skill/FA_LIB_build.MD.
 
   python tools/falib.py list    FA_JKPFA54_D.LIB
   python tools/falib.py unpack  FA_JKPFA54_D.LIB out_folder [--by-ext]
-  python tools/falib.py verify  build_or_game_folder_or_LIBs [--set LIB/JKPFA54.txt --src .]
-  python tools/falib.py check   LIB/JKPFA54.txt --src . [--src EXTRA] [--game GAME_FOLDER]
-  python tools/falib.py build   LIB/JKPFA54.txt --src . [--src EXTRA] --out build [--only D] [--store]
+  python tools/falib.py verify  build_or_game_folder_or_LIBs [--set LIB/JKPFA6.txt --src .]
+  python tools/falib.py check   LIB/JKPFA6.txt --src . [--src EXTRA] [--game GAME_FOLDER]
+  python tools/falib.py build   LIB/JKPFA6.txt --src . [--src EXTRA] --out JKPFA6 [--toolkit] [--only D] [--store]
 
 build always ends with verify; ship a LIB only after "RESULT: PASSED".
 
@@ -362,7 +362,7 @@ class SetFile:
 
     def __init__(self, path):
         self.path = path
-        self.rules, self.files, self.desc = [], [], {}
+        self.rules, self.files, self.desc, self.desc_of = [], [], {}, {}
         section = None
         seen = set()
         with open(path, encoding='utf-8') as f:
@@ -382,9 +382,15 @@ class SetFile:
                     self.rules.append((lib, [p.upper() for p in parts[1:]]))
                     self.desc.setdefault(lib, line.split('#', 1)[1].strip() if '#' in line else '')
                 elif section == 'files':
-                    name = text.upper()
+                    # NAME [description shown in the FA ToolKit; default = the name]
+                    parts = text.split(None, 1)
+                    name = parts[0].upper()
+                    desc = parts[1].strip() if len(parts) > 1 else name
                     if not valid_name(name):
-                        raise FALibError(f'{where}: "{text}" is not an 8.3 file name')
+                        raise FALibError(f'{where}: "{parts[0]}" is not an 8.3 file name')
+                    if '"' in desc:
+                        raise FALibError(f'{where}: a description cannot contain "')
+                    self.desc_of[name] = desc
                     if name in TOOL_ENTRIES:
                         raise FALibError(f'{where}: {name} is reserved for the tool')
                     if name in seen:
@@ -761,6 +767,73 @@ def cmd_check(a):
     return 0
 
 
+# ---------------------------------------------------------------- FA ToolKit project folders
+TOOLKIT_FILES = ('ITEM.DAT', 'PROJECT.DAT', 'README.TXT', 'SHORTCUT.DAT', 'FA_0.LIB')
+
+
+def project_name(lib):
+    """FA_JKPFA6_A.LIB -> JKPFA6A (the ToolKit project / folder name)."""
+    base = lib.rsplit('.', 1)[0]
+    if base.startswith('FA_'):
+        base = base[3:]
+    name = base.replace('_', '')
+    if not 1 <= len(name) <= 8:
+        raise FALibError(f'{lib}: ToolKit project name "{name}" must be 1-8 characters')
+    return name
+
+
+def toolkit_texts(project, names, desc=None):
+    """ITEM.DAT, PROJECT.DAT and README.TXT exactly as FA ToolKit 1.0 writes them.
+
+    ITEM.DAT columns: "name","description","D" (= data file),"name","","1.0".
+    """
+    crlf = '\r\n'
+    desc = desc or {}
+    item = ''.join(f'"{n}","{desc.get(n, n)}","D","{n}","","1.0"' + crlf for n in names)
+    proj = project + crlf + project + crlf + crlf
+    readme = ('FIGHTERS Anthology ToolKit 1.0  (C) Copyright 1998 David C. Maschino' + crlf
+              + '-' * 68 + crlf
+              + f'Project File: {project}  ' + crlf
+              + 'FIGHTERS Anthology Version : 1.0' + crlf + crlf
+              + ''.join(n.ljust(14) + desc.get(n, n) + crlf for n in names))
+    return {'ITEM.DAT': item.encode('latin1'), 'PROJECT.DAT': proj.encode('latin1'),
+            'README.TXT': readme.encode('latin1')}
+
+
+def toolkit_conflicts(folder, names, datas):
+    """Files in an existing project folder that the build would overwrite or leave behind."""
+    out = []
+    if not os.path.isdir(folder):
+        return out
+    want = set(names)
+    for fn in sorted(os.listdir(folder)):
+        n = fn.upper()
+        if n in TOOLKIT_FILES or not os.path.isfile(os.path.join(folder, fn)):
+            continue
+        if n not in want:
+            out.append(f'{fn}: in the ToolKit folder but not in the set file')
+        elif _read(os.path.join(folder, fn)) != datas[n]:
+            out.append(f'{fn}: different from the source file (edited in the ToolKit?)')
+    return out
+
+
+def write_toolkit(folder, project, names, datas, lib_path, desc=None):
+    os.makedirs(folder, exist_ok=True)
+    for fn in os.listdir(folder):   # drop files no longer in the set (checked beforehand)
+        if fn.upper() not in TOOLKIT_FILES and fn.upper() not in names:
+            os.remove(os.path.join(folder, fn))
+    for n in names:
+        p = os.path.join(folder, n)
+        if not os.path.exists(p) or _read(p) != datas[n]:
+            with open(p, 'wb') as f:
+                f.write(datas[n])
+    for fn, data in toolkit_texts(project, names, desc).items():
+        with open(os.path.join(folder, fn), 'wb') as f:
+            f.write(data)
+    with open(lib_path, 'rb') as src, open(os.path.join(folder, 'FA_0.LIB'), 'wb') as dst:
+        dst.write(src.read())
+
+
 def cmd_build(a):
     t0 = time.time()
     s, plan, datas, labels, errors = _load(a)
@@ -775,6 +848,18 @@ def cmd_build(a):
                 if lib in want or lib.rsplit('.', 1)[0].rsplit('_', 1)[-1] in want}
         if not plan:
             raise FALibError(f'--only {a.only}: no such LIB in {a.set}')
+    if a.toolkit and not a.overwrite_toolkit:
+        # never silently lose work done in the ToolKit: stop if its folders hold changes
+        conflicts = []
+        for lib, names in plan.items():
+            folder = os.path.join(a.out, project_name(lib))
+            conflicts += [f'{project_name(lib)}\\{c}' for c in toolkit_conflicts(folder, names, datas)]
+        if conflicts:
+            for c in conflicts:
+                print('ERROR', c)
+            print('nothing was built: copy these changes into the repo (or delete them) and run again,\n'
+                  'or add --overwrite-toolkit to throw them away.')
+            return 1
     os.makedirs(a.out, exist_ok=True)
     wanted = {n: datas[n] for names in plan.values() for n in names}
     packed = pack_all(wanted, store=a.store, jobs=a.jobs)   # one pool for all LIBs
@@ -787,6 +872,10 @@ def cmd_build(a):
         if [(e[0], e[1], blob[e[2]:e[3]]) for e in ents] != items:
             raise FALibError(f'{lib}: index does not read back correctly')
         print(f'built {lib:22} {len(names):5} files {size:10} bytes (+ {INFO_NAME} checksum list)')
+        if a.toolkit:
+            proj = project_name(lib)
+            write_toolkit(os.path.join(a.out, proj), proj, names, datas, os.path.join(a.out, lib), s.desc_of)
+            print(f'      ToolKit project {proj}\\ (ITEM.DAT, PROJECT.DAT, README.TXT, FA_0.LIB)')
     print(f'built in {time.time() - t0:.1f}s -> {a.out}')
     if a.no_verify:
         print('NOT VERIFIED (--no-verify). Run: python tools/falib.py verify ...')
@@ -817,7 +906,7 @@ def main(argv=None):
     x.add_argument('--jobs', type=int, default=None, help='parallel workers (default: all cores)')
     for name in ('check', 'build'):
         x = sub.add_parser(name, help='check sources of a set' if name == 'check' else 'build the LIBs of a set')
-        x.add_argument('set', help='set file, e.g. LIB/JKPFA54.txt')
+        x.add_argument('set', help='set file, e.g. LIB/JKPFA6.txt')
         x.add_argument('--src', action='append', required=True,
                        help='source root (folder, repo .zip or github:owner/repo[@branch]); repeatable')
         if name == 'check':
@@ -826,6 +915,10 @@ def main(argv=None):
             x.add_argument('--out', default='build', help='output folder (default: build)')
             x.add_argument('--only', nargs='+', help='build only these LIBs, e.g. --only D or FA_JKPFA54_D.LIB')
             x.add_argument('--store', action='store_true', help='no compression (fast test builds)')
+            x.add_argument('--toolkit', action='store_true',
+                           help='also write an FA ToolKit project folder per LIB (e.g. JKPFA6A\\) in --out')
+            x.add_argument('--overwrite-toolkit', action='store_true',
+                           help='with --toolkit: replace ToolKit folders even if they hold changes')
             x.add_argument('--no-verify', action='store_true',
                            help='skip the full check after building (not recommended)')
             x.add_argument('--jobs', type=int, default=None, help='parallel compressors (default: all cores)')
