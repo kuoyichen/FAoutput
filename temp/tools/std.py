@@ -35,7 +35,8 @@ def chain(src, pic, out, name, picname, pt=None, extra=None, parts=None, gear=No
             while c[p] in (0x6C, 0x38): p += 10 if c[p] == 0x6C else 3
             return c[p] == 0xFC and struct.unpack_from('<H', c, p + 1)[0] & 4
         slots = None
-        for k, old in enumerate([t for t in f16.flame_parts(cur) if tex(t)]):
+        fl = flames(cur); fl = [t for t in fl if tex(t)] or fl
+        for k, old in enumerate(fl):
             ns, np_ = os.path.join(out, name + '_f%d.SH' % k), os.path.join(out, name + '_f%d.PIC' % k)
             slots = up_ab2.run(cur, cpic, ns, np_, old=old, length=flame, ignore=pre, slots=slots); cur, cpic = ns, np_
     dst, pdst = os.path.join(out, name + '.SH'), os.path.join(out, '_' + picname + '.PIC')
@@ -65,3 +66,21 @@ def pic_grow(src, dst, add):
     struct.pack_into('<I', hdr, 0x22, 0x40 + H * w); struct.pack_into('<I', hdr, 0x26, 4 * H)
     tbl = b''.join(struct.pack('<I', 0x40 + r * w) for r in range(H))
     open(dst, 'wb').write(bytes(hdr) + b''.join(rows) + tbl)
+
+
+def flames(path):
+    """Every stock plume: F0 (cmp _PLafterBurner) -> 12 00 rel -> 82 of 8 / 12 / 16 points (16 = sh_ab_flame type)."""
+    from sh_inspect import load, thunks
+    d, pe, secs, code, c = load(path)
+    th = thunks(d, secs, code, c)
+    ab = struct.pack('<I', 0x1000 + next(k for k, v in th.items() if v == '_PLafterBurner'))
+    out = []; q = -1
+    while True:
+        q = c.find(ab, q + 1)
+        if q < 0: break
+        if c[q - 5:q - 3] != b'\xf0\x00' or c[q + 7] != 0x68: continue
+        on = struct.unpack_from('<I', c, q + 8)[0] - 0x1000
+        if c[on:on + 2] != b'\x12\x00': continue
+        t = on + 4 + struct.unpack_from('<h', c, on + 2)[0]
+        if c[t] == 0x82 and struct.unpack_from('<H', c, t + 2)[0] in (8, 12, 16) and t not in out: out.append(t)
+    return out

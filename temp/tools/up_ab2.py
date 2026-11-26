@@ -51,13 +51,14 @@ def run(src, psrc, dst, pdst, old, length, grow=3000, ignore=(), slots=None):
         if c[p] == 0x1E and c[p + 1] in (0xFC, 0x6C): p += 1; continue
         if c[p] != 0xFC: break
         fl = struct.unpack_from('<H', c, p + 1)[0]; nv = c[p + 14]
-        assert fl & 0x204 == 0x204 and fl & 0x60 and nv >= 3, hex(fl)
-        hdr = bytearray(c[p:p + 14]); struct.pack_into('<H', hdr, 1, (fl & ~0x100) | 0x400)  # u8 UVs / byte indices -> u16
+        assert fl & 0x200 and fl & 0x60 and nv >= 3, hex(fl)
+        hdr = bytearray(c[p:p + 14]); struct.pack_into('<H', hdr, 1, (fl & ~0x100) | 0x404)  # u8 UVs / byte indices -> u16
+        if not fl & 4: hdr[3] = 0                     # flat-colour plume (F-5): textured now, colour 0 = 0xFF see-through
         wi = 2 if fl & 0x400 else 1
         idx = list(struct.unpack_from('<%d%s' % (nv, 'H' if wi == 2 else 'B'), c, p + 15))
         P3 = [V[i - t // 8] for i in idx]
         struct.pack_into('<3b', hdr, 11, sum(q[0] for q in P3) // nv, sum(q[2] for q in P3) // nv, (NOZ + TAIL) // 2)
-        faces.append((hdr, idx)); p += 15 + wi * nv + (2 if fl & 0x100 else 4) * nv
+        faces.append((hdr, idx)); p += 15 + wi * nv + ((2 if fl & 0x100 else 4) * nv if fl & 4 else 0)
     assert c[p] == 0x1E and len(faces) >= 2, (hex(p), len(faces))
 
     def fbytes(hdr, idx, sl):
