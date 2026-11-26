@@ -124,6 +124,11 @@ kbd{background:#262e38;border:1px solid var(--line);border-radius:4px;padding:0 
       <div class="row"><label>File size</label><b id="oSize"></b></div>
       <div class="row"><label>Peak</label><b id="oPeak"></b></div>
       <div class="row"><label class="chk" style="min-width:0;color:var(--text)"><input type="checkbox" id="ditherChk" checked> Dither when converting to 8-bit</label></div>
+      <div class="row"><label>Loop (smpl)</label><b id="oLoop"></b>
+        <button id="setLoopBtn" title="Make the selection the loop">Set from selection</button>
+        <button id="selLoopBtn" title="Select the loop">Select</button>
+        <button id="clrLoopBtn" title="Remove the loop points">Clear</button></div>
+      <div class="row" id="hdrRow"><label class="chk" style="min-width:0;color:var(--text)"><input type="checkbox" id="keepHdr"> Keep the WAV header (RIFF) like the original file</label></div>
       <p class="note" id="nameNote"></p>
     </fieldset>
     <fieldset class="help">
@@ -136,6 +141,7 @@ kbd{background:#262e38;border:1px solid var(--line);border-radius:4px;padding:0 
           <tr><td><code>.5K</code></td><td>0x80</td><td>5512 Hz</td></tr></table>
         <p>(Rate = 11025 × value / 256, worked out from FA.EXE at 0x4336E1 and 0x435A1D. Any other extension is not played.) File size in bytes = number of samples, so 1 second of .11K is 11,025 bytes.</p>
         <p>Name prefixes used by the factory files: <code>&amp;</code> sound effects (<code>&amp;AFTBURN.11K</code>, <code>&amp;RWRLOCK.5K</code>), <code>^</code> voices and radio calls (<code>^EJECT.5K</code>), <code>AIR###.11K</code> music. Names must be 8.3 and upper case. To put a new or replaced sound in the game, add it to a LIB with <code>tools/falib.py</code> (folder <code>11K/</code>, <code>5K/</code> or <code>8K/</code>).</p>
+        <p><b>WAV inside a sound file:</b> 15 factory <code>.5K</code> files in FA_2.LIB (<code>&amp;EXPL3</code>, <code>&amp;GUNLOOP</code>, <code>&amp;WATHIT1</code>, <code>^TOWEST</code> …) are complete RIFF WAV files (8-bit mono). FA.EXE has no WAV reader, so the game plays the 44+ header bytes as a tiny click and still uses the extension's rate; the rate in the header (5510, 11025 …) is ignored. The editor reads these files, shows their <code>smpl</code> loop points, and with "Keep the WAV header" writes the same container back (unchanged files stay byte-identical). Untick it to save plain headerless data.</p>
         <p>Converting from MP3: the sound is mixed to mono, resampled with a low-pass filter (so no aliasing), and rounded to 8 bits. Parts you have not changed in an FA file you opened stay byte-identical when saved in the same format.</p>
       </div>
       <div data-lang="zh">
@@ -146,6 +152,7 @@ kbd{background:#262e38;border:1px solid var(--line);border-radius:4px;padding:0 
           <tr><td><code>.5K</code></td><td>0x80</td><td>5512 Hz</td></tr></table>
         <p>（取樣率 = 11025 × 數值 / 256，由 FA.EXE 0x4336E1 與 0x435A1D 解出。其他副檔名不會播放。）檔案大小（位元組）= 取樣數，所以 1 秒的 .11K 是 11,025 位元組。</p>
         <p>原廠檔名的前綴：<code>&amp;</code> 音效（<code>&amp;AFTBURN.11K</code>、<code>&amp;RWRLOCK.5K</code>），<code>^</code> 語音與無線電（<code>^EJECT.5K</code>），<code>AIR###.11K</code> 音樂。檔名必須是 8.3 大寫。要放進遊戲，用 <code>tools/falib.py</code> 打包進 LIB（放在 <code>11K/</code>、<code>5K/</code> 或 <code>8K/</code> 資料夾）。</p>
+        <p><b>聲音檔裡的 WAV：</b>FA_2.LIB 中有 15 個原廠 <code>.5K</code>（<code>&amp;EXPL3</code>、<code>&amp;GUNLOOP</code>、<code>&amp;WATHIT1</code>、<code>^TOWEST</code> …）是完整的 RIFF WAV（8 位元單聲道）。FA.EXE 沒有 WAV 解析，所以遊戲會把 44 位元組以上的檔頭當成聲音播出（極短的喀聲），取樣率仍由副檔名決定；檔頭裡的取樣率（5510、11025 …）被忽略。編輯器可讀取這些檔案、顯示 <code>smpl</code> 循環點，勾選「保留 WAV 檔頭」會寫回相同的容器（未修改的檔案逐位元組相同）。取消勾選則存成沒有檔頭的純資料。</p>
         <p>從 MP3 轉換時：先混成單聲道，再用低通濾波重新取樣（避免疊頻），最後轉成 8 位元。開啟的 FA 檔中沒有修改的部分，用相同格式儲存時會保持逐位元組相同。</p>
       </div>
     </fieldset>
@@ -163,6 +170,8 @@ let R = 44100;           // its sample rate
 let srcName = "", srcInfo = "", dirty = false;
 let selA = 0, selB = 0, cursor = 0;   // sample indices (selA <= selB; empty selection when equal)
 let viewStart = 0, spp = 1;           // first sample in view, samples per CSS pixel
+let wav = null;                       // RIFF container of the opened file: { chunks:[{id,bytes}], tail, fmtRate, srcFmt }
+let loops = [];                       // smpl loop points [{a,b}] in samples (b exclusive)
 let clip = null;                      // { data: Float32Array, rate }
 let undo = [], redo = [];
 let ctx = null, player = null;        // AudioContext, { src, t0, a, len, rate, loop }
@@ -214,8 +223,48 @@ function cat(...parts) { let n = 0; for (const p of parts) n += p.length; const 
 
 // ---------------------------------------------------------------- loading
 function faExt(name) { const m = /\.(11K|8K|5K)$/i.exec(name || ""); return m ? m[1].toUpperCase() : null; }
+// RIFF WAVE reader: PCM 8/16/24/32-bit, any channel count (mixed to mono). Keeps every chunk's bytes so the
+// container can be written back unchanged, and reads 'smpl' loop points. Returns null if not a PCM WAV.
+function parseRiff(u8) {
+  if (u8.length < 12) return null;
+  const v = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), id = o => String.fromCharCode(u8[o], u8[o + 1], u8[o + 2], u8[o + 3]);
+  if (id(0) !== "RIFF" || id(8) !== "WAVE") return null;
+  const chunks = []; let o = 12, fmt = null, data = null, lp = [];
+  while (o + 8 <= u8.length) {
+    const cid = id(o), sz = v.getUint32(o + 4, true), end = Math.min(u8.length, o + 8 + sz + (sz & 1));
+    const body = u8.subarray(o + 8, Math.min(u8.length, o + 8 + sz));
+    chunks.push({ id: cid, bytes: u8.slice(o, end) });
+    if (cid === "fmt " && body.length >= 16) { const b = new DataView(body.buffer, body.byteOffset, body.length); fmt = { tag: b.getUint16(0, true), ch: b.getUint16(2, true), rate: b.getUint32(4, true), align: b.getUint16(12, true), bits: b.getUint16(14, true) }; }
+    else if (cid === "data") data = body;
+    else if (cid === "smpl" && body.length >= 36) {
+      const b = new DataView(body.buffer, body.byteOffset, body.length), n = b.getUint32(28, true);
+      for (let i = 0; i < n && 36 + i * 24 + 24 <= body.length; i++) lp.push({ a: b.getUint32(36 + i * 24 + 8, true), b: b.getUint32(36 + i * 24 + 12, true) + 1 });
+    }
+    o = end;
+  }
+  if (!fmt || !data || !(fmt.tag === 1 || fmt.tag === 0xFFFE) || ![8, 16, 24, 32].includes(fmt.bits) || !fmt.ch) return null;
+  const bps = fmt.bits / 8, fr = fmt.ch * bps, n = Math.floor(data.length / fr), d = new Float32Array(n);
+  const dv = new DataView(data.buffer, data.byteOffset, data.length);
+  for (let i = 0; i < n; i++) {
+    let acc = 0;
+    for (let c = 0; c < fmt.ch; c++) {
+      const p = i * fr + c * bps;
+      acc += bps === 1 ? (data[p] - 128) / 128 : bps === 2 ? dv.getInt16(p, true) / 32768
+           : bps === 3 ? ((data[p] | data[p + 1] << 8 | data[p + 2] << 16) << 8 >> 8) / 8388608 : dv.getInt32(p, true) / 2147483648;
+    }
+    d[i] = acc / fmt.ch;
+  }
+  return { fmt, data: d, chunks, tail: u8.slice(o), loops: lp.filter(l => l.b > l.a && l.a < n).map(l => ({ a: l.a, b: Math.min(n, l.b) })) };
+}
 async function decodeFile(file) {
-  const buf = await file.arrayBuffer(), ext = faExt(file.name);
+  const buf = await file.arrayBuffer(), ext = faExt(file.name), u8 = new Uint8Array(buf), rw = parseRiff(u8);
+  if (rw) {
+    const f = rw.fmt, rate = ext ? FA_RATES[ext] : f.rate;   // FA.EXE ignores the header: the extension sets the rate
+    let info = `${ext ? "FA ." + ext + " in a " : ""}RIFF WAV, ${f.bits}-bit, ${f.ch === 1 ? "mono" : f.ch + " ch → mono"}, ${L("header", "檔頭")} ${f.rate} Hz`;
+    if (ext && f.rate !== rate) info += ` (${L("game plays it at", "遊戲以")} ${rate} Hz${L("", " 播放")})`;
+    if (rw.loops.length) info += ` · smpl ${L("loop", "循環")} ${rw.loops.length}`;
+    return { data: rw.data, rate, info, fa: ext, wav: { chunks: rw.chunks, tail: rw.tail, fmtRate: f.rate, srcFmt: ext, exact: f.bits === 8 && f.ch === 1 }, loops: rw.loops };
+  }
   if (ext) return { data: fromU8(new Uint8Array(buf)), rate: FA_RATES[ext], info: `FA .${ext}, 8-bit mono, ${FA_RATES[ext]} Hz`, fa: ext };
   let ab;
   try { ab = await audio().decodeAudioData(buf.slice(0)); }
@@ -234,7 +283,8 @@ async function openFile(file) {
   stop(); msg(L("Decoding…", "解碼中…"));
   try {
     const r = await decodeFile(file);
-    S = r.data; R = r.rate; srcName = file.name; srcInfo = r.info; dirty = false;
+    S = r.data; R = r.rate; srcName = file.name; srcInfo = r.info; dirty = false; wav = r.wav || null; loops = r.loops || [];
+    $("keepHdr").checked = !!(wav && wav.srcFmt);
     undo = []; redo = []; selA = selB = cursor = 0;
     $("name").value = suggestName(file.name);
     if (r.fa) $("fmt").value = r.fa;
@@ -247,15 +297,20 @@ async function insertFile(file) {
   stop(); msg(L("Decoding…", "解碼中…"));
   try {
     const r = await decodeFile(file), d = resample(r.data, r.rate, R);
-    edit(() => { S = cat(S.subarray(0, cursor), d, S.subarray(cursor)); selA = cursor; selB = cursor + d.length; });
+    edit(() => { shiftLoops(cursor, 0, d.length); S = cat(S.subarray(0, cursor), d, S.subarray(cursor)); selA = cursor; selB = cursor + d.length; });
     msg(L("Inserted ", "已插入 ") + file.name);
   } catch (e) { msg(e.message, true); }
 }
 
 // ---------------------------------------------------------------- editing
+// keep loop points on the same audio when samples are removed / inserted at 'at'
+function shiftLoops(at, removed, inserted) {
+  const m = x => x <= at ? x : x < at + removed ? at : x - removed + inserted;
+  loops = loops.map(l => ({ a: m(l.a), b: m(l.b) })).filter(l => l.b > l.a);
+}
 function memUsed() { let n = 0; for (const u of undo) n += u.S.length; for (const u of redo) n += u.S.length; return n; }
 function edit(fn) {
-  undo.push({ S, selA, selB, cursor }); redo = [];
+  undo.push({ S, selA, selB, cursor, loops }); redo = [];
   fn(); dirty = true;
   while (undo.length > 1 && memUsed() > MAX_UNDO_SAMPLES) undo.shift();
   clampSel(); refresh();
@@ -266,8 +321,8 @@ function clampSel() {
 }
 function doUndo(from, to) {
   if (!from.length) return; stop();
-  to.push({ S, selA, selB, cursor }); const u = from.pop();
-  S = u.S; selA = u.selA; selB = u.selB; cursor = u.cursor; dirty = true; clampSel(); refresh();
+  to.push({ S, selA, selB, cursor, loops }); const u = from.pop();
+  S = u.S; loops = u.loops; selA = u.selA; selB = u.selB; cursor = u.cursor; dirty = true; clampSel(); refresh();
 }
 const range = () => hasSel() ? [selA, selB] : [0, S.length];
 function mapRange(f) {   // apply f(sample, indexInRange, rangeLength) to the selection or whole sound
@@ -276,12 +331,12 @@ function mapRange(f) {   // apply f(sample, indexInRange, rangeLength) to the se
 const ops = {
   copy() { if (!hasSel()) return; clip = { data: S.slice(selA, selB), rate: R }; msg(L(`Copied ${fmtT(selB - selA)} s`, `已複製 ${fmtT(selB - selA)} 秒`)); refresh(); },
   cut() { if (!hasSel()) return; ops.copy(); ops.del(); },
-  del() { if (!hasSel()) return; edit(() => { S = cat(S.subarray(0, selA), S.subarray(selB)); cursor = selA; selB = selA; }); },
-  trim() { if (!hasSel()) return; edit(() => { S = S.slice(selA, selB); selA = 0; selB = S.length; cursor = 0; }); zoomAll(); },
+  del() { if (!hasSel()) return; edit(() => { shiftLoops(selA, selB - selA, 0); S = cat(S.subarray(0, selA), S.subarray(selB)); cursor = selA; selB = selA; }); },
+  trim() { if (!hasSel()) return; edit(() => { shiftLoops(selB, S.length - selB, 0); shiftLoops(0, selA, 0); S = S.slice(selA, selB); selA = 0; selB = S.length; cursor = 0; }); zoomAll(); },
   silence() { if (!hasSel()) return; mapRange(() => 0); },
   paste() {
     if (!clip || !S) return; const d = resample(clip.data, clip.rate, R), at = hasSel() ? selA : cursor, end = hasSel() ? selB : cursor;
-    edit(() => { S = cat(S.subarray(0, at), d, S.subarray(end)); selA = at; selB = at + d.length; cursor = at; });
+    edit(() => { shiftLoops(at, end - at, d.length); S = cat(S.subarray(0, at), d, S.subarray(end)); selA = at; selB = at + d.length; cursor = at; });
   },
   mix() {
     if (!clip || !S) return; const d = resample(clip.data, clip.rate, R), at = hasSel() ? selA : cursor;
@@ -298,8 +353,11 @@ const ops = {
   reverse() { const [a, b] = range(); edit(() => { const o = S.slice(); o.subarray(a, b).reverse(); S = o; }); },
   insSil() {
     const n = Math.round(Math.max(0, +$("silSec").value || 0) * R); if (!n || !S) return;
-    edit(() => { S = cat(S.subarray(0, cursor), new Float32Array(n), S.subarray(cursor)); selA = cursor; selB = cursor + n; });
+    edit(() => { shiftLoops(cursor, 0, n); S = cat(S.subarray(0, cursor), new Float32Array(n), S.subarray(cursor)); selA = cursor; selB = cursor + n; });
   },
+  setLoop() { if (!hasSel()) return; edit(() => { loops = [{ a: selA, b: selB }]; }); },
+  selLoop() { if (!loops.length) return; selA = loops[0].a; selB = loops[0].b; cursor = selA; refresh(); },
+  clearLoop() { if (loops.length) edit(() => { loops = []; }); },
   selectAll() { if (!S) return; selA = 0; selB = S.length; refresh(); },
 };
 
@@ -381,6 +439,12 @@ function drawWave() {
   }
   // clipping band
   g.fillStyle = "rgba(255,106,80,.10)"; g.fillRect(0, 0, W, 6); g.fillRect(0, H - 6, W, 6);
+  // smpl loop points
+  for (const l of loops) {
+    g.fillStyle = "rgba(123,216,143,.07)"; g.fillRect(X(l.a), 0, X(l.b) - X(l.a), H);
+    g.fillStyle = "#7bd88f"; g.fillRect(Math.round(X(l.a)), 0, 1, H); g.fillRect(Math.round(X(l.b)), 0, 1, H);
+    g.font = "10px system-ui,sans-serif"; g.fillText("loop ▶", X(l.a) + 3, H - 10); g.fillText("◀", X(l.b) - 11, H - 10);
+  }
   // cursor, playhead
   g.fillStyle = "#ffd54a"; g.fillRect(Math.round(X(cursor)), 0, 1, H);
   const p = playPos(); if (p != null) { g.fillStyle = "#7bd88f"; g.fillRect(Math.round(X(p)), 0, 2, H); }
@@ -430,6 +494,10 @@ function refresh() {
   const nm = $("name").value, ok = /^[A-Z0-9_\-&^$!#%@~]{1,8}$/.test(nm);
   $("nameNote").innerHTML = ok ? `${L("Saves as", "儲存為")} <code>${esc(nm)}.${fmt}</code>.` : `<span class="warn">${L("Name: 1 to 8 characters, A–Z 0–9 and _ - & ^ $ ! # % @ ~", "檔名：1 到 8 個字元，A–Z 0–9 及 _ - & ^ $ ! # % @ ~")}</span>`;
   $("saveBtn").disabled = $("wavBtn").disabled = !has || !n || !ok;
+  $("oLoop").textContent = loops.length ? loops.map(l => `${fmtT(l.a)} – ${fmtT(l.b)} s`).join(", ") : L("none", "無");
+  $("setLoopBtn").disabled = !sel; $("selLoopBtn").disabled = $("clrLoopBtn").disabled = !loops.length;
+  $("hdrRow").style.display = wav || loops.length ? "" : "none";
+  if (has && $("keepHdr").checked) $("oSize").textContent += ` + ${L("header", "檔頭")} ${hdrSize()} ${L("bytes", "位元組")}`;
   drawAll();
 }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -445,13 +513,49 @@ function wav8(u8, rate) {
   v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true); v.setUint32(28, rate, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
   w(36, "data"); v.setUint32(40, u8.length, true); b.set(u8, 44); return b;
 }
+// Rebuild the RIFF container: original chunks in their order and unchanged, new 'data' payload, 'smpl' loop
+// points updated, 'fmt ' rewritten only when the format changed. An unedited file comes out byte-identical.
+function riffChunk(idS, body) { const b = new Uint8Array(8 + body.length + (body.length & 1)); for (let i = 0; i < 4; i++) b[i] = idS.charCodeAt(i); new DataView(b.buffer).setUint32(4, body.length, true); b.set(body, 8); return b; }
+function fmtBody(rate) { const b = new Uint8Array(16), v = new DataView(b.buffer); v.setUint16(0, 1, true); v.setUint16(2, 1, true); v.setUint32(4, rate, true); v.setUint32(8, rate, true); v.setUint16(12, 1, true); v.setUint16(14, 8, true); return b; }
+function smplBody(old, lp) {
+  const n = lp.length, b = new Uint8Array(36 + n * 24), v = new DataView(b.buffer);
+  if (old && old.length >= 44) b.set(old.subarray(8, 8 + 36));     // keep manufacturer, unity note, etc.
+  v.setUint32(28, n, true); v.setUint32(32, 0, true);
+  lp.forEach((l, i) => { const p = 36 + i * 24; v.setUint32(p, i, true); v.setUint32(p + 4, 0, true); v.setUint32(p + 8, l.a, true); v.setUint32(p + 12, Math.max(l.a, l.b - 1), true); v.setUint32(p + 16, 0, true); v.setUint32(p + 20, 0, true); });
+  return b;
+}
+function outLoops(fmt) { const k = FA_RATES[fmt] / R; return loops.map(l => ({ a: Math.round(l.a * k), b: Math.round(l.b * k) })); }
+function buildRiff(u8, fmt) {
+  const parts = [], lp = outLoops(fmt), keepFmt = wav && wav.srcFmt === fmt && wav.exact;
+  let hadFmt = false, hadData = false, hadSmpl = false;
+  for (const c of wav ? wav.chunks : []) {
+    if (c.id === "fmt ") { parts.push(keepFmt ? c.bytes : riffChunk("fmt ", fmtBody(FA_RATES[fmt]))); hadFmt = true; }
+    else if (c.id === "data") { parts.push(riffChunk("data", u8)); hadData = true; }
+    else if (c.id === "smpl") {
+      hadSmpl = true; if (!lp.length) continue;
+      const nb = smplBody(c.bytes, lp), ob = c.bytes.subarray(8, 8 + nb.length);
+      parts.push(ob.length === nb.length && ob.every((x, i) => x === nb[i]) && c.bytes.length === 8 + nb.length + (nb.length & 1) ? c.bytes : riffChunk("smpl", nb));
+    }
+    else parts.push(c.bytes);
+  }
+  if (!hadFmt) parts.unshift(riffChunk("fmt ", fmtBody(FA_RATES[fmt])));
+  if (!hadData) parts.push(riffChunk("data", u8));
+  if (!hadSmpl && lp.length) parts.push(riffChunk("smpl", smplBody(null, lp)));
+  if (wav && wav.tail.length) parts.push(wav.tail);
+  let n = 12; for (const p of parts) n += p.length;
+  const out = new Uint8Array(n), v = new DataView(out.buffer); out.set([82, 73, 70, 70], 0); out.set([87, 65, 86, 69], 8);
+  let o = 12; for (const p of parts) { out.set(p, o); o += p.length; }
+  v.setUint32(4, n - 8 - (wav ? wav.tail.length : 0), true);
+  return out;
+}
+function hdrSize() { return buildRiff(new Uint8Array(0), $("fmt").value).length; }
 function save(asWav) {
   if (!S) return; const fmt = $("fmt").value, nm = $("name").value;
   msg(L("Converting…", "轉換中…"));
   setTimeout(() => {
     const u8 = faBytes(S, fmt);
     if (asWav) download(wav8(u8, FA_RATES[fmt]), `${nm}_${fmt}.wav`, "audio/wav");
-    else { download(u8, `${nm}.${fmt}`, "application/octet-stream"); dirty = false; }
+    else { download($("keepHdr").checked ? buildRiff(u8, fmt) : u8, `${nm}.${fmt}`, "application/octet-stream"); dirty = false; }
     msg(L(`Saved ${u8.length.toLocaleString()} bytes`, `已儲存 ${u8.length.toLocaleString()} 位元組`)); refresh();
   }, 20);
 }
@@ -509,7 +613,8 @@ $("delBtn").onclick = ops.del; $("trimBtn").onclick = ops.trim; $("silBtn").oncl
 $("finBtn").onclick = ops.fadeIn; $("foutBtn").onclick = ops.fadeOut; $("normBtn").onclick = ops.normalize;
 $("gainBtn").onclick = ops.gain; $("revBtn").onclick = ops.reverse; $("insSilBtn").onclick = ops.insSil;
 $("saveBtn").onclick = () => save(false); $("wavBtn").onclick = () => save(true);
-$("ditherChk").onchange = refresh;
+$("ditherChk").onchange = $("keepHdr").onchange = refresh;
+$("setLoopBtn").onclick = ops.setLoop; $("selLoopBtn").onclick = ops.selLoop; $("clrLoopBtn").onclick = ops.clearLoop;
 addEventListener("keydown", e => {
   if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== "checkbox") return;
   const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
@@ -555,6 +660,9 @@ FAI18N.register({
   "Play the selection backwards": "把選取範圍倒過來播", "Length of silence to insert, in seconds": "要插入的靜音長度（秒）", "Insert silence at the cursor": "在游標處插入靜音",
   "Selection start (seconds)": "選取起點（秒）", "Selection end (seconds)": "選取終點（秒）",
   "Output": "輸出", "Format": "格式", "Length": "長度", "File size": "檔案大小", "Peak": "峰值",
+  "Loop (smpl)": "循環點 (smpl)", "Set from selection": "設為選取範圍", "Select": "選取", "Clear": "清除",
+  "Make the selection the loop": "把選取範圍設為循環", "Select the loop": "選取循環範圍", "Remove the loop points": "移除循環點",
+  "Keep the WAV header (RIFF) like the original file": "保留 WAV 檔頭（RIFF），和原檔相同",
   "Dither when converting to 8-bit": "轉成 8 位元時加入抖動（dither）", "FA sound file format": "FA 聲音檔格式",
 });
 $("langSlot").append(FAI18N.picker()); FAI18N.apply();

@@ -21,6 +21,26 @@ Worked out from FA.EXE (2026-11-26). Editor: `tools/snd_editor.html` (Sound Edit
   pitch offset can be added on top (engine sounds).
 * File size in bytes = number of samples. 1 s of `.11K` = 11,025 bytes.
 
+## Exception: RIFF WAV inside a sound entry
+
+A scan of every sound in the factory and JKPFA6 LIBs (249 .11K, 798 .5K, 2 .8K) found headerless
+u8 PCM everywhere except **15 factory `.5K` files in FA_2.LIB, which are complete RIFF WAV files**
+(PCM, mono, 8-bit): `&EXPL3/7/9/10/11/12/13`, `&GUNLOOP` (has a `smpl` loop chunk), `&HRGUN1`,
+`&PRP2OFF`, `&PRP2ON`, `&WATHIT1/2/3`, `^TOWEST` (has a `LIST` chunk). Header rates are 5512,
+except `^TOWEST` 5510 and `&WATHIT3` 11025.
+
+FA.EXE does **not** parse WAV: it has no `RIFF`/`fmt `/`smpl` string or 'RIFF'/'WAVE' compare
+constant, imports only `AIL_set_sample_address` + `AIL_set_sample_type` (not Miles' file-parsing
+`AIL_set_sample_file`), and passes the entry start as the sample address. So for these 15 files
+the game plays the header bytes (44+ bytes, a ~8 ms click) as audio, and plays them at the
+extension rate: `&WATHIT3` (header 11025) is played at 5512 Hz. The `smpl` loop is ignored too
+(looping is FA's own per-sound flag, slot +0x4A -> `AIL_set_sample_loop_count`).
+
+The Sound Editor reads these files (any PCM WAV: 8/16/24/32-bit, mixed to mono), shows `smpl`
+loop points, and with "Keep the WAV header" writes the container back with all chunks in order
+(`fmt ` kept unless the format changes, `data` replaced, `smpl` loops updated, others verbatim),
+so an unedited file is byte-identical. Unticked, it saves plain headerless data.
+
 ## Names
 
 * `&NAME.11K/.5K` sound effects (`&AFTBURN.11K`, `&RWRLOCK.5K`), `^NAME.5K` voices / radio
