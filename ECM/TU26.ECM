@@ -1,0 +1,26 @@
+[brent's_relocatable_format]
+    byte 9
+	ptr si_names
+    word 0
+    byte $0
+    word $0
+    byte 40
+    byte 85
+    byte 120
+    byte 0
+    byte 15
+    byte 75
+    byte 135
+    byte 0
+    byte 40
+    word 100
+    byte 0
+    byte 0
+    byte 25
+    word 100
+    byte 0
+:si_names
+	string ""
+	string "(40) 85C (15) 75F LAU-138"
+	string "TU26.ECM"
+	end

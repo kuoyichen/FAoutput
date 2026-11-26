@@ -1,0 +1,31 @@
+[brent's_relocatable_format]
+    byte 10
+	ptr si_names
+    word 0
+    byte $0
+    byte 1
+    byte $0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    word 10920
+    word 10920
+    dword ^0
+    dword ^60760
+    dword $80000000
+    dword $7fffffff
+    word 8190
+    word 8190
+    dword ^0
+    dword ^60760
+    dword $80000000
+    dword $7fffffff
+    byte 100
+    byte 100
+:si_names
+	string ""
+	string ""
+	string "KA50L.SEE"
+	end

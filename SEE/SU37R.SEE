@@ -1,0 +1,31 @@
+[brent's_relocatable_format]
+    byte 10
+	ptr si_names
+    word 0
+    byte $0
+    byte 3
+    byte $7
+    byte 40
+    byte 4
+    byte 0
+    byte 374630400
+    byte 0
+    word 15470
+    word 10010
+    dword ^0
+    dword ^1151208
+    dword $8011c180
+    dword $7fee3e80
+    word 15470
+    word 10010
+    dword ^0
+    dword ^919503
+    dword $8011c180
+    dword $7fee3e80
+    byte 100
+    byte 100
+:si_names
+	string "N-011M"
+	string "N-011M 189R 151T P/FH/Dplr"
+	string "SU37R.SEE"
+	end

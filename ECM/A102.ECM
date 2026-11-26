@@ -1,0 +1,26 @@
+[brent's_relocatable_format]
+    byte 9 ; structType
+	ptr si_names
+    word 315
+    byte $1 ; flags
+    word $0
+    byte 112
+    byte 60
+    byte 95
+    byte 24
+    byte 14
+    byte 85
+    byte 159
+    byte 31
+    byte 0 ; rdChance
+    word 0 ; rdSigAdd
+    byte 0 ; rNoiseMaxDist
+    byte 0 ; rNoiseMinDist
+    byte 0 ; irdChance
+    word 0 ; irdSigAdd
+    byte 0 ; irdLoseLockTime
+:si_names
+	string "BOZ 107"
+	string "BOZ 107 CM"
+	string "A102.ECM"
+	end

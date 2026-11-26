@@ -1,0 +1,31 @@
+[brent's_relocatable_format]
+    byte 10
+	ptr si_names
+    word 425
+    byte $1
+    byte 1
+    byte $0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    word 3640
+    word 27300
+    dword ^0
+    dword ^60975
+    dword $8011c180
+    dword $7fee3e80
+    word 3640
+    word 27300
+    dword ^0
+    dword ^60975
+    dword $8011c180
+    dword $7fee3e80
+    byte 100
+    byte 100
+:si_names
+	string "Pave Knife"
+	string "AVQ-10 Pave Knife"
+	string "PAVEKNF.SEE"
+	end

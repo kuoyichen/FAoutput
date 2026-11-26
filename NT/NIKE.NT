@@ -1,0 +1,154 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 3
+    word 258
+    word 196
+	ptr ot_names
+    dword $4000831
+    word $1000
+	ptr shape
+    dword 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 1961
+    word 391
+    word 0
+    word 100
+    word 100
+    word 100
+    word 100
+    word 0
+    word 1200
+    word 255
+    word 255
+    word 255
+    word 255
+    word 255
+    byte 35
+    byte 6
+    dword 0
+    word 100
+
+;---------------- movement info ----------------
+
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    dword ^0
+    dword ^0
+    dword ^0
+    dword ^0
+	symbol _GVProc	; utilProc
+
+;---------------- sound info ----------------
+
+	ptr loopSound
+	ptr secondSound
+    dword 0
+    dword 0
+    byte 1
+    word 2500
+    word 25
+    word 20
+    word 20
+    word 1000
+    word 0
+    word 0
+    word 0
+    dword 0
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+
+;---------------- START OF NPC_TYPE ----------------
+
+    dword $0
+    dword 0
+    byte 40
+    byte 144
+    byte 60
+    word 32767
+    word 0
+    byte 3
+	ptr hards
+
+;---------------- END OF NPC_TYPE ----------------
+
+:hards
+;-------- hardpoint 0
+    word $8
+    word -1800
+    word 20
+    word 0
+    word 0
+    word 16380
+    word 0
+    word 0
+	ptr defaultTypeName0
+    byte 0
+    word 8
+    byte 0
+;-------- hardpoint 1
+    word $8
+    word -1800
+    word 20
+    word 600
+    word 0
+    word 16380
+    word 0
+    word 0
+	ptr defaultTypeName1
+    byte 0
+    word 8
+    byte 0
+;-------- hardpoint 2
+    word $8
+    word -1800
+    word 20
+    word -600
+    word 0
+    word 16380
+    word 0
+    word 0
+	ptr defaultTypeName2
+    byte 0
+    word 8
+    byte 0
+:ot_names
+	string "MIM-14B"
+	string "MIM-14B Nike Hercules Site"
+	string "NIKE.NT"
+:shape
+	string "nikes.SH"
+:loopSound
+	string "&TANK.11K"
+:secondSound
+	string "&TURRET.11K"
+:defaultTypeName0
+	string "MIM14B.JT"
+:defaultTypeName1
+	string "MIM14B.JT"
+:defaultTypeName2
+	string "MIM14B.JT"
+	end
