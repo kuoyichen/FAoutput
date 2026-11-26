@@ -1,0 +1,77 @@
+;*****************************************************************
+; hydro.ai
+; --------
+; AI program for hydrofoil.
+;*****************************************************************
+
+if do_nothing goto nothing
+if do_ir_launch goto ir_launch
+if do_radar_launch goto radar_launch
+if do_hit goto hit
+if do_evade goto evade
+if do_attack goto attack
+exit
+
+;-----------------------------------------------------------------
+; CODE FOR "NOTHING"
+;-----------------------------------------------------------------
+
+nothing:
+
+exit
+
+;-----------------------------------------------------------------
+; CODE FOR "IR LAUNCH" AND "RADAR LAUNCH"
+;-----------------------------------------------------------------
+
+ir_launch:
+radar_launch:
+
+exit
+
+;-----------------------------------------------------------------
+; CODE FOR "HIT"
+;-----------------------------------------------------------------
+
+hit:
+
+exit
+
+;-----------------------------------------------------------------
+; CODE FOR "EVADE"
+;-----------------------------------------------------------------
+
+evade:
+
+exit
+
+;-----------------------------------------------------------------
+; CODE FOR "ATTACK"
+;-----------------------------------------------------------------
+attack:
+
+if not tgtIsShip exit
+
+;-----------------------------------------------------------------
+; Attacking ship.
+;-----------------------------------------------------------------
+
+;-------- here's the plan:
+;
+;	- approach straight until 5000 ft from target
+;	- go offset from target until 10000 ft from target
+;	- turn left
+
+p1:
+move	hToTgt 0 0 maxSpeed 5
+if hrzDistToTgt > 5000 goto p1
+
+%a = hToTgt + 80 + random 20
+p2:
+move	%a 0 0 maxSpeed 5
+if hrzDistToTgt < 10000 goto p2
+
+move	h - 90 0 0 maxSpeed 0
+
+restart
+

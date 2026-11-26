@@ -1,0 +1,760 @@
+;*****************************************************************
+; moth.ai
+; -------
+; AI program for giant moth.
+;*****************************************************************
+
+if do_nothing goto nothing
+if do_ir_launch goto ir_launch
+if do_radar_launch goto radar_launch
+if do_hit goto hit
+if do_evade goto evade
+if do_attack goto attack
+exit
+
+;-----------------------------------------------------------------
+; CODE FOR "NOTHING"
+;-----------------------------------------------------------------
+
+nothing:
+
+exit
+
+;-----------------------------------------------------------------
+; CODE FOR "IR LAUNCH" AND "RADAR LAUNCH"
+;-----------------------------------------------------------------
+
+;---------------- IR launch ----------------
+
+;--- TBD: if near protective weather layer, and there's enough
+;		time to get to it, enter it.
+
+ir_launch:
+
+;--- break toward the sun
+
+if percent 50 wm_break 90 90
+move h 90 any maxspeed 5
+restart
+
+radar_launch:
+
+;---------------- radar launch ----------------
+
+;--- if turned away from target, turn toward target.  otherwise, break 180
+
+.if tgtOffBeam <= 90
+
+	wm_break 90 engageP
+
+	move hToTgt engageP any corner 0
+	restart
+
+.else
+
+	wm_break 90 engageP
+
+	%a = h + 90
+	if percent 50 %a = h - 90
+	move %a engageP any corner 0
+	restart
+
+.endif
+
+;-----------------------------------------------------------------
+; CODE FOR "HIT"
+;-----------------------------------------------------------------
+
+hit:
+
+exit
+
+;-----------------------------------------------------------------
+; CODE FOR "EVADE"
+;-----------------------------------------------------------------
+
+evade:
+
+;--- TBD: if low skill, do random maneuver...
+
+;-------- do "best" evasive maneuver --------
+bestEvade:
+
+;-------- if ground target, just climb to 20,000 feet, but keep on same course
+if tgtIsPlane goto jjj0
+	%a = alt
+	if %a < 20000 %a = 20000
+	moveToAlt h %a maxSpeed 5
+	restart
+
+jjj0:
+
+;-------- formation-type escape maneuvers --------
+if percent 70 goto j1
+if tgtAhead || not tgtFacing || not wingCombat || not wingApproach goto j1
+
+switch random 3 jjj1 jjj2 jjj3
+
+;--- cross-turn
+jjj1:
+	wm_break -170 0
+	move h + 170 0 any corner 0
+	restart
+
+;--- left-right split
+jjj2:
+	wm_break 170 0
+	move h - 170 0 any corner 0
+	restart
+
+;--- hi-lo split
+jjj3:
+	wm_break 0 -45
+	move 0 45 any corner 0
+	restart
+
+j1:
+
+last_ditch:
+
+;--- do some last-ditch maneuver, if target is right behind us
+if not tgtAhead && tgtFacing && hdiff <= 35 && distToTgt < 5000 goto jj0
+goto jj1
+jj0:
+
+	%a = random 100
+	jj2:
+
+	.if %a < 15
+		if alt > turnRadius * 2 goto split_s
+		goto jj0
+	.endif
+
+	.if %a < 35
+		if speedDiff < 50 goto h_scissors
+		goto jj0
+	.endif
+
+	if %a < 50 goto reverse
+
+	.if %a < 65
+		if p < 30 && distToTgt < 1500 && speedDiff < 50 goto overshoot
+		goto jj0
+	.endif
+
+	if %a < 75 goto loop
+	if %a < 85 goto h_jink
+
+	goto v_jink
+
+	%a = %a + 5
+	%a = %a % 100
+	goto jj2
+
+jj1:
+
+;--- if far from target, don't bother jinking
+.if distToTgt >= 30000
+	move htotgt + 180 0 any maxSpeed 3
+	restart
+.endif
+
+goto v_jink
+
+;-----------------------------------------------------------------
+; CODE FOR "ATTACK"
+;-----------------------------------------------------------------
+attack:
+
+if tgtIsPlane goto plane
+
+;-----------------------------------------------------------------
+; attacking ground target
+;-----------------------------------------------------------------
+
+groundAttack:
+
+;---------------- standard, boring way to attack: home straight on target
+boring1:
+	maneuver "GND ATTACK;BODENANGRIFF;ATTAQUE AU SOL"
+	homePos 0 500 0 corner 1
+	if tgt && hrzDistToTgt > 2000 goto boring1
+
+;---------------- exit run, while jinking
+
+exitRun:
+
+	if hrzDistToTgt >= 3000 goto er2
+		jink h + random 20 - 10 10 + random 5 10 0 0 4 maxSpeed 3
+		goto er3
+	er2:
+		move h 10 any maxSpeed 5
+	er3:
+
+	;--- continue until we're at least 4,000 ft from target, and also
+	; have sufficient turn radius to turn around.
+
+	%a = turnRadius * 2
+	if %a < 4000 %a = 4000
+	if tgt && hrzDistToTgt < %a goto exitRun
+
+;--- turn back toward the target
+move hToTgt 0 any corner 0
+
+restart
+
+;-----------------------------------------------------------------
+; attacking airborne target
+;-----------------------------------------------------------------
+
+plane:
+
+if wm_hspacing_is < 5000 wm_hspacing 5000
+
+;-----------------------------------------------------------------
+; if wing approaching a fighter, do interesting approach maneuver
+;-----------------------------------------------------------------
+
+if not tgtIsFighter || not tgtAhead goto notWingApp
+%a = wingApproach
+if not %a goto notWingApp
+if %a < 5000 || %a > 30000 goto notWingApp
+
+;--- hi/lo split
+if random 100 > 30 goto app1
+	#DEBUG print "HI-LO SPLIT"
+	wm_approach 0 -45 corner
+	homeAngle 0 45 corner 0 8
+	restart
+app1:
+
+;--- left/right split (bracket)
+if random 100 > 30 goto app2
+brent:
+	#DEBUG print "BRACKET"
+	wm_approach 45 engageP corner
+	homeAngle -45 engageP corner 0 8
+	restart
+app2:
+
+
+notWingApp:
+
+;-----------------------------------------------------------------
+; if head-on approach to human, do interesting offset approach
+;-----------------------------------------------------------------
+
+if not tgtHumanControl goto p100
+if distToTgt < 5000 || distToTgt > 20000 goto p100
+if tgtOffBeam > 20 goto p100
+if hdiff < 155 || pdiff > 25 goto p100
+if random 100 > 75 goto p100
+
+#DEBUG print "---> DOING INTERESTING APPROACH TOWARD HUMAN <---"
+switch random 2 offsetPass overheadPass
+
+p100:
+
+;--- if we're getting too far away from target, home on it
+
+if distToTgt > 15000 goto homeOnTarget
+
+;-------- make a reasonable move based on tactical situation --------
+
+if not tgtAhead, goto p2
+
+	if not tgtFacing, goto p3
+
+		;-------- target in front of us, facing us --------
+
+		if chance 11207484 goto bestAttack
+		if chance 50341406 goto random
+
+		;--- turn out to get flight-path separation (for offset head-on pass)
+		if distToTgt > 3000 && betterSpeed && percent 50 goto homeOnOffset
+
+		;--- if we climb faster, climb to get energy advantage
+		if betterTwr && percent 50 goto straightClimb
+
+		switch random 4 homeOnTgtRear homeAboveBelow straightClimb homeOnTarget
+
+p3:
+
+		;-------- target in front of us, facing away --------
+
+		if chance 08207284 goto bestAttack
+		if chance 72401206 goto random
+
+		;--- if going much faster, do high yoyo to match target's speed
+		if random 2 goto p4
+			if speedDiff > 50 goto highYoyo
+p4:
+
+		goto homeOnTarget
+
+	goto p6
+
+p2:
+
+	if not tgtFacing goto p5
+
+		;-------- target behind us, facing us --------
+
+		;--- make unskilled pilots easy to shoot down
+		if skill == 0 && random 100 < 40 goto straight
+
+		if chance 16207290 goto bestAttack
+		if chance 42201004 goto random
+
+		if distToTgt < 2000 && canClimb && speed >= minSpeed + 150 && random 2 goto loop
+
+		;--- if we're faster, go out past gun range, then come back
+		if betterSpeed && random 2 goto homeOnOffset
+
+		;--- climb, if we have better climb performace
+		if betterTwr && random 2 goto vertScissors
+
+		;--- jink
+		if percent 50 goto v_jink
+
+		;--- dive, if we have better diving performance
+		if betterSpeed && alt > 5000 && random 2 goto straightDive
+
+		; TBD: if we have missiles left: break away and go to missile range
+		; TBD: defensive spiral dive, slowing to min speed at end
+
+		switch random 15 straightClimb straightDive vertScissors split_s immelman breakLeft breakRight h_jink v_jink
+		goto homeOnTarget
+
+	goto p7
+p5:
+
+		;-------- target behind us, facing away -------
+		; TBD: if we're faster, go out past gun range, then come back
+
+		if chance 16207284 goto bestAttack
+		if chance 42201406 goto random
+
+		;--- if better climb, gain some altitude
+		if betterTwr && random 2 goto straightClimb
+
+		;--- if better speed, go out and gain some speed, then come back
+		if betterSpeed && random 2 goto straight
+
+		;--- turn around and come back at the player
+		switch random 8 immelman turnAround
+		goto homeOnTarget
+
+p7:
+
+p6:
+
+;-----------------------------------------------------------------
+; come here if we decided to make a random move
+;-----------------------------------------------------------------
+
+random:
+if chance 52240000 goto straight
+
+switch random 16 straight straightClimb straightDive breakLeft breakRight vertScissors split_s v_jink h_jink immelman loop homeAboveBelow homeOnOffset turnAround highYoyo turnAround
+
+;-----------------------------------------------------------------
+; come here if we need to decide the "best" attack move to make:
+;
+;		- skilled energy fighters attacking player make repeated fast passes
+;		- all other fighters do "home on target"
+;-----------------------------------------------------------------
+bestAttack:
+
+;--- if attacking bomber, just go at it!
+if not tgtIsFighter goto homeOnTarget
+
+;--- sometimes, do interesting evasive maneuver if target is close behind us
+; and chasing us.
+
+if tgtFacing && not tgtAhead && distToTgt < 2000 && percent 75 && hdiff <= 35 goto last_ditch
+
+goto homeOnTarget
+
+;-----------------------------------------------------------------
+; This section implements the various tactical moves.
+;-----------------------------------------------------------------
+
+;-----------------------------------------------------------------
+;-------- straight --------
+;-----------------------------------------------------------------
+
+straight:
+
+maneuver "STRAIGHT;GERADEAUS;TOUT DROIT"
+move h engagep any maxSpeed 6
+restart
+
+;-----------------------------------------------------------------
+;-------- straight climb --------
+;-----------------------------------------------------------------
+
+straightClimb:
+
+if not canClimb goto straight
+
+maneuver "CLIMB;STEIGEN;MONTEE"
+move h 45 any maxSpeed 6
+restart
+
+;-----------------------------------------------------------------
+;-------- straight dive --------
+;-----------------------------------------------------------------
+
+straightDive:
+
+if alt < 3000 goto straight
+
+maneuver "DIVE;STURZFLUG;PIQUE"
+move h -45 any maxSpeed 6
+restart
+
+;-----------------------------------------------------------------
+;-------- turn 180 degrees --------
+;-----------------------------------------------------------------
+
+turnAround:
+
+%a = 170
+maneuver "BREAK RIGHT;RECHTS ABDREHEN;APPROCHE DROITE"
+if random 2 goto p9
+%a = -170
+maneuver "BREAK LEFT;LINKS ABDREHEN;APPROCHE GAUCHE"
+p9:
+move h + %a engagep any corner 0
+restart
+
+;-----------------------------------------------------------------
+;-------- break left --------
+;-----------------------------------------------------------------
+
+breakLeft:
+
+maneuver "BREAK LEFT;LINKS ABDREHEN;APPROCHE GAUCHE"
+move h - 170 engagep any corner 6
+restart
+
+;-----------------------------------------------------------------
+;-------- break right --------
+;-----------------------------------------------------------------
+
+breakRight:
+
+maneuver "BREAK RIGHT;RECHTS ABDREHEN;APPROCHE DROITE"
+move h + 170 engagep any corner 6
+restart
+
+;-----------------------------------------------------------------
+;-------- vertScissors --------
+;-----------------------------------------------------------------
+
+vertScissors:
+
+if not canClimb goto h_jink
+
+; "VERTICAL SCISSORS" is too wide to fit in target window
+maneuver "VERT SCISSORS;VERTIKALSCHERE;CISEAUX VERTIC."
+
+%a = 170
+if random 2 %a = neg %a
+
+%b = 90
+if %a >= 0 %b = -90
+
+move h + %a 60 %b maxSpeed 0
+move h + %a 60 %b maxSpeed 0
+move h + %a 60 %b maxSpeed 0
+
+restart
+
+;-----------------------------------------------------------------
+;-------- split-s --------
+;-----------------------------------------------------------------
+
+split_s:
+
+if alt < turnRadius * 2 goto random
+
+maneuver "SPLIT-S;SPLIT-S;IMMELMANN"
+
+move h 0 -180 corner 0
+move h -90 -180 corner 0
+move h -90 random 360 - 180 corner 0
+btoh
+move h 0 0 corner 0
+
+restart
+
+;-----------------------------------------------------------------
+;-------- highYoyo --------
+;-----------------------------------------------------------------
+
+highYoyo:
+
+;--- only do if reasonably close to target's alt
+if abs altdiff > 300 || not canclimb goto homeontarget
+
+yoyo 40 corner 8
+restart
+
+;-----------------------------------------------------------------
+;-------- immelman --------
+;-----------------------------------------------------------------
+
+immelman:
+
+if not canClimb goto h_jink
+
+immelman corner
+restart
+
+;-----------------------------------------------------------------
+;-------- horizontal scissors (trying to make target overshoot)
+;-----------------------------------------------------------------
+
+h_scissors:
+
+;--- choose pitch for scissors
+%a = random 40 - 20
+if alt < 3000 && %a < 0 %a = neg %a
+
+maneuver "SCISSORS;SCISSORS;CISEAUX"
+
+move h + 90 %a any minSpeed 4
+if tgtAhead goto homeOnTarget
+
+move h - 90 %a any minSpeed 4
+if tgtAhead goto homeOnTarget
+
+move h + 90 %a any minSpeed 4
+if tgtAhead goto homeOnTarget
+
+move h - 90 %a any minSpeed 4
+if tgtAhead goto homeOnTarget
+
+restart
+
+;-----------------------------------------------------------------
+;-------- horizontal jink
+;-----------------------------------------------------------------
+
+h_jink:
+
+;--- choose pitch for jinking...prefer climb if we climb better or are
+; near the ground.
+%a = random 40 - 20
+if alt < 3000 && %a < 0 %a = neg %a
+if bettertwr && percent 50 %a = abs %a
+
+jink h %a 150 10 0 2 + random 3 corner 4
+restart
+
+;-----------------------------------------------------------------
+;-------- vertical jink --------
+;-----------------------------------------------------------------
+
+v_jink:
+
+;--- choose pitch for jinking...start diving, and eventually we'll
+; end up climbing because we can pitch up faster than we can pitch down.
+
+%a = 0 - random 40
+if alt < 3000 && %a < 0 %a = neg %a
+if bettertwr && percent 50 %a = abs %a
+
+jink h %a 0 90 0 2 + random 3 corner 4
+restart
+
+;-----------------------------------------------------------------
+;-------- loop --------
+;-----------------------------------------------------------------
+
+loop:
+
+if alt < 5000 goto random
+
+if canclimb goto p31
+if random 2 goto breakleft
+goto breakright
+p31:
+
+maneuver "LOOP;LOOPING;BOUCLE"
+move h 90 0 corner 0
+invert
+move h 0 180 corner 0
+move h -90 180 corner 0
+invert
+move h 0 0 corner 0
+restart
+
+;-----------------------------------------------------------------
+;-------- offset pass --------
+;-----------------------------------------------------------------
+
+offsetPass:
+
+.if percent 50
+	%a = 8000
+.else
+	%a = -8000
+.endif
+
+.if betterTwr && percent 50
+	%b = 4000
+.else
+	%b = 1000
+.endif
+
+maneuver "OFFSET PASS;VORBEIFLUG SEITE;PASSE LATERALE"
+homePos %a %b 0 maxSpeed 8
+restart
+
+;-----------------------------------------------------------------
+;-------- overhead pass --------
+;-----------------------------------------------------------------
+
+overheadPass:
+
+maneuver "OVERHEAD PASS;VORBEIFLUG OBEN;PASSE HAUTE"
+homePos 0 4000 0 maxSpeed 10
+restart
+
+;-----------------------------------------------------------------
+;-------- home behind target --------
+;-----------------------------------------------------------------
+
+homeOnTgtRear:
+
+maneuver "PURSUIT;VERFOLGUNG;POURSUITE"
+homePos 0 0 -1000 -1000 6
+restart
+
+;-----------------------------------------------------------------
+; separate from target, jinking a little while we do so.
+;-----------------------------------------------------------------
+
+homeOnOffset:
+
+%a = 9000
+if random 2 %a = -9000
+
+.if betterTwr && percent 60
+	%b = 3000
+.else
+	%b = -3000
+.endif
+
+maneuver "SEPARATE;L™SEN;SEPARATION"
+homePos %a %b -3000 maxSpeed 3
+homePos %a 0 -3000 maxSpeed 3
+homePos %a %b -3000 maxSpeed 3
+homePos %a 0 -3000 maxSpeed 3
+restart
+
+;-----------------------------------------------------------------
+; Do a slight jink, while going fast in our current direction.
+;-----------------------------------------------------------------
+
+fastLittleJink:
+
+maneuver "SEPARATE;L™SEN;SEPARATION"
+move h - 10 10 any maxSpeed 3
+move h + 10 20 any maxSpeed 3
+move h - 10 10 any maxSpeed 3
+move h + 10 0 any maxSpeed 3
+restart
+
+;-----------------------------------------------------------------
+
+homeAboveBelow:
+
+.if canClimb && alt > 1000 && altDiff >= 0
+	%a = 300
+.else
+	%a = -300
+.endif
+
+maneuver "PURSUIT;VERFOLGUNG;POURSUITE"
+homePos 0 %a 300 corner 6
+restart
+
+;-----------------------------------------------------------------
+;-------- home on target --------
+;-----------------------------------------------------------------
+
+homeOnTarget:
+
+;--- get desired deltas from target: keeping the values away from 0 helps
+; avoid collisions with the target.
+
+if skill == 0 %a = 100
+if skill == 1 %a = 50
+if skill == 2 %a = 30
+if skill == 3 %a = 10
+
+%b = random %a
+%c = random %a
+%d = random %a
+
+.if tgtAhead && tgtFacing && percent 50
+	%b = 0
+	%c = 0
+	%d = 0
+.endif
+
+;--- if target chasing us, climb/dive to make it harder for him to aim?
+
+.if chance 35507595 && not tgtAhead && tgtFacing
+	%c = 2000
+	if percent 50 %c = -2000
+.endif
+
+%a = 12
+if distToTgt < 5000 %a = 6
+
+maneuver "PURSUIT;VERFOLGUNG;POURSUITE"
+homePos %b %c %d -750 %a
+restart
+
+;-----------------------------------------------------------------
+; try to make target overshoot us
+;-----------------------------------------------------------------
+
+overshoot:
+
+maneuver "OVERSHOOT;šBERSCHUá;OVERSHOOT"
+
+move h 60 any minSpeed 0
+if not tgtAhead move h 60 any minSpeed 3
+homePos 0 0 0 corner 4
+restart
+
+;-----------------------------------------------------------------
+; horizontal reverse
+;
+; Turn in the opposite heading than we're banked now, and choose a
+; slight climb/dive, to make it more difficult to aim at us.
+;-----------------------------------------------------------------
+reverse:
+
+.if b >= 0
+	%a = h + 170
+.else
+	%a = h - 170
+.endif
+
+.if percent 50
+	%b = 30
+.else
+	%b = -30
+.endif
+
+maneuver "REVERSE;ABSCHWUNG;180"
+move %a %b any corner 6
+restart
+
