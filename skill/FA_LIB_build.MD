@@ -1,31 +1,51 @@
 # Building FA .LIB files (JKPFA set)
 
-Tool: `tools/falib.py` (Python 3.8+, no packages). Current set file: `LIB/JKPFA6.txt` (the JKPFA6
-release; `LIB/JKPFA54.txt` was the first draft and is replaced by it).
-It replaces the FA ToolKit for building: no hand-edited ITEM.DAT, and a full build of every LIB
-takes about 2 minutes the first time and a few seconds after that. It also writes FA ToolKit project
-folders, so the ToolKit can still open every LIB's project (section 5).
+Tool: `tools/falib.py` (Python 3.8+, no packages). Set file: `LIB/JKPFA6.txt` (the JKPFA6 release).
+It replaces the FA ToolKit for building: no hand-edited ITEM.DAT, a full build of every LIB takes about
+2 minutes the first time and a few seconds after that, every build is checked, and it also writes FA
+ToolKit project folders so the ToolKit can still open and edit every LIB (section 6).
 
-## 1. The short version
+**Status (2026-11-26):** JKPFA6 (8 LIBs) built by falib runs in Kuoyi's game with both the original
+FA.EXE and FA_BIG: mission builder and missions OK.
+
+## 1. Rules FA.EXE imposes on a LIB (read this first)
+
+Found by testing 33 LIB sets in the game and by disassembling FA.EXE (original, `Libs\FA.EXE_org`).
+falib enforces all of them; `verify` checks LIBs made by anything else.
+
+| # | rule | what goes wrong otherwise | where in FA.EXE |
+|---|---|---|---|
+| 1 | **Pad the end of every LIB.** The game memory-maps the LIB and its PKWare read callback always copies a full 2048-byte chunk, even past the end of the entry. A compressed entry within ~2 KB of the end of the file is read past the end of the mapping. | crash as soon as that file is loaded: mission builder (objects: `ZU23.NT`, `VIS360.SEE`) or mission start (`SMOKE.PIC`). Looks random: it depends only on the size and position of the last entries, so moving a few files between LIBs makes it come and go. | `0x47a010` read callback, `0x401025` chunk 0x800, `0x435dc0` MapViewOfFile |
+| 2 | **Compressed matches: distance 2..4095, length at most 516.** The PKWare format can also express distance 1 and 4096 and length 517-518; the real PKWare encoder never uses them, and neither may we. | some files decode wrong in the game → crash when objects load. falib's own decoder accepts them, which is why the first builds "passed". | PKWare explode at `0x401000` |
+| 3 | **LIB names DOS 8.3** (`JKPFA6_A.LIB`, at most 8 characters before `.LIB`). | FA.EXE stores LIB names in 14-byte slots. | `0x54a530` name table |
+| 4 | **At most 20 LIB files** in the game folder (factory 4 included) for the original FA.EXE; FA_BIG allows 256. **At most 9,950 files** in all LIBs plus loose files (factory: 7,505); FA_BIG 100,000. | the tables overflow (behaviour not tested; falib warns when a set gets close). | see `FA_BIG/fa_patch_limits.py` |
+| 5 | **Same file name in two places: the newest container wins.** For each name the game keeps the copy whose LIB file or loose file has the latest modification time (to the minute; ties: arbitrary). | a freshly built LIB overrides older loose files in the game folder and the factory LIBs; an old LIB copied in later loses to nothing newer. Keep every file in only one mod LIB. | `0x4797e0` qsort compare (name, date, time), dedupe at `0x479232` |
+
+Not rules (tested and ruled out): number of files of one type per LIB, order of LIBs by name,
+`$FALIB.INF`, stored (uncompressed) entries, entry order inside the LIB (falib still writes the
+ToolKit's order: symbols < digits < letters, case-insensitive).
+
+## 2. The short version
 
 ```
 python tools/falib.py check LIB/JKPFA6.txt --src . --game "C:\Program Files\Fighters Anthology"
 python tools/falib.py build LIB/JKPFA6.txt --src . --out JKPFA6 --toolkit
 ```
 
-Run from the repo root. `check` says what will change and stops on any problem;
-`build` writes `JKPFA6/FA_JKPFA6_A.LIB` ... `JKPFA6/FA_JKPFA6_M.LIB` plus one ToolKit project folder
-per LIB (`JKPFA6/JKPFA6A/` ...), then checks the LIBs and must end with `RESULT: PASSED` (section 4).
-Copy the LIBs into the game folder (after removing the old JKPFA LIBs, see section 7).
+Run from the repo root. `check` says what will change and stops on any problem. `build` writes
+`JKPFA6/JKPFA6_A.LIB` ... `JKPFA6/JKPFA6_M.LIB` plus one ToolKit project folder per LIB
+(`JKPFA6/JKPFA6A/` ...), then checks the LIBs and must end with `RESULT: PASSED` (section 5).
+
+**Install:** keep the 4 factory LIBs and `_HUD.LIB` in the game folder, remove every older JKPFA LIB
+(`FA_JKPFA54_*.LIB`, `FA_JKPFA_B.LIB`, `_MAP.LIB`, `_MUSIC.LIB`), copy in the 8 `JKPFA6_*.LIB`.
 
 On Kuoyi's PC the working copy is `C:\Users\hawke\Documents\SH\Lib pack study\JKPFA6`, built with
 `--src` the repo **and** `--src "...\Lib pack study\JKPFA54_extra"` (216 files not uploaded to GitHub:
 sound effects, `$` pictures, HUD/PTS/GAS, maps, music; same `<EXT>/` layout).
-
 Without a local clone, use the GitHub copy directly: `--src github:kuoyichen/FAoutput`
 (downloads the `main` branch zip; `@branch` picks another branch).
 
-## 2. Where the source files live (one place per file)
+## 3. Where the source files live (one place per file)
 
 Every file `NAME.EXT` is read from `<root>/<EXT>/NAME.EXT`, where `<root>` is each `--src`:
 
@@ -38,244 +58,162 @@ Every file `NAME.EXT` is read from `<root>/<EXT>/NAME.EXT`, where `<root>` is ea
 | ^ACF11.5K | 5K/ |
 | APA.MM / APA.T2 | MM/ / T2/ |
 
-The rule is always "folder = extension". There is nothing else to configure.
+The rule is always "folder = extension". `SHX/` and other folders not named after an extension are
+never read. Several `--src` roots may be given; if the same file is found in two roots **with different
+bytes**, the tool stops and names both paths. It never guesses which copy is newest: delete the old one.
 
-Several `--src` roots may be given (for example the repo and a local folder for files that are
-not in the repo yet). If the same file is found in two roots **with different bytes**, the tool
-stops and names both paths. It never guesses which copy is newest: delete the old one.
-Identical copies are fine.
-
-`SHX/` and other folders not named after an extension are never read.
-
-## 3. The set file `LIB/JKPFA6.txt`
-
-Two sections. `#` starts a comment.
+## 4. The set file `LIB/JKPFA6.txt`
 
 ```
 [rules]
-FA_JKPFA6_A.LIB  *.PT *.ECM *.SEE *.HUD *.PTS    # aircraft
-FA_JKPFA6_B.LIB  *.NT *.OT                       # ground units, ships, objects
-FA_JKPFA6_C.LIB  *.JT *.GAS                      # weapons, fuel tanks
-FA_JKPFA6_D.LIB  *.SH                            # 3D shapes
-FA_JKPFA6_E.LIB  *.PIC                           # pictures
-FA_JKPFA6_S.LIB  AIR*.11K                        # music (was _MUSIC.LIB)
-FA_JKPFA6_F.LIB  *.11K *.5K *.8K                 # sound effects
-FA_JKPFA6_M.LIB  *.MM *.T2                       # maps (was _MAP.LIB)
+JKPFA6_A.LIB  *.PT *.ECM *.SEE *.HUD *.PTS    # aircraft: flight data, ECM, seekers, HUD
+JKPFA6_B.LIB  *.NT *.OT                       # ground units, ships and objects
+JKPFA6_C.LIB  *.JT *.GAS                      # weapons and fuel tanks
+JKPFA6_D.LIB  *.SH                            # 3D shapes
+JKPFA6_E.LIB  *.PIC                           # pictures and textures
+JKPFA6_S.LIB  AIR*.11K                        # music (was _MUSIC.LIB)
+JKPFA6_F.LIB  *.11K *.5K *.8K                 # sound effects
+JKPFA6_M.LIB  *.MM *.T2                       # maps (was _MAP.LIB)
 
 [files]
 F14.PT        F-14A Tomcat
 F14.SH
-AIR004.11K    sound file
 ...
 ```
 
-* `[files]` is the full list of files in the mod. Order does not matter; a name listed twice is an error.
-* After the name, optional text is the **description** the FA ToolKit shows (ITEM.DAT column 2).
-  Without one, the description is the file name, as the ToolKit does by default. No `"` allowed.
-* `[rules]` decides which LIB each file goes into. **The first matching line wins**, so the music
-  line (`AIR*.11K`) sits above the general sound line (`*.11K`). A file that matches no rule is an error.
-* Names must be 8.3 and upper case (the game's limit).
-
-### Everyday changes
+* `[files]`: the full list of files in the mod; order does not matter; a name listed twice is an error.
+  Text after the name is the **description** the ToolKit shows (ITEM.DAT column 2); default = the name.
+* `[rules]`: which LIB each file goes into. **The first matching line wins** (music above sounds).
+  A file that matches no rule is an error. LIB names must be 8.3 (rule 3).
+* `#` starts a comment.
 
 | I want to ... | do this |
 |---|---|
 | add a new file | put it in its extension folder, add its name under `[files]` |
 | update a file | replace it in its folder. Nothing else. |
-| remove a file from the mod | delete its line under `[files]` (the source file can stay) |
-| add a new LIB | add one `[rules]` line, e.g. `FA_JKPFA6_G.LIB *.FNT` (free letters: G-L, N-R, T-Z) |
-| move one file to another LIB | add a rule above the general one, e.g. `FA_JKPFA6_G.LIB F14*.PT` |
-| start version 7 | copy the set file to `LIB/JKPFA7.txt` and rename the LIBs in `[rules]` |
+| remove a file from the mod | delete its line under `[files]` |
+| add a new LIB | add one `[rules]` line, e.g. `JKPFA6_G.LIB *.FNT` (free letters G-L, N-R, T-Z; 20-LIB limit) |
+| move some files to another LIB | add a rule above the general one, e.g. `JKPFA6_G.LIB F14*.PT` |
+| start version 7 | copy the set file to `LIB/JKPFA7.txt`, rename the LIBs to `JKPFA7_?.LIB` |
 | build just one LIB | `build ... --only D` |
-| quick test build | `build ... --store` (no compression; the game reads stored entries too) |
+| quick test build | `build ... --store` (no compression) |
 
-## 4. Is a LIB correct? (`verify`)
+## 5. Is a LIB correct? (`verify`)
 
-`build` always runs the full check on what it just built and ends with one line:
+`build` always runs the full check and ends with one line:
 
 ```
 RESULT: PASSED, 8 LIBs, 1511 entries: structure OK, every entry unpacks, checksums OK, contents match the sources
 ```
 
-Anything else is `RESULT: FAILED` with one `FAIL` line per problem, and the exit code is 1.
-Do not ship a LIB without `PASSED`. (`--no-verify` skips the check; don't use it for a release.)
-
-Check LIBs at any time, for example after copying, uploading or downloading them:
+Anything else is `RESULT: FAILED` with one `FAIL` line per problem (exit code 1). Do not ship a LIB
+without `PASSED`. Check LIBs at any time, e.g. after copying or downloading them:
 
 ```
-python tools/falib.py verify build                                   # every .LIB in a folder
+python tools/falib.py verify JKPFA6                                  # every .LIB in a folder
 python tools/falib.py verify "C:\Program Files\Fighters Anthology"   # what is installed now
 python tools/falib.py verify JKPFA6 --set LIB/JKPFA6.txt --src .     # also compare with the sources
 ```
 
-What is checked, in order:
-
 | # | check | catches |
 |---|---|---|
-| 1 | header and index: `EALIB`, count, offsets in order, first entry right after the index, end entry = file size, 8.3 upper-case names, no name twice, flag 0 or 4 | truncated or padded file, broken index, duplicate entries |
-| 2 | every entry is unpacked in full; unpacked size = the size in its header; no stray bytes after the stream | damaged compressed data, wrong offsets |
-| 3 | `$FALIB.INF` checksum list (see below): same file names, sizes and SHA-1 as at build time | **any** change to any entry, even one bit, without needing the sources |
-| 4 | with `--set`: the LIB holds exactly the files its `[rules]` give it, each byte-identical to the source file | missing, extra or out-of-date files |
-| 5 | across all LIBs checked (factory LIBs excepted): no file in two mod LIBs | the "which copy does the game use" problem |
+| 1 | header and index: `EALIB`, count, offsets in order, end entry, only zero padding after it, 8.3 upper-case names, no name twice, flag 0 or 4 | truncated or damaged file, broken index |
+| 2 | **game read overrun** (rule 1): no compressed entry is read past the end of the file | the "random" crash |
+| 3 | every entry unpacks in full, size matches, no stray bytes, **only PKWare-legal matches** (rule 2) | damaged data; streams FA.EXE cannot read |
+| 4 | `$FALIB.INF` checksum list: same names, sizes and SHA-1 as at build time | any change to any entry, even one bit, without the sources |
+| 5 | with `--set`: exactly the files the `[rules]` give this LIB, byte-identical to the sources | missing, extra or out-of-date files |
+| 6 | no file in two mod LIBs (factory LIBs excepted) | rule 5 surprises |
 
-Why check 3 is needed: PKWare data has no checksum of its own, so a flipped bit often still unpacks,
-just to the wrong bytes. Checks 1-2 can't see that; the checksum list can.
+`$FALIB.INF` is a small stored text entry at the start of every falib LIB (`NAME SIZE SHA1` per file,
+no date, so builds stay byte-identical). The game ignores it, like the ToolKit's `$TOOLKIT.INF`.
+LIBs not built by falib have no list (`NOTE no checksum list`).
 
-**`$FALIB.INF`** is a small stored (uncompressed) text entry that every falib-built LIB starts with:
-`lib`, `files`, then one `NAME SIZE SHA1` line per file. It has no date, so builds stay byte-identical.
-The game ignores it, the same way it ignores the ToolKit's `$TOOLKIT.INF`. LIBs not built by
-falib (factory, ToolKit) have no list: `verify` then says `NOTE no checksum list` and can only
-prove checks 1, 2 and 5 (add `--set`/`--against` for 4).
+Findings on Kuoyi's PC (2026-11-26): the ToolKit-built `FA_JKPFA54_C.LIB` has a rule-1 overrun on
+`_TWNBKC.PIC` (1,337 bytes past the end: may crash any mission that uses that town texture);
+`_HUD.LIB` holds `~F14S.PIC` twice. The factory FA_1 (`~~QUES.PIC`) and FA_2 (`VALK01.XMI`) have
+overruns too; those files seem never to be loaded. Factory LIBs are never changed.
 
-Tested (2026-11-26) by damaging a good LIB seven ways: one bit flipped in compressed data, file
-truncated, index offset moved, duplicate name, wrong unpacked size, entry renamed, and the bit flip
-again without sources. `verify` failed every one and passed the undamaged LIB. Run on the game folder it
-found real problems: `_HUD.LIB` holds `~F14S.PIC` twice, and DRNR1.PT, HAWK.NT, UH1.PT are each in two
-JKPFA54 LIBs.
+## 6. FA ToolKit compatibility (`build --toolkit`, `import`)
 
-## 5. FA ToolKit compatibility (`build --toolkit`)
+With `--toolkit`, every LIB also gets an FA ToolKit 1.0 project folder in `--out`:
+`JKPFA6_A.LIB` -> `JKPFA6A\` (drop `_`; at most 8 characters). It holds every source file of that LIB
+(flat), `ITEM.DAT` (`"NAME","description","D","NAME","","1.0"` per file), `PROJECT.DAT` (project name
+twice), `README.TXT`, and `FA_0.LIB` (= the built LIB). These match the ToolKit's own files: generated
+from the JKP54 projects' lists, PROJECT.DAT is byte-identical, ITEM.DAT differs only in column 5 that the
+ToolKit fills for a few aircraft, README.TXT only in line order.
 
-With `--toolkit`, every LIB also gets an FA ToolKit 1.0 project folder in `--out`, named after the LIB:
-`FA_JKPFA6_A.LIB` -> `JKPFA6A\` (drop `FA_` and `_`; at most 8 characters). Each folder holds what the
-ToolKit itself keeps in a project folder:
+Note: a LIB built by the **ToolKit** has no rule-1 padding. Run `verify` on it before release; if it
+reports an overrun, build the release with falib instead (`import` the ToolKit changes first).
 
-| file | content |
-|---|---|
-| every source file of that LIB | flat, as the ToolKit stores them |
-| `ITEM.DAT` | one line per file: `"NAME","description","D","NAME","","1.0"` (`D` = data file) |
-| `PROJECT.DAT` | project name twice, then an empty line |
-| `README.TXT` | ToolKit header, then `NAME` padded to 14 columns + description |
-| `FA_0.LIB` | the built LIB (same bytes as `FA_JKPFA6_A.LIB`) |
-
-These match the ToolKit's own files: generated from the JKP54A-E and MAP projects' own lists and
-descriptions, PROJECT.DAT is byte-identical and ITEM.DAT differs only where the ToolKit filled column 5
-(a few aircraft, e.g. F18E.PT) and in README.TXT line order (informational only). Opening a JKPFA6 project
-in the ToolKit itself has not been tried yet.
-
-The ToolKit folders are **output**: the repo (plus the extra folder) is the source. If you change or
-add a file inside a ToolKit folder, the next `build --toolkit` **stops** and lists it
-(`changed in the ToolKit folder` / `in the ToolKit folder but not in this LIB of the set file`),
-so ToolKit work is never lost silently. Bring it back with `import` (below), then build again.
-`--overwrite-toolkit` throws such changes away instead. A ToolKit file that only *looks* different
-because the source got newer (it still equals what falib wrote last time, per FA_0.LIB's checksum list)
-is simply replaced. Files removed from the set file are removed from the ToolKit folder.
-`SHORTCUT.DAT` (the ToolKit's recent-files list) is left alone.
-
-### Bringing ToolKit work back (`import`)
-
-For Kuoyi's own ToolKit edits, or a project folder another player edited and sent back:
+The ToolKit folders are **output**; the repo (plus the extra folder) is the source. If a file was
+changed or added inside a ToolKit folder, the next `build --toolkit` stops and lists it. Bring it back:
 
 ```
 python tools/falib.py import JKPFA6\JKPFA6C --set LIB/JKPFA6.txt --to . --src "...\JKPFA54_extra" --dry-run
 python tools/falib.py import JKPFA6\JKPFA6C --set LIB/JKPFA6.txt --to . --src "...\JKPFA54_extra"
 ```
 
-`--to` is the writable copy of the repo (new files go to `<EXT>/` there); `--src` as in `build`
-(changed files that live there are updated in place). Always run `--dry-run` first.
-
-It compares three copies of every file, so it never guesses which is newest:
-the ToolKit copy, the source copy, and the **released** copy (the `$FALIB.INF` checksum list in
-`JKPFA6\FA_JKPFA6_C.LIB` next to the folder, else the folder's `FA_0.LIB`, or `--base LIB`).
+`import` compares three copies of every file (ToolKit, source, and the released copy recorded in the
+LIB's `$FALIB.INF`), so it never guesses:
 
 | line | meaning | what happens |
 |---|---|---|
-| `IMPORT` | changed in the ToolKit, source unchanged since release | ToolKit file copied into the source |
-| `KEEP` | source changed since release, ToolKit copy unchanged | nothing (source is newer) |
-| `CONFLICT` | both changed, differently (or no release record) | **nothing at all is written**; rerun with `--take-toolkit NAME` or `--take-source NAME` |
-| `NEW` | in ITEM.DAT but not in the set file | file copied to `<EXT>/`, name + description added to the set file; says which LIB the `[rules]` put it in |
-| `DESC` | description changed in the ToolKit | set file line updated |
-| `GONE?` | in the set file for this LIB, no longer in ITEM.DAT | kept; `--remove-missing` deletes the set-file line |
-| `MISSING` / `IGNORED` | ITEM.DAT names a file that is not there / a file not in ITEM.DAT | reported only |
+| `IMPORT` | changed in the ToolKit only | ToolKit file copied into the source |
+| `KEEP` | changed in the source only | nothing (source is newer) |
+| `CONFLICT` | changed on both sides | **nothing is written**; rerun with `--take-toolkit NAME` / `--take-source NAME` |
+| `NEW` | in ITEM.DAT, not in the set file | file copied to `<EXT>/`, line + description added; says which LIB the rules pick |
+| `DESC` | description changed | set file line updated |
+| `GONE?` | no longer in ITEM.DAT | kept; `--remove-missing` deletes the set-file line |
 
-Tested (2026-11-26) on copies with all of these at once: a ToolKit edit, a repo edit, the same file
-edited on both sides, a new JT with a description, a new PT dropped into the weapons project (correctly
-sent to LIB A), a file removed from ITEM.DAT and a changed description. Build refused before the import,
-import refused while the conflict was open, `--take-toolkit` resolved it, and the following build passed
-with the repo edit kept.
+`--overwrite-toolkit` (on build) throws ToolKit changes away instead.
 
-On Kuoyi's PC (no git), `--to` must be a local copy of the repo; the changed files then go to GitHub
-the usual way (for now: through a cloud thread).
-
-## 6. Other commands
+## 7. Other commands
 
 ```
-python tools/falib.py list   FA_JKPFA6_D.LIB                  # entries, flags, sizes
-python tools/falib.py unpack FA_JKPFA6_D.LIB out --by-ext     # extract into PT/ SH/ ... folders
-python tools/falib.py verify FA_JKPFA6_D.LIB --against folder # compare with a folder of sources
+python tools/falib.py list   JKPFA6_D.LIB                  # entries, flags, sizes
+python tools/falib.py unpack JKPFA6_D.LIB out --by-ext     # extract into PT/ SH/ ... folders
+python tools/falib.py verify JKPFA6_D.LIB --against folder # compare with a folder of sources
 ```
 
-`unpack --by-ext` is how to bring files from any LIB (an old release, a downloaded mod) into the
-repo layout. The factory LIBs (FA_1, FA_2, FA_4B, FA_4D) unpack fine too; never write to them.
+`unpack --by-ext` brings files from any LIB (old release, downloaded mod, factory) into the repo layout.
+Never write to the factory LIBs (FA_1, FA_2, FA_4B, FA_4D).
 
-## 7. Installing and load order
-
-* The game picks up every `*.LIB` in its folder (the JKPFA, `_MAP` and `_HUD` LIBs all load with no
-  config entry; FA.EXE only names `.LIB`). Loose files in the game folder override every LIB.
-  `check --game` lists loose files that differ from the source, because the game will use them.
-* Mod files override the factory LIBs with the same name. Keep each file in only one mod LIB:
-  `check --game` reports files that are installed in two mod LIBs today.
-* Remove the old JKPFA LIBs (for example `FA_JKPFA_B.LIB`, `_MAP.LIB`, `_MUSIC.LIB`) when installing
-  a new set, or their old copies stay loaded alongside the new ones.
-* Keep mod LIB names sorting after `FA_4D.LIB` (the `FA_JKPFA...` names do). Inferred from the working
-  setup, not tested with other names.
-
-## 8. File format (for reference)
+## 8. File format
 
 ```
 "EALIB"  uint16 count
 count+1 entries of 18 bytes: name[13] (zero padded), flag[1], offset[4]
-          last entry: empty name, offset = file size
-entry data
+          last entry: empty name, offset = end of data
+entry data, then (falib) 4096 zero bytes
 ```
 
-* flag 0 = stored as is. flag 4 = `uint32 unpacked size` + PKWare DCL "implode" stream
-  (header bytes `00 06`: binary literals, 4 KB window). FA.EXE links the PKWARE Data Compression
-  Library, and every factory and ToolKit LIB uses flag 4 except FA_4D (music, flag 0).
-* The PKWare window starts zero filled; EA's and the ToolKit's encoders sometimes copy from it
-  (seen in SCDN_B.SH and AIR109.11K). The decoder handles this.
-* ToolKit LIBs also hold `$TOOLKIT.INF` (project name, serial). The game does not need it and
-  falib does not write it; falib writes `$FALIB.INF` instead (section 4).
-* Factory LIBs and ToolKit LIBs use the same compressor: 7 unchanged files that are in both
-  compress to the same bytes (76,761 total). The only difference is that EA stored some files
-  uncompressed (all of FA_4D's music, 126 files in FA_2); the ToolKit compresses everything.
-  Sound barely compresses (FA_4B music: 99.3% of original size).
-* **Stored vs compressed (falib does what EA did):** a file whose compressed form is still 90% or more
-  of its size is stored (flag 0) instead (`STORE_RATIO` in falib.py). That is all the music
-  (AIR*.11K compresses to ~94-99%) and a few sound effects. The LIB grows by under 1% and the game
-  does not have to unpack them.
-* **Encoder:** greedy LZ77 + one-step lazy matching (if the match starting one byte later costs fewer
-  bits per byte, send a literal first), 48-step hash chains, 4 KB window. Same entries as in the JKP54
-  ToolKit LIBs (A-E, MAP, MUSIC; 45.4 MB unpacked), compression only, no store rule:
+* flag 0 = stored. flag 4 = `uint32 unpacked size` + PKWare DCL implode stream (`00 06`: binary
+  literals, 4 KB window). (FA.EXE also accepts flag 1, another compression method; no LIB here uses it.)
+* The PKWare window starts zero-filled; EA's and the ToolKit's encoders sometimes copy from it
+  (SCDN_B.SH, AIR109.11K). The decoder handles this.
+* FA.EXE builds one sorted index of every LIB entry and every loose file in the game folder
+  (35 bytes each: flag, folder, name, DOS time, DOS date, LIB, offset, size), keeps the newest copy of
+  each name (rule 5) and finds files by binary search. Entries are read straight from the mapped LIB.
+* Factory and ToolKit LIBs use the same compressor (identical bytes for the same file). EA stored some
+  files uncompressed; falib does too when compression leaves 90% or more (`STORE_RATIO`: all music,
+  a few sounds).
+* **Encoder:** greedy LZ77 + one-step lazy matching, 48-step hash chains, distance 2..4095, length
+  2..516 (rule 2; `ENCODER_VERSION` v4). All JKP54 contents together compress to about the ToolKit's
+  size (100-102% per LIB). Changing `implode()` must bump `ENCODER_VERSION` so old cache entries are not reused.
 
-  | LIB | ToolKit | falib | |
-  |---|---|---|---|
-  | JKPFA54_A | 1,092,758 | 1,099,268 | 100.6% |
-  | JKPFA_B | 212,443 | 209,468 | 98.6% |
-  | JKPFA54_C (big PICs) | 3,039,452 | 3,099,497 | 102.0% |
-  | JKPFA54_D | 1,620,140 | 1,610,820 | 99.4% |
-  | JKPFA54_E | 1,136,609 | 1,133,916 | 99.8% |
-  | _MAP | 528,557 | 528,605 | 100.0% |
-  | _MUSIC | 7,570,990 | 7,550,343 | 99.7% |
-  | **total** | **15,200,949** | **15,231,917** | **100.2%** |
+## 9. How it was found and checked (2026-11-26)
 
-  The first, greedy-only version was about 1-4% bigger. A full optimal parse was tried: about 2% smaller
-  than the ToolKit but 20x slower, so it is not used.
-* Changing `implode()` must come with a new `ENCODER_VERSION`, so cached entries made by the old
-  encoder are not reused.
-
-## 9. How the tool itself was checked
-
-* Every entry of all 21 LIBs in `Lib pack study` (factory, JKPFA_53b, JKPFA54, MAP, MUSIC) unpacks,
-  and the JKPFA54 ToolKit LIBs unpack byte-identical to their ToolKit project folders.
-* Every compressed entry is unpacked again before it is stored in the cache, so a bad entry can't be written.
-* Same input gives the same LIB bytes on every build (folder or zip source).
-* In-game test passed (2026-11-26): FA_JKPFA54_D.LIB rebuilt by falib (same 390 files, falib's own
-  compression) replaced the ToolKit one in Kuoyi's game folder; the AC-130 (only in that LIB, no loose
-  file) loads and flies.
+* All 21 LIBs in `Lib pack study` unpack; the JKPFA54 ToolKit LIBs unpack byte-identical to their
+  ToolKit project folders. Same input always gives the same LIB bytes.
+* In-game bisect with Kuoyi (FA_BIG): the ToolKit originals recompressed by falib crashed until the
+  encoder stopped using distance 1 / 4096 (rule 2); JKPFA6 still crashed; the crashing sets were narrowed
+  file by file, then FA.EXE was disassembled (capstone) and rule 1 explained all 33 results: every
+  crashing set had an overrun entry of a kind loaded at that moment.
+* Final JKPFA6 (padded, 8 LIBs) passed in the game on the original FA.EXE and on FA_BIG.
 
 ## 10. Speed
 
-Compressed entries are cached by content in `%LOCALAPPDATA%\falib\pk-v2`, so only new or changed files
-are compressed, on all CPU cores. Measured on Kuoyi's PC (8 threads): all 8 JKPFA6 LIBs from cold about
-2 minutes, again a few seconds, plus about 15 s for the verify that follows every build. Verifying the whole game folder
-(about 9,000 entries, 280 MB unpacked) takes about 2 minutes. The ToolKit took about 10 minutes for JKP54D alone. Deleting the cache folder is always safe.
+Compressed entries are cached by content in `%LOCALAPPDATA%\falib\pk-v4`, so only new or changed files
+are compressed, on all CPU cores. On Kuoyi's PC (8 threads): all 8 JKPFA6 LIBs from cold about 2 minutes,
+again a few seconds, plus ~10-15 s for the verify after every build. Deleting the cache is always safe.
+The ToolKit took about 10 minutes for JKP54D alone.

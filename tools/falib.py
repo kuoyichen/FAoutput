@@ -3,8 +3,8 @@
 
 Needs only Python 3.8+ (no extra packages). See skill/FA_LIB_build.MD.
 
-  python tools/falib.py list    FA_JKPFA54_D.LIB
-  python tools/falib.py unpack  FA_JKPFA54_D.LIB out_folder [--by-ext]
+  python tools/falib.py list    JKPFA6_D.LIB
+  python tools/falib.py unpack  JKPFA6_D.LIB out_folder [--by-ext]
   python tools/falib.py verify  build_or_game_folder_or_LIBs [--set LIB/JKPFA6.txt --src .]
   python tools/falib.py check   LIB/JKPFA6.txt --src . [--src EXTRA] [--game GAME_FOLDER]
   python tools/falib.py import  JKPFA6/JKPFA6C --set LIB/JKPFA6.txt --to . [--src EXTRA] [--dry-run]
@@ -78,7 +78,7 @@ class FALibError(Exception):
     pass
 
 
-def explode(src, expected_size=None, report_used=False):
+def explode(src, expected_size=None, report_used=False, strict=False):
     """Decompress one PKWare DCL stream (with report_used: also return bytes read)."""
     pos, bitbuf, bitcnt, n = 0, 0, 0, len(src)
 
@@ -117,6 +117,9 @@ def explode(src, expected_size=None, report_used=False):
                 break
             sh = 2 if length == 2 else dic
             dist = (decode(_DIST_DEC) << sh) + bits(sh) + 1
+            if strict and (dist < 2 or dist > (64 << dic) - 1 or length > 516):
+                raise FALibError(f'uses distance {dist} / length {length}: never produced by the real PKWare '
+                                 'encoder (distance 2-4095, length up to 516), the game may not read it')
             if dist > len(out):
                 # The PKWare window starts zero-filled and EA's / the ToolKit's
                 # encoder does refer back into it (seen in SCDN_B.SH, AIR109.11K).
@@ -149,7 +152,7 @@ def _match_bits(length, dist, dict_bits):
     return 1 + _LEN_BITS[length] + _DIST_BITS[(dist - 1) >> sh] + sh
 
 
-def implode(data, dict_bits=6, max_chain=48):
+def implode(data, dict_bits=6, max_chain=48, lazy=True):
     """Compress with PKWare DCL (binary literals, 4K dictionary by default)."""
     out = bytearray()
     buf = cnt = 0
@@ -172,7 +175,12 @@ def implode(data, dict_bits=6, max_chain=48):
 
     put(0, 8)
     put(dict_bits, 8)
-    window = 64 << dict_bits
+    # Stay inside what the real PKWare encoder produces, which FA.EXE's decoder relies on:
+    # distance 2..4095 (never 1, never 4096, although the format can express both) and
+    # length at most 516. Every ToolKit/EA stream on Kuoyi's PC stays inside these; falib
+    # streams outside them crashed the quick-mission editor when it loaded objects (2026-11-26).
+    window = (64 << dict_bits) - 1
+    max_len = 516
     n = len(data)
     head, prev = {}, [0] * n
     ins = 0                      # next position to add to the hash chains
@@ -190,9 +198,9 @@ def implode(data, dict_bits=6, max_chain=48):
         """Longest match at i (positions before i are in the chains): (length, dist) or None."""
         best_len = best_dist = 0
         if i + 3 <= n:
-            cand, chain, limit = head.get(data[i:i + 3], -1), 0, min(518, n - i)
+            cand, chain, limit = head.get(data[i:i + 3], -1), 0, min(max_len, n - i)
             while cand >= 0 and i - cand <= window and chain < max_chain:
-                if best_len < limit and data[cand + best_len] == data[i + best_len]:
+                if i - cand >= 2 and best_len < limit and data[cand + best_len] == data[i + best_len]:
                     k = 3
                     while k < limit and data[cand + k] == data[i + k]:
                         k += 1
@@ -203,8 +211,8 @@ def implode(data, dict_bits=6, max_chain=48):
                 cand = prev[cand]
                 chain += 1
         if best_len < 3 and i + 2 <= n:
-            j = data.rfind(data[i:i + 2], max(0, i - 256), i + 1)
-            if 0 <= j < i:
+            j = data.rfind(data[i:i + 2], max(0, i - 256), i)   # occurrences ending before i: distance >= 2
+            if 0 <= j <= i - 2:
                 return 2, i - j
         return (best_len, best_dist) if best_len >= 3 else None
 
@@ -218,7 +226,7 @@ def implode(data, dict_bits=6, max_chain=48):
         m = find(i)
         # lazy matching: if the match starting one byte later is cheaper per byte,
         # send this byte as a literal and take that one instead (like PKWare's own encoder)
-        while m and m[0] < 64 and i + 1 < n:
+        while lazy and m and m[0] < 64 and i + 1 < n:
             insert_to(i + 1)
             m2 = find(i + 1)
             if m2 and m2[0] > m[0] and (9 + _match_bits(*m2, dict_bits)) * m[0] < _match_bits(*m, dict_bits) * (1 + m2[0]):
@@ -320,8 +328,10 @@ def check_structure(blob):
         if last:
             if name:
                 p.append(f'end entry has a name "{name}" (count field is wrong?)')
-            if off != len(blob):
-                p.append(f'end entry offset {off} is not the file size {len(blob)}')
+            if off > len(blob):
+                p.append(f'end entry offset {off} is past the file size {len(blob)}')
+            elif off < len(blob) and any(blob[off:]):
+                p.append(f'{len(blob) - off} bytes after the end entry offset {off} are not zero padding')
         else:
             if b'\0' not in rawname:
                 p.append(f'{label}: name not zero-terminated')
@@ -354,7 +364,7 @@ def check_entry(args):
             if len(chunk) < 6:
                 return name, None, 'compressed entry shorter than 6 bytes'
             size = struct.unpack_from('<I', chunk, 0)[0]
-            data, used = explode(chunk[4:], size, report_used=True)
+            data, used = explode(chunk[4:], size, report_used=True, strict=True)
             if len(chunk) - 4 - used > 1:
                 return name, None, f'{len(chunk) - 4 - used} unused bytes after the compressed data'
         if name.upper() == INFO_NAME:
@@ -379,8 +389,37 @@ def write_lib(path, items):
         f.write(head)
         for _, _, payload in items:
             f.write(payload)
+        f.write(bytes(TAIL_PAD))
     os.replace(tmp, path)
-    return off
+    return off + TAIL_PAD
+
+
+# FA.EXE memory-maps each LIB and feeds the PKWare decoder through a callback that always
+# copies a full 0x800-byte chunk (FA.EXE 0x47a010), even past the end of the entry. For an
+# entry near the end of the LIB that read can run off the end of the mapping and crash the
+# game, e.g. when the mission builder loads objects. Zero bytes after the data keep every
+# read inside the file. (Found 2026-11-26 by disassembling FA.EXE; matches every crash test.)
+GAME_READ_CHUNK = 0x800
+TAIL_PAD = 4096
+
+
+def overrun_entries(blob, ents):
+    """Compressed entries whose 0x800-byte reads would run past the mapped file."""
+    page_end = (len(blob) + 4095) // 4096 * 4096
+    out = []
+    for name, flag, s, e in ents:
+        if flag == FLAG_PKWARE:
+            n = (e - s - 4 + GAME_READ_CHUNK - 1) // GAME_READ_CHUNK
+            reach = s + 4 + n * GAME_READ_CHUNK
+            if reach > page_end:
+                out.append((name, reach - page_end))
+    return out
+
+
+def toolkit_order(name):
+    """Sort key the FA ToolKit uses for a LIB index: symbols < digits < letters, case-insensitive
+    (every ToolKit LIB on Kuoyi's PC is in exactly this order, after $TOOLKIT.INF)."""
+    return [(0 if not c.isalnum() else 1 if c.isdigit() else 2, c.lower()) for c in name]
 
 
 def valid_name(name):
@@ -411,6 +450,9 @@ class SetFile:
                     lib = parts[0].upper()
                     if not lib.endswith('.LIB') or len(parts) < 2:
                         raise FALibError(f'{where}: rule must be "NAME.LIB pattern [pattern ...]"')
+                    if not valid_name(lib):
+                        raise FALibError(f'{where}: {lib} is not a DOS 8.3 name (at most 8 characters before .LIB); '
+                                         'FA.EXE keeps LIB names in 14-byte slots')
                     self.rules.append((lib, [p.upper() for p in parts[1:]]))
                     self.desc.setdefault(lib, line.split('#', 1)[1].strip() if '#' in line else '')
                 elif section == 'files':
@@ -446,7 +488,7 @@ class SetFile:
             raise FALibError('no [rules] line matches: ' + ', '.join(bad[:20]))
         for n in self.files:
             out[self.lib_for(n)].append(n)
-        return {k: sorted(v) for k, v in out.items() if v}
+        return {k: sorted(v, key=toolkit_order) for k, v in out.items() if v}
 
 
 # ---------------------------------------------------------------- sources
@@ -531,20 +573,21 @@ def _cache_dir():
 
 
 # ---------------------------------------------------------------- compression cache
-ENCODER_VERSION = 'v2'   # change when implode() output changes, so old cache entries are not reused
+ENCODER_VERSION = 'v4' # change when implode() output changes, so old cache entries are not reused
 STORE_RATIO = 0.90       # a file that compresses to 90% or more of its size is stored, as EA did
 
 
-def _cache_path(digest):
-    return os.path.join(_cache_dir(), 'pk-' + ENCODER_VERSION, digest[:2], digest + '.pk')
+def _cache_path(digest, lazy=True):
+    return os.path.join(_cache_dir(), 'pk-' + (ENCODER_VERSION if lazy else ENCODER_VERSION + 'greedy'),
+                        digest[:2], digest + '.pk')
 
 
 def _compress_job(args):
-    digest, data = args
-    payload = struct.pack('<I', len(data)) + implode(data)
-    if explode(payload[4:], len(data)) != data:      # never ship a bad entry
+    digest, data, lazy = args
+    payload = struct.pack('<I', len(data)) + implode(data, lazy=lazy)
+    if explode(payload[4:], len(data), strict=True) != data:      # never ship a bad entry
         raise FALibError('self-check failed')
-    p = _cache_path(digest)
+    p = _cache_path(digest, lazy)
     os.makedirs(os.path.dirname(p), exist_ok=True)
     with open(p + '.tmp', 'wb') as f:
         f.write(payload)
@@ -552,7 +595,7 @@ def _compress_job(args):
     return digest
 
 
-def pack_all(datas, store=False, jobs=None, store_ratio=STORE_RATIO):
+def pack_all(datas, store=False, jobs=None, store_ratio=STORE_RATIO, lazy=True):
     """datas: {name: bytes} -> {name: (flag, payload)} using the cache.
 
     Files whose compressed form is store_ratio or more of their size are stored (flag 0):
@@ -563,21 +606,21 @@ def pack_all(datas, store=False, jobs=None, store_ratio=STORE_RATIO):
     digests = {n: hashlib.sha1(d).hexdigest() for n, d in datas.items()}
     todo = {}
     for n, dg in digests.items():
-        if not os.path.exists(_cache_path(dg)):
+        if not os.path.exists(_cache_path(dg, lazy)):
             todo[dg] = datas[n]
     if todo:
         print(f'  compressing {len(todo)} new or changed files ...', flush=True)
+        jobs_in = [(dg, d, lazy) for dg, d in sorted(todo.items(), key=lambda kv: -len(kv[1]))]
         if len(todo) == 1 or jobs == 1:
-            for item in todo.items():
+            for item in jobs_in:
                 _compress_job(item)
         else:
             with concurrent.futures.ProcessPoolExecutor(max_workers=jobs) as ex:
-                big_first = sorted(todo.items(), key=lambda kv: -len(kv[1]))
-                for _ in ex.map(_compress_job, big_first, chunksize=1):
+                for _ in ex.map(_compress_job, jobs_in, chunksize=1):
                     pass
     out = {}
     for n, dg in digests.items():
-        payload = _read(_cache_path(dg))
+        payload = _read(_cache_path(dg, lazy))
         if len(payload) >= store_ratio * len(datas[n]):
             out[n] = (FLAG_STORED, datas[n])
         else:
@@ -630,6 +673,13 @@ def verify_libs(paths, expected=None, against=None, jobs=None):
             continue
         _, ents = read_lib(path)
         where[lib] = ents
+        for n, over in overrun_entries(blob, ents):
+            if lib in FACTORY_LIBS:
+                print(f'NOTE  {lib}: {n} is read {over} bytes past the end of the file by FA.EXE (factory LIB, left as is)')
+            else:
+                print(f'FAIL  {lib}: FA.EXE reads {n} {over} bytes past the end of the LIB and can crash '
+                      f'when it loads it; rebuild with falib (it pads the end)')
+                total += 1
         for name, flag, s, e in ents:
             jobs_list.append((lib, name, flag, blob[s:e]))
             # factory LIBs are meant to be overridden, so only mod LIBs count here
@@ -758,7 +808,28 @@ def _load(a):
                 datas[n], labels[n] = src.get(n)
             except FALibError as ex:
                 errors.append(str(ex))
+    errors += game_limit_problems(plan)
     return s, plan, datas, labels, errors
+
+
+# Limits of FA.EXE that a LIB set must respect (measured on Kuoyi's PC, 2026-11-26)
+MAX_LIBS_STOCK = 20       # LIB files the original FA.EXE opens (FA_BIG: 256); 4 are factory
+FILE_INDEX_STOCK = 9950   # entries in all LIBs together, original FA.EXE (FA_BIG: 100,000)
+FACTORY_ENTRIES = 7505    # FA_1 + FA_2 + FA_4B + FA_4D
+
+
+def game_limit_problems(plan):
+    """Errors for limits the game crashes on; warnings are printed."""
+    errs = []
+    n_libs = len(plan) + 4
+    if n_libs + 1 > MAX_LIBS_STOCK:
+        print(f'WARNING {len(plan)} LIBs + 4 factory + _HUD.LIB = {n_libs + 1}: the original FA.EXE opens only '
+              f'{MAX_LIBS_STOCK} LIB files (FA_BIG: 256)')
+    total = FACTORY_ENTRIES + sum(len(v) for v in plan.values())
+    if total > FILE_INDEX_STOCK - 300:
+        print(f'WARNING {total} files in all LIBs (factory + this set): the original FA.EXE indexes at most '
+              f'{FILE_INDEX_STOCK} (FA_BIG: 100,000); _HUD.LIB and loose files count too')
+    return errs
 
 
 def cmd_check(a):
@@ -793,13 +864,17 @@ def cmd_check(a):
             print(f'  {len(twice)} files are installed in more than one mod LIB now (the build fixes this):')
             for c in twice:
                 print('     ', c)
-        # 2) loose files in the game folder override every LIB: warn if they differ
+        # 2) loose files: FA.EXE keeps, for each name, the copy whose container (LIB file or
+        #    loose file) has the NEWEST modification time (to the minute; FA.EXE 0x4797e0).
+        #    A freshly built LIB therefore beats older loose files of the same name.
         loose = []
         for fn in os.listdir(a.game):
             n = fn.upper()
             if n in datas and _read(os.path.join(a.game, fn)) != datas[n]:
-                loose.append(n)
-        print(f'\n{len(loose)} loose files in the game folder differ from the source (the game uses the loose file):')
+                when = time.strftime('%Y-%m-%d %H:%M', time.localtime(os.path.getmtime(os.path.join(a.game, fn))))
+                loose.append(f'{n} (loose file dated {when})')
+        print(f'\n{len(loose)} loose files in the game folder differ from the source. The game uses whichever is '
+              'newer, the loose file or the LIB that holds the name; a LIB built now wins:')
         for n in sorted(loose):
             print('   ', n)
     if errors:
@@ -1089,16 +1164,19 @@ def cmd_build(a):
             return 1
     os.makedirs(a.out, exist_ok=True)
     wanted = {n: datas[n] for names in plan.values() for n in names}
-    packed = pack_all(wanted, store=a.store, jobs=a.jobs)   # one pool for all LIBs
+    packed = pack_all(wanted, store=a.store, jobs=a.jobs,    # one pool for all LIBs
+                      store_ratio=a.store_ratio, lazy=not a.greedy)
     for lib, names in plan.items():
-        info = make_info(lib, [(n, datas[n]) for n in names])
-        items = [(INFO_NAME, FLAG_STORED, info)] + [(n, *packed[n]) for n in names]
+        items = [(n, *packed[n]) for n in names]
+        if not a.no_checksum_list:
+            items = [(INFO_NAME, FLAG_STORED, make_info(lib, [(n, datas[n]) for n in names]))] + items
         size = write_lib(os.path.join(a.out, lib), items)
         # read the index back: same names, same order, same payloads
         blob, ents = read_lib(os.path.join(a.out, lib))
         if [(e[0], e[1], blob[e[2]:e[3]]) for e in ents] != items:
             raise FALibError(f'{lib}: index does not read back correctly')
-        print(f'built {lib:22} {len(names):5} files {size:10} bytes (+ {INFO_NAME} checksum list)')
+        print(f'built {lib:22} {len(names):5} files {size:10} bytes'
+              + ('' if a.no_checksum_list else f' (+ {INFO_NAME} checksum list)'))
         if a.toolkit:
             proj = project_name(lib)
             write_toolkit(os.path.join(a.out, proj), proj, names, datas, os.path.join(a.out, lib), s.desc_of)
@@ -1146,6 +1224,11 @@ def main(argv=None):
                            help='also write an FA ToolKit project folder per LIB (e.g. JKPFA6A\\) in --out')
             x.add_argument('--overwrite-toolkit', action='store_true',
                            help='with --toolkit: replace ToolKit folders even if they hold changes')
+            x.add_argument('--store-ratio', type=float, default=STORE_RATIO,
+                           help='store a file uncompressed when compression leaves this share or more '
+                                '(default 0.9; 2 = always compress)')
+            x.add_argument('--greedy', action='store_true', help='first (greedy) encoder, no lazy matching')
+            x.add_argument('--no-checksum-list', action='store_true', help=f'do not add {INFO_NAME}')
             x.add_argument('--no-verify', action='store_true',
                            help='skip the full check after building (not recommended)')
             x.add_argument('--jobs', type=int, default=None, help='parallel compressors (default: all cores)')

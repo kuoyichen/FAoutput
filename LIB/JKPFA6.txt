@@ -1,28 +1,28 @@
 # JKPFA6 file set: every file that goes into the JKPFA6 LIBs.
 #
 # [rules]  which LIB a file goes to. One line per LIB: the LIB name, then
-#          file patterns (* = anything). The FIRST line that matches wins,
-#          so put special cases (music) above the general ones (sounds).
-#          To add a LIB, add a line. Letters G-L, N-R, T-Z are free.
+#          file patterns (* = anything, [A-L] = one letter A to L). The FIRST
+#          line that matches wins, so special cases (music) sit above the
+#          general line (sound effects).
+#          LIB names must be DOS 8.3 (JKPFA6_X.LIB). The original FA.EXE opens at most
+#          20 LIB files (4 factory included).
 # [files]  one file name per line, in any order (the tool sorts them),
 #          optionally followed by the description the FA ToolKit shows.
 #          To add a file to the game: put it in the repo folder named after
 #          its extension (PT/, SH/, PIC/, 11K/ ...) and add its name here.
 #          To drop a file: delete its line. Text after # is a comment.
 #
-# Build:  python tools/falib.py build LIB/JKPFA6.txt --src . --out build --toolkit
+# Build:  python tools/falib.py build LIB/JKPFA6.txt --src . --out JKPFA6 --toolkit
 # Skill:  skill/FA_LIB_build.MD
-
 [rules]
-FA_JKPFA6_A.LIB  *.PT *.ECM *.SEE *.HUD *.PTS    # aircraft: flight data, ECM, seekers, HUD
-FA_JKPFA6_B.LIB  *.NT *.OT                       # ground units, ships and objects
-FA_JKPFA6_C.LIB  *.JT *.GAS                      # weapons and fuel tanks
-FA_JKPFA6_D.LIB  *.SH                            # 3D shapes
-FA_JKPFA6_E.LIB  *.PIC                           # pictures and textures
-FA_JKPFA6_S.LIB  AIR*.11K                        # music (was _MUSIC.LIB)
-FA_JKPFA6_F.LIB  *.11K *.5K *.8K                 # sound effects
-FA_JKPFA6_M.LIB  *.MM *.T2                       # maps (was _MAP.LIB)
-
+JKPFA6_A.LIB  *.PT *.ECM *.SEE *.HUD *.PTS    # aircraft: flight data, ECM, seekers, HUD
+JKPFA6_B.LIB  *.NT *.OT                       # ground units, ships and objects
+JKPFA6_C.LIB  *.JT *.GAS                      # weapons and fuel tanks
+JKPFA6_D.LIB  *.SH                            # 3D shapes
+JKPFA6_E.LIB  *.PIC                           # pictures and textures
+JKPFA6_S.LIB  AIR*.11K                        # music (was _MUSIC.LIB)
+JKPFA6_F.LIB  *.11K *.5K *.8K                 # sound effects
+JKPFA6_M.LIB  *.MM *.T2                       # maps (was _MAP.LIB)
 [files]
 $272FFAR.PIC
 $2S6.PIC
