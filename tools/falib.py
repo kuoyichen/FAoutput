@@ -5,9 +5,11 @@ Needs only Python 3.8+ (no extra packages). See skill/FA_LIB_build.MD.
 
   python tools/falib.py list    FA_JKPFA54_D.LIB
   python tools/falib.py unpack  FA_JKPFA54_D.LIB out_folder [--by-ext]
-  python tools/falib.py verify  FA_JKPFA54_D.LIB [--against SOURCE_FOLDER]
+  python tools/falib.py verify  build_or_game_folder_or_LIBs [--set LIB/JKPFA54.txt --src .]
   python tools/falib.py check   LIB/JKPFA54.txt --src . [--src EXTRA] [--game GAME_FOLDER]
   python tools/falib.py build   LIB/JKPFA54.txt --src . [--src EXTRA] --out build [--only D] [--store]
+
+build always ends with verify; ship a LIB only after "RESULT: PASSED".
 
 A .LIB ("EALIB") is: "EALIB", uint16 count, count+1 entries of 18 bytes
 (13-byte zero-padded name, 1-byte flag, uint32 offset; the last entry has an
@@ -75,8 +77,8 @@ class FALibError(Exception):
     pass
 
 
-def explode(src, expected_size=None):
-    """Decompress one PKWare DCL stream."""
+def explode(src, expected_size=None, report_used=False):
+    """Decompress one PKWare DCL stream (with report_used: also return bytes read)."""
     pos, bitbuf, bitcnt, n = 0, 0, 0, len(src)
 
     def bits(k):
@@ -132,6 +134,8 @@ def explode(src, expected_size=None):
         del out[:zero_pad]
     if expected_size is not None and len(out) != expected_size:
         raise FALibError(f'unpacked size {len(out)}, header says {expected_size}')
+    if report_used:
+        return bytes(out), pos
     return bytes(out)
 
 
@@ -216,6 +220,26 @@ def implode(data, dict_bits=6, max_chain=48):
 
 # ---------------------------------------------------------------- EALIB
 FLAG_STORED, FLAG_PKWARE = 0, 4
+FACTORY_LIBS = ('FA_1.LIB', 'FA_2.LIB', 'FA_4B.LIB', 'FA_4D.LIB')
+INFO_NAME = '$FALIB.INF'          # checksum list that falib puts in every LIB it builds
+TOOL_ENTRIES = (INFO_NAME, '$TOOLKIT.INF')
+
+
+def make_info(lib, files):
+    """files: [(name, data)] -> text of $FALIB.INF (no dates, so builds stay identical)."""
+    lines = ['falib checksum list. The game ignores this entry.',
+             f'lib {lib}', f'files {len(files)}', 'name size sha1']
+    lines += [f'{n} {len(d)} {hashlib.sha1(d).hexdigest()}' for n, d in files]
+    return ('\r\n'.join(lines) + '\r\n').encode('ascii')
+
+
+def parse_info(data):
+    """-> {NAME: (size, sha1)} or raise."""
+    out = {}
+    for line in data.decode('ascii').splitlines()[4:]:
+        n, size, digest = line.split()
+        out[n] = (int(size), digest)
+    return out
 
 
 def read_lib(path):
@@ -240,6 +264,72 @@ def entry_data(blob, flag, start, end):
     if flag == FLAG_PKWARE:
         return explode(chunk[4:], struct.unpack_from('<I', chunk, 0)[0])
     raise FALibError(f'unknown compression flag {flag}')
+
+
+def check_structure(blob):
+    """Check the LIB header and index without unpacking. Returns a list of problems."""
+    p = []
+    if len(blob) < 25 or blob[:5] != b'EALIB':
+        return ['not an EALIB file (must start with "EALIB")']
+    count = struct.unpack_from('<H', blob, 5)[0]
+    head_end = 7 + (count + 1) * 18
+    if head_end > len(blob):
+        return [f'index of {count} entries is longer than the file']
+    seen = set()
+    prev = head_end
+    for i in range(count + 1):
+        o = 7 + i * 18
+        rawname = blob[o:o + 13]
+        name = rawname.split(b'\0')[0].decode('latin1')
+        flag = blob[o + 13]
+        off = struct.unpack_from('<I', blob, o + 14)[0]
+        last = i == count
+        label = 'end entry' if last else f'entry {i + 1} "{name}"'
+        if last:
+            if name:
+                p.append(f'end entry has a name "{name}" (count field is wrong?)')
+            if off != len(blob):
+                p.append(f'end entry offset {off} is not the file size {len(blob)}')
+        else:
+            if b'\0' not in rawname:
+                p.append(f'{label}: name not zero-terminated')
+            if not name:
+                p.append(f'{label}: empty name')
+            elif not valid_name(name):
+                p.append(f'{label}: not an upper-case 8.3 name')
+            if name.upper() in seen:
+                p.append(f'{label}: name appears twice in this LIB')
+            seen.add(name.upper())
+            if flag not in (FLAG_STORED, FLAG_PKWARE):
+                p.append(f'{label}: unknown flag {flag}')
+        if i == 0 and off != head_end:
+            p.append(f'{label}: data starts at {off}, expected {head_end} (right after the index)')
+        if off < prev:
+            p.append(f'{label}: offset {off} goes backwards (previous {prev})')
+        if off > len(blob):
+            p.append(f'{label}: offset {off} is past the end of the file')
+        prev = max(prev, off)
+    return p
+
+
+def check_entry(args):
+    """(name, flag, chunk) -> (name, sha1 of unpacked data or None, problem or None)."""
+    name, flag, chunk = args
+    try:
+        if flag == FLAG_STORED:
+            data = chunk
+        else:
+            if len(chunk) < 6:
+                return name, None, 'compressed entry shorter than 6 bytes'
+            size = struct.unpack_from('<I', chunk, 0)[0]
+            data, used = explode(chunk[4:], size, report_used=True)
+            if len(chunk) - 4 - used > 1:
+                return name, None, f'{len(chunk) - 4 - used} unused bytes after the compressed data'
+        if name.upper() == INFO_NAME:
+            return name, (len(data), hashlib.sha1(data).hexdigest(), data), None
+        return name, (len(data), hashlib.sha1(data).hexdigest()), None
+    except FALibError as ex:
+        return name, None, str(ex)
 
 
 def write_lib(path, items):
@@ -295,6 +385,8 @@ class SetFile:
                     name = text.upper()
                     if not valid_name(name):
                         raise FALibError(f'{where}: "{text}" is not an 8.3 file name')
+                    if name in TOOL_ENTRIES:
+                        raise FALibError(f'{where}: {name} is reserved for the tool')
                     if name in seen:
                         raise FALibError(f'{where}: {name} is listed twice')
                     seen.add(name)
@@ -463,28 +555,146 @@ def cmd_unpack(a):
     print(f'unpacked {len(ents)} files to {a.out}')
 
 
-def cmd_verify(a):
-    blob, ents = read_lib(a.lib)
-    bad = 0
-    for name, flag, s, e in ents:
-        try:
-            data = entry_data(blob, flag, s, e)
-        except FALibError as ex:
-            print(f'BROKEN  {name}: {ex}')
-            bad += 1
+def verify_libs(paths, expected=None, against=None, jobs=None):
+    """Full check of built LIBs. Prints a report, returns the number of problems.
+
+    1. structure: header, index, offsets, names, flags (check_structure)
+    2. every entry unpacks, its size matches, no stray bytes (check_entry)
+    3. expected = {LIBNAME: {NAME: sha1}}: the LIB holds exactly these files,
+       each byte-identical to its source
+    4. against = folder: each entry equals the file there (flat or <EXT>/)
+    5. no file name is in two of the checked LIBs
+    """
+    total = 0
+    owner = {}
+    jobs_list, where = [], {}
+    for path in paths:
+        lib = os.path.basename(path).upper()
+        with open(path, 'rb') as f:
+            blob = f.read()
+        probs = check_structure(blob)
+        if probs:
+            for x in probs:
+                print(f'FAIL  {lib}: {x}')
+            total += len(probs)
             continue
-        if a.against:
-            p = os.path.join(a.against, name)
-            if not os.path.exists(p):
-                p = os.path.join(a.against, name.rsplit('.', 1)[-1], name)
-            if not os.path.exists(p):
-                print(f'MISSING {name}: not in {a.against}')
-                bad += 1
-            elif _read(p) != data:
-                print(f'DIFFERS {name}: {p}')
-                bad += 1
-    print(f'{len(ents)} entries checked, {bad} problems')
-    return 1 if bad else 0
+        _, ents = read_lib(path)
+        where[lib] = ents
+        for name, flag, s, e in ents:
+            jobs_list.append((lib, name, flag, blob[s:e]))
+            # factory LIBs are meant to be overridden, so only mod LIBs count here
+            if name.upper() not in TOOL_ENTRIES and lib not in FACTORY_LIBS:
+                owner.setdefault(name.upper(), []).append(lib)
+    # unpack every entry, on all cores
+    results = {}   # (lib, NAME) -> (size, sha1)
+    infos = {}     # lib -> parsed $FALIB.INF
+    if jobs_list:
+        if jobs == 1 or len(jobs_list) < 50:
+            out = map(check_entry, [j[1:] for j in jobs_list])
+        else:
+            ex = concurrent.futures.ProcessPoolExecutor(max_workers=jobs)
+            order = sorted(range(len(jobs_list)), key=lambda i: -len(jobs_list[i][3]))
+            done = dict(zip(order, ex.map(check_entry, [jobs_list[i][1:] for i in order], chunksize=4)))
+            ex.shutdown()
+            out = [done[i] for i in range(len(jobs_list))]
+        for (lib, *_), (name, res, prob) in zip(jobs_list, out):
+            if prob:
+                print(f'FAIL  {lib}: {name} does not unpack: {prob}')
+                total += 1
+                continue
+            if name.upper() == INFO_NAME:
+                try:
+                    infos[lib] = parse_info(res[2])
+                except Exception:
+                    print(f'FAIL  {lib}: {INFO_NAME} is damaged')
+                    total += 1
+                res = res[:2]
+            results[(lib, name.upper())] = res
+    no_info = []
+    for lib, ents in where.items():
+        names = {e[0].upper() for e in ents} - set(TOOL_ENTRIES)
+        # the checksum list written at build time: catches any damage, even without sources
+        info = infos.get(lib)
+        if info is None:
+            no_info.append(lib)
+        else:
+            for n in sorted(set(info) - names):
+                print(f'FAIL  {lib}: {n} is in the checksum list but not in the LIB')
+                total += 1
+            for n in sorted(names - set(info)):
+                print(f'FAIL  {lib}: {n} is in the LIB but not in the checksum list')
+                total += 1
+            for n in sorted(names & set(info)):
+                if (lib, n) in results and results[(lib, n)] != info[n]:
+                    print(f'FAIL  {lib}: {n} is damaged (size/checksum differ from build time)')
+                    total += 1
+        if expected is not None:
+            want = expected.get(lib)
+            if want is None:
+                print(f'FAIL  {lib}: this LIB is not in the set file')
+                total += 1
+            else:
+                for n in sorted(set(want) - names):
+                    print(f'FAIL  {lib}: {n} is missing')
+                    total += 1
+                for n in sorted(names - set(want)):
+                    print(f'FAIL  {lib}: {n} should not be in this LIB')
+                    total += 1
+                for n in sorted(names & set(want)):
+                    if (lib, n) in results and results[(lib, n)][1] != want[n]:
+                        print(f'FAIL  {lib}: {n} differs from its source file')
+                        total += 1
+        if against:
+            for n in sorted(names):
+                p = os.path.join(against, n)
+                if not os.path.exists(p):
+                    p = os.path.join(against, n.rsplit('.', 1)[-1], n)
+                if not os.path.exists(p):
+                    print(f'FAIL  {lib}: {n} is not in {against}')
+                    total += 1
+                elif (lib, n) in results and hashlib.sha1(_read(p)).hexdigest() != results[(lib, n)][1]:
+                    print(f'FAIL  {lib}: {n} differs from {p}')
+                    total += 1
+    for n, libs in sorted(owner.items()):
+        if len(libs) > 1:
+            print(f'FAIL  {n} is in more than one LIB: {", ".join(libs)}')
+            total += 1
+    n_ent = sum(len(e) for e in where.values())
+    if no_info:
+        print(f'NOTE  no checksum list (not built by falib), contents not provable without sources: '
+              + ', '.join(no_info))
+    if total:
+        print(f'RESULT: FAILED, {total} problems in {len(paths)} LIBs ({n_ent} entries)')
+    else:
+        done = ['structure OK', 'every entry unpacks']
+        if infos:
+            done.append('checksums OK')
+        if expected is not None or against:
+            done.append('contents match the sources')
+        print(f'RESULT: PASSED, {len(paths)} LIBs, {n_ent} entries: ' + ', '.join(done))
+    return total
+
+
+def _expand(paths):
+    out = []
+    for p in paths:
+        if os.path.isdir(p):
+            out += sorted(os.path.join(p, f) for f in os.listdir(p) if f.upper().endswith('.LIB'))
+        else:
+            out.append(p)
+    return out
+
+
+def cmd_verify(a):
+    expected = None
+    if a.set:
+        s, plan, datas, labels, errors = _load(a)
+        if errors:
+            for e in errors:
+                print('ERROR', e)
+            return 1
+        expected = {lib: {n: hashlib.sha1(datas[n]).hexdigest() for n in names} for lib, names in plan.items()}
+    return 1 if verify_libs(_expand(a.lib), expected, a.against, a.jobs) else 0
 
 
 def _load(a):
@@ -569,19 +779,24 @@ def cmd_build(a):
     wanted = {n: datas[n] for names in plan.values() for n in names}
     packed = pack_all(wanted, store=a.store, jobs=a.jobs)   # one pool for all LIBs
     for lib, names in plan.items():
-        items = [(n, *packed[n]) for n in names]
+        info = make_info(lib, [(n, datas[n]) for n in names])
+        items = [(INFO_NAME, FLAG_STORED, info)] + [(n, *packed[n]) for n in names]
         size = write_lib(os.path.join(a.out, lib), items)
         # read the index back: same names, same order, same payloads
         blob, ents = read_lib(os.path.join(a.out, lib))
         if [(e[0], e[1], blob[e[2]:e[3]]) for e in ents] != items:
             raise FALibError(f'{lib}: index does not read back correctly')
-        if a.verify:   # slow: unpack every entry and compare with the source
-            for name, flag, st, en in ents:
-                if entry_data(blob, flag, st, en) != datas[name]:
-                    raise FALibError(f'{lib}: {name} does not unpack to its source')
-        print(f'built {lib:22} {len(names):5} files {size:10} bytes')
-    print(f'done in {time.time() - t0:.1f}s -> {a.out}')
-    return 0
+        print(f'built {lib:22} {len(names):5} files {size:10} bytes (+ {INFO_NAME} checksum list)')
+    print(f'built in {time.time() - t0:.1f}s -> {a.out}')
+    if a.no_verify:
+        print('NOT VERIFIED (--no-verify). Run: python tools/falib.py verify ...')
+        return 0
+    print('verifying the new LIBs ...', flush=True)
+    t1 = time.time()
+    expected = {lib: {n: hashlib.sha1(datas[n]).hexdigest() for n in names} for lib, names in plan.items()}
+    bad = verify_libs([os.path.join(a.out, lib) for lib in plan], expected, jobs=a.jobs)
+    print(f'verified in {time.time() - t1:.1f}s')
+    return 1 if bad else 0
 
 
 def main(argv=None):
@@ -593,9 +808,13 @@ def main(argv=None):
     x.add_argument('lib')
     x.add_argument('out')
     x.add_argument('--by-ext', action='store_true', help='put each file in an <EXT>/ subfolder (repo layout)')
-    x = sub.add_parser('verify', help='unpack every entry in memory; optionally compare with a folder')
-    x.add_argument('lib')
+    x = sub.add_parser('verify', help='full check of LIB files: structure, every entry unpacks, '
+                                         'optionally contents vs the set file / a folder')
+    x.add_argument('lib', nargs='+', help='LIB files or folders of LIBs')
+    x.add_argument('--set', help='set file: the LIBs must hold exactly its files, byte-identical')
+    x.add_argument('--src', action='append', help='source roots for --set (as in build)')
     x.add_argument('--against', help='folder holding the source files (flat or <EXT>/ subfolders)')
+    x.add_argument('--jobs', type=int, default=None, help='parallel workers (default: all cores)')
     for name in ('check', 'build'):
         x = sub.add_parser(name, help='check sources of a set' if name == 'check' else 'build the LIBs of a set')
         x.add_argument('set', help='set file, e.g. LIB/JKPFA54.txt')
@@ -607,8 +826,8 @@ def main(argv=None):
             x.add_argument('--out', default='build', help='output folder (default: build)')
             x.add_argument('--only', nargs='+', help='build only these LIBs, e.g. --only D or FA_JKPFA54_D.LIB')
             x.add_argument('--store', action='store_true', help='no compression (fast test builds)')
-            x.add_argument('--verify', action='store_true',
-                           help='also unpack every entry and compare with its source (slow)')
+            x.add_argument('--no-verify', action='store_true',
+                           help='skip the full check after building (not recommended)')
             x.add_argument('--jobs', type=int, default=None, help='parallel compressors (default: all cores)')
     a = p.parse_args(argv)
     try:
