@@ -3,7 +3,7 @@
 Tool: `tools/falib.py` (Python 3.8+, no packages). Current set file: `LIB/JKPFA6.txt` (the JKPFA6
 release; `LIB/JKPFA54.txt` was the first draft and is replaced by it).
 It replaces the FA ToolKit for building: no hand-edited ITEM.DAT, and a full build of every LIB
-takes about 1 minute the first time and a few seconds after that. It also writes FA ToolKit project
+takes about 2 minutes the first time and a few seconds after that. It also writes FA ToolKit project
 folders, so the ToolKit can still open every LIB's project (section 5).
 
 ## 1. The short version
@@ -202,7 +202,29 @@ entry data
   compress to the same bytes (76,761 total). The only difference is that EA stored some files
   uncompressed (all of FA_4D's music, 126 files in FA_2); the ToolKit compresses everything.
   Sound barely compresses (FA_4B music: 99.3% of original size).
-* Compression ratio is close to the ToolKit (JKP54D: 1,627,337 bytes by ToolKit, 1,634,908 by falib).
+* **Stored vs compressed (falib does what EA did):** a file whose compressed form is still 90% or more
+  of its size is stored (flag 0) instead (`STORE_RATIO` in falib.py). That is all the music
+  (AIR*.11K compresses to ~94-99%) and a few sound effects. The LIB grows by under 1% and the game
+  does not have to unpack them.
+* **Encoder:** greedy LZ77 + one-step lazy matching (if the match starting one byte later costs fewer
+  bits per byte, send a literal first), 48-step hash chains, 4 KB window. Same entries as in the JKP54
+  ToolKit LIBs (A-E, MAP, MUSIC; 45.4 MB unpacked), compression only, no store rule:
+
+  | LIB | ToolKit | falib | |
+  |---|---|---|---|
+  | JKPFA54_A | 1,092,758 | 1,099,268 | 100.6% |
+  | JKPFA_B | 212,443 | 209,468 | 98.6% |
+  | JKPFA54_C (big PICs) | 3,039,452 | 3,099,497 | 102.0% |
+  | JKPFA54_D | 1,620,140 | 1,610,820 | 99.4% |
+  | JKPFA54_E | 1,136,609 | 1,133,916 | 99.8% |
+  | _MAP | 528,557 | 528,605 | 100.0% |
+  | _MUSIC | 7,570,990 | 7,550,343 | 99.7% |
+  | **total** | **15,200,949** | **15,231,917** | **100.2%** |
+
+  The first, greedy-only version was about 1-4% bigger. A full optimal parse was tried: about 2% smaller
+  than the ToolKit but 20x slower, so it is not used.
+* Changing `implode()` must come with a new `ENCODER_VERSION`, so cached entries made by the old
+  encoder are not reused.
 
 ## 9. How the tool itself was checked
 
@@ -214,7 +236,7 @@ entry data
 
 ## 10. Speed
 
-Compressed entries are cached by content in `%LOCALAPPDATA%\falib\pk`, so only new or changed files
-are compressed, on all CPU cores. Measured on Kuoyi's PC (8 threads): all 8 LIBs from cold 63 s,
-again 1.4 s, plus about 15 s for the verify that follows every build. Verifying the whole game folder
+Compressed entries are cached by content in `%LOCALAPPDATA%\falib\pk-v2`, so only new or changed files
+are compressed, on all CPU cores. Measured on Kuoyi's PC (8 threads): all 8 JKPFA6 LIBs from cold about
+2 minutes, again a few seconds, plus about 15 s for the verify that follows every build. Verifying the whole game folder
 (about 9,000 entries, 280 MB unpacked) takes about 2 minutes. The ToolKit took about 10 minutes for JKP54D alone. Deleting the cache folder is always safe.
