@@ -155,7 +155,7 @@ def part_uvs(c, p):
     return out, p
 
 
-def auto_hubs(path, pic, parts, rm=14, rn=10, vmax=255):
+def auto_hubs(path, pic, parts, rm=14, rn=10, vmax=255, keep_old=False):
     """Hub texture spots for up_gear: the PIC rectangles used only by the old gear billboards (in `parts`) are
     cleared and become free, with any other 0xFF pixel no face uses.  Returns dict(hub_main, hub_nose, clear,
     span_end) to merge into a spec."""
@@ -168,7 +168,7 @@ def auto_hubs(path, pic, parts, rm=14, rn=10, vmax=255):
     for side, p in parts.items():
         r, e = part_uvs(c, p); mine += r; span[side] = e
     allb = [tuple(b) for b in used_uv(path)]
-    excl = sorted({r for r in mine if allb.count(r) == mine.count(r)})
+    excl = [] if keep_old else sorted({r for r in mine if allb.count(r) == mine.count(r)})   # keep_old: the PIC is shared with a stock copy of the SH
     img = loadpic(pic); h, w = img.shape
     used = np.zeros((h, w), bool)
     for u0, v0, u1, v1 in allb:
