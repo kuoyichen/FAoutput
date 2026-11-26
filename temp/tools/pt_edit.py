@@ -54,3 +54,23 @@ def set_field(t, sec, idx, val):
     op = lines[k].split()[0]; ind = lines[k][:len(lines[k]) - len(lines[k].lstrip())]
     lines[k] = f'{ind}{op} {val}' + ('\r' if lines[k].endswith('\r') else '')
     return '\n'.join(lines)
+
+
+def set_station(t, i, flags, x, u, f, default, maxw, count, loc):
+    """Rewrite hardpoint i completely (fixed-size block: 8 words, ptr/dword, byte, word, byte) and its
+    :defaultTypeName<i> string entry (default None -> 'dword 0' and no entry)."""
+    a, b = hp_block(t, i)
+    nl = '\r\n' if t[a:b].count('\r\n') else '\n'
+    body = [f';-------- hardpoint {i}'] + [f'    word {v}' for v in ('$%x' % flags, x, u, f, 0, 0, 0, 0)]
+    body += [f'\tptr defaultTypeName{i}' if default else '    dword 0', f'    byte {maxw}', f'    word {count}', f'    byte {loc}']
+    t = t[:a] + nl.join(body) + nl + t[b:]
+    lab = f':defaultTypeName{i}'
+    m = re.search(re.escape(lab) + r'\r?\n\s*string "[^"]*"\r?\n', t)
+    if m: t = t[:m.start()] + t[m.end():]
+    if default:
+        ent = f'{lab}{nl}\tstring "{default}"{nl}'
+        k = [mm for mm in re.finditer(r':defaultTypeName(\d+)\r?\n', t)]
+        after = [mm for mm in k if int(mm.group(1)) > i]
+        pos = after[0].start() if after else (re.search(r'\r?\n\s*string "[^"]*"\r?\n', t[k[-1].start():]).end() + k[-1].start())
+        t = t[:pos] + ent + t[pos:]
+    return t

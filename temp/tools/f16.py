@@ -44,19 +44,29 @@ def gear_spec(sh_path, pic_path, parts):
     return spec
 
 
-def flame_part(path):
-    """Stock F-16 flame: F0 (cmp _PLafterBurner,1; jne; push on-path) -> 12 00 rel16 -> 12-point cross plume 82."""
+def flame_parts(path):
+    """Stock flame blocks: every F0 (cmp _PLafterBurner,1; jne; push on-path) -> 12 00 rel16 -> 8/12-point plume 82
+    (one per engine on twins)."""
     import struct
     from sh_inspect import load, thunks
     d, pe, secs, code, c = load(path)
-    ab = next(k for k, v in thunks(d, secs, code, c).items() if v == '_PLafterBurner')
-    p = c.find(struct.pack('<I', 0x1000 + ab)) - 5
-    assert c[p:p + 2] == b'\xf0\x00' and c[p + 12] == 0x68, hex(p)
-    on = struct.unpack_from('<I', c, p + 13)[0] - 0x1000
-    assert c[on:on + 2] == b'\x12\x00', hex(on)
-    t = on + 4 + struct.unpack_from('<h', c, on + 2)[0]
-    assert c[t] == 0x82 and struct.unpack_from('<H', c, t + 2)[0] in (8, 12), hex(t)
-    return t
+    ab = struct.pack('<I', 0x1000 + next(k for k, v in thunks(d, secs, code, c).items() if v == '_PLafterBurner'))
+    out = []; q = -1
+    while True:
+        q = c.find(ab, q + 1)
+        if q < 0: break
+        p = q - 5
+        if not (c[p:p + 2] == b'\xf0\x00' and c[p + 12] == 0x68): continue
+        on = struct.unpack_from('<I', c, p + 13)[0] - 0x1000
+        if c[on:on + 2] != b'\x12\x00': continue
+        t = on + 4 + struct.unpack_from('<h', c, on + 2)[0]
+        if c[t] == 0x82 and struct.unpack_from('<H', c, t + 2)[0] in (8, 12) and t not in out: out.append(t)
+    assert out, 'no flame'
+    return out
+
+
+def flame_part(path):
+    return flame_parts(path)[0]
 
 
 def build(sh, out):

@@ -14,13 +14,16 @@ from up_ab import free_slots
 from fs_core import find_thunk
 
 
-def run(src, psrc, dst, pdst, old, length, grow=3000, ignore=()):
+def run(src, psrc, dst, pdst, old, length, grow=3000, ignore=(), slots=None):
+    """slots: flame frames already drawn by an earlier call (second engine of a twin): reuse them, PIC unchanged."""
     ignore = [tuple(r) for r in ignore]             # PIC areas of faces that a later step removes (old gear billboards)
-    slots = free_slots(src, psrc, ignore=ignore)
-    if len(slots) < 3: slots = free_slots(src, psrc, need_ff=False, ignore=ignore)
-    assert len(slots) == 3, slots
     pb = bytearray(open(psrc, 'rb').read()); P = read_pic(pb)
-    for k, (fu, fv, rot) in enumerate(slots):
+    drawn = slots is not None
+    if not drawn:
+        slots = free_slots(src, psrc, ignore=ignore)
+        if len(slots) < 3: slots = free_slots(src, psrc, need_ff=False, ignore=ignore)
+    assert len(slots) == 3, slots
+    for k, (fu, fv, rot) in enumerate([] if drawn else slots):
         F = frame(k)
         for r in range(61):
             for a in range(41):
@@ -129,3 +132,4 @@ def run(src, psrc, dst, pdst, old, length, grow=3000, ignore=()):
     assert len(out) < 65536
     open(dst, 'wb').write(out); open(pdst, 'wb').write(pb)
     print(f'{dst}: flame part {len(blk)} B at CODE+{tail:#x}, length {length}, slots {slots}, file {len(out)}')
+    return slots

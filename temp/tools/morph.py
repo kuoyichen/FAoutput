@@ -20,3 +20,33 @@ def apply(src, dst, fn, offs):
     tmp = dst + '.raw'; open(tmp, 'wb').write(d)
     sh_renormal.main(src, tmp, dst); os.remove(tmp)
     print(f'{dst}: {moved} vertices moved')
+
+
+def remap(path_in, path_out, warp, starts, var_sets=None):
+    """After apply(): move the BSP plane points (06 / 0C / 0E / 10) and the C4 part positions of path_out with the
+    same warp((x, fwd, up)), so the draw order still splits where the geometry now is (f35.remap_nodes, generic)."""
+    import nodes as NODES
+    vs = var_sets or [{}, {'_PLafterBurner': 1, '_PLgearDown': 0, '_PLleftFlap': 30, '_PLrightFlap': 30, '_PLbrake': 1}]
+    N, C4 = NODES.collect_all(path_in, starts, vs)
+    d, pe, secs, code, c = load(path_out); d = bytearray(d); ro = code['ro']
+    h = lambda p: struct.unpack_from('<h', c, p)[0]
+    cl = lambda v: max(-32768, min(32767, int(round(v))))
+    for p, op in N.items():
+        if op == 6:
+            x, f, u = warp((-h(p + 4), -h(p + 12), -h(p + 8)))
+            for off, val in ((4, -x), (8, -u), (12, -f)): struct.pack_into('<h', d, ro + p + off, cl(val))
+        elif op == 0x0C:
+            x, f, u = warp((0, -h(p + 8), -h(p + 4)))
+            struct.pack_into('<h', d, ro + p + 4, cl(-u)); struct.pack_into('<h', d, ro + p + 8, cl(-f))
+        elif op == 0x0E:
+            x, f, u = warp((-h(p + 4), -h(p + 8), 0))
+            struct.pack_into('<h', d, ro + p + 4, cl(-x)); struct.pack_into('<h', d, ro + p + 8, cl(-f))
+        elif op == 0x10:
+            x, f, u = warp((-h(p + 4), 0, -h(p + 8)))
+            struct.pack_into('<h', d, ro + p + 4, cl(-x)); struct.pack_into('<h', d, ro + p + 8, cl(-u))
+    for p in C4:
+        X, U, F = struct.unpack_from('<3h', c, p + 2)
+        x, f, u = warp((X, F, U))
+        struct.pack_into('<3h', d, ro + p + 2, cl(x), cl(u), cl(f))
+    open(path_out, 'wb').write(d)
+    print(f'{path_out}: {len(N)} planes, {len(C4)} C4 positions remapped')
