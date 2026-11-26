@@ -1,0 +1,671 @@
+// sh_editor_core.js: SH parsing and saving for the web SH editor (tools/sh_editor.html).
+// The parser follows FA.EXE's interpreter closely enough to resolve each face index to the
+// vertex buffer (op 82) that really fills that slot of FA's global vertex table at draw time.
+//   * Linear pass over CODE (after the first E2 texture name, up to the 01 02 03 02 01 signature):
+//     82 buffers update a slot map, FC faces resolve their indices through it, F6 records are kept.
+//     A target-0 buffer after 00/1E starts a new LOD.
+//   * Blocks appended by our generators (f14_nose.py, f18g_growler.py, sh_subdivide.py) are reached
+//     through a hook `12 00 rel16` + `38 rel16`. They are walked as code at the hook site, with the
+//     slot map of that moment, so a nose face that uses slot 500 (nose) and slot 72 (body) resolves
+//     both. C4 parts inside them (EA-18G stores) are placed once per C4.
+//   * Original sub-parts (gear, flaps, swing wings) are placed with the small x86 emulator from
+//     sh_gallery.html (x86Run / parseCtl / evalCtl).
+// Saving rewrites bytes in place only (vertex coordinates, FC normals, F6 normals, face colour,
+// flipped or removed faces), so every offset, jump and relocation in the file stays valid.
+(function (root) {
+"use strict";
+const SIG = [1, 2, 3, 2, 1, 2, 3, 2, 1];
+const FACE_OPS = new Set([0x41,0x44,0x49,0x4C,0x51,0x54,0x59,0x5C,0x61,0x63,0x64,0x69,0x6B,0x6C,0x71,0x73,0x7C,0xCD,0xDD,0xED,0xEE,0xFE,0xFD,0x74]);
+const MAX_SLOT = 1200;
+
+function peInfo(u8) {
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  if (u8[0] !== 0x4D || u8[1] !== 0x5A) return { ro: 0x400, vs: u8.length - 0x400, secs: [] };
+  const pe = dv.getUint32(0x3C, true), ns = dv.getUint16(pe + 6, true), opt = dv.getUint16(pe + 20, true), secs = [];
+  for (let i = 0; i < ns; i++) {
+    const s = pe + 24 + opt + i * 40;
+    secs.push({ name: String.fromCharCode(...u8.subarray(s, s + 8)).replace(/\0.*$/, ""), vs: dv.getUint32(s + 8, true), va: dv.getUint32(s + 12, true), rs: dv.getUint32(s + 16, true), ro: dv.getUint32(s + 20, true) });
+  }
+  const code = secs.find(s => s.name === "CODE") || secs[0];
+  return { ro: code.ro, vs: Math.min(code.vs, u8.length - code.ro), secs, code };
+}
+function findSig(c) {
+  outer: for (let o = c.length - SIG.length; o >= 0; o--) { for (let k = 0; k < SIG.length; k++) if (c[o + k] !== SIG[k]) continue outer; return o; }
+  return c.length;
+}
+
+// ---- FC face record (format from FA.EXE handler 0x4D43DC) ----
+function readFace(c, dv, o, limit) { try { return readFace0(c, dv, o, limit); } catch (e) { return null; } }
+function readFace0(c, dv, o, limit) {
+  if (c[o] !== 0xFC || o + 6 > limit) return null;
+  const fl = dv.getUint16(o + 1, true), col = c[o + 3];
+  let p = o + 5, nrm = null, pt = null, small = !!(fl & 0x200);
+  if (fl & 0x60) {
+    if (p + 12 > limit) return null;
+    nrm = [dv.getInt16(p, true), dv.getInt16(p + 2, true), dv.getInt16(p + 4, true)];
+    pt = small ? [dv.getInt8(p + 6), dv.getInt8(p + 7), dv.getInt8(p + 8)] : [dv.getInt16(p + 6, true), dv.getInt16(p + 8, true), dv.getInt16(p + 10, true)];
+    p += small ? 9 : 12;
+  }
+  const cntAt = p, n = c[p++], wide = !!(fl & 0x400);
+  if (n < 3 || n > 16) return null;
+  const idxAt = p, idx = [];
+  for (let k = 0; k < n; k++) { if (p + (wide ? 2 : 1) > limit) return null; idx.push(wide ? dv.getUint16(p, true) : c[p]); p += wide ? 2 : 1; }
+  let uv = null, uvAt = p;
+  if (fl & 4) { uv = []; for (let k = 0; k < n; k++) { if (fl & 0x100) { uv.push([c[p], c[p + 1]]); p += 2; } else { uv.push([dv.getUint16(p, true), dv.getUint16(p + 2, true)]); p += 4; } } }
+  if (p > limit) return null;
+  return { o, end: p, fl, col, nrm, pt, small, n, wide, idx, idxAt, uv, uvAt, cntAt };
+}
+const flagsOk = fl => (fl & 0x200) ? !(fl & 0xF000) && FACE_OPS.has(fl & 0xFF) : fl < 0x1000 && FACE_OPS.has(fl & 0xFF);
+
+// FA normal: outward, (x, up, fwd), length 32767. In vertex (x, fwd, up) coordinates the Newell sum of FA faces points inward.
+function faNormal(P) {
+  let nx = 0, ny = 0, nz = 0;
+  for (let k = 0; k < P.length; k++) { const a = P[k], b = P[(k + 1) % P.length]; nx += a[1] * b[2] - a[2] * b[1]; ny += a[2] * b[0] - a[0] * b[2]; nz += a[0] * b[1] - a[1] * b[0]; }
+  const L = Math.hypot(nx, ny, nz); if (L < 1e-9) return null;
+  return [-nx / L, -nz / L, -ny / L];   // (x, up, fwd)
+}
+
+// ---- x86 control blocks (copied from sh_texture.html / sh_gallery.html) ----
+const SH_VA = 0x1000;
+const OVERSWEEP = 55 * 182, PARK = { v: 0 };   // f14_park_sweep.py: parked sweep (75 deg) and the viewer's parked progress 0..1
+function x86Run(mem, start, maxSteps = 400){
+  const dv = new DataView(mem.buffer, mem.byteOffset, mem.byteLength), L = mem.length;
+  const rd16 = va => { const o = va - SH_VA; return o >= 0 && o + 1 < L ? dv.getInt16(o, true) : 0; };
+  const rd32 = va => { const o = va - SH_VA; return o >= 0 && o + 3 < L ? dv.getInt32(o, true) : 0; };
+  const wr16 = (va, x) => { const o = va - SH_VA; if (o >= 0 && o + 1 < L) dv.setInt16(o, x, true); };
+  const s16 = x => (x << 16) >> 16;
+  let p = start, ax = 0, cx = 0, eax = 0, ebx = 0, fa = 0, fb = 0, sz = 16; const stack = [];
+  const cc = op => { const sa = sz === 8 ? (fa << 24) >> 24 : sz === 16 ? s16(fa) : fa | 0, sb = sz === 8 ? (fb << 24) >> 24 : sz === 16 ? s16(fb) : fb | 0;
+    const m = sz === 32 ? 0xFFFFFFFF : (1 << sz) - 1, ua = (fa & m) >>> 0, ub = (fb & m) >>> 0;
+    switch (op & 0xF){ case 2: return ua < ub; case 3: return ua >= ub; case 4: return sa === sb; case 5: return sa !== sb;
+      case 6: return ua <= ub; case 7: return ua > ub; case 0xC: return sa < sb; case 0xD: return sa >= sb; case 0xE: return sa <= sb; case 0xF: return sa > sb; } return null; };
+  for (let n = 0; n < maxSteps; n++){
+    const o = p - SH_VA; if (o < 0 || o >= L - 1) return null;
+    const b0 = mem[o], b1 = mem[o+1], b2 = mem[o+2];
+    if (b0 === 0x66){
+      if (b1 === 0x83 && b2 === 0x3D){ fa = rd16(rd32(p+3)); fb = (mem[o+7] << 24) >> 24; sz = 16; p += 8; continue; }
+      if (b1 === 0x81 && b2 === 0x3D){ fa = rd16(rd32(p+3)); fb = dv.getInt16(o+7, true); sz = 16; p += 9; continue; }
+      if (b1 === 0xA1){ ax = rd16(rd32(p+2)); p += 6; continue; }
+      if (b1 === 0x8B && b2 === 0xC8){ cx = ax; p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0xC1){ cx = ax; p += 3; continue; }
+      if (b1 === 0x8B && b2 === 0xC1){ ax = cx; p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0xC8){ ax = cx; p += 3; continue; }
+      if (b1 === 0xD1 && b2 === 0xF8){ ax = s16(ax) >> 1; p += 3; continue; }
+      if (b1 === 0xD1 && b2 === 0xF9){ cx = s16(cx) >> 1; p += 3; continue; }
+      if (b1 === 0xC1 && b2 === 0xF8){ ax = s16(ax) >> mem[o+3]; p += 4; continue; }
+      if (b1 === 0xC1 && b2 === 0xF9){ cx = s16(cx) >> mem[o+3]; p += 4; continue; }
+      if (b1 === 0xD1 && b2 === 0xE0){ ax = s16(ax << 1); p += 3; continue; }
+      if (b1 === 0xC1 && b2 === 0xE0){ ax = s16(ax << mem[o+3]); p += 4; continue; }
+      if ((b1 === 0x03 && b2 === 0xC1) || (b1 === 0x01 && b2 === 0xC8)){ ax = s16(ax + cx); p += 3; continue; }
+      if ((b1 === 0x2B && b2 === 0xC1) || (b1 === 0x29 && b2 === 0xC8)){ ax = s16(ax - cx); p += 3; continue; }
+      if (b1 === 0x05){ ax = s16(ax + dv.getInt16(o+2, true)); p += 4; continue; }
+      if (b1 === 0x2D){ ax = s16(ax - dv.getInt16(o+2, true)); p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xC0){ ax = s16(ax + ((mem[o+3] << 24) >> 24)); p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xE8){ ax = s16(ax - ((mem[o+3] << 24) >> 24)); p += 4; continue; }
+      if (b1 === 0x3D){ fa = ax; fb = dv.getInt16(o+2, true); sz = 16; p += 4; continue; }
+      if (b1 === 0x83 && b2 === 0xF8){ fa = ax; fb = (mem[o+3] << 24) >> 24; sz = 16; p += 4; continue; }
+      if (b1 === 0xB8){ ax = dv.getInt16(o+2, true); p += 4; continue; }
+      if (b1 === 0xF7 && b2 === 0xD8){ ax = s16(-ax); p += 3; continue; }
+      if (b1 === 0x89 && b2 === 0x43){ wr16(ebx + ((mem[o+3] << 24) >> 24), ax); p += 4; continue; }
+      if (b1 === 0x89 && b2 === 0x83){ wr16(ebx + dv.getInt32(o+3, true), ax); p += 7; continue; }
+      if (b1 === 0xA3){ wr16(rd32(p+2), ax); p += 6; continue; }
+      return null;
+    }
+    if (b0 === 0x80 && b1 === 0x3D){ const a = rd32(p+2) - SH_VA; fa = a >= 0 && a < L ? mem[a] : 0; fb = mem[o+6]; sz = 8; p += 7; continue; }
+    if (b0 === 0x83 && b1 === 0x3D){ fa = rd32(rd32(p+2)); fb = (mem[o+6] << 24) >> 24; sz = 32; p += 7; continue; }
+    if (b0 === 0xA1){ eax = rd32(rd32(p+1)); ax = s16(eax); p += 5; continue; }
+    if (b0 >= 0x70 && b0 <= 0x7F){ const t = cc(b0); if (t == null) return null; p += 2 + (t ? (b1 << 24) >> 24 : 0); continue; }
+    if (b0 === 0x0F && b1 >= 0x80 && b1 <= 0x8F){ const t = cc(b1); if (t == null) return null; p += 6 + (t ? dv.getInt32(o+2, true) : 0); continue; }
+    if (b0 === 0x90){ p += 1; continue; }
+    if (b0 === 0xEB){ p += 2 + ((b1 << 24) >> 24); continue; }
+    if (b0 === 0xE9){ p += 5 + dv.getInt32(o+1, true); continue; }
+    if (b0 === 0xE8){
+      // F-14 parked oversweep (tools/shgen/f14_park_sweep.py): the swing-wing F0 calls a routine that returns the normal
+      // sweep (ax>>2 + ax>>6) while flying and blends to 75 deg when parked; viewers show the flying sweep
+      const t = p + 5 + dv.getInt32(o+1, true) - SH_VA;
+      if (t >= 0 && t + 13 <= L && [0x9C,0x60,0xE8,0,0,0,0,0x5B,0x0F,0xBF,0x6C,0x24,0x1C].every((x, k) => mem[t + k] === x)) { const n = s16((s16(ax) >> 2) + (s16(ax) >> 6)); ax = s16(n + Math.round((OVERSWEEP - n) * PARK.v)); p += 5; continue; }
+      stack.push(p + 5); p += 5 + dv.getInt32(o+1, true); continue; }
+    if (b0 === 0x5B){ ebx = stack.pop() ?? 0; p += 1; continue; }
+    if (b0 === 0x53){ stack.push(ebx); p += 1; continue; }
+    if (b0 === 0x81 && b1 === 0xC3){ ebx += dv.getInt32(o+2, true); p += 6; continue; }
+    if (b0 === 0x83 && b1 === 0xC3){ ebx += (b2 << 24) >> 24; p += 3; continue; }
+    if (b0 === 0x68){ stack.push(dv.getInt32(o+1, true)); p += 5; continue; }
+    if (b0 === 0xC3){ stack.pop(); return stack.length ? stack.pop() : null; }
+    return null;
+  }
+  return null;
+}
+function parseCtl(c, cv, subs){
+  const idxOf = { get: t => { let best = null; subs.forEach((s, i) => { if (s.o >= t && s.o - t <= 16 && (best == null || s.o < subs[best].o)) best = i; }); return best ?? undefined; } };
+  const blocks = [], vars = new Map();
+  for (let o = 0; o < c.length - 12; o++){
+    if (c[o] !== 0xF0 || c[o+1] !== 0) continue;
+    if (x86Run(c.slice(), o + 2 + SH_VA) == null) continue;   // on a copy: the code patches C4 fields
+    blocks.push(o + 2);
+    for (let p = o + 2, n = 0; p < c.length - 8 && n < 60; n++){
+      if (c[p] === 0x66 && c[p+1] === 0x83 && c[p+2] === 0x3D){ const v = cv.getUint32(p+3, true); const s = vars.get(v) || { vals: new Set(), ang: false }; s.vals.add((c[p+7] << 24) >> 24); vars.set(v, s); p += 8; continue; }
+      if (c[p] === 0x66 && c[p+1] === 0xA1){ const v = cv.getUint32(p+2, true); const s = vars.get(v) || { vals: new Set(), ang: false }; s.ang = true; vars.set(v, s); p += 6; continue; }
+      if (c[p] === 0x68 && c[p+5] === 0x68 && c[p+10] === 0xC3) break; p++;
+    }
+  }
+  const statics = [], exact = new Map(); subs.forEach((s, i) => { exact.set(s.o, i); exact.set(s.o - 14, i); });
+  const end = subs.length ? Math.min(...subs.map(s => s.o)) : 0;
+  const pushed = new Set(); for (let o = 0; o < c.length - 5; o++) if (c[o] === 0x68) pushed.add(cv.getUint32(o + 1, true) - SH_VA);
+  for (let o = 0; o < end - 16; o++) if (c[o] === 0xC4 && c[o+1] === 0 && !pushed.has(o)){ const i = exact.get(o + 16 + cv.getInt16(o + 14, true)); if (i != null) statics.push(o); }
+  return { blocks, statics, vars: [...vars].map(([v, s]) => ({ v, vals: [...s.vals], ang: s.ang })), idxOf };
+}
+function evalCtl(code, ctl, subs, state){
+  const c = code, mem = c.slice(), dv = new DataView(mem.buffer), out = [], seen = new Set();
+  for (const [v, x] of Object.entries(state)){ const o = +v - SH_VA; if (o >= 0 && o + 1 < mem.length) dv.setInt16(o, x, true); }
+  for (const b of ctl.blocks){
+    const r = x86Run(mem, b + SH_VA); if (r == null) continue; const t = r - SH_VA; if (t < 0 || t > mem.length - 16 || seen.has(t)) continue;
+    let part, f6 = null;
+    if (mem[t] === 0xC4){ part = ctl.idxOf.get(t + 16 + dv.getInt16(t + 14, true)); f6 = [0,1,2,3,4,5].map(k => dv.getInt16(t + 2 + 2*k, true)); }
+    else if (mem[t] === 0x12) part = ctl.idxOf.get(t + 4 + dv.getInt16(t + 2, true));
+    if (part == null) continue; seen.add(t); out.push({ part, op: mem[t], f6, at: t, blk: b });
+  }
+  for (const t of ctl.statics || []) if (!seen.has(t)){ seen.add(t); out.push({ part: ctl.idxOf.get(t + 16 + dv.getInt16(t + 14, true)), op: 0xC4, f6: [0,1,2,3,4,5].map(k => dv.getInt16(t + 2 + 2*k, true)), at: t }); }
+  const owner = o => { for (let k = subs.length - 1; k >= 0; k--) if (subs[k].o <= o) return o < (subs[k+1]?.o ?? subs[k].o + 0x2000) ? k : null; return null; };
+  for (const e of out){ if (e.blk == null) continue; const k = owner(e.blk); if (k == null || k === e.part) continue;
+    const p = out.find(x => x.part === k && x.op === 0xC4); if (p) e.parent = p; }
+  return out;
+}
+function shImports(u8, c){
+  const out = {}; if (u8[0] !== 0x4D || u8[1] !== 0x5A) return out;
+  try {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), pe = dv.getUint32(0x3C, true), ns = dv.getUint16(pe+6, true), opt = dv.getUint16(pe+20, true);
+    const secs = []; for (let i = 0; i < ns; i++){ const s = pe+24+opt+i*40; secs.push([dv.getUint32(s+12, true), Math.max(dv.getUint32(s+8, true), dv.getUint32(s+16, true)), dv.getUint32(s+20, true)]); }
+    const r2o = r => { for (const [va, sz, ro] of secs) if (r >= va && r < va + sz) return r - va + ro; return -1; };
+    const str = o => { let s = ""; while (o >= 0 && o < u8.length && u8[o]) s += String.fromCharCode(u8[o++]); return s; };
+    let d = r2o(dv.getUint32(pe+24+104, true));
+    for (; d >= 0 && dv.getUint32(d+12, true); d += 20){
+      const iat = dv.getUint32(d+16, true); let t = r2o(dv.getUint32(d, true) || iat);
+      for (let k = 0; t >= 0 && dv.getUint32(t, true); k++, t += 4){
+        const name = str(r2o(dv.getUint32(t, true)) + 2), a = iat + 4*k;
+        for (let o = 0; o < c.length - 6; o++) if (c[o] === 0xFF && c[o+1] === 0x25 && c[o+2] === (a & 255) && c[o+3] === (a >> 8 & 255) && c[o+4] === (a >> 16 & 255) && c[o+5] === (a >>> 24)){ out[name] = o + 0x1000; break; }
+      }
+    }
+  } catch(e){}
+  return out;
+}
+
+// ---- affine transforms in SH vertex space (x right, y fwd, z up): {m: 3x3 row-major, t: [3]} ----
+const I3 = () => ({ m: [1,0,0, 0,1,0, 0,0,1], t: [0,0,0] });
+const apply = (T, v) => [T.m[0]*v[0]+T.m[1]*v[1]+T.m[2]*v[2]+T.t[0], T.m[3]*v[0]+T.m[4]*v[1]+T.m[5]*v[2]+T.t[1], T.m[6]*v[0]+T.m[7]*v[1]+T.m[8]*v[2]+T.t[2]];
+const applyLin = (T, v) => [T.m[0]*v[0]+T.m[1]*v[1]+T.m[2]*v[2], T.m[3]*v[0]+T.m[4]*v[1]+T.m[5]*v[2], T.m[6]*v[0]+T.m[7]*v[1]+T.m[8]*v[2]];
+function compose(A, B) {   // A(B(v))
+  const m = [], a = A.m, b = B.m;
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) m.push(a[3*i]*b[j] + a[3*i+1]*b[3+j] + a[3*i+2]*b[6+j]);
+  return { m, t: apply(A, B.t) };
+}
+function invLin(T) {
+  const [a,b,c,d,e,f,g,h,i] = T.m, det = a*(e*i-f*h) - b*(d*i-f*g) + c*(d*h-e*g);
+  if (Math.abs(det) < 1e-12) return I3().m;
+  return [(e*i-f*h)/det, (c*h-b*i)/det, (b*f-c*e)/det, (f*g-d*i)/det, (a*i-c*g)/det, (c*d-a*f)/det, (d*h-e*g)/det, (b*g-a*h)/det, (a*e-b*d)/det];
+}
+function fromFn(fn) {   // fn maps SH (x,y,z) -> (x, up, fwd); return affine in SH space
+  const g = v => { const r = fn(v); return [r[0], r[2], r[1]]; };
+  const o = g([0,0,0]), ex = g([1,0,0]), ey = g([0,1,0]), ez = g([0,0,1]);
+  return { m: [ex[0]-o[0], ey[0]-o[0], ez[0]-o[0], ex[1]-o[1], ey[1]-o[1], ez[1]-o[1], ex[2]-o[2], ey[2]-o[2], ez[2]-o[2]], t: o };
+}
+function rotateDeg(v, hdg, pitch, roll){
+  let [x,y,z] = v; const r = roll*Math.PI/180, p = -pitch*Math.PI/180, h = hdg*Math.PI/180;
+  [x,y] = [x*Math.cos(r) - y*Math.sin(r), x*Math.sin(r) + y*Math.cos(r)];
+  [y,z] = [y*Math.cos(p) - z*Math.sin(p), y*Math.sin(p) + z*Math.cos(p)];
+  return [x*Math.cos(h) + z*Math.sin(h), y, -x*Math.sin(h) + z*Math.cos(h)];
+}
+function partFn(e){   // from sh_texture.html partTf: SH v -> (x, up, fwd)
+  let tf = v => [v[0], v[2], v[1]];
+  if (e.op === 0xC4){
+    const deg = e.f6.slice(3).map(a => a * 360 / 65536), pos = e.f6.slice(0, 3);
+    tf = v => { const r = rotateDeg([v[0], v[2], v[1]], deg[0], deg[1], deg[2]); return [pos[0] + r[0], pos[1] + r[1], pos[2] + r[2]]; };
+  }
+  if (!e.parent) return tf;
+  const up = partFn(e.parent);
+  return v => { const d = tf(v); return up([d[0], d[2], d[1]]); };
+}
+const c4Tf = (pos, rot) => fromFn(partFn({ op: 0xC4, f6: [...pos, ...rot] }));
+
+// ---- the model ----
+function parseModel(u8in) {
+  const u8 = u8in.slice(), pe = peInfo(u8), c = u8.subarray(pe.ro, pe.ro + pe.vs);
+  const dv = new DataView(c.buffer, c.byteOffset, c.byteLength), stop = findSig(c);
+  const shift = c.length > 8 ? dv.getUint16(6, true) : 8, scale = shift >= 4 && shift <= 16 ? Math.pow(2, shift - 8) : 1;
+  // the texture op E2 00 "NAME.PIC" before the first vertex group; the name check matters, because an edited
+  // coordinate of 226 is also stored as the bytes E2 00
+  const picAt = o => { let s = ""; for (let k = 2; k < 16 && c[o + k]; k++) s += String.fromCharCode(c[o + k]); return /^[\w-]+\.PIC$/i.test(s); };
+  let start = 0x14; for (let o = 0; o < Math.min(stop, 0x400); o++) if (c[o] === 0xE2 && c[o + 1] === 0 && picAt(o)) { start = o + 16; break; }
+  const M = { u8, pe, c, dv, stop, scale, shift, bufs: [], verts: [], faces: [], f6: [], insts: [I3()], instMeta: [null], lods: [], texNames: [], warnings: [], stations: new Map(), fallSlots: 0, jumpIns: new Set() };
+  for (let i = 0; i < u8.length - 16; i++) if (u8[i] === 0xE2 && u8[i + 1] === 0) { let s = ""; for (let k = 2; k < 16 && u8[i + k]; k++) s += String.fromCharCode(u8[i + k]); if (/^[\w-]+\.PIC$/i.test(s) && !M.texNames.includes(s.toUpperCase())) M.texNames.push(s.toUpperCase()); }
+
+  const goodBuf = (o, limit) => {
+    if (c[o] !== 0x82 || c[o + 1] !== 0) return null;
+    const n = dv.getUint16(o + 2, true), t = dv.getUint16(o + 4, true), e = o + 6 + 6 * n;
+    if (!n || n > 900 || t % 8 || t / 8 + n > MAX_SLOT || e > limit) return null;
+    for (let i = 0; i < 3 * n; i++) if (Math.abs(dv.getInt16(o + 6 + 2 * i, true)) > 12000) return null;
+    return { n, slot: t / 8, e };
+  };
+  const addBuf = (o, b, lod, hooked) => {
+    const id = M.bufs.length, rec = { id, o, n: b.n, slot: b.slot, lod, hooked, v0: M.verts.length, tf: 0 };
+    M.bufs.push(rec);
+    // the same 82 record reached again (a hooked block called from several hook sites): share its vertices,
+    // otherwise each copy is edited on its own and Save writes the untouched copy back over the edit
+    const prev = M.bufs.find(q => q !== rec && q.o === o && q.n === b.n);
+    if (prev) { rec.v0 = prev.v0; rec.alias = prev.id; return rec; }
+    for (let i = 0; i < b.n; i++) { const at = o + 6 + 6 * i; M.verts.push({ id: M.verts.length, buf: id, local: i, at, p: [dv.getInt16(at, true), dv.getInt16(at + 2, true), dv.getInt16(at + 4, true)] }); }
+    return rec;
+  };
+  const load = (map, rec, inst) => { for (let i = 0; i < rec.n; i++) map[rec.slot + i] = [rec.v0 + i, inst]; };
+  const faceKey = new Map();
+  let collect = null, walkStop = -1; const flapAreas = [], flapTag = new Map();   // F-14 flaps: face offset -> "up" (strip) / "down" (deflected flap)
+  const addFace = (F, map, lod, hooked, strict, ab) => {
+    if (!flagsOk(F.fl) || new Set(F.idx).size < F.n) return false;
+    const refs = F.idx.map(s => map[s]); if (refs.some(r => !r)) return false;
+    if (collect) collect.push(F.o);
+    if (strict && F.nrm) {   // reject stray bytes: the stored normal must agree with the vertices
+      const n = faNormal(refs.map(r => M.verts[r[0]].p)), L = Math.hypot(...F.nrm);
+      if (n && L > 0 && (n[0] * F.nrm[0] + n[1] * F.nrm[1] + n[2] * F.nrm[2]) / L < 0.5) return false;
+      if (!n && !L) return false;
+    }
+    const k = F.o + ":" + refs.map(r => r[1]).join(",");
+    if (faceKey.has(k)) return true;
+    faceKey.set(k, M.faces.length);
+    const store = refs.map(r => M.instMeta[r[1]]).find(x => x) || null;
+    M.faces.push({ ...F, id: M.faces.length, refs, lod, hooked, rec: F.o, del: false, store, ...(ab ? { ab } : {}) });
+    return true;
+  };
+  const addF6 = (o, map, lod) => { const s = dv.getUint16(o + 1, true), r = map[s]; if (r) M.f6.push({ o, slot: s, vid: r[0], lod }); };
+
+  // hooks into appended blocks (12 00 rel16 followed by 38 rel16, target after every LOD)
+  let lastLod = 0;
+  for (let o = start; o < stop - 6; o++) { const b = goodBuf(o, stop); if (b && b.slot === 0 && (c[o - 1] === 0 || c[o - 1] === 0x1E)) lastLod = o; }
+  const hooks = new Map();
+  for (let o = start; o < stop - 7; o++) {
+    if (c[o] !== 0x12 || c[o + 1] !== 0 || c[o + 4] !== 0x38) continue;
+    const t = o + 4 + dv.getInt16(o + 2, true);
+    if (t > lastLod && t < stop - 2 && [0x82, 0xFC, 0x06, 0x0C, 0x0E, 0x10, 0x12].includes(c[t])) hooks.set(o, t);
+  }
+  // Code reached from the hooks: our generators append blocks before the signature, and later edits stack
+  // (the F-14 stores chain jumps back into the F-14N nose block), so the appended area starts at the lowest
+  // address reached from any hook, not just the lowest hook target.
+  const reach = new Set(), todo = [...hooks.values()];
+  const fwd = (t, lim) => { if (t > lastLod && t < stop - 1) todo.push(t); };
+  while (todo.length) {
+    let t = todo.pop();
+    for (let g = 0; g < 4000 && t > lastLod && t < stop - 1 && !reach.has(t); g++) {
+      reach.add(t); const op = c[t];
+      if (op === 0x82 && c[t + 1] === 0) { const b = goodBuf(t, stop); if (!b) break; t = b.e; }
+      else if (op === 0xF6) t += 7;
+      else if (op === 0xFC) { const F = readFace(c, dv, t, stop); if (!F) break; t = F.end; }
+      else if ((op === 0x06 || op === 0x0C || op === 0x0E || op === 0x10) && c[t + 1] === 0) { const k = op === 0x06 ? 14 : 10; fwd(t + k + 2 + dv.getInt16(t + k, true)); fwd(t + k + 4 + dv.getInt16(t + k + 2, true)); t += k + 4; }
+      else if (op === 0x6C && c[t + 1] === 0) { fwd(t + 8 + dv.getInt16(t + 6, true)); fwd(t + 10 + dv.getInt16(t + 8, true)); t += 10; }
+      else if (op === 0x12 && c[t + 1] === 0) { fwd(t + 4 + dv.getInt16(t + 2, true)); t += 4; }
+      else if (op === 0x38) { t = t + 3 + dv.getInt16(t + 1, true); }
+      else if (op === 0xC4 && c[t + 1] === 0) { fwd(t + 16 + dv.getInt16(t + 14, true)); t += 16; }
+      else break;
+    }
+  }
+  const appendStart = hooks.size ? Math.min(...hooks.values(), ...[...reach].filter(t => [0x82, 0xFC, 0x06, 0x0C, 0x0E, 0x10, 0x12, 0x6C, 0xC4, 0xF0].includes(c[t]))) : stop;
+  M.appendStart = appendStart; M.hooks = [...hooks.entries()];
+
+  // loadout stubs: the shared routine is the call target of the pylon stubs (bit 24); any other target is the
+  // falling-tank routine
+  const subTargets = new Set(), fallTargets = new Set(), allTargets = new Set();
+  for (let o = appendStart; o < stop - 12; o++) if (c[o] === 0xF0 && c[o + 1] === 0 && c[o + 2] === 0x68 && c[o + 7] === 0xE8) {
+    const tg = o + 12 + dv.getInt32(o + 8, true); allTargets.add(tg); if (c[o + 6] & 1) subTargets.add(tg);
+  }
+  if (subTargets.size) for (const tg of allTargets) if (!subTargets.has(tg)) fallTargets.add(tg);
+
+  // structured walk of an appended block
+  const walk = (t, map, inst, lod, depth, seen, meta = null) => {
+    for (let g = 0; g < 4000 && t >= start && t < stop - 1; g++) {
+      if (t === walkStop) return;
+      const key = t + "@" + inst; if (seen.has(key)) return; seen.add(key);
+      const op = c[t];
+      if (op === 0x82 && c[t + 1] === 0) { const b = goodBuf(t, stop); if (!b) return; const rec = addBuf(t, b, lod, true); rec.tf = inst; load(map, rec, inst); t = b.e; }
+      else if (op === 0xF6) { addF6(t, map, lod); t += 7; }
+      else if (op === 0xFC) { const F = readFace(c, dv, t, stop); if (!F) return; addFace(F, map, lod, true, false, meta && meta.type === "ab" ? { frame: meta.frame ?? 0, frames: meta.frames ?? 1 } : null); t = F.end; }
+      // animation switch (tools/shgen/sh_ab_flame.py, the AUR technique): `40 00 N rel16×N`, FA picks branch (frame counter mod N);
+      // each rel16 counts from its own field. Branches end in `48 00 rel16` (jump, from the end of the op) to the next node
+      else if (op === 0x40 && c[t + 1] === 0) {
+        const N = dv.getUint16(t + 2, true); if (!(N >= 1 && N <= 16)) return;
+        for (let k = 0; k < N; k++) { const g2 = t + 4 + 2 * k + dv.getInt16(t + 4 + 2 * k, true); if (g2 >= appendStart && depth < 40) walk(g2, map.slice(), inst, lod, depth + 1, seen, { ...(meta || {}), frame: k, frames: N }); }
+        return;
+      }
+      else if (op === 0x48 && c[t + 1] === 0) { const g2 = t + 4 + dv.getInt16(t + 2, true); if (g2 < appendStart) return; t = g2; }
+      else if ((op === 0x06 || op === 0x0C || op === 0x0E || op === 0x10) && c[t + 1] === 0) {
+        const k = op === 0x06 ? 14 : 10;
+        for (const [r, e] of [[t + k, t + k + 2], [t + k + 2, t + k + 4]]) { const g2 = e + dv.getInt16(r, true); if (g2 >= appendStart && depth < 40) walk(g2, map.slice(), inst, lod, depth + 1, seen, meta); }
+        t += k + 4;
+      }
+      else if (op === 0x6C && c[t + 1] === 0) {
+        for (const [r, e] of [[t + 6, t + 8], [t + 8, t + 10]]) { const g2 = e + dv.getInt16(r, true); if (g2 >= appendStart && depth < 40) walk(g2, map.slice(), inst, lod, depth + 1, seen, meta); }
+        t += 10;
+      }
+      else if (op === 0x12 && c[t + 1] === 0) { const g2 = t + 4 + dv.getInt16(t + 2, true); if (g2 >= appendStart && depth < 40) walk(g2, map, inst, lod, depth + 1, seen, meta); t += 4; }
+      // a jump may also land in the original area: f14_jolly.py (F14J nose) moved grown faces into dead 1E filler runs
+      // there (each after a 38 jump of the original code) and chains them with 38 jumps
+      else if (op === 0x38) { const g2 = t + 3 + dv.getInt16(t + 1, true); if (g2 < start || g2 >= stop - 1) return; if (g2 < appendStart) M.jumpIns.add(g2); t = g2; }
+      else if (op === 0xC4 && c[t + 1] === 0) {
+        const pos = [0, 1, 2].map(k => dv.getInt16(t + 2 + 2 * k, true)), rot = [3, 4, 5].map(k => dv.getInt16(t + 2 + 2 * k, true));
+        const pt = t + 16 + dv.getInt16(t + 14, true);
+        if (pt >= appendStart && depth < 40) { M.insts.push(compose(M.insts[inst], c4Tf(pos, rot))); M.instMeta.push(meta); (M.instInfo = M.instInfo || [])[M.insts.length - 1] = { parent: inst, pos }; walk(pt, map.slice(), M.insts.length - 1, lod, depth + 1, seen, meta); }
+        t += 16;
+      }
+      else if (op === 0xF0 && c[t + 1] === 0 && c[t + 2] === 0x68 && c[t + 7] === 0xE8) {
+        // loadout stub (tools/shgen/f18_stores.py): `F0 00 68 imm32 E8 rel32` + i16 table (relative to the table).
+        // In the game the x86 routine reads the aircraft's stations and returns into one of the lists; here every
+        // list is walked once and tagged, and the page shows the ones that match the loadout picked by the user.
+        const imm = dv.getUint32(t + 3, true), tgt = t + 12 + dv.getInt32(t + 8, true), tb = t + 12;
+        const ent = k => tb + dv.getInt16(tb + 2 * k, true), n1 = dv.getInt16(tb + 2, true);
+        const st = imm & 255, rank = imm >> 8 & 255, def = imm >> 16 & 255;
+        const kind = imm >>> 24 & 1 ? "pylon" : fallTargets.has(tgt) || !subTargets.size && n1 === 8 && !(imm >>> 16) ? "fall" : "store";
+        if (kind === "fall") { M.fallSlots++; return; }
+        const S0 = M.stations.get(st) || { st, slots: [], kinds: new Set(), pylons: 0, def: 0, maxRank: 0 }; M.stations.set(st, S0);
+        if (kind === "pylon") { S0.pylons++; if (depth < 40) walk(ent(1), map.slice(), inst, lod, depth + 1, seen, { type: "pylon", st, stub: t }); return; }
+        const NK = n1 / 2; if (!(NK >= 2 && NK <= 32)) return;
+        S0.slots.push({ o: t, rank, def }); S0.maxRank = Math.max(S0.maxRank, rank); if (!S0.def || rank === 1) S0.def = def || S0.def;
+        for (let k = 1; k < NK; k++) { const lt = ent(k); if (c[lt] === 0 && c[lt + 1] === 0) continue; S0.kinds.add(k); if (depth < 40) walk(lt, map.slice(), inst, lod, depth + 1, seen, { type: "store", st, rank, kind: k, def, stub: t }); }
+        return;
+      }
+      else if (op === 0xF0 && c[t + 1] === 0 && c[t + 2] === 0x68 && c[t + 7] === 0x68 && c[t + 12] === 0xC3) {
+        // F0 tail jump (`68 <dest> 68 <thunk> C3`, f18_wing_fold.py: a folding panel goes on into its wingtip store stub)
+        const g2 = dv.getUint32(t + 3, true) - SH_VA; if (g2 < appendStart || g2 >= stop - 1 || g2 === walkStop) return; t = g2;
+      }
+      else return;   // 00 00 / 1E return, or an op we do not follow
+    }
+  };
+
+  // Branches of the original BSP that lead into appended code: f18_stores.py (F18-8 on, F14 stores) chains new
+  // plane nodes in front of original subtrees by rewriting the original node's branch field.
+  const sites = [], inCode = t => t >= start && t < stop - 2;
+  const rel = (f) => f + 2 + dv.getInt16(f, true);
+  const entryOk = t => {   // an appended plane node / call / placement, checked deeply enough to rule out stray bytes
+    if (t < appendStart || t >= stop - 20 || c[t + 1] !== 0) return false;
+    if (c[t] === 0x06) { const A = rel(t + 14), B = rel(t + 16); return inCode(A) && B >= appendStart && B < stop - 4 && c[B + 1] === 0 && [0x06, 0x12, 0xC4].includes(c[B]); }
+    if (c[t] === 0x12) { const T = rel(t + 2); return T >= appendStart && T < stop - 4 && c[T + 1] === 0 && [0xF0, 0xC4, 0x06, 0x82].includes(c[T]); }
+    if (c[t] === 0xC4) { const T = rel(t + 14); return T >= appendStart && T < stop - 6 && c[T] === 0x82 && c[T + 1] === 0; }
+    return false;
+  };
+  if (hooks.size) for (let o = start; o < appendStart - 18; o++) {
+    const op = c[o]; if (c[o + 1] !== 0) continue;
+    const fl = op === 0x06 ? [14, 16] : op === 0x0C || op === 0x0E || op === 0x10 ? [10, 12] : op === 0x6C ? [6, 8] : null; if (!fl) continue;
+    const ts = fl.map(k => rel(o + k)); if (!ts.every(inCode)) continue;
+    for (const t of ts) if (!reach.has(t) && entryOk(t)) sites.push([o, t]);
+  }
+  M.sites = sites;
+  const siteSeen = new Set(); let si = 0;
+
+  // linear pass
+  let lod = -1, map = []; const tramp = new Set();
+  for (let o = start; o < appendStart - 1;) {
+    while (si < sites.length && sites[si][0] <= o) { walk(sites[si][1], map.slice(), 0, Math.max(lod, 0), 0, siteSeen); si++; }
+    if (hooks.has(o)) { walk(hooks.get(o), map.slice(), 0, Math.max(lod, 0), 0, new Set()); o += 7; continue; }
+    const op = c[o];
+    // F/A-18 parked wing fold (tools/shgen/f18_wing_fold.py): the root hook became `F0 00 68 <block> 68 <thunk> C3`; the block is
+    // `F0 00 68 <cont> <x86 that writes the panel C4 rolls> 68 <thunk> C3` and FA goes on at <cont>: the hinge 82 (vertices the
+    // clipped inner wing faces of the body use), the draw-order nodes and the two outer-panel C4 parts. Walk it with the live
+    // slot map so the body that follows resolves the hinge slots.
+    if (op === 0xF0 && c[o + 1] === 0 && c[o + 2] === 0x68 && c[o + 7] === 0x68 && c[o + 12] === 0xC3 && lod >= 0) {
+      const N = dv.getUint32(o + 3, true) - SH_VA;
+      if (N >= appendStart && N < stop - 8 && c[N] === 0xF0 && c[N + 1] === 0 && c[N + 2] === 0x68) {
+        const X = dv.getUint32(N + 3, true) - SH_VA;
+        if (X >= appendStart && X < stop - 6 && goodBuf(X, stop)) { const i0 = M.insts.length; walk(X, map, 0, lod, 0, new Set());
+          // the outer panels are the C4 parts placed straight from the fold block; polys(opts.fold) rolls them up about their hinge
+          for (let i = i0; i < M.insts.length; i++) { const I = M.instInfo && M.instInfo[i]; if (I && I.parent === 0 && Math.abs(I.pos[0]) >= 30) (M.foldPanels = M.foldPanels || []).push({ inst: i, hx: I.pos[0], hu: I.pos[1] }); }
+          o += 13; continue; }
+      }
+      // F-14 flaps (tools/shgen/f14_flap.py): a wing part's first 82 moved to an appended block (flap vertices at slot 800 +
+      // the wing vertices), and the part now starts with this trampoline. Load the block's 82s here as the part's own
+      // buffers (placed by the wing C4 like the old 82 at this address), then go on with the part's faces.
+      if (lod === 0 && N >= appendStart && N < stop - 6 && goodBuf(N, stop)) {
+        let t = N, first = null;
+        for (let b; (b = goodBuf(t, stop)); t = b.e) {
+          const rec = addBuf(t, b, lod, false); load(map, rec, 0);
+          if (!first) { first = rec; rec.src = t; rec.o = o; } else rec.follow = first;
+        }
+        M.flapTramps = (M.flapTramps || new Set()).add(o); flapAreas.push([o, o + 102]);
+        o += 13; continue;
+      }
+      // inside that area: `F0 00 68 <flap faces> 68 <thunk> C3` (taken when the chooser sees flaps down + wing spread)
+      if (lod === 0 && N >= appendStart && N < stop - 2 && c[N] === 0xFC && flapAreas.some(([a, b]) => o >= a && o < b)) {
+        collect = []; walk(N, map, 0, lod, 0, new Set()); for (const fo of collect) flapTag.set(fo, "down"); collect = null; o += 13; continue;
+      }
+      // other `F0 00 68 <face copy> 68 <thunk> C3` far jumps (f18_wing_fold.py moves grown faces to its block): the face is drawn there
+      if (lod >= 0 && N >= appendStart && N < stop - 2 && c[N] === 0xFC) { walk(N, map, 0, lod, 0, new Set()); o += 13; continue; }
+    }
+    // F-14 flap band hook (f14_flap.py): `F0 00 80 3D <flag> 00 68 <orig> 74 07 C7 04 24 <alt> 68 <thunk> C3` in place of a wing band face.
+    // flag 0 (flap hidden) -> <orig>: the full strip, then a jump on to <alt>; flap shown -> <alt>: only the inboard and outboard pieces
+    if (op === 0xF0 && c[o + 1] === 0 && c[o + 2] === 0x80 && c[o + 3] === 0x3D && c[o + 9] === 0x68 && c[o + 14] === 0x74 && c[o + 16] === 0xC7 && lod >= 0) {
+      const ORIG = dv.getUint32(o + 10, true) - SH_VA, ALT = dv.getUint32(o + 19, true) - SH_VA;
+      if (ORIG >= start && ORIG < stop && ALT >= appendStart && ALT < stop) {
+        walk(ALT, map, 0, lod, 0, new Set());
+        collect = []; walkStop = ALT; walk(ORIG, map, 0, lod, 0, new Set()); walkStop = -1; for (const fo of collect) flapTag.set(fo, "up"); collect = null;
+        o += 28; continue;
+      }
+    }
+    if (op === 0x82 && c[o + 1] === 0) {
+      const b = goodBuf(o, appendStart);
+      if (b) {
+        if (b.slot === 0 && (lod < 0 || c[o - 1] === 0 || c[o - 1] === 0x1E)) { lod++; map = []; M.lods.push({ id: lod, o }); }
+        if (lod >= 0) { const rec = addBuf(o, b, lod, false); load(map, rec, 0); o = b.e; continue; }
+      }
+    }
+    if (op === 0xF6 && lod >= 0) { const s = dv.getUint16(o + 1, true); if (map[s]) { addF6(o, map, lod); o += 7; continue; } }
+    // face trampolines (f14b.py, f14s.py / boltext.py): a face of the original code became `38 rel16` to a face moved into the nose
+    // spare or into the raw slack after the signature, which ends with a `38` jump back. Draw those faces here, with the slot map
+    // of the jump site (the stabilizer faces of F14B use the stabilizer part's vertices), and skip them in the linear pass.
+    if (op === 0x38 && lod >= 0 && c[o + 3] !== 0x38) {
+      let t = o + 3 + dv.getInt16(o + 1, true); const got = [];
+      if (Math.abs(t - o) > 0x400 && t > start && t < c.length - 12 && (c[t] === 0xFC || c[t] === 0x38) && !tramp.has(t)) {
+        for (let g = 0; g < 16 && t > start && t < c.length - 12; g++) {
+          if (c[t] === 0xFC) { const F = readFace(c, dv, t, c.length); if (!F || F.end > c.length) break; got.push(F); t = F.end; }
+          else if (c[t] === 0x38) { const t2 = t + 3 + dv.getInt16(t + 1, true); if (Math.abs(t2 - o) < 0x400) break; t = t2; }
+          else break;
+        }
+        for (const F of got) if (addFace(F, map, lod, false, true)) tramp.add(F.o);
+      }
+    }
+    if (op === 0xFC && lod >= 0 && tramp.has(o)) { const F = readFace(c, dv, o, c.length); if (F) { o = F.end; continue; } }
+    if (op === 0xFC && lod >= 0) { const F = readFace(c, dv, o, appendStart); if (F && addFace(F, map, lod, false, true)) { o = F.end; continue; } }
+    o++;
+  }
+  // F0 trampolines (sh_ab_flame.py): a `12 00 rel16` call in the main LOD lands on `F0 00 68 <block VA> 68 <ret> C3`, which jumps
+  // to an appended block (too far for rel16). The block is the afterburner flame: its faces are tagged ab and drawn only with AB on
+  M.abBlocks = [];
+  for (let o = start; o < appendStart - 4; o++) {
+    if (c[o] !== 0x12 || c[o + 1] !== 0) continue;
+    const T = o + 4 + dv.getInt16(o + 2, true);
+    if (T < start || T > stop - 13 || c[T] !== 0xF0 || c[T + 1] !== 0) continue;
+    // with --grow the trampoline first runs x86 that stretches the flame, then `68 <block> 68 <ret> C3`
+    let q = -1; for (let k = T + 2; k < Math.min(T + 400, stop - 11); k++) if (c[k] === 0x68 && c[k + 5] === 0x68 && c[k + 10] === 0xC3) { q = k; break; }
+    if (q < 0) continue;
+    const grow = q > T + 2, N = dv.getUint32(q + 1, true) - SH_VA;
+    if (N < appendStart || N >= stop - 6 || c[N] !== 0x82 || c[N + 1] !== 0 || M.abBlocks.includes(N)) continue;
+    M.abBlocks.push(N); const v0 = M.verts.length; walk(N, [], 0, 0, 0, new Set(), { type: "ab" });
+    // growing flame (sh_ab_flame.py --grow): the x86 rewrites the y of the tail vertices (the lowest y of the block's 82 table)
+    // to nozzle - length × (0.15 + 0.85 × t/GROW); polys(opts.abGrow 0..1) does the same here
+    if (grow) { const vs = M.verts.slice(v0); if (vs.length) { const ys = vs.map(v => v.p[1]), noz = Math.max(...ys), tail = Math.min(...ys);
+      if (tail < noz) (M.abGrow = M.abGrow || []).push({ vids: vs.filter(v => v.p[1] === tail).map(v => v.id), noz, tail }); } }
+  }
+  // F0 gear trampolines (tools/shgen/f14_gear.py, f18_gear.py): the old gear part now starts with `F0 00 <spin x86> 68 <new part> 68 <ret> C3`.
+  // The new part (struts, wheels in nested C4 sub-parts) is walked once under its own instance; placeParts moves the whole group
+  // (and its nested placements) to wherever the control code puts the old part, and shows it only while that part is drawn.
+  M.gearGroups = [];
+  for (let T = start; T < appendStart - 12; T++) {
+    if (c[T] !== 0xF0 || c[T + 1] !== 0 || c[T + 2] === 0x68 && c[T + 7] === 0xE8 || M.flapTramps && M.flapTramps.has(T)) continue;
+    let q = -1; for (let k = T + 2; k < Math.min(T + 400, stop - 11); k++) if (c[k] === 0x68 && c[k + 5] === 0x68 && c[k + 10] === 0xC3) { q = k; break; }
+    if (q < 0) continue;
+    const N = dv.getUint32(q + 1, true) - SH_VA;
+    if (N < appendStart || N >= stop - 6 || M.abBlocks.includes(N) || c[N] !== 0x82 || c[N + 1] !== 0) continue;
+    const i0 = M.insts.length, f0 = M.faces.length; M.insts.push(I3()); M.instMeta.push(null);
+    walk(N, [], i0, 0, 0, new Set());
+    const grp = { o: T, f: [], insts: [], local: [], shown: false };
+    for (let i = i0; i < M.insts.length; i++) { grp.insts.push(i); grp.local.push(M.insts[i]); }
+    for (let i = f0; i < M.faces.length; i++) { M.faces[i].grp = grp; grp.f.push(M.faces[i]); }
+    M.gearGroups.push(grp);
+  }
+  for (const f of M.faces) if (flapTag.has(f.o)) f.flap = flapTag.get(f.o);
+  // original sub-parts of the main LOD: place them like FA does for the default state (gear down)
+  const subs = M.bufs.filter(b => b.lod === 0 && !b.hooked && !b.follow).slice(1);
+  for (const g of M.gearGroups || []) subs.push(g);
+  subs.sort((x, y) => x.o - y.o);
+  M.subs = subs;
+  try {
+    M.imp = shImports(u8, c); M.ctl = parseCtl(c, dv, subs);
+  } catch (e) { M.ctl = null; M.warnings.push("control code: " + e.message); }
+  M.place = state => placeParts(M, state);
+  M.place({ gear: true });
+  return M;
+}
+function defaultVars(M, gearDown) {
+  const vars = {}, nm = Object.fromEntries(Object.entries(M.imp || {}).map(([n, a]) => [a, n]));
+  for (const x of M.ctl.vars) vars[x.v] = nm[x.v] ? (nm[x.v] === "_PLgearDown" ? (gearDown ? 1 : 0) : nm[x.v] === "_PLgearPos" ? (gearDown ? 0 : 32767) : 0) : x.vals.length ? x.vals[0] : 0;
+  return vars;
+}
+// sets buf.tfFn (instance 0 transform per buffer) and buf.shown for main-LOD parts
+function placeParts(M, state) {
+  for (const b of M.bufs) { b.base = I3(); b.placed = !M.subs.includes(b); }
+  if (!M.ctl) { for (const b of M.subs) b.placed = true; return; }
+  const ev = evalCtl(M.c, M.ctl, M.subs, state.vars || defaultVars(M, state.gear));   // state.vars: full control-variable set (release page)
+  for (const g of M.gearGroups || []) g.placed = false;
+  for (const e of ev) { const b = M.subs[e.part]; if (!b || b.placed) continue; b.placed = true; b.base = fromFn(partFn(e));
+    if (b.insts) b.insts.forEach((i, k) => { M.insts[i] = compose(b.base, b.local[k]); }); }
+  // parts drawn by plain code (no F0 / C4) keep identity: a sub whose faces are not reached by any control code
+  const reached = new Set(ev.map(e => e.part));
+  if (!M.ctl.blocks.length && !M.ctl.statics.length) for (const b of M.subs) b.placed = true;
+  for (const b of M.bufs) if (b.follow) { b.placed = b.follow.placed; b.base = b.follow.base; }
+  M.unplaced = M.subs.filter(b => !b.placed).length;
+  return reached;
+}
+// world position (SH space) of display vertex (vid, inst)
+function worldOf(M, vid, inst) { const v = M.verts[vid], b = M.bufs[v.buf]; return apply(inst ? M.insts[inst] : b.base, v.p); }
+function linOf(M, vid, inst) { const v = M.verts[vid], b = M.bufs[v.buf]; return inst ? M.insts[inst] : b.base; }
+
+// ---- save: in-place byte edits ----
+function buildFile(M, opts = {}) {
+  const out = M.u8.slice(), c = out.subarray(M.pe.ro, M.pe.ro + M.pe.vs), dv = new DataView(c.buffer, c.byteOffset, c.byteLength);
+  const orig = new DataView(M.c.buffer, M.c.byteOffset, M.c.byteLength);
+  const moved = new Set(), report = { verts: 0, faces: 0, f6: 0, deleted: 0, recoloured: 0, flipped: 0, skipped: 0 };
+  for (const v of M.verts) {
+    const p = v.p.map(x => Math.max(-32768, Math.min(32767, Math.round(x))));
+    if (p[0] !== orig.getInt16(v.at, true) || p[1] !== orig.getInt16(v.at + 2, true) || p[2] !== orig.getInt16(v.at + 4, true)) { moved.add(v.id); report.verts++; }
+    dv.setInt16(v.at, p[0], true); dv.setInt16(v.at + 2, p[1], true); dv.setInt16(v.at + 4, p[2], true);
+  }
+  const P = vid => M.verts[vid].p.map(Math.round);
+  const done = new Set(), faceN = new Map();
+  for (const f of M.faces) {
+    if (done.has(f.o)) continue; done.add(f.o);
+    if (f.del) { const e = f.end, o = f.o; c[o] = 0x38; dv.setInt16(o + 1, e - (o + 3), true); for (let k = o + 3; k < e; k++) c[k] = 0x1E; report.deleted++; continue; }
+    if (f.newCol != null && f.newCol !== f.col) { c[f.o + 3] = f.newCol; report.recoloured++; }
+    let refs = f.refs, uv = f.uv;
+    if (f.flip) {   // reverse winding: indices and UVs in reverse order, normal recomputed below
+      refs = refs.slice().reverse(); uv = uv && uv.slice().reverse();
+      refs.forEach((r, k) => { const s = f.idx[f.n - 1 - k]; if (f.wide) dv.setUint16(f.idxAt + 2 * k, s, true); else c[f.idxAt + k] = s; });
+      if (uv) uv.forEach((q, k) => { if (f.fl & 0x100) { c[f.uvAt + 2 * k] = q[0]; c[f.uvAt + 2 * k + 1] = q[1]; } else { dv.setUint16(f.uvAt + 4 * k, q[0], true); dv.setUint16(f.uvAt + 4 * k + 2, q[1], true); } });
+      report.flipped++;
+    }
+    const touched = f.flip || refs.some(r => moved.has(r[0]));
+    const pts = refs.map(r => P(r[0]));
+    const n = faNormal(pts); if (n) faceN.set(f.o, { n, refs });
+    if (!touched || !f.nrm || opts.renormal === false) continue;
+    if (!n) { report.skipped++; continue; }
+    const nn = n.map(x => Math.round(x * 32767));
+    // plane point: keep "same vertex" if the original used one, else centroid; (x, up, fwd)
+    const op = refs.map(r => { const q = M.verts[r[0]]; return [orig.getInt16(q.at, true), orig.getInt16(q.at + 4, true), orig.getInt16(q.at + 2, true)]; });
+    let k = op.findIndex(q => q[0] === f.pt[0] && q[1] === f.pt[1] && q[2] === f.pt[2]);
+    let pt = k >= 0 ? [pts[k][0], pts[k][2], pts[k][1]] : (() => { const s = [0, 0, 0]; for (const q of pts) { s[0] += q[0]; s[1] += q[2]; s[2] += q[1]; } return s.map(x => Math.round(x / pts.length)); })();
+    if (f.small && pt.some(x => Math.abs(x) > 127)) { const s = [0, 0, 0]; for (const q of pts) { s[0] += q[0]; s[1] += q[2]; s[2] += q[1]; } pt = s.map(x => Math.round(x / pts.length)); if (pt.some(x => Math.abs(x) > 127)) { report.skipped++; continue; } }
+    nn.forEach((x, j) => dv.setInt16(f.o + 5 + 2 * j, x, true));
+    pt.forEach((x, j) => f.small ? dv.setInt8(f.o + 11 + j, x) : dv.setInt16(f.o + 11 + 2 * j, x, true));
+    report.faces++;
+  }
+  // F6 per-vertex normals (Gouraud shading) for moved vertices: average of the normals of faces using that vertex in the same LOD
+  if (opts.f6 !== false) for (const r of M.f6) {
+    if (!moved.has(r.vid)) continue;
+    const s = [0, 0, 0]; let cnt = 0;
+    for (const f of M.faces) { if (f.del || f.lod !== r.lod || !f.refs.some(q => q[0] === r.vid)) continue; const e = faceN.get(f.o); if (!e) continue; const w = f.flip ? -1 : 1; s[0] += e.n[0]; s[1] += e.n[1]; s[2] += e.n[2]; cnt++; }
+    const L = Math.hypot(...s); if (!cnt || L < 1e-9) continue;
+    const ol = Math.hypot(orig.getInt8(r.o + 4), orig.getInt8(r.o + 5), orig.getInt8(r.o + 6)) || 127, mag = Math.min(127, Math.max(64, ol));
+    s.forEach((x, j) => dv.setInt8(r.o + 4 + j, Math.max(-127, Math.min(127, Math.round(x / L * mag)))));
+    report.f6++;
+  }
+  return { bytes: out, report };
+}
+
+// ---- PIC and palette (from sh_texture.html) ----
+function parsePIC(u8){
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const fmt = dv.getUint16(0, true), w = dv.getUint32(2, true), h = dv.getUint32(6, true), po = dv.getUint32(10, true);
+  const palO = dv.getUint32(18, true), palS = dv.getUint32(22, true), rowO = dv.getUint32(0x22, true), rowS = dv.getUint32(0x26, true);
+  if (fmt !== 0 || !w || !h || w > 4096 || h > 4096) throw new Error(`PIC format ${fmt} (${w}x${h}) is not supported`);
+  const px = new Uint8Array(w * h), rows = rowS >= 4 * h && rowO + rowS <= u8.length;
+  for (let y = 0; y < h; y++){ const s = rows ? dv.getUint32(rowO + 4*y, true) : po + y*w; px.set(u8.subarray(s, s + w), (h - 1 - y)*w); }   // rows are stored bottom-up
+  let pal = null; if (palO && palS >= 768 && palO + 768 <= u8.length) pal = palFromBytes(u8.subarray(palO, palO + palS));
+  return { w, h, px, pal };
+}
+function palFromBytes(u8){
+  const txt = String.fromCharCode(...u8.subarray(0, 8));
+  if (txt.startsWith("JASC-PAL")){ const n = new TextDecoder().decode(u8).trim().split(/\s+/).slice(3).map(Number), p = new Uint8Array(768); p.set(n.slice(0, 768)); return p; }
+  if (txt.startsWith("RIFF")){ const p = new Uint8Array(768); for (let i = 0; i < 256; i++) for (let k = 0; k < 3; k++) p[3*i+k] = u8[24 + 4*i + k] || 0; return p; }
+  if (u8.length < 768) return null;
+  const p = u8.slice(0, 768); let mx = 0; for (const b of p) mx = Math.max(mx, b);
+  if (mx < 64) for (let i = 0; i < 768; i++) p[i] = p[i] << 2 | p[i] >> 4;
+  return p;
+}
+
+// For viewers (flight sim, gallery, replay, PT/JT editors, showcase): the placed model as plain polygons in SH axes
+// (x right, y forward, z up). opts.on: control values by import name (_PLgearDown, _PLleftFlap, _PLafterBurner, _PLswingWing…);
+// opts.scale: multiply by the file's scale (feet). Stores show the default loadout; drop tanks that fall away are left out.
+function varsFor(M, on = {}) {
+  const vars = {}, nm = Object.fromEntries(Object.entries(M.imp || {}).map(([n, a]) => [a, n]));
+  const g = on._PLgearDown ? 1 : 0, all = Object.assign({ _PLgearPos: g ? 0 : 32767 }, on);
+  for (const x of M.ctl ? M.ctl.vars : []) vars[x.v] = nm[x.v] ? (all[nm[x.v]] ?? 0) : x.vals.length ? x.vals[0] : 0;
+  return vars;
+}
+function polys(M, opts = {}) {
+  const gr = opts.abGrow != null && M.abGrow ? M.abGrow : null;   // growing AB flame: stretch the tail vertices, put them back after
+  if (gr) for (const G of gr) for (const id of G.vids) M.verts[id].p[1] = Math.round(G.noz - (G.noz - G.tail) * (0.15 + 0.85 * Math.max(0, Math.min(1, opts.abGrow))));
+  try { return polysAt(M, opts); } finally { if (gr) for (const G of gr) for (const id of G.vids) M.verts[id].p[1] = G.tail; }
+}
+function polysAt(M, opts) {
+  PARK.v = Math.max(0, Math.min(1, opts.park || 0));   // F-14 parked oversweep progress (polys opts.park)
+  try { placeParts(M, { vars: M.ctl ? varsFor(M, opts.on || {}) : undefined, gear: !!(opts.on && opts.on._PLgearDown) }); } finally { PARK.v = 0; }
+  // F/A-18 parked wing fold (polys opts.fold 0..1, 1 = 95 deg up): vertices of a panel part and of everything placed inside it
+  const fold = M.foldPanels && opts.fold > 0 ? Math.max(0, Math.min(1, opts.fold)) * 17294 / 65536 * 2 * Math.PI : 0, panelOf = new Map();
+  if (fold) { const P = new Map(M.foldPanels.map(q => [q.inst, q])); const up = i => { if (panelOf.has(i)) return panelOf.get(i); let r = null; for (let j = i, g = 0; j && g < 40; g++) { if (P.has(j)) { r = P.get(j); break; } const I = M.instInfo && M.instInfo[j]; if (!I) break; j = I.parent; } panelOf.set(i, r); return r; };
+    for (let i = 1; i < M.insts.length; i++) up(i); }
+  const cf = Math.cos(fold), sf = Math.sin(fold);
+  const wpt = (r) => { const w = worldOf(M, r[0], r[1]); const q = fold && r[1] && panelOf.get(r[1]); if (!q) return w;
+    const dx = w[0] - q.hx, du = w[2] - q.hu, sg = q.hx >= 0 ? 1 : -1; return [q.hx + dx * cf - sg * du * sf, w[1], q.hu + sg * dx * sf + du * cf]; };
+  const st = M.stations || new Map(), k = opts.scale ? M.scale : 1, out = [];
+  const flapShown = !!(opts.on && opts.on._PLleftFlap) && !(opts.on && opts.on._PLswingWing > 0) && !(opts.park > 0);
+  const shown = opts.storeShown || (t => { const S0 = st.get(t.st); if (!S0) return true; return t.type === "pylon" ? S0.def !== 0 : S0.def === t.kind && S0.maxRank >= t.rank; });
+  for (const f of M.faces) {
+    if (f.lod !== 0 || f.del || (f.store && (f.store.type === "fall" || !shown(f.store)))) continue;
+    if (f.ab && (!(opts.on && opts.on._PLafterBurner) || f.ab.frame !== (opts.abFrame || 0) % f.ab.frames)) continue;   // flame: AB on, one animation frame
+    if (f.grp && !f.grp.placed) continue;
+    if (f.flap && (f.flap === "down") !== flapShown) continue;   // F-14: deflected flap with flaps down + wing spread, else the full band strip
+    if (!f.refs.every(r => r[1] || M.bufs[M.verts[r[0]].buf].placed)) continue;
+    out.push({ pts: f.refs.map(r => { const w = wpt(r); return [w[0] * k, w[1] * k, w[2] * k]; }), uv: f.uv, col: f.col, face: f });
+  }
+  return out;
+}
+// The same baked into the plain { v, f, subs, parts, ctl, scale } layout the older viewers' parseSH returns (one fixed state:
+// opts.on as in polys, default gear down), so a page can swap parsers without touching its renderer. Moving parts are baked in.
+function legacyModel(M, opts = {}) {
+  const on = opts.on || { _PLgearDown: 1 }, v = [], key = new Map(), f = [];
+  for (const p of polys(M, { on, storeShown: opts.storeShown })) {
+    const idx = p.pts.map(q => { const k = q.map(x => Math.round(x * 64)).join(); let i = key.get(k); if (i === undefined) { i = v.length; key.set(k, i); v.push(q); } return i; });
+    if (new Set(idx).size < 3) continue;
+    if (p.uv) idx.uv = p.uv; idx.col = p.col; f.push(idx);
+  }
+  return { v, f, subs: [], parts: [], scale: M.scale, code: M.c, imp: M.imp || {}, stations: M.stations,
+    ctl: { blocks: [], statics: [], vars: [], idxOf: new Map() }, core: M };
+}
+// true for shapes built by our generators (stores / appended blocks such as the F-14N nose): viewers should draw these with SHCore
+const needsCore = M => !!(M && M.faces.length && M.stations && M.stations.size);
+
+const API = { parseModel, polys, varsFor, needsCore, legacyModel, buildFile, placeParts, worldOf, linOf, apply, applyLin, invLin, faNormal, parsePIC, palFromBytes, readFace, peInfo, findSig };
+if (typeof module !== "undefined" && module.exports) module.exports = API; else root.SHCore = API;
+})(typeof self !== "undefined" ? self : this);
