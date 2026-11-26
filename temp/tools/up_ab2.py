@@ -47,11 +47,12 @@ def run(src, psrc, dst, pdst, old, length, grow=3000, ignore=(), slots=None):
     faces = []; p = old + 6 + 6 * n
     while c[p] == 0xFC:
         fl = struct.unpack_from('<H', c, p + 1)[0]; nv = c[p + 14]
-        assert fl & 0x604 == 0x604 and fl & 0x60 and fl & 0x200 and not fl & 0x100 and nv >= 3, hex(fl)
-        hdr = bytearray(c[p:p + 14]); idx = list(struct.unpack_from('<%dH' % nv, c, p + 15))
+        assert fl & 0x604 == 0x604 and fl & 0x60 and fl & 0x200 and nv >= 3, hex(fl)
+        hdr = bytearray(c[p:p + 14]); struct.pack_into('<H', hdr, 1, fl & ~0x100)     # u8 UVs (F-111) are written as u16
+        idx = list(struct.unpack_from('<%dH' % nv, c, p + 15))
         P3 = [V[i - t // 8] for i in idx]
         struct.pack_into('<3b', hdr, 11, sum(q[0] for q in P3) // nv, sum(q[2] for q in P3) // nv, (NOZ + TAIL) // 2)
-        faces.append((hdr, idx)); p += 15 + 6 * nv
+        faces.append((hdr, idx)); p += 15 + (4 if fl & 0x100 else 6) * nv
     assert c[p] == 0x1E and len(faces) >= 2, (hex(p), len(faces))
 
     def fbytes(hdr, idx, sl):
