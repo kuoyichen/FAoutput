@@ -891,11 +891,12 @@ TOOLKIT_FILES = ('ITEM.DAT', 'PROJECT.DAT', 'README.TXT', 'SHORTCUT.DAT', 'FA_0.
 
 
 def project_name(lib):
-    """FA_JKPFA6_A.LIB -> JKPFA6A (the ToolKit project / folder name)."""
+    """JKP600_A.LIB -> JKP600_A (the ToolKit project / folder name = the LIB name without .LIB;
+    a longer old-style name such as FA_JKPFA6_A.LIB becomes JKPFA6A)."""
     base = lib.rsplit('.', 1)[0]
-    if base.startswith('FA_'):
-        base = base[3:]
-    name = base.replace('_', '')
+    name = base
+    if len(name) > 8:
+        name = (base[3:] if base.startswith('FA_') else base).replace('_', '')
     if not 1 <= len(name) <= 8:
         raise FALibError(f'{lib}: ToolKit project name "{name}" must be 1-8 characters')
     return name

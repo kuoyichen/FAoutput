@@ -6,7 +6,12 @@ It replaces the FA ToolKit for building: no hand-edited ITEM.DAT, a full build o
 ToolKit project folders so the ToolKit can still open and edit every LIB (section 6).
 
 **Status (2026-11-26):** JKPFA6 (8 LIBs) built by falib runs in Kuoyi's game with both the original
-FA.EXE and FA_BIG: mission builder and missions OK.
+FA.EXE and FA_BIG: mission builder and missions OK. The next release is **JKP600** (`LIB/JKP600.txt`,
+LIBs `JKP600_A.LIB` … `JKP600_S.LIB`): built on Kuoyi's PC in `C:\Users\hawke\Documents\SH\Lib pack\JKP600`
+from `Lib pack\OK` (newest files: they win), `Lib pack\JKP54A-E` (the ToolKit projects) and the
+installed `_MAP.LIB` / `_MUSIC.LIB`; all sources staged one copy per file in `JKP600\src\<EXT>\`.
+Rebuild there with `python ..\falib\falib.py build JKP600.txt --src src --out . --toolkit`.
+Web page for LIB makers: https://fashion-hawke.vercel.app/tools/lib_release.html
 
 ## 1. Rules FA.EXE imposes on a LIB (read this first)
 
@@ -136,7 +141,7 @@ overruns too; those files seem never to be loaded. Factory LIBs are never change
 ## 6. FA ToolKit compatibility (`build --toolkit`, `import`)
 
 With `--toolkit`, every LIB also gets an FA ToolKit 1.0 project folder in `--out`:
-`JKPFA6_A.LIB` -> `JKPFA6A\` (drop `_`; at most 8 characters). It holds every source file of that LIB
+the folder has the LIB's name without `.LIB` (`JKP600_A.LIB` -> `JKP600_A\`). It holds every source file of that LIB
 (flat), `ITEM.DAT` (`"NAME","description","D","NAME","","1.0"` per file), `PROJECT.DAT` (project name
 twice), `README.TXT`, and `FA_0.LIB` (= the built LIB). These match the ToolKit's own files: generated
 from the JKP54 projects' lists, PROJECT.DAT is byte-identical, ITEM.DAT differs only in column 5 that the
