@@ -31,7 +31,10 @@ input[type=checkbox]{accent-color:var(--accent)}
 #drop{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center;pointer-events:none;padding:20px;line-height:1.7}
 #p3{position:absolute;right:10px;bottom:10px;width:min(440px,60%);height:min(300px,55%);border:1px solid var(--line);border-radius:8px;background:#0b0e12;display:none;overflow:hidden}
 #p3 canvas{width:100%;height:100%;display:block;touch-action:none}
-#p3 .cap{position:absolute;left:8px;top:6px;font-size:11px;color:var(--muted);pointer-events:none}
+#p3 .cap{position:absolute;left:8px;top:6px;right:90px;font-size:11px;color:var(--muted);pointer-events:none}
+#p3.big{left:0;top:0;right:0;bottom:0;width:auto;height:auto;border-radius:0;border:0}
+#p3 #ov3{position:absolute;inset:0;pointer-events:none}
+#p3 .bt3{position:absolute;top:5px;display:flex;gap:4px;right:6px}#p3 .bt3 button{padding:2px 7px;font-size:13px}
 #status{display:flex;flex-wrap:wrap;gap:4px 14px;padding:4px 12px;background:var(--card);border-top:1px solid var(--line);font:12px ui-monospace,Consolas,monospace;color:var(--muted)}
 #status b{color:var(--text);font-weight:600}
 #side{background:var(--card);border-left:1px solid var(--line);overflow:auto;padding:8px 10px 20px}
@@ -85,7 +88,8 @@ kbd{font:11px ui-monospace,monospace;background:#262e38;border:1px solid var(--l
   <div id="stage">
     <canvas id="cv"></canvas>
     <div id="drop"><div><b>Open a map</b><br>Pick an original map at the top, or open / drop your own <b>.T2</b> (with its .MM, editor .PIC and texture tiles).<br>Choose the <b>Tiles folder</b> (e.g. C:\work\FA_1) to show the ground textures.</div></div>
-    <div id="p3"><canvas id="cv3"></canvas><div class="cap" id="cap3">3D preview · drag to orbit · wheel to zoom</div></div>
+    <div id="p3"><canvas id="cv3"></canvas><canvas id="ov3"></canvas><div class="cap" id="cap3">3D preview · drag to orbit · wheel to zoom</div>
+      <div class="bt3"><button id="b3wire" title="Show the triangle mesh (W)">▦</button><button id="b3big" title="Full-size 3D editing view (Enter)">⛶</button><button id="b3x" title="Close 3D (P)">✕</button></div></div>
   </div>
   <div id="side">
     <h3>Brush</h3>
@@ -106,6 +110,9 @@ kbd{font:11px ui-monospace,monospace;background:#262e38;border:1px solid var(--l
     <h3>3D preview</h3>
     <div class="row"><label>Height × <input type="range" id="exag" min="10" max="40" value="10"></label><span class="v" id="exagV"></span></div>
     <div class="row"><label>Area <input type="range" id="area3" min="16" max="128" value="48"></label><span class="v" id="area3V"></span></div>
+    <div class="row"><label title="How far a dragged point pulls its neighbours along (0 = only that point)">Pull radius <input type="range" id="pull3" min="0" max="12" value="0"></label><span class="v" id="pull3V"></span></div>
+    <div class="row"><label><input type="checkbox" id="wire3" checked> Mesh lines</label><label><input type="checkbox" id="snap3" checked> Whole steps</label></div>
+    <div class="note">In 3D: drag a point up or down to set its height. Drag empty ground or the right button to orbit, middle button or Shift+drag to move, wheel to zoom. <kbd>⛶</kbd> / <kbd>Enter</kbd> = full-size view, arrow keys move it.</div>
     <h3>Height map</h3>
     <div class="row"><button id="pngOut" disabled title="Download the heights as a grey PNG, north up, one pixel per cell, grey value = height step (0–255)">⬇ Height PNG</button>
       <label class="btn" title="Load heights from a grey PNG of the same size (one pixel per cell, north up)">⬆ Height PNG<input type="file" id="pngIn" accept="image/*" hidden></label></div>
@@ -114,7 +121,7 @@ kbd{font:11px ui-monospace,monospace;background:#262e38;border:1px solid var(--l
     <h3>Keys</h3>
     <div class="keys"><kbd>R</kbd> raise · <kbd>L</kbd> lower · <kbd>S</kbd> smooth · <kbd>F</kbd> flatten · <kbd>T</kbd> set · <kbd>O</kbd> restore · <kbd>I</kbd> pick<br>
       <kbd>Shift</kbd>+drag with raise = lower · <kbd>[</kbd> <kbd>]</kbd> brush size<br>
-      wheel zoom · right/middle drag or <kbd>Space</kbd> pan · <kbd>0</kbd> fit · <kbd>P</kbd> 3D<br>
+      wheel zoom · right/middle drag or <kbd>Space</kbd> pan · <kbd>0</kbd> fit · <kbd>P</kbd> 3D · <kbd>Enter</kbd> big 3D · <kbd>W</kbd> mesh<br>
       <kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd> undo/redo · <kbd>Ctrl</kbd>+<kbd>S</kbd> save</div>
     <div class="note">1 cell = 8,192 ft, 1 height step = 256 ft. Heights are stored per cell corner (0–255). Saving changes only the height byte of each cell; colours, sea and objects stay exactly as they were.</div>
   </div>
@@ -158,7 +165,12 @@ FAI18N.register({
   "Load heights from a grey PNG of the same size (one pixel per cell, north up)": "從同尺寸的灰階 PNG 載入高度（一格一像素，北朝上）",
   "Files": "檔案", "Keys": "按鍵",
   "1 cell = 8,192 ft, 1 height step = 256 ft. Heights are stored per cell corner (0–255). Saving changes only the height byte of each cell; colours, sea and objects stay exactly as they were.": "1 格 = 8,192 呎，1 級高度 = 256 呎。高度存在每格的角點（0–255）。存檔只改每格的高度位元組，顏色、海和物件完全不變。",
-  "cell": "格", "height": "高度", "zoom": "縮放"
+  "cell": "格", "height": "高度", "zoom": "縮放",
+  "Show the triangle mesh (W)": "顯示三角網格 (W)", "Full-size 3D editing view (Enter)": "放大 3D 編輯畫面 (Enter)", "Close 3D (P)": "關閉 3D (P)",
+  "How far a dragged point pulls its neighbours along (0 = only that point)": "拉一個點時連帶拉動周圍多遠（0 = 只動那一點）", "Pull radius": "拉動範圍",
+  "Mesh lines": "網格線", "Whole steps": "整數高度",
+  "In 3D: drag a point up or down to set its height. Drag empty ground or the right button to orbit, middle button or Shift+drag to move, wheel to zoom.": "3D 裡：按住一個點上下拖就能改它的高度。拖空地或右鍵 = 旋轉，中鍵或 Shift+拖 = 移動，滾輪 = 縮放。",
+  "= full-size view, arrow keys move it.": "= 放大畫面，方向鍵移動。"
 });
 
 // ===================== file formats =====================
@@ -371,6 +383,7 @@ function paint(){
   }
   if (hover && tool !== "hand"){ const rr = tool === "pick" ? 0.5 : +$("bSize").value; ctx.lineWidth = 1.5 / view.s; ctx.strokeStyle = "#ffd54a"; ctx.beginPath(); ctx.arc(hover.x, hover.y, rr, 0, 2 * Math.PI); ctx.stroke();
     ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.lineWidth = 0.75 / view.s; ctx.beginPath(); ctx.arc(hover.x, hover.y, rr + 1.5 / view.s, 0, 2 * Math.PI); ctx.stroke(); }
+  if (on3d && hov3){ const x = hov3.c + 0.5, y = T.h - hov3.r - 0.5, rr = Math.max(0.5, 4 / view.s); ctx.lineWidth = 2 / view.s; ctx.strokeStyle = "#4ad8ff"; ctx.strokeRect(x - rr, y - rr, 2 * rr, 2 * rr); }
   $("sZ").textContent = view.s.toFixed(1) + " px/cell";
 }
 
@@ -447,6 +460,8 @@ addEventListener("keydown", e => {
   const M = { r: "raise", l: "lower", s: "smooth", f: "flatten", t: "set", o: "restore", i: "pick", h: "hand" };
   if (M[k]){ setTool(M[k]); return; }
   if (k === "0"){ fit(); return; } if (k === "p"){ toggle3d(); return; }
+  if (e.key === "Enter"){ big3d(); return; } if (k === "w"){ $("wire3").checked = !$("wire3").checked; mark3d(); return; }
+  if (on3d && big && /^Arrow/.test(e.key)){ move3d(e.key, e.shiftKey ? 16 : 4); e.preventDefault(); return; }
   if (k === "[" || k === "]"){ $("bSize").value = Math.max(1, Math.min(40, +$("bSize").value + (k === "]" ? 1 : -1))); sliders(); draw(); }
 });
 addEventListener("keyup", e => { if (e.key === " "){ spaceDown = false; cursor(); } });
@@ -457,9 +472,10 @@ function sliders(){
   $("setHV").textContent = (+$("setH").value * 256).toLocaleString() + " ft";
   $("oTexV").textContent = $("oTex").value + "%"; $("oPicV").textContent = $("oPic").value + "%";
   $("exagV").textContent = (+$("exag").value / 10).toFixed(1) + "×"; $("area3V").textContent = $("area3").value + L(" cells", " 格");
+  $("pull3V").textContent = +$("pull3").value ? $("pull3").value + L(" cells", " 格") : L("1 point", "單點");
 }
 for (const id of ["bSize", "bStr", "setH", "oTex", "oPic"]) $(id).addEventListener("input", () => { sliders(); draw(); });
-for (const id of ["exag", "area3"]) $(id).addEventListener("input", () => { sliders(); mark3d(); });
+for (const id of ["exag", "area3", "pull3"]) $(id).addEventListener("input", () => { sliders(); mark3d(); });
 $("lShade").onchange = () => { rebuildBase(); draw(); mark3d(); };
 $("lCont").onchange = $("contStep").onchange = () => { buildContours(); draw(); };
 for (const id of ["lObj", "lName", "lGrid"]) $(id).onchange = draw;
@@ -517,33 +533,80 @@ $("pngIn").onchange = e => { const f = e.target.files[0]; e.target.value = ""; i
     afterEdit(); setDirty(true); msg(L("Heights loaded from ", "已從 PNG 載入高度：") + f.name); };
   im.src = URL.createObjectURL(f); };
 
-// ===================== 3D preview (WebGL) =====================
-const c3 = $("cv3"); let gl = null, prog = null, buf = null, on3d = false, need3d = true, focus = null, cam = { yaw: -0.6, pitch: 0.42, dist: 1.25 };
-function toggle3d(){ on3d = !on3d; $("p3").style.display = on3d ? "block" : "none"; $("b3d").classList.toggle("on", on3d); if (on3d){ init3d(); mark3d(); } }
-$("b3d").onclick = toggle3d;
-function focus3d(p){ if (!on3d || stroke) { if (stroke) mark3d(); return; } const v = vertexAt(p); if (!v.ok) return; if (!focus || Math.abs(focus.c - v.c) + Math.abs(focus.r - v.r) > 1){ focus = { c: v.c, r: v.r }; mark3d(); } }
+// ===================== 3D view (WebGL): orbit, mesh lines, drag points up/down =====================
+const c3 = $("cv3"), ov3 = $("ov3"), o3 = ov3.getContext("2d");
+let gl = null, prog = null, buf = null, on3d = false, big = false, need3d = true, focus = null, hov3 = null, drag3 = null, cam = { yaw: -0.6, pitch: 0.42, dist: 1.25 };
+function toggle3d(){ on3d = !on3d; $("p3").style.display = on3d ? "block" : "none"; $("b3d").classList.toggle("on", on3d); if (on3d){ init3d(); mark3d(); } else { hov3 = null; draw(); } cap3(); }
+function big3d(){ if (!on3d) toggle3d(); big = !big; $("p3").classList.toggle("big", big); $("b3big").classList.toggle("on", big); cap3(); mark3d(); }
+$("b3d").onclick = toggle3d; $("b3big").onclick = big3d; $("b3x").onclick = () => { if (big) big3d(); toggle3d(); };
+$("b3wire").onclick = () => { $("wire3").checked = !$("wire3").checked; mark3d(); };
+for (const id of ["wire3", "exag", "area3", "lShade"]) $(id).addEventListener("input", mark3d);
+function cap3(t){ $("b3wire").classList.toggle("on", $("wire3").checked);
+  $("cap3").textContent = t || (big ? L("3D edit · drag a point up/down · drag empty ground = orbit · Shift / middle drag or arrows = move · wheel = zoom", "3D 編輯 · 按住點上下拖 = 改高度 · 拖空地 = 旋轉 · Shift／中鍵拖或方向鍵 = 移動 · 滾輪 = 縮放")
+    : L("3D · follows the cursor · drag a point up/down · drag empty = orbit", "3D · 跟著游標 · 按住點上下拖 = 改高度 · 拖空地 = 旋轉")); }
+function focus3d(p){ if (!on3d || big || stroke) { if (stroke) mark3d(); return; } const v = vertexAt(p); if (!v.ok) return; if (!focus || Math.abs(focus.c - v.c) + Math.abs(focus.r - v.r) > 1){ focus = { c: v.c, r: v.r }; mark3d(); } }
 function mark3d(){ need3d = true; }
 function init3d(){
   if (gl) return; gl = c3.getContext("webgl", { antialias: true }); if (!gl){ $("cap3").textContent = "WebGL not available"; return; }
   gl.getExtension("OES_element_index_uint");
   const vs = `attribute vec3 p; attribute vec3 n; attribute vec3 c; uniform mat4 m; varying vec3 vc; varying float l;
     void main(){ gl_Position = m * vec4(p, 1.0); vc = c; l = 0.35 + 0.65 * max(dot(normalize(n), normalize(vec3(-0.5, 0.8, 0.35))), 0.0); }`;
-  const fs = `precision mediump float; varying vec3 vc; varying float l; void main(){ gl_FragColor = vec4(vc * l, 1.0); }`;
+  const fs = `precision mediump float; varying vec3 vc; varying float l; uniform float wf;
+    void main(){ gl_FragColor = wf > 0.5 ? vec4(0.06, 0.06, 0.05, 0.42) : vec4(vc * l, 1.0); }`;
   const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); return o; };
   prog = gl.createProgram(); gl.attachShader(prog, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(prog);
-  buf = { v: gl.createBuffer(), i: gl.createBuffer(), n: 0 };
-  let drag = null;
-  c3.addEventListener("pointerdown", e => { c3.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, yaw: cam.yaw, pitch: cam.pitch }; });
-  c3.addEventListener("pointermove", e => { if (!drag) return; cam.yaw = drag.yaw + (e.clientX - drag.x) * 0.01; cam.pitch = Math.max(0.05, Math.min(1.5, drag.pitch + (e.clientY - drag.y) * 0.01)); });
-  c3.addEventListener("pointerup", () => drag = null);
-  c3.addEventListener("wheel", e => { e.preventDefault(); cam.dist = Math.max(0.25, Math.min(4, cam.dist * Math.exp(e.deltaY * 0.0015))); }, { passive: false });
+  buf = { v: gl.createBuffer(), i: gl.createBuffer(), l: gl.createBuffer(), n: 0, nl: 0 };
+  c3.addEventListener("contextmenu", e => e.preventDefault());
+  c3.addEventListener("pointerdown", down3);
+  c3.addEventListener("pointermove", move3);
+  const up = () => { if (drag3 && drag3.mode === "pull") mark3d(); drag3 = null; c3.style.cursor = hov3 ? "ns-resize" : "grab"; };
+  c3.addEventListener("pointerup", up); c3.addEventListener("pointercancel", up);
+  c3.addEventListener("pointerleave", () => { if (!drag3){ hov3 = null; draw(); } });
+  c3.addEventListener("wheel", e => { e.preventDefault(); cam.dist = Math.max(0.08, Math.min(4, cam.dist * Math.exp(e.deltaY * 0.0015))); }, { passive: false });
   requestAnimationFrame(loop3d);
 }
+const pt3 = e => { const b = c3.getBoundingClientRect(); return { x: e.clientX - b.left, y: e.clientY - b.top }; };
+const prot3 = i => ($("protSea").checked && T.col[i] === 255) || ($("protObj").checked && objMask && objMask[i]);
+function down3(e){
+  if (!T || !buf.n) return; c3.setPointerCapture(e.pointerId); const p = pt3(e);
+  if (e.button === 1 || (e.button === 0 && e.shiftKey)){ drag3 = { mode: "pan", x: p.x, y: p.y, fc: focus3().c, fr: focus3().r }; c3.style.cursor = "move"; return; }
+  const v = e.button === 0 ? pick3(p.x, p.y) : null;
+  if (v && !prot3(v.r * T.w + v.c)){
+    const s0 = proj3(v.c, v.r), s1 = proj3(v.c, v.r, 1);
+    pushUndo(); drag3 = { mode: "pull", c: v.c, r: v.r, y0: p.y, h0: T.H[v.r * T.w + v.c], base: T.H.slice(), pps: Math.max(2, s0 && s1 ? s0.y - s1.y : 4), hc: buf.hc };
+    hov3 = v; setDirty(true); c3.style.cursor = "ns-resize"; return;
+  }
+  if (v){ cap3.msg = 1; cap3(L("That point is protected (sea or object). Untick Protect sea / Protect objects to edit it.", "這個點受保護（海或物件）。取消勾選「保護海面／保護物件」才能改。")); }
+  drag3 = { mode: "orbit", x: p.x, y: p.y, yaw: cam.yaw, pitch: cam.pitch }; c3.style.cursor = "grabbing";
+}
+function move3(e){
+  if (!T || !buf.n) return; const p = pt3(e);
+  if (!drag3){ if (cap3.msg){ cap3.msg = 0; cap3(); } const v = pick3(p.x, p.y); if ((v && v.c) !== (hov3 && hov3.c) || (v && v.r) !== (hov3 && hov3.r)){ hov3 = v; draw(); } c3.style.cursor = hov3 ? "ns-resize" : "grab"; if (hov3) status({ x: hov3.c + 0.5, y: T.h - hov3.r - 0.5 }); return; }
+  if (drag3.mode === "orbit"){ cam.yaw = drag3.yaw + (p.x - drag3.x) * 0.01; cam.pitch = Math.max(0.03, Math.min(1.55, drag3.pitch + (p.y - drag3.y) * 0.01)); return; }
+  if (drag3.mode === "pan"){ const k = buf.A * 2 * cam.dist * 2 * Math.tan(0.5) / c3.clientHeight, cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw), dx = (p.x - drag3.x) * k, dy = (p.y - drag3.y) * k;
+    // screen right = (cos yaw, 0, -sin yaw); ground away from camera = (-sin yaw, 0, -cos yaw); world z = -row
+    const wx = -cy * dx - sy * dy, wz = sy * dx - cy * dy; setFocus(drag3.fc + wx, drag3.fr - wz); return; }
+  if (drag3.mode === "pull"){ let t = drag3.h0 + (drag3.y0 - p.y) / drag3.pps; if ($("snap3").checked) t = Math.round(t); pullAt(drag3.c, drag3.r, t - drag3.h0, drag3.base); }
+}
+function pullAt(c, r, dh, base){
+  const { w, h, H } = T, R = +$("pull3").value; base = base || H.slice(); const lo = [];
+  for (let y = Math.max(0, r - R); y <= Math.min(h - 1, r + R); y++) for (let x = Math.max(0, c - R); x <= Math.min(w - 1, c + R); x++){
+    const d = R ? Math.hypot(x - c, y - r) / (R + 0.5) : (x === c && y === r ? 0 : 1); if (d >= 1 && !(x === c && y === r)) continue;
+    const i = y * w + x; if (prot3(i)) continue; const f = R ? 0.5 + 0.5 * Math.cos(Math.PI * d) : 1;
+    let v = base[i] + dh * f; if ($("snap3").checked) v = Math.round(v); H[i] = Math.max(0, Math.min(255, v));
+  }
+  afterEdit(r - R - 1, r + R + 1); setDirty(true); status({ x: c + 0.5, y: T.h - r - 0.5 });
+}
+const focus3 = () => focus || (T ? { c: T.w >> 1, r: T.h >> 1 } : { c: 0, r: 0 });
+function setFocus(c, r){ focus = { c: Math.max(0, Math.min(T.w - 1, Math.round(c))), r: Math.max(0, Math.min(T.h - 1, Math.round(r))) }; mark3d(); draw(); }
+function move3d(key, n){ const f = focus3(), cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+  const [ax, az] = key === "ArrowUp" ? [-sy, -cy] : key === "ArrowDown" ? [sy, cy] : key === "ArrowRight" ? [cy, -sy] : [-cy, sy];
+  setFocus(f.c + ax * n, f.r - az * n); }
 function mesh3d(){
   const A = +$("area3").value, ex = +$("exag").value / 10, k = 256 / 8192 * ex, { w, h, H, col } = T;
-  const fc = focus || { c: w >> 1, r: h >> 1 };
+  const fc = focus3();
   const c0 = Math.max(0, fc.c - A), c1 = Math.min(w - 1, fc.c + A), r0 = Math.max(0, fc.r - A), r1 = Math.min(h - 1, fc.r + A), nw = c1 - c0 + 1, nh = r1 - r0 + 1;
-  const V = new Float32Array(nw * nh * 9), I = new Uint32Array((nw - 1) * (nh - 1) * 6), shade = $("lShade").checked;
+  const V = new Float32Array(nw * nh * 9), I = new Uint32Array((nw - 1) * (nh - 1) * 6);
   for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++){
     const i = r * w + c, o = 9 * ((r - r0) * nw + (c - c0)), hv = H[i];
     const hx = (H[r * w + Math.min(w - 1, c + 1)] - H[r * w + Math.max(0, c - 1)]) * k / 2, hz = (H[Math.min(h - 1, r + 1) * w + c] - H[Math.max(0, r - 1) * w + c]) * k / 2;
@@ -551,35 +614,92 @@ function mesh3d(){
     const rgb = col[i] === 255 && hv <= 0.5 ? [62, 104, 160] : ramp(hv / TOP_STEPS); V[o+6] = rgb[0] / 255; V[o+7] = rgb[1] / 255; V[o+8] = rgb[2] / 255;
   }
   let q = 0; for (let r = 0; r < nh - 1; r++) for (let c = 0; c < nw - 1; c++){ const a = r * nw + c; I[q++] = a; I[q++] = a + 1; I[q++] = a + nw; I[q++] = a + 1; I[q++] = a + nw + 1; I[q++] = a + nw; }
+  const Ln = new Uint32Array(nw * nh * 6); let ql = 0;   // mesh lines: both grid edges + the triangle diagonal
+  for (let r = 0; r < nh; r++) for (let c = 0; c < nw; c++){ const a = r * nw + c;
+    if (c < nw - 1){ Ln[ql++] = a; Ln[ql++] = a + 1; } if (r < nh - 1){ Ln[ql++] = a; Ln[ql++] = a + nw; } if (c < nw - 1 && r < nh - 1){ Ln[ql++] = a + 1; Ln[ql++] = a + nw; } }
   gl.bindBuffer(gl.ARRAY_BUFFER, buf.v); gl.bufferData(gl.ARRAY_BUFFER, V, gl.DYNAMIC_DRAW);
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buf.i); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, I, gl.DYNAMIC_DRAW); buf.n = q; buf.A = A; buf.hc = H[fc.r * w + fc.c] * k;
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buf.i); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, I, gl.DYNAMIC_DRAW);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buf.l); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, Ln.subarray(0, ql), gl.DYNAMIC_DRAW);
+  Object.assign(buf, { n: q, nl: ql, A, k, fc, c0, c1, r0, r1, nw });
+  buf.hc = drag3 && drag3.mode === "pull" ? drag3.hc : H[fc.r * w + fc.c] * k;   // keep the camera still while a point is being pulled
+  buf.M = mat();
 }
 function mat(){ // perspective * view
-  const W = c3.clientWidth, Hh = c3.clientHeight, f = 1 / Math.tan(0.5), a = W / Hh, nr = 0.5, fr = 2000;
+  const W = c3.clientWidth, Hh = c3.clientHeight, f = 1 / Math.tan(0.5), a = W / Hh, nr = 0.2, fr = 2000;
   const P = [f / a, 0, 0, 0, 0, f, 0, 0, 0, 0, (fr + nr) / (nr - fr), -1, 0, 0, 2 * fr * nr / (nr - fr), 0];
   const D = buf.A * 2 * cam.dist, ey = [Math.sin(cam.yaw) * Math.cos(cam.pitch) * D, buf.hc + Math.sin(cam.pitch) * D, Math.cos(cam.yaw) * Math.cos(cam.pitch) * D], tg = [0, buf.hc, 0];
   const zA = norm(sub(ey, tg)), xA = norm(cross([0, 1, 0], zA)), yA = cross(zA, xA);
   const Vm = [xA[0], yA[0], zA[0], 0, xA[1], yA[1], zA[1], 0, xA[2], yA[2], zA[2], 0, -dot(xA, ey), -dot(yA, ey), -dot(zA, ey), 1];
+  buf.cam = { ey, xA, yA, zA, f, a };
   return mul(P, Vm);
+}
+function proj3(c, r, up = 0){ // screen position (CSS px) of vertex c,r (optionally raised by `up` steps)
+  if (!buf || !buf.M) return null; const M = buf.M, x = c - buf.fc.c, y = (T.H[r * T.w + c] + up) * buf.k, z = -(r - buf.fc.r);
+  const cw = M[3] * x + M[7] * y + M[11] * z + M[15]; if (cw <= 1e-6) return null;
+  return { x: ((M[0] * x + M[4] * y + M[8] * z + M[12]) / cw + 1) / 2 * c3.clientWidth, y: (1 - (M[1] * x + M[5] * y + M[9] * z + M[13]) / cw) / 2 * c3.clientHeight, d: (M[2] * x + M[6] * y + M[10] * z + M[14]) / cw, w: cw };
+}
+function pick3(px, py){ // cast a ray from the mouse onto the terrain, then take the nearest point that is not hidden
+  if (!buf || !buf.M || !buf.cam) return null; const { ey, xA, yA, zA, f, a } = buf.cam;
+  const nx = (px / c3.clientWidth) * 2 - 1, ny = 1 - (py / c3.clientHeight) * 2;
+  const d = norm([0, 1, 2].map(i => xA[i] * nx * a / f + yA[i] * ny / f - zA[i]));
+  const hAt = (x, z) => { const c = x + buf.fc.c, r = buf.fc.r - z; if (c < buf.c0 || c > buf.c1 || r < buf.r0 || r > buf.r1) return null;
+    const c0 = Math.min(Math.floor(c), buf.c1 - 1), r0 = Math.min(Math.floor(r), buf.r1 - 1), u = c - c0, v = r - r0, H = T.H, w = T.w;
+    if (c0 < buf.c0 || r0 < buf.r0) return H[Math.round(r) * w + Math.round(c)] * buf.k;
+    return ((H[r0 * w + c0] * (1 - u) + H[r0 * w + c0 + 1] * u) * (1 - v) + (H[(r0 + 1) * w + c0] * (1 - u) + H[(r0 + 1) * w + c0 + 1] * u) * v) * buf.k; };
+  let hit = null, prev = 0; const far = buf.A * 8 * Math.max(1, cam.dist), st = Math.max(0.05, buf.A * cam.dist / 400);
+  for (let t = 0; t < far; t += st){ const x = ey[0] + d[0] * t, y = ey[1] + d[1] * t, z = ey[2] + d[2] * t, g = hAt(x, z); if (g === null){ prev = t; continue; }
+    if (y <= g){ let lo = prev, hi = t; for (let k = 0; k < 12; k++){ const m = (lo + hi) / 2, gm = hAt(ey[0] + d[0] * m, ey[2] + d[2] * m); if (gm !== null && ey[1] + d[1] * m <= gm) hi = m; else lo = m; } hit = hi; break; }
+    prev = t; }
+  const lim = 9, depth = hit === null ? Infinity : hit * -dot(d, zA) + 0.75; let best = null;
+  if (hit !== null){ const hc = Math.round(ey[0] + d[0] * hit + buf.fc.c), hr = Math.round(buf.fc.r - (ey[2] + d[2] * hit)); best = { c: hc, r: hr, dd: Infinity }; const s = proj3(hc, hr); if (s) best.dd = Math.hypot(s.x - px, s.y - py); }
+  // a raised spike can stick up in front of the ground the ray hit: take any point drawn closer to the mouse that is not behind the hit
+  // among points drawn near the mouse, keep those the eye can see (no terrain in between) and take the closest on screen; a raised spike wins over the ground behind it
+  const seen = (c, r) => { const tx = c - buf.fc.c, ty = T.H[r * T.w + c] * buf.k, tz = -(r - buf.fc.r), dx = tx - ey[0], dy = ty - ey[1], dz = tz - ey[2], L = Math.hypot(dx, dy, dz), n = Math.ceil(L / st);
+    for (let j = 1; j < n - 2; j++){ const q = j / n, g = hAt(ey[0] + dx * q, ey[2] + dz * q); if (g !== null && ey[1] + dy * q < g - 0.02) return false; } return true; };
+  const cand = [];
+  for (let r = buf.r0; r <= buf.r1; r++) for (let c = buf.c0; c <= buf.c1; c++){
+    const s = proj3(c, r); if (!s || s.d > 1) continue; const dd = Math.hypot(s.x - px, s.y - py); if (dd <= lim) cand.push({ c, r, dd }); }
+  cand.sort((p, q) => p.dd - q.dd);
+  for (const o of cand) if (seen(o.c, o.r)){ if (!best || o.dd < best.dd + 0.5) best = o; break; }
+  return best && best.c >= 0 && best.r >= 0 && best.c < T.w && best.r < T.h ? { c: best.c, r: best.r } : null;
 }
 const sub = (a, b) => a.map((v, i) => v - b[i]), dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2], cross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]], norm = a => { const l = Math.hypot(...a) || 1; return a.map(v => v / l); };
 function mul(a, b){ const o = new Array(16).fill(0); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) for (let k = 0; k < 4; k++) o[j * 4 + i] += a[k * 4 + i] * b[j * 4 + k]; return o; }
 let last3d = 0;
 function loop3d(t){
   requestAnimationFrame(loop3d); if (!on3d || !T || !gl) return;
-  if (need3d && t - last3d > 90){ mesh3d(); need3d = false; last3d = t; }
+  const dp = devicePixelRatio || 1;
+  if (c3.width !== Math.round(c3.clientWidth * dp) || c3.height !== Math.round(c3.clientHeight * dp)){ c3.width = ov3.width = Math.round(c3.clientWidth * dp); c3.height = ov3.height = Math.round(c3.clientHeight * dp); need3d = true; }
+  if (need3d && t - last3d > (drag3 ? 25 : 90)){ mesh3d(); need3d = false; last3d = t; }
   if (!buf.n) return;
-  const dp = devicePixelRatio || 1; if (c3.width !== c3.clientWidth * dp){ c3.width = c3.clientWidth * dp; c3.height = c3.clientHeight * dp; }
+  buf.M = mat();
   gl.viewport(0, 0, c3.width, c3.height); gl.clearColor(0.55, 0.68, 0.82, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
-  gl.useProgram(prog); gl.bindBuffer(gl.ARRAY_BUFFER, buf.v); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buf.i);
+  gl.useProgram(prog); gl.bindBuffer(gl.ARRAY_BUFFER, buf.v);
   const at = (n, sz, off) => { const l = gl.getAttribLocation(prog, n); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, sz, gl.FLOAT, false, 36, off); };
   at("p", 3, 0); at("n", 3, 12); at("c", 3, 24);
-  gl.uniformMatrix4fv(gl.getUniformLocation(prog, "m"), false, new Float32Array(mat()));
-  gl.drawElements(gl.TRIANGLES, buf.n, gl.UNSIGNED_INT, 0);
+  gl.uniformMatrix4fv(gl.getUniformLocation(prog, "m"), false, new Float32Array(buf.M));
+  const wf = gl.getUniformLocation(prog, "wf");
+  gl.uniform1f(wf, 0); gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1, 1);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buf.i); gl.drawElements(gl.TRIANGLES, buf.n, gl.UNSIGNED_INT, 0); gl.disable(gl.POLYGON_OFFSET_FILL);
+  if ($("wire3").checked){ gl.uniform1f(wf, 1); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buf.l); gl.drawElements(gl.LINES, buf.nl, gl.UNSIGNED_INT, 0); gl.depthMask(true); gl.disable(gl.BLEND); }
+  overlay3();
+}
+function overlay3(){
+  o3.setTransform(1, 0, 0, 1, 0, 0); o3.clearRect(0, 0, ov3.width, ov3.height); const pd = drag3 && drag3.mode === "pull" ? drag3 : null, v = pd || hov3; if (!v) return;
+  const dp = devicePixelRatio || 1; o3.setTransform(dp, 0, 0, dp, 0, 0);
+  const R = +$("pull3").value;
+  if (R){ o3.fillStyle = "rgba(74,216,255,.7)"; for (let y = Math.max(0, v.r - R); y <= Math.min(T.h - 1, v.r + R); y++) for (let x = Math.max(0, v.c - R); x <= Math.min(T.w - 1, v.c + R); x++){
+    if (Math.hypot(x - v.c, y - v.r) >= R + 0.5) continue; const s = proj3(x, y); if (s) o3.fillRect(s.x - 1.5, s.y - 1.5, 3, 3); } }
+  const s = proj3(v.c, v.r); if (!s) return; const hv = Math.round(T.H[v.r * T.w + v.c]);
+  if (pd){ const g = proj3(v.c, v.r, -T.H[v.r * T.w + v.c]); if (g){ o3.strokeStyle = "rgba(255,255,255,.6)"; o3.setLineDash([4, 3]); o3.beginPath(); o3.moveTo(g.x, g.y); o3.lineTo(s.x, s.y); o3.stroke(); o3.setLineDash([]); } }
+  o3.lineWidth = 2; o3.strokeStyle = "#000"; o3.beginPath(); o3.arc(s.x, s.y, 7, 0, 7); o3.stroke(); o3.strokeStyle = pd ? "#ffd54a" : "#4ad8ff"; o3.lineWidth = 1.5; o3.beginPath(); o3.arc(s.x, s.y, 6, 0, 7); o3.stroke();
+  const t = `${hv} · ${(hv * 256).toLocaleString()} ft` + (pd ? ` (${hv - Math.round(pd.h0) >= 0 ? "+" : ""}${hv - Math.round(pd.h0)})` : "");
+  o3.font = "600 12px system-ui,sans-serif"; o3.lineWidth = 3; o3.strokeStyle = "rgba(0,0,0,.85)"; o3.fillStyle = "#fff"; o3.strokeText(t, s.x + 11, s.y - 9); o3.fillText(t, s.x + 11, s.y - 9);
 }
 
 // scripting / tests
-window.mapEditor = { parseT2, parseMM, buildT2: () => buildT2(), get T(){ return T; }, openT2, takeFiles, setTool, dab: (x, y, inv) => dab({ x, y }, inv) };
+window.mapEditor = { parseT2, parseMM, buildT2: () => buildT2(), get T(){ return T; }, openT2, takeFiles, setTool, dab: (x, y, inv) => dab({ x, y }, inv), toggle3d, big3d, pull3d: (c, r, dh) => pullAt(c, r, dh), get focus(){ return focus; }, project3d: (c, r) => proj3(c, r), pick3d: (x, y) => pick3(x, y) };
 
 $("langSlot").append(FAI18N.picker()); FAI18N.apply(); FAI18N.onChange(() => { sliders(); legend(); showFiles(); setDirty(dirty); });
 setTool("raise"); sliders(); legend();
