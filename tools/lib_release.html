@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Making FA LIBs that do not crash</title>
+<meta name="description" content="What every FA .LIB maker must know: the five FA.EXE rules found by disassembling the game, the falib tool, and a LIB checker that runs in your browser.">
+<style>
+:root{ --bg:#0e1216; --card:#161c22; --card2:#1b232b; --line:#26303a; --text:#e2e8ee; --muted:#8a96a4; --accent:#ffd54a; --cyan:#6fd3ff; --ok:#5fd38a; --bad:#ff6b6b; --warn:#ffb347; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:var(--cyan)}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+header{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:12px 16px;background:#0e1216ee;border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+header .crumb{color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#langSlot{margin-left:auto}
+.fa-lang{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font:inherit;font-size:13px}
+main{max-width:980px;margin:0 auto;padding:24px 16px 60px}
+h1{font-size:clamp(28px,5.5vw,44px);line-height:1.12;margin:10px 0 8px}
+h1 b{color:var(--accent)}
+h2{font-size:22px;margin:42px 0 6px}
+h3{font-size:17px;margin:0 0 6px}
+.lead{font-size:17px;color:#c4ccd5;max-width:740px}
+.muted{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#1a1a1a;font-weight:700;text-decoration:none;border-radius:10px;padding:11px 18px}
+.btn.ghost{background:none;color:var(--text);border:1px solid var(--line);font-weight:600}
+.dl{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:18px}
+code,kbd{font:13px/1.4 ui-monospace,Consolas,monospace;background:#0b0f13;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+pre{font:13px/1.5 ui-monospace,Consolas,monospace;background:#0b0f13;border:1px solid var(--line);border-radius:10px;padding:12px;overflow-x:auto;margin:10px 0}
+.rules{display:grid;gap:14px}
+.rule{display:grid;grid-template-columns:44px minmax(0,1fr);gap:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.rule .n{width:40px;height:40px;border-radius:50%;background:var(--accent);color:#1a1a1a;font-weight:800;font-size:18px;display:grid;place-items:center}
+.rule.top{border-color:var(--bad)} .rule.top .n{background:var(--bad);color:#fff}
+.rule p{margin:4px 0}
+.rule .why{font-size:13px;color:var(--muted)}
+.tag{display:inline-block;font-size:12px;border-radius:20px;padding:1px 9px;margin-left:6px;vertical-align:2px;background:#ff6b6b22;color:var(--bad)}
+/* overrun demo */
+.demo{display:grid;gap:12px}
+.ctl{display:grid;grid-template-columns:170px minmax(0,1fr) 90px;align-items:center;gap:10px}
+.ctl label{color:var(--muted);font-size:14px}
+.ctl output{font-variant-numeric:tabular-nums;text-align:right;font-weight:700}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.strip{position:relative;height:64px;background:#0b0f13;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.strip .seg{position:absolute;top:8px;height:22px;border-radius:4px}
+.strip .file{background:#3a4552}
+.strip .entry{background:var(--cyan)}
+.strip .pad{background:repeating-linear-gradient(45deg,#2a333c,#2a333c 6px,#20272e 6px,#20272e 12px)}
+.strip .chunk{top:36px;height:20px;border:1px dashed var(--accent);background:#ffd54a14}
+.strip .chunk.out{border-color:var(--bad);background:#ff6b6b2a}
+.strip .end{position:absolute;top:0;bottom:0;width:2px;background:var(--bad)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:5px}
+.verdict{padding:10px 12px;border-radius:10px;font-weight:700}
+.verdict.ok{background:#5fd38a1a;color:var(--ok)} .verdict.bad{background:#ff6b6b1a;color:var(--bad)}
+.verdict small{display:block;font-weight:500;color:#c4ccd5}
+.sw{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);cursor:pointer}
+/* checker */
+.drop{border:2px dashed var(--line);border-radius:14px;padding:26px 16px;text-align:center;color:var(--muted);cursor:pointer;transition:border-color .2s,background .2s}
+.drop.hover{border-color:var(--accent);background:#ffd54a0d}
+.drop b{color:var(--text)}
+#out .lib{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px}
+#out .lib h4{margin:0 0 6px;font:700 15px ui-monospace,Consolas,monospace;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#out .pill{font:600 12px system-ui,sans-serif;border-radius:20px;padding:1px 9px}
+.pill.ok{background:#5fd38a22;color:var(--ok)} .pill.bad{background:#ff6b6b22;color:var(--bad)} .pill.warn{background:#ffb34722;color:var(--warn)}
+#out ul{margin:4px 0 0;padding-left:20px;font-size:14px}
+#out li.bad{color:#ffb0b0} #out li.warn{color:#ffd8a8} #out li.ok{color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+.scroll{overflow-x:auto}
+ul.not li{margin:3px 0}
+ol.steps{padding-left:0;list-style:none;counter-reset:s}
+ol.steps li{counter-increment:s;position:relative;padding:4px 0 12px 42px}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:2px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#1a1a1a;font-weight:800;display:grid;place-items:center}
+.note{border-left:3px solid var(--warn);padding:8px 12px;background:#ffb3470f;border-radius:0 8px 8px 0;margin:12px 0}
+footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+@media (max-width:640px){ .ctl{grid-template-columns:1fr 80px} .ctl label{grid-column:1/-1} .rule{grid-template-columns:1fr} }
+</style>
+<script src="fashion_i18n.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <span class="crumb" data-lang="en">Making LIBs that do not crash</span><span class="crumb" data-lang="zh">做出不會當掉的 LIB</span>
+  <span id="langSlot"></span>
+</header>
+<main>
+  <h1 data-lang="en">Making FA <b>LIBs</b> that do not crash</h1>
+  <h1 data-lang="zh">做出<b>不會當掉</b>的 FA LIB</h1>
+  <p class="lead" data-lang="en">A home-made <code>.LIB</code> can unpack perfectly in every tool and still crash Fighters Anthology, sometimes when the mission builder opens, sometimes when the mission starts, and seemingly at random. We tracked it down with 33 in-game tests and by disassembling <code>FA.EXE</code>. Here are the five rules every LIB must follow, the free tool that follows them for you, and a checker for your own LIBs.</p>
+  <p class="lead" data-lang="zh">自己做的 <code>.LIB</code> 用任何工具都解得開，進遊戲卻還是可能當掉：有時在打開任務建立時，有時在進入任務時，看起來毫無規律。我們做了 33 次遊戲內測試，又反組譯 <code>FA.EXE</code>，終於找到原因。這一頁整理每個 LIB 都必須遵守的 5 條規則、會自動幫你遵守的免費工具，以及一個能檢查你自己 LIB 的工具。</p>
+  <div class="dl">
+    <a class="btn" href="#check"><span data-lang="en">Check my LIBs</span><span data-lang="zh">檢查我的 LIB</span></a>
+    <a class="btn ghost" href="https://github.com/kuoyichen/FAoutput/blob/main/tools/falib.py">falib.py</a>
+    <a class="btn ghost" href="#install"><span data-lang="en">Install JKPFA6</span><span data-lang="zh">安裝 JKPFA6</span></a>
+  </div>
+
+  <h2 data-lang="en">The five rules</h2>
+  <h2 data-lang="zh">5 條規則</h2>
+  <div class="rules">
+    <div class="rule top"><div class="n">1</div><div>
+      <h3 data-lang="en">Leave empty space at the end of every LIB <span class="tag">the random crash</span></h3>
+      <h3 data-lang="zh">每個 LIB 的結尾都要留空白 <span class="tag">隨機當掉的元兇</span></h3>
+      <p data-lang="en">FA maps the whole LIB into memory and unpacks a file by reading it in <b>2,048-byte chunks</b>. It never checks where the file ends. If a compressed file sits within about 2 KB of the end of the LIB, the last chunk is read past the end of the LIB and the game crashes.</p>
+      <p data-lang="zh">FA 把整個 LIB 對應到記憶體，解壓檔案時<b>每次讀 2,048 個位元組</b>，從不檢查這個檔在哪裡結束。如果某個壓縮檔離 LIB 結尾不到約 2 KB，最後那一塊就會讀到 LIB 外面，遊戲當場當掉。</p>
+      <p data-lang="en">It depends only on the size and position of the last few files, so adding, removing or moving one file can make it appear or vanish. Object files (NT, OT, JT, SEE) crash the mission builder; pictures and shapes (PIC, SH) crash the mission start. Files that are never loaded never crash.</p>
+      <p data-lang="zh">會不會出事只看最後幾個檔的大小和位置，所以多一個、少一個或搬一個檔，問題就可能出現或消失。物件檔（NT、OT、JT、SEE）會讓任務建立當掉，圖片和模型（PIC、SH）會讓進入任務時當掉，沒被用到的檔就不會出事。</p>
+      <p class="why" data-lang="en">falib adds 4 KB of zeros after the data. The game never reads them. LIBs built with the FA ToolKit have no such padding: check them before release.</p>
+      <p class="why" data-lang="zh">falib 會在資料後面補 4 KB 的 0，遊戲不會讀到它們。FA ToolKit 編的 LIB 沒有這段空白，發布前請先檢查。</p>
+    </div></div>
+    <div class="rule"><div class="n">2</div><div>
+      <h3 data-lang="en">Compress only the way the real PKWare library does</h3>
+      <h3 data-lang="zh">壓縮只能用原廠 PKWare 會用的方式</h3>
+      <p data-lang="en">The PKWare format can express copies from 1 byte back and from 4,096 bytes back, and lengths of 517 and 518. The real PKWare compressor never writes them, and FA's decoder cannot handle them. Allowed: <b>distance 2 to 4,095, length up to 516</b>.</p>
+      <p data-lang="zh">PKWare 的格式可以寫「往回 1 個位元組」和「往回 4,096 個位元組」的複製，也可以寫長度 517、518。真正的 PKWare 壓縮程式從來不寫這些，FA 的解壓也處理不了。合法範圍：<b>往回 2 到 4,095，長度最多 516</b>。</p>
+      <p class="why" data-lang="en">Normal unpackers accept the illegal forms, so a home-made compressor "passes" every test and crashes only in the game.</p>
+      <p class="why" data-lang="zh">一般的解壓程式都能接受這些不合法的寫法，所以自己寫的壓縮器在任何測試裡都會「通過」，只有進遊戲才會當掉。</p>
+    </div></div>
+    <div class="rule"><div class="n">3</div><div>
+      <h3 data-lang="en">LIB names in DOS 8.3 form</h3>
+      <h3 data-lang="zh">LIB 檔名要符合 DOS 8.3</h3>
+      <p data-lang="en">FA keeps each LIB name in a 14-byte slot. Use at most 8 characters before <code>.LIB</code>, for example <code>JKPFA6_A.LIB</code>.</p>
+      <p data-lang="zh">FA 每個 LIB 檔名只留 14 個位元組。<code>.LIB</code> 前面最多 8 個字元，例如 <code>JKPFA6_A.LIB</code>。</p>
+    </div></div>
+    <div class="rule"><div class="n">4</div><div>
+      <h3 data-lang="en">Stay inside the limits</h3>
+      <h3 data-lang="zh">不要超過數量上限</h3>
+      <div class="scroll"><table>
+        <thead><tr><th></th><th>FA.EXE</th><th>FA_BIG</th></tr></thead>
+        <tbody>
+          <tr><td><span data-lang="en">LIB files in the game folder (4 factory LIBs included)</span><span data-lang="zh">遊戲目錄裡的 LIB 檔（含原廠 4 個）</span></td><td class="n"><b>20</b></td><td class="n">256</td></tr>
+          <tr><td><span data-lang="en">Files in all LIBs plus loose files</span><span data-lang="zh">所有 LIB 裡的檔案加上散檔</span></td><td class="n"><b>9,950</b></td><td class="n">100,000</td></tr>
+        </tbody>
+      </table></div>
+      <p class="why" data-lang="en">The four factory LIBs already hold 7,505 files. Details on the <a href="fa_big.html">FA_BIG page</a>.</p>
+      <p class="why" data-lang="zh">原廠 4 個 LIB 就有 7,505 個檔。詳情見 <a href="fa_big.html">FA_BIG 頁面</a>。</p>
+    </div></div>
+    <div class="rule"><div class="n">5</div><div>
+      <h3 data-lang="en">Same name twice: the newest file date wins</h3>
+      <h3 data-lang="zh">同名的檔：檔案日期最新的贏</h3>
+      <p data-lang="en">If a name appears in several LIBs or as a loose file, FA keeps only the copy whose LIB file or loose file is newest (to the minute). A freshly built LIB beats older loose files; editing a loose file later makes it win again. Never put the same file into two of your own LIBs.</p>
+      <p data-lang="zh">同一個檔名出現在好幾個 LIB 或散檔時，FA 只用所在檔案（LIB 檔或散檔）日期最新的那一份，比到分鐘。剛編好的 LIB 會蓋過比較舊的散檔；之後又改了散檔，就換散檔生效。不要把同一個檔放進兩個自製 LIB。</p>
+    </div></div>
+  </div>
+
+  <h2 data-lang="en">See rule 1 happen</h2>
+  <h2 data-lang="zh">看看規則 1 怎麼發生</h2>
+  <p class="muted" data-lang="en">The blue bar is the last compressed file in a LIB. FA reads it in 2,048-byte chunks (yellow). The red line is where readable memory ends: the file size rounded up to the next 4 KB page.</p>
+  <p class="muted" data-lang="zh">藍色是 LIB 裡最後一個壓縮檔。FA 用 2,048 位元組一塊（黃色）來讀它。紅線是可讀記憶體的盡頭：檔案大小往上取整到下一個 4 KB 頁。</p>
+  <div class="card demo">
+    <div class="ctl"><label for="esize" data-lang="en">Compressed size</label><label for="esize" data-lang="zh">壓縮後大小</label><input id="esize" type="range" min="100" max="9000" value="6000"><output id="esizeO"></output></div>
+    <div class="ctl"><label for="estart" data-lang="en">Start in the last page</label><label for="estart" data-lang="zh">在最後一頁的起點</label><input id="estart" type="range" min="0" max="4095" value="2100"><output id="estartO"></output></div>
+    <label class="sw"><input type="checkbox" id="pad"> <span data-lang="en">falib padding (4 KB of zeros)</span><span data-lang="zh">falib 補空白（4 KB 的 0）</span></label>
+    <div class="strip" id="strip"></div>
+    <div class="legend"><span><i style="background:#3a4552"></i><span data-lang="en">earlier data</span><span data-lang="zh">前面的資料</span></span><span><i style="background:var(--cyan)"></i><span data-lang="en">last file</span><span data-lang="zh">最後一個檔</span></span><span><i style="background:#2a333c"></i><span data-lang="en">padding</span><span data-lang="zh">補上的空白</span></span><span><i style="background:#ffd54a33;border:1px dashed var(--accent)"></i><span data-lang="en">2 KB reads</span><span data-lang="zh">2 KB 一次的讀取</span></span></div>
+    <div class="verdict" id="dv"></div>
+  </div>
+
+  <h2 id="check" data-lang="en">Check your LIBs in the browser</h2>
+  <h2 data-lang="zh">在瀏覽器裡檢查你的 LIB</h2>
+  <p class="muted" data-lang="en">Drop one or more <code>.LIB</code> files (or a whole set). Nothing is uploaded: the check runs on your computer. It tests the LIB index, rule 1 (read past the end), rule 3 (8.3 name) and rule 5 (a name in two of the LIBs you dropped). For the complete check, including rule 2 and the checksum list, use <code>python falib.py verify</code>.</p>
+  <p class="muted" data-lang="zh">把一個或多個 <code>.LIB</code>（或整套）拖進來。檔案不會上傳，檢查在你的電腦上進行。會檢查 LIB 索引、規則 1（讀出界）、規則 3（8.3 檔名）和規則 5（同一個檔名出現在你拖進來的兩個 LIB 裡）。完整檢查（包括規則 2 和校驗清單）請用 <code>python falib.py verify</code>。</p>
+  <div class="drop" id="drop"><b data-lang="en">Drop .LIB files here</b><b data-lang="zh">把 .LIB 拖到這裡</b><br><span data-lang="en">or click to choose</span><span data-lang="zh">或點一下選擇檔案</span><input type="file" id="pick" accept=".lib,.LIB" multiple hidden></div>
+  <div id="out"></div>
+
+  <h2 data-lang="en">Before every release</h2>
+  <h2 data-lang="zh">每次發布前</h2>
+  <pre>python falib.py verify &lt;folder with your LIBs&gt;</pre>
+  <p data-lang="en">The last line must be <code>RESULT: PASSED</code>. It checks the index, rule 1, every file unpacks using only legal PKWare matches (rule 2), the <code>$FALIB.INF</code> checksum list (catches even a single damaged bit, no source files needed), and that no file is in two of your LIBs. Players can run the same command after downloading.</p>
+  <p data-lang="zh">最後一行一定要是 <code>RESULT: PASSED</code>。它會檢查索引、規則 1、每個檔都能解開而且只用合法的 PKWare 寫法（規則 2）、<code>$FALIB.INF</code> 校驗清單（就算只壞 1 個位元也查得出來，不需要原始檔），以及沒有檔案重複出現在兩個自製 LIB 裡。玩家下載後也可以執行同一個指令。</p>
+  <div class="note" data-lang="en">A ToolKit-built LIB that fails rule 1: run <code>falib.py import</code> on its ToolKit project to bring your work back into the source folders, then build the release with <code>falib.py build</code>. falib also writes ToolKit project folders, so people who prefer the ToolKit can keep using it.</div>
+  <div class="note" data-lang="zh">ToolKit 編的 LIB 沒通過規則 1：用 <code>falib.py import</code> 把 ToolKit 專案裡的修改收回原始檔，再用 <code>falib.py build</code> 編正式版。falib 也會產生 ToolKit 專案目錄，喜歡用 ToolKit 的人可以照常使用。</div>
+
+  <h2 data-lang="en">Not the cause (all tested)</h2>
+  <h2 data-lang="zh">不是原因的說法（都測過）</h2>
+  <ul class="not" data-lang="en">
+    <li>The LIB name itself (as long as it is 8.3) and the order of LIBs.</li>
+    <li>How many files of one type a LIB holds (within the limits of rule 4).</li>
+    <li>The order of files inside a LIB.</li>
+    <li>Files stored without compression (the factory music is stored that way).</li>
+    <li>The <code>$FALIB.INF</code> checksum entry falib adds (FA ignores it, like the ToolKit's <code>$TOOLKIT.INF</code>).</li>
+  </ul>
+  <ul class="not" data-lang="zh">
+    <li>LIB 檔名本身（只要符合 8.3），以及 LIB 之間的先後順序。</li>
+    <li>一個 LIB 裡同類型檔案的數量（在規則 4 的上限內）。</li>
+    <li>LIB 裡檔案的排列順序。</li>
+    <li>不壓縮直接存放的檔（原廠音樂就是這樣存的）。</li>
+    <li>falib 加的 <code>$FALIB.INF</code> 校驗項目（FA 會忽略它，就像 ToolKit 的 <code>$TOOLKIT.INF</code>）。</li>
+  </ul>
+
+  <h2 data-lang="en">falib at a glance</h2>
+  <h2 data-lang="zh">falib 功能一覽</h2>
+  <div class="card scroll"><table>
+    <tbody>
+      <tr><td><code>build</code></td><td><span data-lang="en">Builds every LIB straight from the source folders and a file list (no ITEM.DAT editing). Pads, compresses legally, verifies.</span><span data-lang="zh">依清單直接從原始檔編出所有 LIB（不用手改 ITEM.DAT），自動補空白、用合法壓縮、編完就檢查。</span></td></tr>
+      <tr><td><code>build --toolkit</code></td><td><span data-lang="en">Also writes FA ToolKit project folders (ITEM.DAT, PROJECT.DAT, README.TXT, FA_0.LIB).</span><span data-lang="zh">同時產生 FA ToolKit 專案目錄（ITEM.DAT、PROJECT.DAT、README.TXT、FA_0.LIB）。</span></td></tr>
+      <tr><td><code>verify</code></td><td><span data-lang="en">Full check of any LIB: home-made, ToolKit-built or installed.</span><span data-lang="zh">完整檢查任何 LIB：自製的、ToolKit 編的、已安裝的。</span></td></tr>
+      <tr><td><code>import</code></td><td><span data-lang="en">Brings ToolKit edits back into the sources with a three-way compare. Never guesses which copy is newer.</span><span data-lang="zh">用三方比對把 ToolKit 的修改收回原始檔，不猜哪份是新的。</span></td></tr>
+      <tr><td><code>unpack</code> · <code>list</code></td><td><span data-lang="en">Unpack or list any LIB, factory ones included.</span><span data-lang="zh">解開或列出任何 LIB，原廠的也行。</span></td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted" style="font-size:13px" data-lang="en">Python 3.8+, no extra packages. A full build of all 8 JKPFA6 LIBs takes about 2 minutes the first time and seconds after that (the ToolKit needed about 10 minutes for one LIB). Technical notes: <a href="https://github.com/kuoyichen/FAoutput/blob/main/skill/FA_LIB_build.MD">FA_LIB_build.MD</a>.</p>
+  <p class="muted" style="font-size:13px" data-lang="zh">需要 Python 3.8 以上，不用裝其他套件。第一次完整編譯 JKPFA6 的 8 個 LIB 約 2 分鐘，之後只要幾秒（ToolKit 編一個 LIB 要約 10 分鐘）。技術細節：<a href="https://github.com/kuoyichen/FAoutput/blob/main/skill/FA_LIB_build.MD">FA_LIB_build.MD</a>。</p>
+
+  <h2 id="install" data-lang="en">Install JKPFA6</h2>
+  <h2 data-lang="zh">安裝 JKPFA6</h2>
+  <ol class="steps" data-lang="en">
+    <li>Keep the factory <code>FA_1.LIB</code>, <code>FA_2.LIB</code>, <code>FA_4B.LIB</code>, <code>FA_4D.LIB</code> and <code>_HUD.LIB</code>.</li>
+    <li>Remove every older JKPFA LIB: <code>FA_JKPFA54_*.LIB</code>, <code>FA_JKPFA_B.LIB</code>, <code>_MAP.LIB</code>, <code>_MUSIC.LIB</code>.</li>
+    <li>Copy in the eight <code>JKPFA6_*.LIB</code>: A aircraft, B ground units and ships, C weapons, D 3D shapes, E pictures, F sound effects, M maps, S music.</li>
+  </ol>
+  <ol class="steps" data-lang="zh">
+    <li>保留原廠的 <code>FA_1.LIB</code>、<code>FA_2.LIB</code>、<code>FA_4B.LIB</code>、<code>FA_4D.LIB</code> 和 <code>_HUD.LIB</code>。</li>
+    <li>移走所有舊版 JKPFA 的 LIB：<code>FA_JKPFA54_*.LIB</code>、<code>FA_JKPFA_B.LIB</code>、<code>_MAP.LIB</code>、<code>_MUSIC.LIB</code>。</li>
+    <li>放入 8 個 <code>JKPFA6_*.LIB</code>：A 飛機、B 地面單位與船艦、C 武器、D 3D 模型、E 圖片、F 音效、M 地圖、S 音樂。</li>
+  </ol>
+  <p class="muted" style="font-size:13px" data-lang="en">Tested on Nov 26, 2026 with the original FA.EXE and with FA_BIG: mission builder and missions work.</p>
+  <p class="muted" style="font-size:13px" data-lang="zh">2026-11-26 已用原版 FA.EXE 和 FA_BIG 測試：任務建立和任務都正常。</p>
+</main>
+<footer data-lang="en">FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>). Keep backups of your LIBs and never modify the factory LIBs.</footer>
+<footer data-lang="zh">FAshion 是 hawke 為 Jane's Fighters Anthology 做的同好專案（<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>）。請備份你的 LIB，也不要修改原廠 LIB。</footer>
+<script>
+"use strict";
+const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
+FAI18N.register({ "FAshion home": "FAshion 首頁" });
+$("langSlot").append(FAI18N.picker()); FAI18N.apply();
+const fmt = n => n.toLocaleString("en-US");
+
+// ---- rule 1 demo: one last entry, the 4 KB page it ends in, and FA's 2 KB reads ----
+const CHUNK = 2048, PAGE = 4096, PAD = 4096;
+function demo(){
+  const size = +$("esize").value, startInPage = +$("estart").value, pad = $("pad").checked;
+  $("esizeO").value = fmt(size); $("estartO").value = fmt(startInPage);
+  const base = 0, start = base + startInPage, dataEnd = start + 4 + size, fileEnd = dataEnd + (pad ? PAD : 0);
+  const mapEnd = Math.ceil(fileEnd / PAGE) * PAGE;
+  const n = Math.ceil(size / CHUNK), reach = start + 4 + n * CHUNK;
+  const span = Math.max(mapEnd, reach) + 400, x = v => (v / span * 100) + "%";
+  const s = $("strip"); s.innerHTML = "";
+  const add = (cls, a, b) => { const d = document.createElement("div"); d.className = "seg " + cls; d.style.left = x(a); d.style.width = `calc(${x(b - a)} - 1px)`; s.append(d); };
+  add("file", 0, start); add("entry", start, dataEnd); if (pad) add("pad", dataEnd, fileEnd);
+  for (let i = 0; i < n; i++){ const a = start + 4 + i * CHUNK, b = a + CHUNK; add("chunk" + (b > mapEnd ? " out" : ""), a, b); }
+  const e = document.createElement("div"); e.className = "end"; e.style.left = x(mapEnd); s.append(e);
+  const bad = reach > mapEnd, v = $("dv");
+  v.className = "verdict " + (bad ? "bad" : "ok");
+  v.innerHTML = bad
+    ? `✖ ${L("Crash", "當掉")}<small>${L(`The last read ends ${fmt(reach - mapEnd)} bytes past readable memory.`, `最後一次讀取超出可讀記憶體 ${fmt(reach - mapEnd)} 個位元組。`)}</small>`
+    : `✔ ${L("Safe", "安全")}<small>${L(`Every read stays inside the mapped file (${fmt(mapEnd - reach)} bytes to spare).`, `每次讀取都在檔案範圍內（還剩 ${fmt(mapEnd - reach)} 個位元組）。`)}</small>`;
+}
+["esize", "estart", "pad"].forEach(id => $(id).addEventListener("input", demo));
+
+// ---- in-browser checker: index, rule 1, rule 3, rule 5 ----
+const FACTORY = new Set(["FA_1.LIB", "FA_2.LIB", "FA_4B.LIB", "FA_4D.LIB"]);
+const TOOL = new Set(["$TOOLKIT.INF", "$FALIB.INF"]);
+const valid83 = n => /^[^.\s]{1,8}(\.[^.\s]{0,3})?$/.test(n);
+function parse(name, buf){
+  const d = new DataView(buf), u8 = new Uint8Array(buf), probs = [], warns = [], ents = [];
+  const magic = String.fromCharCode(...u8.slice(0, 5));
+  if (buf.byteLength < 25 || magic !== "EALIB") return { probs: [L("Not an EALIB file (must start with \"EALIB\").", "不是 EALIB 檔（開頭必須是 \"EALIB\"）。")], warns, ents, flags: {} };
+  const count = d.getUint16(5, true), headEnd = 7 + (count + 1) * 18;
+  if (headEnd > buf.byteLength) return { probs: [L(`Index of ${count} entries is longer than the file.`, `${count} 筆的索引比檔案還長。`)], warns, ents, flags: {} };
+  const raw = [];
+  for (let i = 0; i <= count; i++){
+    const o = 7 + i * 18; let nm = "";
+    for (let k = 0; k < 13 && u8[o + k]; k++) nm += String.fromCharCode(u8[o + k]);
+    raw.push({ name: nm, flag: u8[o + 13], off: d.getUint32(o + 14, true) });
+  }
+  const endOff = raw[count].off, flags = {};
+  if (raw[count].name) probs.push(L("End entry has a name (wrong count?).", "結尾項目有名字（數量欄位錯了？）。"));
+  if (endOff > buf.byteLength) probs.push(L(`End offset ${fmt(endOff)} is past the file size ${fmt(buf.byteLength)}.`, `結尾位移 ${fmt(endOff)} 超過檔案大小 ${fmt(buf.byteLength)}。`));
+  if (count && raw[0].off !== headEnd) probs.push(L("Data does not start right after the index.", "資料沒有緊接在索引後面。"));
+  const seen = new Set();
+  for (let i = 0; i < count; i++){
+    const r = raw[i], next = raw[i + 1].off;
+    if (next < r.off) { probs.push(L(`${r.name}: offsets go backwards.`, `${r.name}：位移倒退。`)); continue; }
+    if (!r.name) probs.push(L(`Entry ${i + 1} has no name.`, `第 ${i + 1} 項沒有名字。`));
+    if (seen.has(r.name.toUpperCase())) probs.push(L(`${r.name} is in this LIB twice.`, `${r.name} 在這個 LIB 裡出現兩次。`));
+    seen.add(r.name.toUpperCase());
+    if (r.flag !== 0 && r.flag !== 4) warns.push(L(`${r.name}: unusual flag ${r.flag}.`, `${r.name}：少見的旗標 ${r.flag}。`));
+    flags[r.flag] = (flags[r.flag] || 0) + 1;
+    ents.push({ name: r.name.toUpperCase(), flag: r.flag, start: r.off, end: next });
+  }
+  // rule 1: FA reads compressed data in 0x800-byte chunks from offset+4
+  const mapEnd = Math.ceil(buf.byteLength / PAGE) * PAGE;
+  const over = [];
+  for (const e of ents) if (e.flag === 4){
+    const reach = e.start + 4 + Math.ceil((e.end - e.start - 4) / CHUNK) * CHUNK;
+    if (reach > mapEnd) over.push([e.name, reach - mapEnd]);
+  }
+  for (const [n, b] of over) (FACTORY.has(name) ? warns : probs).push(
+    L(`Rule 1: FA reads ${n} ${fmt(b)} bytes past the end of the LIB. It can crash when this file is loaded.`, `規則 1：FA 讀 ${n} 會超出 LIB 結尾 ${fmt(b)} 個位元組，載入這個檔時可能當掉。`)
+    + (FACTORY.has(name) ? L(" (factory LIB: leave it as is)", "（原廠 LIB：不要動它）") : ""));
+  if (!valid83(name)) probs.push(L(`Rule 3: "${name}" is not a DOS 8.3 name.`, `規則 3：「${name}」不是 DOS 8.3 檔名。`));
+  const tail = buf.byteLength - endOff;
+  return { probs, warns, ents, flags, count, tail, falib: seen.has("$FALIB.INF"), toolkit: seen.has("$TOOLKIT.INF") };
+}
+let results = [];
+function render(){
+  const out = $("out"); out.innerHTML = "";
+  const owner = new Map();
+  for (const r of results) if (!FACTORY.has(r.name)) for (const e of r.p.ents) if (!TOOL.has(e.name)){
+    if (!owner.has(e.name)) owner.set(e.name, []); owner.get(e.name).push(r.name);
+  }
+  const dups = [...owner].filter(([, libs]) => libs.length > 1);
+  for (const r of results){
+    // rule 5: group the duplicate names by the other LIB they are in
+    const byOther = new Map();
+    for (const [n, libs] of dups) if (libs.includes(r.name))
+      for (const o of libs) if (o !== r.name){ if (!byOther.has(o)) byOther.set(o, []); byOther.get(o).push(n); }
+    const myDups = [...byOther];
+    const bad = r.p.probs.length + myDups.length, warn = r.p.warns.length;
+    const box = document.createElement("div"); box.className = "lib";
+    const made = r.p.falib ? "falib" : r.p.toolkit ? "FA ToolKit" : FACTORY.has(r.name) ? L("factory", "原廠") : L("unknown tool", "未知工具");
+    const pill = bad ? `<span class="pill bad">✖ ${L(`${bad} problem${bad > 1 ? "s" : ""}`, `${bad} 個問題`)}</span>` : warn ? `<span class="pill warn">! ${L("note", "注意")}</span>` : `<span class="pill ok">✔ ${L("OK", "正常")}</span>`;
+    const nFiles = r.p.ents.filter(e => !TOOL.has(e.name)).length;
+    box.innerHTML = `<h4>${r.name} ${pill}</h4><div class="muted" style="font-size:13px">${fmt(nFiles)} ${L("files", "個檔")} · ${fmt(r.size)} B · ${L("made by", "製作工具：")} ${made} · ${L("padding", "結尾空白")} ${fmt(Math.max(0, r.p.tail || 0))} B</div>`;
+    const ul = document.createElement("ul");
+    for (const t of r.p.probs) ul.insertAdjacentHTML("beforeend", `<li class="bad">${t}</li>`);
+    for (const [o, ns] of myDups){
+      const eg = ns.slice(0, 5).join(", ") + (ns.length > 5 ? " …" : "");
+      ul.insertAdjacentHTML("beforeend", `<li class="bad">${L(`Rule 5: ${fmt(ns.length)} file${ns.length > 1 ? "s are" : " is"} also in ${o} (${eg}). The game uses the copy in whichever LIB file is newer.`, `規則 5：有 ${fmt(ns.length)} 個檔也在 ${o} 裡（${eg}），遊戲會用日期比較新的那個 LIB 裡的版本。`)}</li>`);
+    }
+    for (const t of r.p.warns) ul.insertAdjacentHTML("beforeend", `<li class="warn">${t}</li>`);
+    if (!bad && !warn) ul.insertAdjacentHTML("beforeend", `<li class="ok">${L("Index OK, no read past the end, 8.3 name.", "索引正常、不會讀出界、8.3 檔名。")}</li>`);
+    box.append(ul); out.append(box);
+  }
+}
+async function take(files){
+  for (const f of files){
+    if (!/\.lib$/i.test(f.name)) continue;
+    const buf = await f.arrayBuffer(), name = f.name.toUpperCase();
+    results = results.filter(r => r.name !== name);
+    results.push({ name, size: buf.byteLength, p: parse(name, buf) });
+  }
+  results.sort((a, b) => a.name < b.name ? -1 : 1); render();
+}
+const drop = $("drop");
+drop.addEventListener("click", () => $("pick").click());
+$("pick").addEventListener("change", e => take(e.target.files));
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("hover"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("hover"));
+drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("hover"); take(e.dataTransfer.files); });
+
+FAI18N.onChange(() => { demo(); render(); });
+demo();
+</script>
+</body>
+</html>
