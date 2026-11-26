@@ -62,6 +62,67 @@ def tex_face(ids, V, nrm, uv):
     return bytes(b)
 
 
+class DeepOrder(Order):
+    """bsp.Order with a deeper split limit (big multi-part meshes hit depth 40 and fell back to a cyclic list)."""
+    MAXD = 40
+
+    def build(s, faces, objs, depth=0):
+        faces = [f for f in faces if f is not None]
+        els = faces + objs
+        if not els: return ('leaf', [], [])
+        E = bsp.occl_graph(els)
+        comps = bsp.sccs(E)
+        big = [c for c in comps if len(c) > 1]
+        if not big or depth > s.MAXD:
+            # i -> j means i may obscure j, so j is drawn first. Tarjan pops a component only after
+            # every component it reaches, so its output order is already the draw order.
+            # a cycle left at the depth limit is drawn with the faces sorted by plane offset (n . centre): a detail
+            # sitting on the hull (window, windscreen, exhaust) has the larger offset, so it is drawn after the hull
+            def key(v):
+                e = els[v]
+                return e.d if isinstance(e, Face) else -1e9
+            order = [els[v] for c in comps for v in (sorted(c, key=key) if len(c) > 1 else c)]
+            return ('list', order)
+        comp = max(big, key=len)
+        cf = [els[v] for v in comp if isinstance(els[v], Face)]
+        co = [els[v] for v in comp if not isinstance(els[v], Face)]
+        best = None
+        planes = [(f.n, f.d) for f in cf]
+        for o in co:
+            for ax in range(3):
+                for val in (o.lo[ax], o.hi[ax]):
+                    n = np.zeros(3); n[ax] = 1; planes.append((n, val))
+        for n, d in planes:
+            sp = fr = bk = 0
+            for f in faces:
+                k = f.side(n, d); sp += k == 'S'; fr += k == 'F'; bk += k == 'B'
+            ost = sum(o.side(n, d) == 'S' for o in objs)
+            # progress: plane must split the component
+            cs = [els[v].side(n, d) for v in comp]
+            if not (any(k in 'FS' for k in cs) and any(k in 'BS' for k in cs)) and not any(k == 'C' for k in cs): continue
+            score = sp * 10 + ost * 30 + abs(fr - bk) * 0.05
+            if best is None or score < best[0]: best = (score, n, d)
+        if best is None: return ('list', [els[v] for c in comps for v in (sorted(c, key=lambda v: els[v].d if isinstance(els[v], Face) else -1e9) if len(c) > 1 else c)])
+        _, n, d = best
+        F, B, coF, coB = [], [], [], []
+        for f in faces:
+            k = f.side(n, d)
+            if k == 'F': F.append(f)
+            elif k == 'B': B.append(f)
+            elif k == 'C': (coF if np.dot(f.n, n) > 0 else coB).append(f)
+            else:
+                a, b = s.split(f, n, d)
+                if a: F.append(a)
+                if b: B.append(b)
+        OF, OB = [], []
+        for o in objs:
+            k = o.side(n, d)
+            if k == 'F': OF.append(o)
+            elif k == 'B': OB.append(o)
+            else: (OF if np.dot((o.lo + o.hi) / 2, n) - d >= 0 else OB).append(o)
+        return ('node', n, d, s.build(B, OB, depth+1), s.build(F, OF, depth+1), coF, coB)
+
+
 class Tree:
     def __init__(s, V): s.V = V
 
@@ -107,10 +168,20 @@ def mesh_faces(M, V, smooth_ok=lambda col: True):
         try: f = Face(ids, [V[i] for i in ids], (col, flat), nrm)
         except Exception: continue
         if not np.isfinite(f.n).all(): continue
-        if nrm is not None and np.dot(f.n, nrm) < 0:
-            ids = ids[::-1]; f = Face(ids, [V[i] for i in ids], (col, flat), nrm)
-        f.smooth = smooth
-        faces.append(f)
+        # non-planar polygons (twisted wing panels, rounded vertices) make cycles the painter tree cannot split:
+        # triangulate them (fan from the first vertex)
+        parts = [ids]
+        if len(ids) > 3 and np.abs(np.array([V[i] for i in ids], float) @ f.n - f.d).max() > 0.25:
+            parts = [[ids[0], ids[k], ids[k + 1]] for k in range(1, len(ids) - 1)]
+        for pid in parts:
+            if len(set(V[i] for i in pid)) < 3: continue
+            try: g = Face(pid, [V[i] for i in pid], (col, flat), nrm)
+            except Exception: continue
+            if not np.isfinite(g.n).all(): continue
+            if nrm is not None and np.dot(g.n, nrm) < 0:
+                pid = pid[::-1]; g = Face(pid, [V[i] for i in pid], (col, flat), nrm)
+            g.smooth = smooth
+            faces.append(g)
     return faces
 
 
@@ -198,7 +269,7 @@ def build(donor, out, M, gears=(), discs=(), pic_name=None, pic_src=None, pic_ou
         def addv(p, i, j, t, PV=PV, pvn=pvn, pcol=pcol):
             PV.append(tuple(int(round(x)) for x in p)); pvn.append((1 - t) * pvn[i] + t * pvn[j]); pcol[len(PV) - 1] = pcol.get(i, 150)
             return len(PV) - 1
-        pt = Order(PV, addv).build(pf, [])
+        pt = DeepOrder(PV, addv).build(pf, [])
         P = np.array(PV, float)
         part_data[G.name] = dict(G=G, PV=PV, pvn=pvn, pt=pt, pcol=pcol, lo=P.min(0), hi=P.max(0))
 
@@ -231,7 +302,7 @@ def build(donor, out, M, gears=(), discs=(), pic_name=None, pic_src=None, pic_ou
         lo = Pc.min(0) - 0.4; hi = Pc.max(0) + 0.4
         objs.append(Obj(D.name, lo, hi, e))
 
-    B = Order(V, add_vertex)
+    B = DeepOrder(V, add_vertex)
     tree = B.build(faces, objs)
     nn, nf = count(tree)
     base = len(V)
