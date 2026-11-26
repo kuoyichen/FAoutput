@@ -1,0 +1,154 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 3
+    word 258
+    word 196
+	ptr ot_names
+    dword $821
+    word $1000
+	ptr shape
+    dword 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 1986
+    word 78
+    word 0
+    word 100
+    word 100
+    word 100
+    word 100
+    word 0
+    word 100
+    word 255
+    word 255
+    word 255
+    word 255
+    word 255
+    byte 21
+    byte 6
+    dword 0
+    word 100
+
+;---------------- movement info ----------------
+
+    word 8190
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 50
+    word 50
+    dword ^50
+    dword ^50
+    dword ^0
+    dword ^0
+	symbol _GVProc	; utilProc
+
+;---------------- sound info ----------------
+
+	ptr loopSound
+	ptr secondSound
+    dword 0
+    dword 0
+    byte 1
+    word 2500
+    word 25
+    word 20
+    word 20
+    word 1000
+    word 0
+    word 0
+    word 0
+    dword 0
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+
+;---------------- START OF NPC_TYPE ----------------
+
+    dword $2
+    dword 0
+    byte 20
+    byte 60
+    byte 20
+    word 32767
+    word 0
+    byte 3
+	ptr hards
+
+;---------------- END OF NPC_TYPE ----------------
+
+:hards
+;-------- hardpoint 0
+    word $80d
+    word 11
+    word 25
+    word 0
+    word 0
+    word 8190
+    word 32760
+    word 16380
+	ptr defaultTypeName0
+    byte 0
+    word 8
+    byte 0
+;-------- hardpoint 1
+    word $f
+    word 15
+    word 20
+    word 0
+    word 0
+    word 0
+    word 0
+    word 16380
+	ptr defaultTypeName1
+    byte 0
+    word 1904
+    byte 0
+;-------- hardpoint 2
+    word $8
+    word 0
+    word 0
+    word 0
+    word 0
+    word 49140
+    word 0
+    word 0
+	ptr defaultTypeName2
+    byte 0
+    word 1
+    byte 0
+:ot_names
+	string "2S6M"
+	string "2S6M Tungusta"
+	string "2S6.NT"
+:shape
+	string "zsu30.SH"
+:loopSound
+	string "&TANK.11K"
+:secondSound
+	string "&TURRET.11K"
+:defaultTypeName0
+	string "SA19.JT"
+:defaultTypeName1
+	string "AAA30.JT"
+:defaultTypeName2
+	string "SAN4.JT"
+	end

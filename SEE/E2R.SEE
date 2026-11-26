@@ -1,0 +1,31 @@
+[brent's_relocatable_format]
+    byte 10
+	ptr si_names
+    word 0
+    byte $0
+    byte 3
+    byte $1
+    byte 35
+    byte 4
+    byte 4
+    byte 0
+    byte 0
+    word 32760
+    word 16380
+    dword ^0
+    dword ^1214622
+    dword $8011c180
+    dword $7fee3e80
+    word 32760
+    word 16380
+    dword ^0
+    dword ^943893
+    dword $8011c180
+    dword $7fee3e80
+    byte 100
+    byte 100
+:si_names
+	string ""
+	string "200R 150T Pulse ATA 180deg"
+	string "E2R.SEE"
+	end

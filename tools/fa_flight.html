@@ -96,12 +96,13 @@ button.on{border-color:var(--accent);color:var(--accent)}
 <div id="btns" class="btns">
   <button id="bGear">Gear</button>
   <button id="bBrake">Brake</button>
-  <button id="bFlare" style="grid-column:span 2;color:#ffd54a">FLARE</button>
+  <button id="bFlare" style="color:#ffd54a">FLARE</button>
+  <button id="bTime" style="color:#7fe0ff" title="Time compression">x1</button>
 </div>
 <div id="btnsR" class="btns">
   <button id="bView">View</button>
   <button id="bReset">Restart</button>
-  <button id="bFront">Front</button>
+  <button id="bFly">Fly-by</button>
   <button id="bRC">RC view</button>
 </div>
 <div id="panel">
@@ -121,9 +122,9 @@ button.on{border-color:var(--accent);color:var(--accent)}
   <div class="row"><button id="bGo">▶ Start</button></div>
   <label class="ck"><input type="checkbox" id="inv"> Invert pitch (push stick up = nose up)</label>
   <label class="ck"><input type="checkbox" id="tex" checked> Textures</label>
-  <p id="help1">Right stick: up/down is pitch, left/right is rudder. Left stick: up/down changes the throttle (it stays where you leave it), left/right is roll. The sticks only answer touches inside their circles: drag anywhere else to look around (the view stays where you leave it; Front brings it back, RC view watches from the runway end like an RC model pilot), pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult. The weapon button on the right picks gun, AIM-9, AIM-120 (air targets), AGM-65 (ground and ships) or MK-82 bombs; missiles lock the target nearest your nose. To land, slow down, lower the gear and raise the nose: the jet settles gently nose-high, and the throttle sets how fast it sinks.</p>
-  <p id="help3">Canyon strike: fly the winding canyon at low level. Above the rim the SAM radar sees you and the sites launch. At the end of the canyon pull up over the ridge, dive into the crater and bomb the reactor (MK-82 is selected; the yellow circle shows where the bomb falls), then climb out: the SAMs on the crater rim fire at you, so turn hard and drop flares (FLARE button or C). Get 3 nm clear to finish.</p>
-  <p id="help2">Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, C or Delete flares, Insert chaff, F1 front view, F9 fly-by view, R restart, mouse drag to look, wheel to zoom.</p>
+  <p id="help1">Right stick: up/down is pitch, left/right is rudder. Left stick: up/down changes the throttle (it stays where you leave it), left/right is roll. The sticks only answer touches inside their circles: drag anywhere else to look around (the view stays where you leave it; double-tap brings it back. Fly-by parks the camera beside your path ahead and lets the jet pass it, like F9; RC view watches from the runway end like an RC model pilot), pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult. The weapon button on the right picks gun, AIM-9, AIM-120 (air targets), AGM-65 (ground and ships) or MK-82 bombs; missiles lock the target nearest your nose. To land, slow down, lower the gear and raise the nose: the jet settles gently nose-high, and the throttle sets how fast it sinks.</p>
+  <p id="help3">Canyon strike: fly the winding canyon at low level. Above the rim the SAM radar sees you and the sites launch. At the end of the canyon pull up over the ridge, dive into the crater and bomb the reactor (MK-82 is selected; the yellow circle shows where the bomb falls), then climb out: the SAMs on the crater rim fire at you, so turn hard and drop flares (FLARE button or Delete). Get 3 nm clear to finish.</p>
+  <p id="help2">Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, C time compression x1/x2/x4/x8, Delete flares, Insert chaff, F1 front view, F9 fly-by view, R restart, mouse drag to look, wheel to zoom.</p>
   <div id="joyBox"></div>
 </div>
 <div id="load"><div id="loadT">Loading…</div><small id="loadS"></small></div>
@@ -437,7 +438,9 @@ function partTf(e){
 // ===== files: ../SH, ../PIC on this site, else GitHub =====
 const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
 const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
+const SH_VIEW = p => p;   // SHCore now follows the F14/F18 x86-only parts (wing fold, flaps, parked sweep), so every viewer loads the real SH
 async function fetchAny(paths){
+  paths = paths.map(SH_VIEW);
   const urls = [];
   for (const p of paths){ if (/^https?:$/.test(location.protocol)) urls.push(new URL("../" + p, location.href).href); }
   for (const p of paths) urls.push(REMOTE + p);
@@ -465,7 +468,7 @@ function shTexName(u8){
 }
 
 // ===== SH names (main shapes in ../SH; wrecks _A.._D and shadows _S left out) =====
-const SH_NAMES = "A10 A1G A26IN A310 A340 A37 A4 A47 A6 A6B A7 A8 AA105 AA105B AA11B AA35 AA35B AA85 AA85B AAAM AAML AC130 ACRID ADV AEGIS AEMP AFO AH1 AIDC ALAMO ALPHA ALPHB ALZ AM39 AM9X AMOS AMRAM AMSKI AN12A AN74 APA APHID APL APLL APTB1 APTLA APTLB APTLC APTM APTOLD ARBK ARCHR AS12 AS30 ASA5 AST ASTE ASTF ASTV ATF ATL ATOLL AUR AV8 AV8TNT AWACS B1 B2 B52 B5G B70 B707 B747 BAHA BARA BARG BARKSA BARKSB BASE BAST BELK BLD1 BLD2 BLD3 BLI BMP2 BNK1 BNK2 BNK3 BNK4 BNK5 BNK6 BNK7 BNK8 BNK9 BOR BR1END BR1MID BR2END BR2MID BR3END BR3MID BRD1 BRD2 BRD3 BRD4 BRDEND BRDMID BTR70 BUC BUD BULLET BUNKB BUSH1 BUSH2 BUSH3 BUSH4 C130 C17 C1G C5 C6 CAMEL CAPTL CARGO CAST CATGUY CB87 CB89 CDEG CGRP1 CGRP2 CGRP3 CH47 CHAFF CHAP CHIN CIM CITY1 CITY2 CITY3 CITY4 CITYCE CLEM CLEMT CLOUD1 CLOUDS CMHQ1 CMHQ2 COB COLTWR COMM1 COMM2 CONT1 CONT2 CONT3 CRANE CRATE CRATER CRATS1 CRATS2 CRATS3 CROPA CROPB CTOWR CTWR1 CTWR2 CTYBKA CTYBKB CTYBKC CTYBKD CTYBKE CTYBKF CTYBKG CYC DA1 DA2 DARE DARK DBK5 DBK6 DBK8 DD1 DD2 DE1 DE2 DE2E DEBRIS DEM DEST DKHOS1 DKHOS2 DOCK1 DRAK DTSTRP DURAN E111 E20 E2C EIFFEL EJECT ESSE EXO EXP F1000 F104 F105 F10A F10D F10G F111 F117 F14 F15 F15E F15I F15J F16 F16E F16F F18 F18C F18E F18F F18G F18T F18U F22 F22N F250 F26 F29 F2H F31 F31E F31F F31V F31W F35A F4 F4B F4D F4E F4G F4J F4X F500 F51 F5E F5EE F5EV F8 F84 F86 F89 F9F5 FACT1 FACTD FBC FCTYA FCTYB FGO1 FGO2 FGR1 FGR2 FGY1 FGY2 FIR FIRE FISH FLARE FSX FUEL GAD GAIN GASK GAUNT GAZ GAZE GAZV GB27 GB28 GECKO GOA GOBLET GOPH GRAIL GREM GRI GROVA GROVB GROVC GROVD GROVPA GROVPB GROVPC GUIDE HANGAR HANGR HANGRB HARM HARPN HAV HAWK HAWKS HERM HGRP1 HGRP2 HGRP3 HILT HIND HINE HIP HND_TL HOKUM HOKUT HOOCH HORMNE HOUS HOUSB HQ2J HQ61 HUMVEE I18 IL28B IL76 IL96 IND1 IND2 INVN IOWA J7E J7FBD J8F JAG JGR JH7 JSTRS JSTRT JUNK JXP K27PL K27PM KC135 KEDGE KERRY KFIR KIEV KIKBK KIN KING KIROV KITT KITTT KLINOK KNX KRIV KRIVAK KUZN LCAC LCU1 LI2 LPD LYN M1 M113 M117 M15 M17 M19 M1975 M2 M20 M20E M21F M21J M2C M2D M3 M3V M53 M55 MAVRK MEATB MERC MERCH1 MF1 MFB MFD MFG MI27M MICA MICRO MICROM MIF1 MIG21 MIG23 MIG25 MIG27 MIG29 MIG2F MIG2M MIG2V MIG31 MIG32 MIS MISTRK MK20 MK81 MK82 MK82A MK83 MK84 MM72 MN1 MOON MOOSEA MOOSEB MOSKV MOTH MOTHB MPD MR3 MR3E MR4 MR5 MRG MTCAMO MTF2 MTO MULEA MULEB MULEC NIKES NIMZ NIMZT NRD NRT_T1 NUCCT NUCOB NUCRD OLEK OLEKMA OSCAR P3C PAKFA PAVE PHENX PL10 PL7 PL8 PLMGA PLMGB PLMGC PLTDWN PMIS PMORN PRDR1 PRDR2 PSTR Q5 QUE R44 RA5C RAF RAFE RAFF RAFG RAFH RAH RBK2 RBK5 RBOAT REA REACTB REACTR REB REC REDCR REDOM RELAY RES1 RES2 RF1 RIG1 RIG2 RLD RLDM RNWY1 RNWY2 RNWY3 RNWY3A RNWY4 RNWY5 RNWY5A RNWY6 RNWY6A RNWY7 RNWY7A ROAD ROAD2 ROAD4 ROADC ROCK ROCKA ROCKB ROCKBA ROCKBB ROCKBC ROCKBD ROCKBE ROCKC ROCKD ROCKE ROCKET RPA RPB RPC RUNNER RUNWAY S17 S2TRK S37 S3VIK S71 SA13 SA14 SA15 SA19 SA2 SA3 SA3M SA3SIT SA5 SA6 SA6LTR SA6M SA6SFR SA7 SA9 SACR SACRAM SAN11 SARAN SCD SCDM SCDN SEAH SEAHR SEAI SEAJ SESHDW SFR SFRV SGRP1 SGRP2 SH3 SH60 SHELT SIDE SIDEB SIDEM SIDEP SILO SL100 SLAM SLUM01 SLUM02 SMOKE SNAKE SOLDIER SOVR SPAR SPARW SPD SPE SRDR1 SRDR2 STARS STGR STORE SU15 SU24 SU25 SU27 SU27C SU27F SU27G SU27J SU27V SU2D SU2G SU30K SU34 SU35 SU35B SU35C SU35G SU37 SU7 SUN SUPPLY SWATR SWNGR T50 T69 T72 T80 T90 TANKER TENT1 TICON TIG TKY_TW TOR TOWER TRACER TREEA TREEB TREEC TREED TROOPS TRUCK TRUCKB TSR TU16 TU160 TU22 TU26 TU95 TWNBKA TWNBKB TWNBKC TWNBKD TWNBKE TWNBKF U2DR UH1 UH60 V22 V23 VIG VOM WASP WASPT WAVE1 WAVE2 WNDMLL WTRBUF XCLEM XKITT XNIMZ XWASP Y141 YA38 ZIF31 ZSU23 ZSU30 ZSU57".trim().split(/\s+/);
+const SH_NAMES = "A10 A1G A26IN A310 A340 A37 A4 A47 A6 A6B A7 A8 AA105 AA105B AA11B AA35 AA35B AA85 AA85B AAAM AAML AC130 ACRID ADV AEGIS AEMP AFO AH1 AIDC ALAMO ALPHA ALPHB ALZ AM39 AM9X AMOS AMRAM AMSKI AN12A AN74 APA APHID APL APLL APTB1 APTLA APTLB APTLC APTM APTOLD ARBK ARCHR AS12 AS30 ASA5 AST ASTE ASTF ASTV ATF ATL ATOLL AUR AV8 AV8TNT AWACS B1 B2 B52 B5G B70 B707 B747 BAHA BARA BARG BARKSA BARKSB BASE BAST BELK BLD1 BLD2 BLD3 BLI BMP2 BNK1 BNK2 BNK3 BNK4 BNK5 BNK6 BNK7 BNK8 BNK9 BOR BR1END BR1MID BR2END BR2MID BR3END BR3MID BRD1 BRD2 BRD3 BRD4 BRDEND BRDMID BTR70 BUC BUD BULLET BUNKB BUSH1 BUSH2 BUSH3 BUSH4 C130 C17 C1G C5 C6 CAMEL CAPTL CARGO CAST CATGUY CB87 CB89 CDEG CGRP1 CGRP2 CGRP3 CH47 CHAFF CHAP CHIN CIM CITY1 CITY2 CITY3 CITY4 CITYCE CLEM CLEMT CLOUD1 CLOUDS CMHQ1 CMHQ2 COB COLTWR COMM1 COMM2 CONT1 CONT2 CONT3 CRANE CRATE CRATER CRATS1 CRATS2 CRATS3 CROPA CROPB CTOWR CTWR1 CTWR2 CTYBKA CTYBKB CTYBKC CTYBKD CTYBKE CTYBKF CTYBKG CYC DA1 DA2 DARE DARK DBK5 DBK6 DBK8 DD1 DD2 DE1 DE2 DE2E DEBRIS DEM DEST DKHOS1 DKHOS2 DOCK1 DRAK DTSTRP DURAN E111 E20 E2C EIFFEL EJECT ESSE EXO EXP F1000 F104 F105 F10A F10D F10G F111 F117 F14 F14B F14J F14S F14W F15 F15E F15I F15J F16 F16E F16F F18 F18C F18E F18F F18G F18T F18U F22 F22N F250 F26 F29 F2H F31 F31E F31F F31V F31W F35A F4 F4B F4D F4E F4G F4J F4X F500 F51 F5E F5EE F5EV F8 F84 F86 F89 F9F5 FACT1 FACTD FBC FCTYA FCTYB FGO1 FGO2 FGR1 FGR2 FGY1 FGY2 FIR FIRE FISH FLARE FSX FUEL GAD GAIN GASK GAUNT GAZ GAZE GAZV GB27 GB28 GECKO GOA GOBLET GOPH GRAIL GREM GRI GROVA GROVB GROVC GROVD GROVPA GROVPB GROVPC GUIDE HANGAR HANGR HANGRB HARM HARPN HAV HAWK HAWKS HERM HGRP1 HGRP2 HGRP3 HILT HIND HINE HIP HND_TL HOKUM HOKUT HOOCH HORMNE HOUS HOUSB HQ2J HQ61 HUMVEE I18 IL28B IL76 IL96 IND1 IND2 INVN IOWA J7E J7FBD J8F JAG JGR JH7 JSTRS JSTRT JUNK JXP K27PL K27PM KC135 KEDGE KERRY KFIR KIEV KIKBK KIN KING KIROV KITT KITTT KLINOK KNX KRIV KRIVAK KUZN LCAC LCU1 LI2 LPD LYN M1 M113 M117 M15 M17 M19 M1975 M2 M20 M20E M21F M21J M2C M2D M3 M3V M53 M55 MAVRK MEATB MERC MERCH1 MF1 MFB MFD MFG MI27M MICA MICRO MICROM MIF1 MIG21 MIG23 MIG25 MIG27 MIG29 MIG2F MIG2M MIG2V MIG31 MIG32 MIS MISTRK MK20 MK81 MK82 MK82A MK83 MK84 MM72 MN1 MOON MOOSEA MOOSEB MOSKV MOTH MOTHB MPD MR3 MR3E MR4 MR5 MRG MTCAMO MTF2 MTO MULEA MULEB MULEC NIKES NIMZ NIMZT NRD NRT_T1 NUCCT NUCOB NUCRD OLEK OLEKMA OSCAR P3C PAKFA PAVE PHENX PL10 PL7 PL8 PLMGA PLMGB PLMGC PLTDWN PMIS PMORN PRDR1 PRDR2 PSTR Q5 QUE R44 RA5C RAF RAFE RAFF RAFG RAFH RAH RBK2 RBK5 RBOAT REA REACTB REACTR REB REC REDCR REDOM RELAY RES1 RES2 RF1 RIG1 RIG2 RLD RLDM RNWY1 RNWY2 RNWY3 RNWY3A RNWY4 RNWY5 RNWY5A RNWY6 RNWY6A RNWY7 RNWY7A ROAD ROAD2 ROAD4 ROADC ROCK ROCKA ROCKB ROCKBA ROCKBB ROCKBC ROCKBD ROCKBE ROCKC ROCKD ROCKE ROCKET RPA RPB RPC RUNNER RUNWAY S17 S2TRK S37 S3VIK S71 SA13 SA14 SA15 SA19 SA2 SA3 SA3M SA3SIT SA5 SA6 SA6LTR SA6M SA6SFR SA7 SA9 SACR SACRAM SAN11 SARAN SCD SCDM SCDN SEAH SEAHR SEAI SEAJ SESHDW SFR SFRV SGRP1 SGRP2 SH3 SH60 SHELT SIDE SIDEB SIDEM SIDEP SILO SL100 SLAM SLUM01 SLUM02 SMOKE SNAKE SOLDIER SOVR SPAR SPARW SPD SPE SRDR1 SRDR2 STARS STGR STORE SU15 SU24 SU25 SU27 SU27C SU27F SU27G SU27J SU27V SU2D SU2G SU30K SU34 SU35 SU35B SU35C SU35G SU37 SU7 SUN SUPPLY SWATR SWNGR T50 T69 T72 T80 T90 TANKER TENT1 TICON TIG TKY_TW TOR TOWER TRACER TREEA TREEB TREEC TREED TROOPS TRUCK TRUCKB TSR TU16 TU160 TU22 TU26 TU95 TWNBKA TWNBKB TWNBKC TWNBKD TWNBKE TWNBKF U2DR UH1 UH60 V22 V23 VIG VOM WASP WASPT WAVE1 WAVE2 WNDMLL WTRBUF XCLEM XKITT XNIMZ XWASP Y141 YA38 ZIF31 ZSU23 ZSU30 ZSU57".trim().split(/\s+/);
 const SHIPS = new Set("NIMZ NIMZT XNIMZ KUZN KIEV KIROV IOWA AEGIS TICON MOSKV KRIV KRIVAK OSCAR LPD LCU1 LCAC SOVR DD1 DD2 DE1 DE2 DE2E KITT KITTT XKITT KNX OLEK OLEKMA WASP WASPT XWASP RBOAT MERC MERCH1 TANKER CARGO JUNK SACR SACRAM SPE SPD SWATR BELK".split(" "));
 const F18S = ["F18", "F18C", "F18E", "F18F", "F18G", "F18T", "F18U"];
 
@@ -643,12 +646,12 @@ function isFlame(f, pic){
   return n > 0 && hot / n > 0.45;
 }
 function getMesh(s, st = {}){
-  const key = `${+!!st.gear}${+!!st.ab}${+!!st.brake}${+!!st.flaps}${st.sweep || 20}|${st.lo || ""}|${st.ab ? (st.abf || 0) + "g" + (st.abg ?? 1) : 0}`;
+  const key = `${+!!st.gear}${+!!st.ab}${+!!st.brake}${+!!st.flaps}${st.sweep || 20}|${st.lo || ""}|${st.ab ? (st.abf || 0) + "g" + (st.abg ?? 1) : 0}|${st.fold || 0}`;
   if (s.meshes[key]) return s.meshes[key];
   const m = s.m, k = m.scale; let polys = [];
   const add = (idx, tf) => polys.push({ pts: idx.map(i => vmul(tf(m.v[i]), k)), uv: idx.uv, col: idx.col });
   if (s.M){ const fl = st.flaps ? -1 : 0;
-    polys = SHCore.polys(s.M, { scale: true, storeShown: st.lo && s === P.s && P.lo ? loShown : undefined, on: { _PLgearDown: st.gear ? 1 : 0, _PLleftFlap: fl, _PLrightFlap: fl, _PLbrake: st.brake ? 1 : 0, _PLafterBurner: st.ab ? 1 : 0, _PLswingWing: swingVal(st.sweep) }, abFrame: st.abf || 0, abGrow: st.ab ? st.abg ?? 1 : undefined })
+    polys = SHCore.polys(s.M, { scale: true, storeShown: st.lo && s === P.s && P.lo ? loShown : undefined, on: { _PLgearDown: st.gear ? 1 : 0, _PLleftFlap: fl, _PLrightFlap: fl, _PLbrake: st.brake ? 1 : 0, _PLafterBurner: st.ab ? 1 : 0, _PLswingWing: swingVal(st.sweep) }, abFrame: st.abf || 0, abGrow: st.ab ? st.abg ?? 1 : undefined, fold: st.fold || 0, park: st.fold || 0 })
       .filter(f => st.ab || !isFlame(f, s.pic)); }
   else for (const idx of m.f) add(idx, v => v);
   if (!s.M) try { const drawn = new Set();
@@ -725,6 +728,7 @@ function spawn(){
   else { P.pos = [CARRIER.x - 3000, CARRIER.y - 6000, 0]; P.hdg = 0; }
   P.pitch = 0; P.q = qFromHP(P.hdg, 0);
   if (P.onGround){ const g = groundAt(P.pos[0], P.pos[1]); P.pos[2] = g.h + (mode === "fly" ? gearH() : 0); }
+  P.park = parkTarget();
   cam.q = P.q.slice();
   { const sp = where === "air" ? RUNWAY_SPAWN : { x: P.pos[0], y: P.pos[1], hdg: P.hdg }, r = getMesh(P.s, {}).radius;
     const f = [-Math.sin(sp.hdg), Math.cos(sp.hdg)], lf = [-Math.cos(sp.hdg), -Math.sin(sp.hdg)], x = sp.x + lf[0] * r * 3 + f[0] * r, y = sp.y + lf[1] * r * 3 + f[1] * r;
@@ -748,9 +752,13 @@ let subT = null; function sub(t){ $("sub").textContent = t; clearTimeout(subT); 
 const AB = { t0: 0, last: 0 };
 function abGrowNow(on){ const now = performance.now(); if (!on) return 1;
   if (now - AB.last > 1000) AB.t0 = now; AB.last = now; return Math.round(Math.min(1, (now - AB.t0) / 3000) * 8) / 8; }
-function curMesh(noAB){ return getMesh(P.s, { lo: P.mode === "fly" ? loKey() : "", sweep: P.mode === "fly" ? P.sweep : 20, gear: P.mode === "fly" ? P.gear : true, ab: !noAB && P.mode === "fly" && P.thr > 0.9, abf: Math.floor(performance.now() / 70) % 3 /* animated flame (SH op 40) */, abg: noAB ? 1 : abGrowNow(P.mode === "fly" && P.thr > 0.9), brake: P.mode === "fly" && P.brake && !P.onGround, flaps: P.mode === "fly" && P.gear }); }
+function curMesh(noAB){ return getMesh(P.s, { lo: P.mode === "fly" ? loKey() : "", sweep: P.mode === "fly" ? P.sweep : 20, gear: P.mode === "fly" ? P.gear : true, ab: !noAB && P.mode === "fly" && P.thr > 0.9, abf: Math.floor(performance.now() / 70) % 3 /* animated flame (SH op 40) */, abg: noAB ? 1 : abGrowNow(P.mode === "fly" && P.thr > 0.9), brake: P.mode === "fly" && P.brake && !P.onGround, flaps: P.mode === "fly" && P.gear && !(P.park > 0), fold: P.mode === "fly" ? Math.round((P.park || 0) * 20) / 20 : 0 }); }
+// parked wing fold (F/A-18) / oversweep (F-14), as the SH's own x86 does in the game: stopped on the ground with the gear down -> fold
+// over 4 s; moving or afterburner -> spread over 3 s; a jet that starts parked starts folded
+const parkTarget = () => P.mode === "fly" && P.onGround && P.gear && Math.abs(P.speed) < 1 && !(P.thr > 0.9) ? 1 : 0;
+function stepPark(dt){ const t = parkTarget(), p = P.park || 0; P.park = t > p ? Math.min(t, p + dt / 4) : Math.max(t, p - dt / 3); }
 function gearH(){ return Math.max(0, -getMesh(P.s, { gear: P.gear, flaps: P.gear }).lo[2]); }
-function crash(why){ P.crashed = true; P.speed = 0; P.boom = performance.now(); $("msg").textContent = why + "\n" + L("Tap Restart", "按「重來」"); }
+function crash(why){ P.crashed = true; P.speed = 0; P.boom = performance.now(); boom(P.pos, Math.max(150, (P.s ? curMesh(true).radius : 50) * 2.5)); $("msg").textContent = why + "\n" + L("Restarting in 5 s…", "5 秒後自動重來…"); }
 
 function stepFly(dt){
   if (useFA()) return stepFlyFA(dt);
@@ -1198,7 +1206,7 @@ function stepMission(dt){
     }
     m.vel = vmul(dir, spd); m.pos = vadd(m.pos, vmul(m.vel, dt));
     if (vlen(vsub(m.pos, m.trail[m.trail.length - 1])) > 150){ m.trail.push(m.pos.slice()); if (m.trail.length > 40) m.trail.shift(); }
-    if (!flare && alive && vlen(vsub(m.pos, P.pos)) < 90){ m.life = 0; boom(P.pos, 120); crash(L("Shot down by a SAM!", "被防空飛彈擊落！")); continue; }
+    if (!flare && alive && vlen(vsub(m.pos, P.pos)) < 90){ m.life = 0; crash(L("Shot down by a SAM!", "被防空飛彈擊落！")); continue; }
     if (flare && tg && vlen(vsub(m.pos, tg)) < 160){ m.life = 0; boom(m.pos, 70); continue; }
     if (m.pos[2] < terrainH(m.pos[0], m.pos[1])){ m.life = 0; boom(m.pos, 70); continue; }
     if (m.life <= 0) boom(m.pos, 40);
@@ -1336,7 +1344,7 @@ function placeFlyby(){
   const gh = groundAt(eye[0], eye[1]).h; if (eye[2] < gh + 6) eye[2] = gh + 6;
   cam.fly = { eye, D, min: 1e9 }; cam.flyFov = 0;
 }
-function toggleFlyby(){ if (cam.fly){ cam.fly = null; sub(L("Chase view", "追蹤視角")); } else { cam.rc = false; placeFlyby(); sub(L("Fly-by view (F9 again to leave)", "飛掠視角（再按 F9 離開）")); } updButtons(); }
+function toggleFlyby(){ if (cam.fly){ cam.fly = null; sub(L("Chase view", "追蹤視角")); } else { cam.rc = false; placeFlyby(); sub(L("Fly-by view (press Fly-by or F9 again to leave)", "飛掠視角（再按「飛掠」或 F9 離開）")); } updButtons(); }
 function camera(dt){
   const mesh = getMesh(P.s, {}), r = mesh.radius;   // framed on the clean model, so the afterburner flame, gear or speed brake never change the size; a turned view stays until the Front button (or a double-tap) brings it back
   const center0 = vadd(P.pos, [0, 0, (mesh.hi[2] + mesh.lo[2]) / 2]);
@@ -1462,7 +1470,7 @@ function render(){
   renderCombat(eye);
   lastPV = PV; lastEye = eye; lastFov = c.fov;
   const mesh = curMesh();
-  if (!P.crashed || performance.now() - P.boom < 120){
+  if (!P.crashed){
     // shadow on the ground under the player
     const g = groundAt(P.pos[0], P.pos[1]), hgt = P.pos[2] - g.h;
     if (hgt < 3000 && P.mode !== "sail"){
@@ -1471,11 +1479,7 @@ function render(){
       drawModel(P.s, curMesh(true), M, true); gl.depthMask(true); gl.disable(gl.BLEND);   // shadow without the afterburner flame (hot gas casts none)
     }
     drawModel(P.s, mesh, modelMat(P.q, vsub(P.pos, eye)), false);
-  } else {
-    // crashed: a fading fireball made of the model itself, tinted orange
-    const t = (performance.now() - P.boom) / 1000, k = 1 + t * 2;
-    if (t < 4){ gl.uniform4f(mProg.U("uTint"), 1, 0.45 + 0.3 * Math.sin(t * 20), 0.1, clamp(1 - t * 0.15, 0, 1)); drawModel(P.s, mesh, modelMat(qMul(P.q, qAxis([0,1,0], t * 3)), vsub(P.pos, eye), k), false); gl.uniform4f(mProg.U("uTint"), 0,0,0,0); }
-  }
+  }   // crashed: the aircraft is gone, only the explosion (boom() in crash) is drawn
 }
 
 // ===== HUD =====
@@ -1542,7 +1546,7 @@ const keys = new Set();
 addEventListener("keydown", e => { if (e.code === "F1"){ e.preventDefault(); frontView(); return; }   // F1: front view (and no browser help page)
   if (e.target.tagName === "SELECT") return; keys.add(e.code);
   if (e.code === "KeyG") toggleGear(); if (e.code === "KeyB") toggleBrake(); if (e.code === "KeyR") spawn(); if (e.code === "KeyV") $("bView").click();
-  if (e.code === "KeyF" || e.code === "KeyX") nextWeapon(); if (e.code === "KeyC" || e.code === "Delete") dropFlares(); if (e.code === "Insert") dropChaff(); if (e.code === "F9"){ e.preventDefault(); toggleFlyby(); } if (e.code === "Space" && !e.repeat){ e.preventDefault(); W.fireHeld = true; fireOnce(); } });
+  if (e.code === "KeyF" || e.code === "KeyX") nextWeapon(); if (e.code === "KeyC") cycleTime(); if (e.code === "Delete") dropFlares(); if (e.code === "Insert") dropChaff(); if (e.code === "F9"){ e.preventDefault(); toggleFlyby(); } if (e.code === "Space" && !e.repeat){ e.preventDefault(); W.fireHeld = true; fireOnce(); } });
 addEventListener("help", e => e.preventDefault());   // F1 help in some browsers
 addEventListener("keyup", e => { keys.delete(e.code); if (e.code === "Space") W.fireHeld = false; });
 addEventListener("blur", () => keys.clear());
@@ -1657,11 +1661,11 @@ function readInput(){
 
 // ===== buttons and setup panel =====
 function updButtons(){
-  $("bRC").classList.toggle("on", !!cam.rc);
+  $("bRC").classList.toggle("on", !!cam.rc); $("bFly").classList.toggle("on", !!cam.fly);
   $("bGear").classList.toggle("on", P.gear); $("bBrake").classList.toggle("on", P.brake); $("bView").classList.toggle("on", !!cam.lock);
   $("bGear").style.display = P.mode === "fly" ? "" : "none";
   $("wpn").style.display = $("hKillD").style.display = $("bFlare").style.display = P.mode === "fly" ? "" : "none";
-  $("bFlare").textContent = L("FLARE", "熱焰彈") + " ×" + flares;
+  $("bFlare").textContent = L("FLR", "熱焰") + " ×" + flares;
   const w = WEAPONS[W.sel]; $("bWpn").textContent = (w.id === "gun" ? L("GUN", "機砲") : w.name) + " ×" + W.ammo[W.sel];
   $("stRt").textContent = P.mode === "fly" ? L("Pitch / Rudder", "俯仰 / 方向舵") : L("Steer", "轉向");
   $("stLt").textContent = P.mode === "fly" ? L("Throttle / Roll", "油門 / 滾轉") : L("Throttle", "油門");
@@ -1669,16 +1673,18 @@ function updButtons(){
 function toggleGear(){ if (P.mode !== "fly" || P.onGround || P.crashed) return; P.gear = !P.gear; updButtons(); }
 function toggleBrake(){ P.brake = !P.brake; updButtons(); }
 function frontView(){ cam.yaw = cam.pitch = 0; cam.zoom = 1; cam.rc = false; cam.fly = null; updButtons(); }
-$("bFront").onclick = frontView;
+$("bFly").onclick = toggleFlyby;
 $("bRC").onclick = () => { cam.rc = !cam.rc; cam.fly = null; cam.zoom = 1; cam.rcFov = 0; updButtons(); sub(cam.rc ? L("RC view: watching from the runway end, like flying a model plane. Pinch to zoom.", "遙控視角：站在跑道頭看飛機，像在飛遙控飛機。兩指可縮放。") : L("Chase view", "追蹤視角")); };
 $("bFlare").addEventListener("pointerdown", e => { e.preventDefault(); dropFlares(); });
+function cycleTime(){ timeX = timeX >= 8 ? 1 : timeX * 2; $("bTime").textContent = "x" + timeX; }
+$("bTime").addEventListener("pointerdown", e => { e.preventDefault(); cycleTime(); });
 $("bGear").onclick = toggleGear; $("bBrake").onclick = toggleBrake; $("bReset").onclick = () => spawn();
 $("bView").onclick = () => { cam.mode = (cam.mode + 1) % 3; cam.yaw = cam.pitch = 0; cam.rc = false; cam.fly = null; updButtons(); sub([L("Chase view", "追蹤視角"), L("Far chase view", "遠距追蹤"), L("Close view", "近距視角")][cam.mode]); };
 $("menuBtn").onclick = () => { $("panel").classList.toggle("open"); renderLoadout(); renderJoy(); };
 $("selFM").onchange = () => { try { localStorage.setItem("fa_flight_fm", $("selFM").value); } catch(e){} spawn(); };
 try { const v = localStorage.getItem("fa_flight_fm"); if (v) $("selFM").value = v; } catch(e){}
 { const sel = $("selShape"), grp = (label, names) => { const g = document.createElement("optgroup"); g.label = label; for (const n of names){ const o = document.createElement("option"); o.value = n; o.textContent = n; g.appendChild(o); } sel.appendChild(g); };
-  grp("F-14 / F/A-18", ["F14", ...F18S]); grp("Ships", [...SHIPS].filter(n => SH_NAMES.includes(n))); grp("All SH", SH_NAMES); sel.value = "F14"; }
+  grp("F-14 / F/A-18", ["F14", "F14J", "F14S", "F14W", "F14B", "FIR", "FBC", ...F18S]); grp("Ships", [...SHIPS].filter(n => SH_NAMES.includes(n))); grp("All SH", SH_NAMES); sel.value = "F14"; }
 $("bMission").onclick = async () => { $("panel").classList.remove("open"); $("selMission").value = "canyon"; await buildCanyon(); await choose($("selShape").value); };
 $("bGo").onclick = async () => { $("panel").classList.remove("open"); if ($("selMission").value === "canyon") await buildCanyon(); await choose($("selShape").value); };
 async function choose(name){
@@ -1689,10 +1695,11 @@ async function choose(name){
 }
 
 // ===== main loop =====
-let lastT = 0, lastDt = 0.016;
+let lastT = 0, lastDt = 0.016, timeX = 1;   // time compression x1/x2/x4/x8 (bTime)
 function frame(t){
   const dt = Math.min(0.05, (t - (lastT || t)) / 1000); lastT = t; lastDt = dt || 0.016;
-  if (P.s){ readInput(); const n = Math.ceil(lastDt / 0.01); for (let i = 0; i < n; i++) step(lastDt / n); }
+  if (P.s){ readInput(); const sdt = lastDt * timeX, n = Math.ceil(sdt / 0.01); for (let i = 0; i < n; i++) step(sdt / n); stepPark(sdt); }
+  if (P.crashed && performance.now() - P.boom > 5000) spawn();   // auto restart 5 s after a crash
   render(); hud(); drawOverlay(); requestAnimationFrame(frame);
 }
 
@@ -1702,14 +1709,14 @@ FAI18N.register({
   "Auto (by model)": "自動（依模型判斷）", "Fly (aircraft)": "飛行（飛機）", "Drive (ground vehicle)": "駕駛（地面車輛）", "Sail (ship)": "航行（船艦）",
   "Start position": "起始位置", "Airfield runway": "機場跑道", "Carrier deck": "航艦甲板", "In the air": "空中", "At sea (ships)": "海上（船艦）",
   "▶ Start": "▶ 開始", "Invert pitch (push stick up = nose up)": "反轉俯仰（搖桿往上推 = 機頭抬起）", "Textures": "貼圖",
-  "Right stick: up/down is pitch, left/right is rudder. Left stick: up/down changes the throttle (it stays where you leave it), left/right is roll. The sticks only answer touches inside their circles: drag anywhere else to look around (the view stays where you leave it; Front brings it back, RC view watches from the runway end like an RC model pilot), pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult. The weapon button on the right picks gun, AIM-9, AIM-120 (air targets), AGM-65 (ground and ships) or MK-82 bombs; missiles lock the target nearest your nose. To land, slow down, lower the gear and raise the nose: the jet settles gently nose-high, and the throttle sets how fast it sinks.":
-    "右搖桿：上下是俯仰，左右是方向舵。左搖桿：上下調整油門（放開後會停在那個位置），左右是滾轉。搖桿只在圓圈內有效；在畫面其他地方拖曳都是轉動視角（視角會停在你轉到的地方，按「前向」回到正後方；「遙控視角」會站在跑道頭看飛機，像飛遙控飛機一樣），兩指縮放，點兩下讓鏡頭立刻回到後方。油門推到底會開後燃器；在航艦上也會啟動彈射器。右側的武器按鈕可切換機砲、AIM-9、AIM-120（打空中目標）、AGM-65（打地面和船艦）或 MK-82 炸彈；飛彈會鎖定最靠近機頭的目標。降落時減速、放下起落架、抬起機頭：飛機會以機頭朝上的姿態緩緩下降，用油門控制下降速度。",
-  "Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, C or Delete flares, Insert chaff, F1 front view, F9 fly-by view, R restart, mouse drag to look, wheel to zoom.":
-    "鍵盤：W/S 俯仰、A/D 滾轉、Q/E 方向舵、Shift/Ctrl 油門、G 起落架、B 煞車、空白鍵 發射、F 換武器、C 或 Delete 熱焰彈、Insert 干擾絲、F1 前向視角、F9 飛掠視角、R 重來，滑鼠拖曳轉視角、滾輪縮放。",
+  "Right stick: up/down is pitch, left/right is rudder. Left stick: up/down changes the throttle (it stays where you leave it), left/right is roll. The sticks only answer touches inside their circles: drag anywhere else to look around (the view stays where you leave it; double-tap brings it back. Fly-by parks the camera beside your path ahead and lets the jet pass it, like F9; RC view watches from the runway end like an RC model pilot), pinch to zoom, double-tap to snap the camera back. Full throttle lights the afterburner; on the carrier it also fires the catapult. The weapon button on the right picks gun, AIM-9, AIM-120 (air targets), AGM-65 (ground and ships) or MK-82 bombs; missiles lock the target nearest your nose. To land, slow down, lower the gear and raise the nose: the jet settles gently nose-high, and the throttle sets how fast it sinks.":
+    "右搖桿：上下是俯仰，左右是方向舵。左搖桿：上下調整油門（放開後會停在那個位置），左右是滾轉。搖桿只在圓圈內有效；在畫面其他地方拖曳都是轉動視角（視角會停在你轉到的地方，點兩下回到正後方；「飛掠」會把鏡頭放在前方航線旁，讓飛機從旁邊掠過，等同 F9；「遙控視角」會站在跑道頭看飛機，像飛遙控飛機一樣），兩指縮放，點兩下讓鏡頭立刻回到後方。油門推到底會開後燃器；在航艦上也會啟動彈射器。右側的武器按鈕可切換機砲、AIM-9、AIM-120（打空中目標）、AGM-65（打地面和船艦）或 MK-82 炸彈；飛彈會鎖定最靠近機頭的目標。降落時減速、放下起落架、抬起機頭：飛機會以機頭朝上的姿態緩緩下降，用油門控制下降速度。",
+  "Keyboard: W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl throttle, G gear, B brake, Space fire, F weapon, C time compression x1/x2/x4/x8, Delete flares, Insert chaff, F1 front view, F9 fly-by view, R restart, mouse drag to look, wheel to zoom.":
+    "鍵盤：W/S 俯仰、A/D 滾轉、Q/E 方向舵、Shift/Ctrl 油門、G 起落架、B 煞車、空白鍵 發射、F 換武器、C 時間加速 x1/x2/x4/x8、Delete 熱焰彈、Insert 干擾絲、F1 前向視角、F9 飛掠視角、R 重來，滑鼠拖曳轉視角、滾輪縮放。",
   "Mission": "任務", "⛰ Canyon strike mission": "⛰ 峽谷轟炸任務", "Free flight": "自由飛行", "Canyon strike": "峽谷轟炸任務",
-  "Canyon strike: fly the winding canyon at low level. Above the rim the SAM radar sees you and the sites launch. At the end of the canyon pull up over the ridge, dive into the crater and bomb the reactor (MK-82 is selected; the yellow circle shows where the bomb falls), then climb out: the SAMs on the crater rim fire at you, so turn hard and drop flares (FLARE button or C). Get 3 nm clear to finish.":
-    "峽谷轟炸任務：沿著蜿蜒的峽谷低空飛行。高過峽谷邊緣就會被防空雷達看到，飛彈陣地會發射。到峽谷盡頭拉起越過山脊，俯衝進入內凹的山谷，轟炸核子反應爐（已選好 MK-82，黃色圓圈是炸彈落點），然後拉出來：山谷上緣的防空飛彈會對你發射，要急轉並放熱焰彈（熱焰彈按鈕或 C 鍵）。飛離 3 浬即完成任務。",
-  "Pitch / Rudder": "俯仰 / 方向舵", "FIRE": "發射", "Front": "前向", "RC view": "遙控視角", "Throttle / Roll": "油門 / 滾轉", "Loading…": "載入中…"
+  "Canyon strike: fly the winding canyon at low level. Above the rim the SAM radar sees you and the sites launch. At the end of the canyon pull up over the ridge, dive into the crater and bomb the reactor (MK-82 is selected; the yellow circle shows where the bomb falls), then climb out: the SAMs on the crater rim fire at you, so turn hard and drop flares (FLARE button or Delete). Get 3 nm clear to finish.":
+    "峽谷轟炸任務：沿著蜿蜒的峽谷低空飛行。高過峽谷邊緣就會被防空雷達看到，飛彈陣地會發射。到峽谷盡頭拉起越過山脊，俯衝進入內凹的山谷，轟炸核子反應爐（已選好 MK-82，黃色圓圈是炸彈落點），然後拉出來：山谷上緣的防空飛彈會對你發射，要急轉並放熱焰彈（熱焰彈按鈕或 Delete 鍵）。飛離 3 浬即完成任務。",
+  "Pitch / Rudder": "俯仰 / 方向舵", "FIRE": "發射", "Fly-by": "飛掠", "RC view": "遙控視角", "Throttle / Roll": "油門 / 滾轉", "Loading…": "載入中…"
 });
 $("langSlot").append(FAI18N.picker()); FAI18N.apply(); FAI18N.onChange(updButtons); FAI18N.onChange(renderJoy); renderJoy();
 

@@ -1,0 +1,26 @@
+[brent's_relocatable_format]
+    byte 9
+	ptr si_names
+    word 0
+    byte $0
+    word $0
+    byte 24
+    byte 80
+    byte 0
+    byte 63
+    byte 24
+    byte 80
+    byte 0
+    byte 63
+    byte 50
+    word 75
+    byte 0
+    byte 0
+    byte 35
+    word 100
+    byte 0
+:si_names
+	string ""
+	string "(24) 80C (24) 80F Flanker"
+	string "SU27.ECM"
+	end

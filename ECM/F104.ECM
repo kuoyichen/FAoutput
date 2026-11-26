@@ -1,0 +1,26 @@
+[brent's_relocatable_format]
+    byte 9
+	ptr si_names
+    word 0
+    byte $0
+    word $0
+    byte 6
+    byte 65
+    byte 127
+    byte 191
+    byte 0
+    byte 35
+    byte 127
+    byte 191
+    byte 0
+    word 0
+    byte 0
+    byte 0
+    byte 0
+    word 0
+    byte 0
+:si_names
+	string ""
+	string "(6) 65C AN/ALE-29 Down"
+	string "F104.ECM"
+	end

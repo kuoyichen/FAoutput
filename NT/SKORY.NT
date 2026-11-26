@@ -1,0 +1,214 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 3
+    word 354
+    word 264
+	ptr ot_names
+    dword $131
+    word $2000
+	ptr shape
+    dword 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 1956
+    word 391
+    word 0
+    word 200
+    word 200
+    word 150
+    word 200
+    word 0
+    word 660
+    word 255
+    word 255
+    word 255
+    word 255
+    word 255
+    byte 35
+    byte 0
+    dword 0
+    word 100
+
+;---------------- movement info ----------------
+
+    word 910
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 48
+    word 48
+    dword ^5
+    dword ^5
+    dword ^0
+    dword ^0
+	symbol _GVProc	; utilProc
+
+;---------------- sound info ----------------
+
+	ptr loopSound
+	ptr secondSound
+    dword 0
+    dword 0
+    byte 1
+    word 2500
+    word 25
+    word 20
+    word 20
+    word 1000
+    word 0
+    word 0
+    word 0
+    dword 0
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+
+;---------------- START OF NPC_TYPE ----------------
+
+    dword $0
+    dword 0
+    byte 40
+    byte 100
+    byte 80
+    word 32767
+    word 0
+    byte 7
+	ptr hards
+
+;---------------- END OF NPC_TYPE ----------------
+
+:hards
+;-------- hardpoint 0
+    word $8
+    word 0
+    word -70
+    word 300
+    word 0
+    word 0
+    word 27300
+    word 16380
+	ptr defaultTypeName0
+    byte 0
+    word 2000
+    byte 0
+;-------- hardpoint 1
+    word $a
+    word 0
+    word -100
+    word -400
+    word 32760
+    word 0
+    word 27300
+    word 16380
+	ptr defaultTypeName1
+    byte 0
+    word 2000
+    byte 0
+;-------- hardpoint 2
+    word $a
+    word 0
+    word -50
+    word 275
+    word 0
+    word 0
+    word 27300
+    word 16380
+	ptr defaultTypeName2
+    byte 0
+    word 4000
+    byte 0
+;-------- hardpoint 3
+    word $a
+    word 0
+    word -50
+    word -380
+    word 32760
+    word 0
+    word 27300
+    word 16380
+	ptr defaultTypeName3
+    byte 0
+    word 4000
+    byte 0
+;-------- hardpoint 4
+    word $a
+    word 60
+    word 0
+    word 0
+    word 16380
+    word 0
+    word 16380
+    word 16380
+	ptr defaultTypeName4
+    byte 0
+    word 6000
+    byte 0
+;-------- hardpoint 5
+    word $a
+    word -60
+    word 0
+    word 0
+    word 49140
+    word 0
+    word 16380
+    word 16380
+	ptr defaultTypeName5
+    byte 0
+    word 6000
+    byte 0
+;-------- hardpoint 6
+    word $8
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+	ptr defaultTypeName6
+    byte 0
+    word 1
+    byte 0
+:ot_names
+	string "Skory"
+	string "Skory Class DD"
+	string "SKORY.NT"
+:shape
+	string "jgr.SH"
+:loopSound
+	string "&SHIP1.5K"
+:secondSound
+	string "&SHIP1.5K"
+:defaultTypeName0
+	string "KS19.JT"
+:defaultTypeName1
+	string "KS19.JT"
+:defaultTypeName2
+	string "M1939.JT"
+:defaultTypeName3
+	string "M1939.JT"
+:defaultTypeName4
+	string "GSH30.JT"
+:defaultTypeName5
+	string "GSH30.JT"
+:defaultTypeName6
+	string "VIS360OL.SEE"
+	end

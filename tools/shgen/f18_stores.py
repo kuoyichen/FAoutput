@@ -129,11 +129,11 @@ def pylon(h, bot, top):
 
 
 import fa_weapons
-_W = lambda name, length, roll=0: (lambda: fa_weapons.load(name, None if NATIVE else length, roll=roll))
+_W = lambda name, length, roll=0, balance=False: (lambda: fa_weapons.load(name, None if NATIVE else length, roll=roll, balance=balance))
 # FA's own weapon models (with their colour bands); lengths are the real ones in F18 units (~9.5 units per metre),
 # used only when NATIVE is off
 SHAPES = {TANK: tank480, AIM9: _W('SIDEM.SH', 29), AAM: _W('AMRAM.SH', 37), ARM: _W('HARM.SH', 42),
-          LGB: _W('PAVE.SH', 42, 45), BOMB: _W('MK82.SH', 21), AIM7: _W('SPAR.SH', 36), AIM54: _W('PHENX.SH', 40),
+          LGB: _W('PAVE.SH', 42, 45, True), BOMB: _W('MK82.SH', 21), AIM7: _W('SPAR.SH', 36), AIM54: _W('PHENX.SH', 40),
           JDAM: _W('GB27.SH', 37)}       # GBU-3x JDAM: FA's GBU-29/30 shape (X fins)
 
 
@@ -579,8 +579,9 @@ def place_units(c, ROOT, ubox):
             if op == 0x6C: fa, base = (p+6, p+8) if side == 'A' else (p+8, p+10)
             elif op == 6: fa, base = (p+14, p+16) if side == 'A' else (p+16, p+18)
             else: fa, base = (p+10, p+12) if side == 'A' else (p+12, p+14)
+            fa0 = fa
             if T == 'ROOT': fa = None                 # the root node is copied (BODY); its fields are written there
-            T, items, ref = base + h(fa if fa else p+14 if side == 'A' else p+16), nd[5] if side == 'A' else nd[6], (fa, base)
+            T, items, ref = base + h(fa0), nd[5] if side == 'A' else nd[6], (fa, base)
         G = pts(items) + [q for (uu, _, _) in plan.get(T, []) for q in corners(ubox[uu])]
         best = None
         for j in range(3):
@@ -607,7 +608,8 @@ def build(d, static=False, debug=False):
     HOOK = None
     if c[ROOT] == 0x12 and c[ROOT+1] == 0:            # root already hooked by an earlier edit (e.g. the F-14N nose):
         HOOK = ROOT; ROOT = ROOT + 4 + struct.unpack_from('<h', c, ROOT+2)[0]   # the real root node is its target
-    assert c[ROOT] == 0x06 and c[ROOT+1] == 0, 'root is not a 06 node'
+    assert c[ROOT] in (0x06, 0x0C, 0x0E, 0x10) and c[ROOT+1] == 0, 'root is not a plane node'
+    NL = 18 if c[ROOT] == 0x06 else 14                # 06 = 3D plane (18 B); 0C/0E/10 = 2D planes (14 B, F18C/E/T)
     tail = bytes(c).find(SIG)
     thunk_old = find_thunk(c, tail)
 
@@ -624,6 +626,12 @@ def build(d, static=False, debug=False):
     assert all(v > 0 for v in struct.unpack('<3h', HDR)), HDR
     shapes = {k: aft(f()) for k, f in SHAPES.items()}
     parts = {('K', k): part_bytes(*v) for k, v in shapes.items()}
+    SHAPES[LGB](); xg, xt = fa_weapons.LAST_GROUPS, fa_weapons.LAST_TOP      # GBU: X fins with their own draw order
+    if xg:
+        V, F = shapes[LGB]
+        b = struct.pack('<BBHH', 0x82, 0, len(V), BASE*8) + b''.join(struct.pack('<hhh', *v) for v in V)
+        b += fa_weapons.xfin_code(V, F, xg, xt, faces_bytes)
+        parts[('K', LGB)] = HDR + b + b'\0' * (len(b) % 2)
     parts.update({('P', k): part_bytes(*v) for k, v in PYLONS.items()})
     nv = max(len(v[0]) for v in list(shapes.values()) + list(PYLONS.values()))
     if BASE + nv > 900: sys.exit('vertex table over 900')
@@ -644,13 +652,13 @@ def build(d, static=False, debug=False):
         lo = [min(q[j] for q in P) for j in range(3)]; hi = [max(q[j] for q in P) for j in range(3)]
         if clip_up is not None: hi[1] = min(hi[1], clip_up)
         return lo, hi
-    ubox = {k: box(shapes[v[2]][0], v[3]) for k, v in SLOTS.items()}
+    ubox = {k: box(shapes[v[2] or GENERIC][0], v[3]) for k, v in SLOTS.items()}   # no default store: a generic missile
     for name, part, ps, top in pyu: ubox[name] = box(PYLONS[part][0], ps, top)
     if PLACER is None: plan, rootrefs = place_units(c, ROOT, ubox)
     else:
         ugeo = {}
         def geo(V, F, ps): return [(bool(fl & 0x40), [(ps[0] + V[i][0], ps[1] + V[i][2], ps[2] + V[i][1]) for i in idx]) for fl, col, idx in F]
-        for k, v in SLOTS.items(): ugeo[k] = geo(*shapes[v[2]], v[3])
+        for k, v in SLOTS.items(): ugeo[k] = geo(*shapes[v[2] or GENERIC], v[3])
         for name, part, ps, top in pyu: ugeo[name] = geo(*PYLONS[part], ps)
         plan, rootrefs = PLACER(c, ROOT, ugeo, ubox)
     nodes = []                                        # (key, plane n, d, A target, B leaf)
@@ -689,21 +697,25 @@ def build(d, static=False, debug=False):
         at['FALL'] = p; fb, st_len = fall_bytes(0, 0); p += len(fb); at['STATE'] = p; p += st_len
     pad = p % 2; p += pad
     relocs = []
-    for k in parts: at[k] = p + len(HDR); p += len(parts[k])   # target = the 82 after the header
+    first = {}                                        # identical parts (a kind drawn with another kind's shape) stored once
+    for k in parts:
+        if parts[k] in first: at[k] = at[first[parts[k]]]; continue
+        first[parts[k]] = k; at[k] = p + len(HDR); p += len(parts[k])   # target = the 82 after the header
     L = p - tail                                      # inserted length; thunk moves by L
     thunk_new = thunk_old + L
 
     def addr(r):                                      # ('T', original target) / ('K', node key)
         if r[0] == 'K': return at[r[1]]
         return at['BODY'] if r[1] == 'ROOT' else r[1]
-    TA = ROOT + 16 + struct.unpack_from('<h', c, ROOT+14)[0]; TB = ROOT + 18 + struct.unpack_from('<h', c, ROOT+16)[0]
+    TA = ROOT + NL - 2 + struct.unpack_from('<h', c, ROOT+NL-4)[0]; TB = ROOT + NL + struct.unpack_from('<h', c, ROOT+NL-2)[0]
     blk = bytearray()
     o = at['BODY']                                    # copy of the root node; its branches may lead into chains
     ta = addr(chain_top[TA]) if TA in chain_top else TA
     tb = addr(chain_top[TB]) if TB in chain_top else TB
-    blk += bytes(c[ROOT:ROOT+14]) + struct.pack('<hh', ta - (o+16), tb - (o+18))
+    blk += bytes(c[ROOT:ROOT+NL-4]) + struct.pack('<hh', ta - (o+NL-2), tb - (o+NL))
     # hooked root: BODY replaces the node inside the hook's block, so it continues with what followed it there
-    blk += (b'\x38' + struct.pack('<h', ROOT + 18 - (o+21)) + b'\x1e') if HOOK is not None else b'\x00\x00'
+    blk += (b'\x38' + struct.pack('<h', ROOT + NL - (o+NL+3)) + b'\x1e') if HOOK is not None else b'\x00\x00'
+    blk += b'\x00' * (18 - NL)                         # BODY slot is sized for an 06 node
     for k, nn, dd, a, u in nodes:
         o = at[k]
         blk += struct.pack('<BB6h', 0x06, 0, nn[0], dd[0], nn[1], dd[1], nn[2], dd[2]) + \
@@ -714,8 +726,8 @@ def build(d, static=False, debug=False):
     if HOOK is not None:
         struct.pack_into('<h', c, HOOK+2, top - (HOOK+4))
     else:
-        patch = b'\x12\x00' + struct.pack('<h', top - (ROOT+4)) + b'\x38' + struct.pack('<h', ROOT + 18 - (ROOT+7))
-        c[ROOT:ROOT+18] = patch + b'\x1e' * (18 - len(patch))
+        patch = b'\x12\x00' + struct.pack('<h', top - (ROOT+4)) + b'\x38' + struct.pack('<h', ROOT + NL - (ROOT+7))
+        c[ROOT:ROOT+NL] = patch + b'\x1e' * (NL - len(patch))
     for k, items in leaves.items():
         o = at[k]
         for it in items:
@@ -768,7 +780,8 @@ def build(d, static=False, debug=False):
             assert len(blk) == at['FALL'] - tail
             blk += fb + b'\x00' * st_len
     blk += b'\x00' * pad
-    for k in parts: blk += parts[k]
+    for k in parts:
+        if first[parts[k]] == k: blk += parts[k]
     assert len(blk) == L, (len(blk), L)
     room = nxt - code['va'] - len(c)
     print({str(k): len(v) for k, v in parts.items()}, 'total', len(blk), 'room', room, 'max part verts', nv,

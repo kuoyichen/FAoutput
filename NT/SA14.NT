@@ -1,0 +1,120 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 3
+    word 210
+    word 162
+	ptr ot_names
+    dword $c21
+    word $1000
+	ptr shape
+    dword 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 1974
+    word 78
+    word 0
+    word 100
+    word 100
+    word 100
+    word 100
+    word 0
+    word 5
+    word 255
+    word 255
+    word 255
+    word 255
+    word 255
+    byte 21
+    byte 6
+    dword 0
+    word 100
+
+;---------------- movement info ----------------
+
+    word 9100
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 10
+    word 10
+    dword ^50
+    dword ^50
+    dword ^0
+    dword ^0
+	symbol _GVProc	; utilProc
+
+;---------------- sound info ----------------
+
+    dword 0
+    dword 0
+    dword 0
+    dword 0
+    byte 1
+    word 2500
+    word 25
+    word 20
+    word 20
+    word 1000
+    word 0
+    word 0
+    word 0
+    dword 0
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+
+;---------------- START OF NPC_TYPE ----------------
+
+    dword $0
+    dword 0
+    byte 20
+    byte 60
+    byte 40
+    word 32767
+    word 0
+    byte 1
+	ptr hards
+
+;---------------- END OF NPC_TYPE ----------------
+
+:hards
+;-------- hardpoint 0
+    word $8
+    word 0
+    word 30
+    word 0
+    word 0
+    word 0
+    word 0
+    word 16380
+	ptr defaultTypeName0
+    byte 0
+    word 1
+    byte 0
+:ot_names
+	string "SA-14"
+	string "SA-14 Gremlin"
+	string "SA14.NT"
+:shape
+	string "pmis.SH"
+:defaultTypeName0
+	string "MIS.JT"
+	end

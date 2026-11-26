@@ -79,6 +79,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 @media (max-width:600px){ header,main,nav#tabs{padding-left:10px;padding-right:10px} #hpEdit .cols{grid-template-columns:1fr} }
 </style>
 <script src="fashion_i18n.js"></script>
+<script src="fashion_editors.js" defer></script>
 <script src="sh_editor_core.js"></script>
 <script src="pt_core.js"></script>
 </head>
@@ -468,7 +469,9 @@ function partTf(e){
 // ===== File loading: ../SH, ../PIC (when served over HTTP) → GitHub =====
 const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
 const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
+const SH_VIEW = p => p;   // SHCore now follows the F14/F18 x86-only parts (wing fold, flaps, parked sweep), so every viewer loads the real SH
 async function fetchAny(paths){
+  paths = paths.map(SH_VIEW);
   const urls = [];
   for (const p of paths){ if (/^https?:$/.test(location.protocol)) urls.push(new URL("../" + p, location.href).href); }
   for (const p of paths) urls.push(REMOTE + p);

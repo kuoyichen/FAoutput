@@ -156,8 +156,11 @@ def visible(face, E):
     return (not cull) or float(n @ (E - P[0])) > 0
 
 
-def place(c, ROOT, units, boxes, order_units=None, dist=260, tgt=(0, -4, 20), log=print):
+def place(c, ROOT, units, boxes, order_units=None, dist=260, tgt=(0, -4, 20), log=print, pre=None):
+    """pre: {T: [(unit, n, d), ...]} units already placed (by another placer); their faces must be in units, and
+    only order_units are placed here, against the model with those already in it."""
     M = Model(c, ROOT, units)
+    if pre: M.ins = {T: list(v) for T, v in pre.items()}
     cams = [Cam(v, dist, tgt) for v in views()]
     # per camera: raster of every face (cached), visibility
     R = []

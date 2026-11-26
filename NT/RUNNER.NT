@@ -1,0 +1,105 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 3
+    word 186
+    word 145
+	ptr ot_names
+    dword $c21
+    word $40
+	ptr shape
+    dword 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 1961
+    word 59
+    word 0
+    word 100
+    word 100
+    word 100
+    word 100
+    word 0
+    word 5
+    word 255
+    word 255
+    word 255
+    word 255
+    word 255
+    byte 15
+    byte 1
+    dword 0
+    word 100
+
+;---------------- movement info ----------------
+
+    word 8190
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 10
+    word 10
+    dword ^25
+    dword ^25
+    dword ^0
+    dword ^0
+	symbol _OBJProc	; utilProc
+
+;---------------- sound info ----------------
+
+    dword 0
+    dword 0
+    dword 0
+    dword 0
+    byte 1
+    word 2500
+    word 25
+    word 20
+    word 20
+    word 1000
+    word 0
+    word 0
+    word 0
+    dword 0
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+
+;---------------- START OF NPC_TYPE ----------------
+
+    dword $0
+    dword 0
+    byte 20
+    byte 60
+    byte 40
+    word 32767
+    word 0
+    byte 0
+	ptr hards
+
+;---------------- END OF NPC_TYPE ----------------
+
+:hards
+:ot_names
+	string "Man"
+	string "Man"
+	string "RUNNER.NT"
+:shape
+	string "runner.SH"
+	end

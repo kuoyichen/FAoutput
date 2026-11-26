@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>F/A-18 Showcase</title>
+<meta name="description" content="FAshion release #1: the whole F/A-18 family for Fighters Anthology (F/A-18C, D, E, F, both Blue Angels and the EA-18G Growler), reshaped, drawing their real loadout, with 3D gear and spinning wheels, parked wing fold and an animated afterburner. View each one in 3D and download.">
 <style>
 :root{ --bg:#14181d; --card:#1d232b; --line:#2e3742; --text:#dde3ea; --muted:#8b96a5; --accent:#ffd54a; --bad:#ff6a50; }
 *{box-sizing:border-box}
@@ -44,6 +45,31 @@ a.dl:hover{filter:brightness(1.1)}
 #spec p{color:var(--muted);font-size:12px;margin:6px 0 0}
 @media (max-width:760px){ #main{grid-template-columns:1fr;padding:8px} header{padding:8px} }
 a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+/* release notes below the viewer */
+#notes{max-width:1180px;margin:0 auto;padding:18px 16px 40px;font-size:15px;line-height:1.6}
+#notes .kicker{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.6px;text-transform:uppercase}
+#notes h2{font-size:21px;margin:34px 0 10px}
+#notes h2.big{font-size:clamp(26px,5vw,38px);line-height:1.15;margin:6px 0 8px}
+#notes h2 b{color:var(--accent)}
+#notes h3{font-size:17px;margin:0 0 6px}
+#notes h3 > span:last-child:not([data-lang]){color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
+#notes .lead{font-size:17px;color:#c4ccd5;max-width:800px}
+#notes .muted{color:var(--muted)}
+#notes a{color:#6fd3ff}
+#notes .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+#notes .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+#notes .chg ul{margin:8px 0 0;padding-left:20px}
+#notes .chg li{margin:6px 0}
+#notes .chg li b{color:var(--accent);font-weight:600}
+#notes table.num{width:100%;border-collapse:collapse;font-size:14px}
+#notes table.num th,#notes table.num td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+#notes table.num th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+#notes ol.steps{padding-left:22px}
+#notes .warnbox{border:1px solid #ffb34766;background:#ffb3470f;border-radius:12px;padding:12px 14px;margin-top:14px}
+#notes .warnbox b{color:#ffb347}
+footer{max-width:1180px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+footer a{color:#6fd3ff}
+@media (max-width:900px){ #notes .two{grid-template-columns:1fr} }
 </style>
 <script src="fashion_i18n.js"></script>
 <script src="sh_editor_core.js"></script>
@@ -52,7 +78,7 @@ a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spa
 <header>
   <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
   <h1>F/A-18 Hornet / Super Hornet / Blue Angels / EA-18G Growler</h1>
-  <a class="dl" id="dlall" href="#" title="All F/A-18 SH models and PIC textures from GitHub, in one zip">⬇ Download all models (.zip)</a>
+  <a class="dl" id="dlall" href="#" title="All F/A-18 SH models, PIC textures and PT files from GitHub, in one zip">⬇ Download all models (.zip)</a>
   <div id="variants"></div>
   <label class="ck"><input type="checkbox" id="spin" checked> Auto-rotate</label>
   <label class="ck"><input type="checkbox" id="edges"> Wireframe</label>
@@ -91,6 +117,161 @@ a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spa
       <canvas id="tex"></canvas></div>
   </div>
 </div>
+<article id="notes">
+  <div class="kicker" data-lang="en">Release #1 · Nov 14, 2026 · updated Nov 25</div>
+  <div class="kicker" data-lang="zh">發布 #1 · 2026 年 11 月 14 日 · 11 月 25 日更新</div>
+  <h2 class="big"><span data-lang="en">The whole <b>F/A-18</b> family, rebuilt</span><span data-lang="zh">整個 <b>F/A-18</b> 家族，全面翻新</span></h2>
+  <p class="lead" data-lang="en">Seven replacement shapes for Fighters Anthology: the Hornet (C and D), the Super Hornet (E and F), both Blue Angels jets and the EA-18G Growler. Every one is reshaped, draws the weapons and tanks it really carries, lowers 3D landing gear with spinning wheels, folds its outer wings when parked and lights an afterburner flame that grows. Pick a jet above to see it in 3D, then download it.</p>
+  <p class="lead" data-lang="zh">七個給 Fighters Anthology 用的替換外形：Hornet（C 和 D）、Super Hornet（E 和 F）、兩架藍天使和 EA-18G 咆哮者。每一架都修整了外形，會畫出實際掛的武器和副油箱，有會轉輪子的立體起落架，停機時外翼會折起，後燃器火焰會慢慢變長。在上面選一架看 3D，再下載。</p>
+  <p class="muted" data-lang="en">The F-14 Tomcat has its own page: <a href="f14_f18.html">New F-14 Tomcat</a>.</p>
+  <p class="muted" data-lang="zh">F-14 雄貓有自己的頁面：<a href="f14_f18.html">全新 F-14 雄貓</a>。</p>
+
+  <h2><span data-lang="en">What every F/A-18 now has</span><span data-lang="zh">每一架 F/A-18 都有的</span></h2>
+  <div class="two">
+    <div class="card chg">
+      <h3><span data-lang="en">Shape</span><span data-lang="zh">外形</span></h3>
+      <ul data-lang="en">
+        <li><b>Hornet (C, D):</b> narrower and lower fuselage, lower canopy, longer nose and tail, smaller vertical and horizontal tails. The D keeps its two-seat cockpit.</li>
+        <li><b>Super Hornet (E, F):</b> longer fuselage, larger wing and LEX, recomputed shading normals and wingtip vapour-trail points. The distant low-detail model has the larger wing too.</li>
+        <li><b>Gaps closed</b> at the wing root and the LEX, and the main gear doors are half their old height on every jet.</li>
+      </ul>
+      <ul data-lang="zh">
+        <li><b>Hornet（C、D）：</b>機身變窄變低、座艙罩降低、機鼻和機尾加長、垂直和水平尾翼縮小。D 型保留雙座座艙。</li>
+        <li><b>Super Hornet（E、F）：</b>機身加長、機翼和邊條加大，重算光影法向量和翼尖凝結尾跡的起點。遠距離的低細節模型也換上較大的機翼。</li>
+        <li><b>補上縫隙</b>：翼根和邊條的縫補起來了，每一架的主起落架艙門高度都減半。</li>
+      </ul>
+    </div>
+    <div class="card chg">
+      <h3><span data-lang="en">Weapons drawn from the real loadout</span><span data-lang="zh">依實際掛載畫出武器</span></h3>
+      <ul data-lang="en">
+        <li><b>Every frame the SH reads each station</b> (weapon type and rounds left), so it shows whatever you pick in the arming screen. The default Hornet load is a centreline tank, AIM-120s on the fuselage, GBUs inboard, HARMs outboard and AIM-9s on the wingtips.</li>
+        <li><b>Any station can take any store:</b> fuel tank, AIM-9, AIM-7, AIM-120, HARM, GBU, JDAM, AGM-65 Maverick and bombs. Mk-82, Mk-84 and CBU loads use the redrawn, symmetric Mk-84; an AIM-54 (which the Hornet never carries) is drawn as an AIM-120.</li>
+        <li><b>GBU-16</b> with a balanced body and four two-sided X fins, so all four fins show from any angle. The 480-gallon tank has a pointed nose and tail cone.</li>
+        <li><b>Fuselage AIM-120s</b> sit just behind the intake lip, as on the real jet, and the wing stores are moved back so their tails clear the lowered flaps.</li>
+        <li><b>Stores disappear as you fire them</b>, pylons hide when a station is empty, and <b>jettisoned or empty tanks fall away</b> from the centreline and wing stations.</li>
+        <li><b>New PT files:</b> launch points sit a little below the drawn stores so missiles leave clear of the airframe, and Shift+J now drops the F/A-18E and F centreline tank too.</li>
+      </ul>
+      <ul data-lang="zh">
+        <li><b>SH 每一格都會讀每個掛點</b>（武器種類和剩餘數量），所以掛載畫面選什麼就畫什麼。Hornet 預設是機腹中線副油箱、機身兩側 AIM-120、內側翼下 GBU、外側翼下 HARM、翼尖 AIM-9。</li>
+        <li><b>每個掛點都能掛任何外掛：</b>副油箱、AIM-9、AIM-7、AIM-120、HARM、GBU、JDAM、AGM-65 小牛和炸彈。Mk-82、Mk-84 和 CBU 用重畫過、左右對稱的 Mk-84；AIM-54（Hornet 不會掛）畫成 AIM-120。</li>
+        <li><b>GBU-16</b> 彈身對稱，四片雙面 X 形尾翼，從任何角度都看得到四片。480 加侖副油箱有尖頭和尾錐。</li>
+        <li><b>機身兩側 AIM-120</b> 的彈頭剛好在進氣口唇口後方，跟真機一樣；翼下外掛往後移，尾端不會碰到放下的襟翼。</li>
+        <li><b>武器射出就消失</b>，掛點清空時派龍架會隱藏，<b>拋棄或用完的副油箱會往下掉</b>，機腹中線和翼下掛點都有。</li>
+        <li><b>新的 PT 檔：</b>發射點設在畫出的外掛下方一點，讓飛彈離開機身後才射出；F/A-18E 和 F 的中線副油箱現在也能用 Shift+J 拋掉。</li>
+      </ul>
+    </div>
+    <div class="card chg">
+      <h3><span data-lang="en">Gear and parked wing fold</span><span data-lang="zh">起落架與停機折翼</span></h3>
+      <ul data-lang="en">
+        <li><b>3D landing gear:</b> main struts with an axle and a round wheel, and a nose gear with housing, piston, collar, fork block, launch bar and rear brace that now reaches the fuselage. Struts use the factory strut texture and each jet keeps its own wheel art.</li>
+        <li><b>Spinning wheels:</b> still at 0 kt, faster with speed, and stopped again above 180 kt.</li>
+        <li><b>Parked wing fold:</b> stopped on the ground or a carrier deck with the gear down, the outer wings fold up over 4 seconds. They spread again in 3 seconds when you move off, or at full afterburner on the catapult. The wingtip missiles fold with the wing, and on the Super Hornets the hinge is far enough out that the flaps stay on the inner wing.</li>
+      </ul>
+      <ul data-lang="zh">
+        <li><b>立體起落架：</b>主輪柱有輪軸和圓形輪子，前起落架有筒身、活塞、套環、叉座、彈射桿和後斜撐，而且接到機身。輪柱用原廠的輪柱貼圖，每架保留自己的輪子圖案。</li>
+        <li><b>輪子會轉：</b>0 節不轉、愈快轉愈快、超過 180 節又停下。</li>
+        <li><b>停機時折翼：</b>在地面或航艦甲板上停住、起落架放下時，外翼在 4 秒內往上折起。開始移動時 3 秒內展開，在彈射器上推到全後燃器時也會展開。翼尖飛彈跟著外翼一起折；Super Hornet 的折疊線夠外側，襟翼留在內翼上。</li>
+      </ul>
+    </div>
+    <div class="card chg">
+      <h3><span data-lang="en">Afterburner</span><span data-lang="zh">後燃器</span></h3>
+      <ul data-lang="en">
+        <li><b>Three animated flame frames</b>, orange and yellow at the nozzle, white in the middle and a bluish white tail with bright shock rings.</li>
+        <li><b>The flame grows over 3 seconds</b> when you light the afterburner and is hidden when it is off.</li>
+        <li>The frames live in each jet's own texture (on the Blue Angels PIC, on texels no face uses), so install the PIC with the SH.</li>
+      </ul>
+      <ul data-lang="zh">
+        <li><b>三格動態火焰畫格</b>：噴嘴處橘黃色，中段白色，尾端偏藍的白色，有明亮的震波環。</li>
+        <li><b>火焰在 3 秒內變長</b>，關掉後燃器時不顯示。</li>
+        <li>畫格放在每架自己的貼圖裡（藍天使的 PIC 放在沒有面使用的像素上），所以 PIC 要和 SH 一起安裝。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2><span data-lang="en">Each jet</span><span data-lang="zh">各型特色</span></h2>
+  <div class="two">
+    <div class="card chg">
+      <h3>F/A-18C · F/A-18D <span>F18C.SH · F18.SH</span></h3>
+      <ul data-lang="en">
+        <li><b>F/A-18C</b> keeps the small LEX and round intakes. F18C.PT and F18A.PT both fly F18C.SH, so the F/A-18A uses it too.</li>
+        <li><b>F/A-18D</b> (F18.SH) is the same shape with the front and rear cockpits.</li>
+      </ul>
+      <ul data-lang="zh">
+        <li><b>F/A-18C</b> 保留小的邊條和圓形進氣口。F18C.PT 和 F18A.PT 都用 F18C.SH，所以 F/A-18A 也用它。</li>
+        <li><b>F/A-18D</b>（F18.SH）外形相同，有前後兩個座艙。</li>
+      </ul>
+    </div>
+    <div class="card chg">
+      <h3>F/A-18E · F/A-18F <span>F18E.SH · F18F.SH</span></h3>
+      <ul data-lang="en">
+        <li><b>F/A-18E</b> was hand-edited from the C into the larger Super Hornet; the <b>F/A-18F</b> applies the same changes to the two-seater and has its own _F18F.PIC.</li>
+        <li>Both carry the Super Hornet's extra wing stations; the wing fold hinge is set outboard of the outermost one.</li>
+      </ul>
+      <ul data-lang="zh">
+        <li><b>F/A-18E</b> 從 C 型手工改成較大的 Super Hornet；<b>F/A-18F</b> 把同樣的修改套用到雙座機，使用自己的 _F18F.PIC。</li>
+        <li>兩架都有 Super Hornet 多出來的翼下掛點，折翼線設在最外側掛點的外面。</li>
+      </ul>
+    </div>
+    <div class="card chg">
+      <h3><span data-lang="en">Blue Angels E · F</span><span data-lang="zh">藍天使 E · F</span> <span>F18T.SH · F18U.SH</span></h3>
+      <ul data-lang="en">
+        <li>Blue Angels scheme with a smooth solid yellow stripe from the cockpit sides along the spine, tapering to a point at the front. Face and vertex colours are Blue Angels dark blue, and the wheel doors are painted to match.</li>
+        <li>No weapons by default (only the tip AIM-9X stations), but every station still takes a store if you load one.</li>
+      </ul>
+      <ul data-lang="zh">
+        <li>藍天使塗裝，平滑的實心黃色條紋從座艙兩側沿背脊延伸，往前收成尖端。面和頂點顏色都是藍天使深藍，輪艙門也漆成同色。</li>
+        <li>預設不掛武器（只有翼尖的 AIM-9X 掛點），但要掛的話每個掛點都還能畫出來。</li>
+      </ul>
+    </div>
+    <div class="card chg">
+      <h3>EA-18G Growler <span>F18G.SH</span></h3>
+      <ul data-lang="en">
+        <li>Built on the F/A-18F with its own texture and PT. Two underwing fuel tanks and three ALQ-99 jamming pods (two under the wings, one on the centreline) are fixed structure on pylons, and the ALQ-99 nose turbines spin when the jet moves.</li>
+        <li>ALQ-218 wingtip pods with small swept fins, folding with the outer wings.</li>
+        <li>Carries AIM-120s on the fuselage and AGM-88 HARMs on the outermost wing stations, with its own drawing order for each wing so the HARM shows in front of the pods from the side.</li>
+      </ul>
+      <ul data-lang="zh">
+        <li>以 F/A-18F 為基礎，使用自己的貼圖和 PT。兩個翼下副油箱和三個 ALQ-99 干擾莢艙（翼下兩個、機腹中線一個）是掛在派龍架上的固定結構，飛機移動時 ALQ-99 前端的渦輪會轉。</li>
+        <li>翼尖的 ALQ-218 莢艙有小後掠翼片，會跟外翼一起折起。</li>
+        <li>機身兩側掛 AIM-120，最外側翼下掛 AGM-88 HARM，每邊機翼有自己的繪製順序，從側面看 HARM 會畫在莢艙前面。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 style="margin-top:22px"><span data-lang="en">Files</span><span data-lang="zh">檔案</span></h3>
+  <div class="card" style="overflow-x:auto">
+    <table class="num">
+      <tr><th><span data-lang="en">Jet</span><span data-lang="zh">機型</span></th><th>SH</th><th>PT</th><th>PIC</th><th><span data-lang="en">Size (factory 33,280 B)</span><span data-lang="zh">大小（原廠 33,280 B）</span></th></tr>
+      <tr><td>F/A-18C (A)</td><td>F18C.SH</td><td>F18C.PT, F18A.PT</td><td>_F18C.PIC</td><td class="n">64,000 B</td></tr>
+      <tr><td>F/A-18D</td><td>F18.SH</td><td>F18.PT</td><td>_F18.PIC</td><td class="n">65,024 B</td></tr>
+      <tr><td>F/A-18E</td><td>F18E.SH</td><td>F18E.PT</td><td>_F18E.PIC</td><td class="n">64,512 B</td></tr>
+      <tr><td>F/A-18F</td><td>F18F.SH</td><td>F18F.PT</td><td>_F18F.PIC</td><td class="n">64,512 B</td></tr>
+      <tr><td><span data-lang="en">Blue Angels E</span><span data-lang="zh">藍天使 E</span></td><td>F18T.SH</td><td>F18T.PT</td><td>_F18T.PIC</td><td class="n">64,000 B</td></tr>
+      <tr><td><span data-lang="en">Blue Angels F</span><span data-lang="zh">藍天使 F</span></td><td>F18U.SH</td><td>F18U.PT</td><td>_F18U.PIC</td><td class="n">61,440 B</td></tr>
+      <tr><td>EA-18G</td><td>F18G.SH</td><td>F18G.PT</td><td>_F18G.PIC</td><td class="n">60,416 B</td></tr>
+    </table>
+  </div>
+  <p class="muted" data-lang="en">These are the final, in-game tested versions (Nov 25, 2026). Every file on GitHub matches the set Kuoyi flies.</p>
+  <p class="muted" data-lang="zh">以上都是在遊戲裡測試過的最終版本（2026 年 11 月 25 日），GitHub 上的每個檔案都和 Kuoyi 實際在飛的版本相同。</p>
+
+  <h2 id="install"><span data-lang="en">How to install</span><span data-lang="zh">安裝方式</span></h2>
+  <ol class="steps" data-lang="en">
+    <li>Pick a jet above and download its SH, PIC and PT (links under its name), or use <b>Download all models</b> at the top.</li>
+    <li>Back up any files with the same names, then copy the new ones to where your FA install loads add-on SH, PT and PIC files.</li>
+    <li>Start a mission, pick a loadout in the arming screen and look at your jet in an outside view. Land and stop to watch the wings fold.</li>
+  </ol>
+  <ol class="steps" data-lang="zh">
+    <li>在上面選一架，下載它的 SH、PIC 和 PT（連結在機名下方），或用頂端的<b>下載全部模型</b>。</li>
+    <li>先備份同名的舊檔，再把新檔放到你的 FA 讀取外加 SH、PT、PIC 檔的地方。</li>
+    <li>開一場任務，在掛載畫面選武器，再切到外部視角看你的飛機。降落停住就能看到外翼折起。</li>
+  </ol>
+  <div class="warnbox" data-lang="en"><b>Use the matching PT and PIC.</b> The SH draws a store by station number, so it needs the station layout of its new PT, and the flame frames and wheel art live in its PIC. FA.EXE must stay the 1.02f build (or FA_BIG); every file is under the 64 KB size FA can read.</div>
+  <div class="warnbox" data-lang="zh"><b>要用對應的 PT 和 PIC。</b>SH 是依掛點編號畫外掛，所以需要新 PT 的掛點配置；火焰畫格和輪子圖案放在它的 PIC 裡。FA.EXE 要用 1.02f 版（或 FA_BIG）；每個檔案都小於 FA 能讀的 64 KB。</div>
+  <p class="muted" data-lang="en">Also try them in <a href="fa_flight.html">FA Flight</a> on your phone (with the wing fold), and see the <a href="gun_hitbox.html">gun hitbox fix</a> for tighter gun hits.</p>
+  <p class="muted" data-lang="zh">也可以在手機上的 <a href="fa_flight.html">FA Flight</a> 飛它們（有折翼），或看看讓機砲命中更準的<a href="gun_hitbox.html">命中範圍修正</a>。</p>
+</article>
+<footer data-lang="en">FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>). Tools that built these shapes are in <a href="https://github.com/kuoyichen/FAoutput/tree/main/tools/shgen">tools/shgen</a> on GitHub. Keep a backup of your original files.</footer>
+<footer data-lang="zh">FAshion 是 hawke 為 Jane's Fighters Anthology 做的同好專案（<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>）。產生這些外形的工具在 GitHub 的 <a href="https://github.com/kuoyichen/FAoutput/tree/main/tools/shgen">tools/shgen</a>。請保留原本檔案的備份。</footer>
 <script>
 "use strict";
 // shapes our generators extended (new F-14 nose, loadout stores on F14 / F18) are read with SHCore (sh_editor_core.js), which
@@ -403,7 +584,9 @@ function partTf(e){
 // ===== File loading: ../SH, ../PIC (when served over HTTP) → GitHub =====
 const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
 const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
+const SH_VIEW = p => p;   // SHCore now follows the F14/F18 x86-only parts (wing fold, flaps, parked sweep), so every viewer loads the real SH
 async function fetchAny(paths){
+  paths = paths.map(SH_VIEW);
   const urls = [];
   for (const p of paths){ if (/^https?:$/.test(location.protocol)) urls.push(new URL("../" + p, location.href).href); }
   for (const p of paths) urls.push(REMOTE + p);
@@ -643,24 +826,24 @@ $("palfile").onchange = async e => { const f = e.target.files[0]; if (!f) return
 // ===== F/A-18 showcase =====
 const VAR = [
   { sh: "F18C", name: "F/A-18C", sub: "Single-seat Hornet", len: "56.0 ft (17.1 m)", span: "40.4 ft (12.3 m)", h: "15.3 ft (4.7 m)",
-    note: "Reworked stock FA model: narrower fuselage, lower fuselage and canopy, longer nose and tail, smaller vertical and horizontal tails. Keeps the small LEX and round intakes. Main gear doors are half their original height.", subZh: "單座 Hornet", noteZh: "改造 FA 原廠模型：機身變窄、機身和座艙罩降低、機鼻和機尾加長、垂直尾翼和水平尾翼縮小。保留小的邊條和圓形進氣口。主起落架艙門高度減半。" },
+    note: "Reworked stock FA model: narrower fuselage, lower fuselage and canopy, longer nose and tail, smaller vertical and horizontal tails. Keeps the small LEX and round intakes. Main gear doors are half their original height. Upgraded like the F/A-18D (Nov 21): draws its real loadout (Mk-84 bombs, AGM-65 Maverick, HARM, AIM-120 and more), 3D landing gear with spinning wheels, an animated afterburner flame that grows over 3 s, and outer wings that fold when parked.", subZh: "單座 Hornet", noteZh: "改造 FA 原廠模型：機身變窄、機身和座艙罩降低、機鼻和機尾加長、垂直尾翼和水平尾翼縮小。保留小的邊條和圓形進氣口。主起落架艙門高度減半。已比照 F/A-18D 升級（11/21）：畫出實際掛載（Mk-84 炸彈、AGM-65 小牛、HARM、AIM-120 等）、立體起落架和會轉的輪子、3 秒內變長的動態後燃器火焰，停機時外翼會折起。" },
   { sh: "F18", name: "F/A-18D", sub: "Two-seat Hornet", len: "56.0 ft (17.1 m)", span: "40.4 ft (12.3 m)", h: "15.3 ft (4.7 m)",
-    note: "The F/A-18C changes applied to the stock two-seat model, keeping the front and rear cockpits; otherwise the same shape as the C. Main gear doors are half their original height. Carries its loadout: in the game the model reads what each station actually holds (AIM-9, AIM-7, AIM-120, AIM-54, HARM, GBU, JDAM, Mk-82, 480-gal tank, drawn with FA's own weapon models), shows pylons always, drops a store when it is fired and a tank when it is empty or jettisoned. Shown here with the default loadout.", subZh: "雙座 Hornet", noteZh: "把 F/A-18C 的修改套用到原廠雙座模型，保留前後座艙；其他外形和 C 型相同。主起落架艙門高度減半。會畫出外掛：遊戲中模型會讀每個掛點實際裝的武器（AIM-9、AIM-7、AIM-120、AIM-54、HARM、GBU、JDAM、Mk-82、480 加侖油箱，用 FA 原本的武器模型），派龍架一直都在，武器發射後消失，油箱用完或拋棄時消失。這裡顯示預設掛載。" },
+    note: "The F/A-18C changes applied to the stock two-seat model, keeping the front and rear cockpits; otherwise the same shape as the C. Main gear doors are half their original height. Carries its loadout: in the game the model reads what each station actually holds (AIM-9, AIM-7, AIM-120, AIM-54, HARM, GBU, JDAM, Mk-82, 480-gal tank, drawn with FA's own weapon models), shows pylons always, drops a store when it is fired and a tank when it is empty or jettisoned. Shown here with the default loadout. Since Nov 21 it also folds its outer wings when parked, draws bombs with the redrawn Mk-84 and AGM-65 Maverick shapes, and its fuselage AIM-120s sit just behind the intake lip.", subZh: "雙座 Hornet", noteZh: "把 F/A-18C 的修改套用到原廠雙座模型，保留前後座艙；其他外形和 C 型相同。主起落架艙門高度減半。會畫出外掛：遊戲中模型會讀每個掛點實際裝的武器（AIM-9、AIM-7、AIM-120、AIM-54、HARM、GBU、JDAM、Mk-82、480 加侖油箱，用 FA 原本的武器模型），派龍架一直都在，武器發射後消失，油箱用完或拋棄時消失。這裡顯示預設掛載。11/21 起停機時外翼會折起，炸彈改用重畫的 Mk-84 和 AGM-65 小牛外形，機身兩側 AIM-120 移到進氣口唇口後方。" },
   { sh: "F18E", name: "F/A-18E", sub: "Single-seat Super Hornet", len: "60.3 ft (18.4 m)", span: "44.7 ft (13.6 m)", h: "16.0 ft (4.9 m)",
-    note: "Hand-edited from the F/A-18C: longer fuselage, larger wing and LEX, recomputed normals and wingtip vapor-trail points. The low-detail (distant) model has the larger wing too. Main gear doors are half their original height.", subZh: "單座 Super Hornet", noteZh: "從 F/A-18C 手工修改：機身加長、機翼和邊條加大，重算法向量和翼尖凝結尾跡的起點。遠距離的低細節模型也換上較大的機翼。主起落架艙門高度減半。" },
+    note: "Hand-edited from the F/A-18C: longer fuselage, larger wing and LEX, recomputed normals and wingtip vapor-trail points. The low-detail (distant) model has the larger wing too. Main gear doors are half their original height. Upgraded like the F/A-18D (Nov 21): draws its real loadout (Mk-84 bombs, AGM-65 Maverick, HARM, AIM-120 and more), 3D landing gear with spinning wheels, an animated afterburner flame that grows over 3 s, and outer wings that fold when parked.", subZh: "單座 Super Hornet", noteZh: "從 F/A-18C 手工修改：機身加長、機翼和邊條加大，重算法向量和翼尖凝結尾跡的起點。遠距離的低細節模型也換上較大的機翼。主起落架艙門高度減半。已比照 F/A-18D 升級（11/21）：畫出實際掛載（Mk-84 炸彈、AGM-65 小牛、HARM、AIM-120 等）、立體起落架和會轉的輪子、3 秒內變長的動態後燃器火焰，停機時外翼會折起。" },
   { sh: "F18F", name: "F/A-18F", sub: "Two-seat Super Hornet", len: "60.3 ft (18.4 m)", span: "44.7 ft (13.6 m)", h: "16.0 ft (4.9 m)",
-    note: "The F/A-18E shape changes applied to the stock two-seater, keeping the two-seat cockpit. Uses its own _F18F.PIC texture; the low-detail model has the larger wing too. Main gear doors are half their original height.", subZh: "雙座 Super Hornet", noteZh: "把 F/A-18E 的外形修改套用到原廠雙座機，保留雙座座艙。使用自己的 _F18F.PIC 貼圖；低細節模型也有較大的機翼。主起落架艙門高度減半。" },
+    note: "The F/A-18E shape changes applied to the stock two-seater, keeping the two-seat cockpit. Uses its own _F18F.PIC texture; the low-detail model has the larger wing too. Main gear doors are half their original height. Upgraded like the F/A-18D (Nov 21): draws its real loadout (Mk-84 bombs, AGM-65 Maverick, HARM, AIM-120 and more), 3D landing gear with spinning wheels, an animated afterburner flame that grows over 3 s, and outer wings that fold when parked.", subZh: "雙座 Super Hornet", noteZh: "把 F/A-18E 的外形修改套用到原廠雙座機，保留雙座座艙。使用自己的 _F18F.PIC 貼圖；低細節模型也有較大的機翼。主起落架艙門高度減半。已比照 F/A-18D 升級（11/21）：畫出實際掛載（Mk-84 炸彈、AGM-65 小牛、HARM、AIM-120 等）、立體起落架和會轉的輪子、3 秒內變長的動態後燃器火焰，停機時外翼會折起。" },
   { sh: "F18T", name: "F/A-18E Blue Angels", sub: "Single-seat Blue Angels", len: "60.3 ft (18.4 m)", span: "44.7 ft (13.6 m)", h: "16.0 ft (4.9 m)",
-    note: "Same shape as the F/A-18E with the Blue Angels scheme in _F18T.PIC and a larger yellow spine area; normals recomputed. A smooth solid yellow stripe runs from the cockpit sides along the spine and tapers to a point at the front. The canopy keeps its original texture, the wingtip vapor trails start at the right place, and the low-detail model has the larger wing. Wheel doors are painted fuselage dark blue.", subZh: "單座藍天使", noteZh: "外形與 F/A-18E 相同，_F18T.PIC 是藍天使塗裝，背脊黃色區域加大；重算法向量。一條平滑的實心黃色條紋從座艙兩側沿背脊延伸，往前收成尖端。座艙罩保留原本的貼圖，翼尖凝結尾跡從正確位置開始，低細節模型也有較大的機翼。輪艙門漆成機身的深藍色。" },
+    note: "Same shape as the F/A-18E with the Blue Angels scheme in _F18T.PIC and a larger yellow spine area; normals recomputed. A smooth solid yellow stripe runs from the cockpit sides along the spine and tapers to a point at the front. The canopy keeps its original texture, the wingtip vapor trails start at the right place, and the low-detail model has the larger wing. Wheel doors are painted fuselage dark blue. Upgraded like the F/A-18D (Nov 21): draws its real loadout (Mk-84 bombs, AGM-65 Maverick, HARM, AIM-120 and more), 3D landing gear with spinning wheels, an animated afterburner flame that grows over 3 s, and outer wings that fold when parked.", subZh: "單座藍天使", noteZh: "外形與 F/A-18E 相同，_F18T.PIC 是藍天使塗裝，背脊黃色區域加大；重算法向量。一條平滑的實心黃色條紋從座艙兩側沿背脊延伸，往前收成尖端。座艙罩保留原本的貼圖，翼尖凝結尾跡從正確位置開始，低細節模型也有較大的機翼。輪艙門漆成機身的深藍色。已比照 F/A-18D 升級（11/21）：畫出實際掛載（Mk-84 炸彈、AGM-65 小牛、HARM、AIM-120 等）、立體起落架和會轉的輪子、3 秒內變長的動態後燃器火焰，停機時外翼會折起。" },
   { sh: "F18U", name: "F/A-18F Blue Angels", sub: "Two-seat Blue Angels", len: "60.3 ft (18.4 m)", span: "44.7 ft (13.6 m)", h: "16.0 ft (4.9 m)",
-    note: "Based on the F/A-18F with a longer yellow spine wedge; _F18U.PIC is a two-seat repaint of the single-seat Blue Angels scheme. A solid yellow stripe runs from the cockpit sides along the spine and tapers at the front. The canopy keeps its original texture, face and vertex colours are Blue Angels dark blue, and the low-detail model has the larger wing. Wheel doors are painted fuselage dark blue.", subZh: "雙座藍天使", noteZh: "以 F/A-18F 為基礎，背脊黃色楔形較長；_F18U.PIC 是單座藍天使塗裝改畫的雙座版。實心黃色條紋從座艙兩側沿背脊延伸，往前收尖。座艙罩保留原本的貼圖，面和頂點顏色都是藍天使深藍，低細節模型也有較大的機翼。輪艙門漆成機身的深藍色。" },
+    note: "Based on the F/A-18F with a longer yellow spine wedge; _F18U.PIC is a two-seat repaint of the single-seat Blue Angels scheme. A solid yellow stripe runs from the cockpit sides along the spine and tapers at the front. The canopy keeps its original texture, face and vertex colours are Blue Angels dark blue, and the low-detail model has the larger wing. Wheel doors are painted fuselage dark blue. Upgraded like the F/A-18D (Nov 21): draws its real loadout (Mk-84 bombs, AGM-65 Maverick, HARM, AIM-120 and more), 3D landing gear with spinning wheels, an animated afterburner flame that grows over 3 s, and outer wings that fold when parked.", subZh: "雙座藍天使", noteZh: "以 F/A-18F 為基礎，背脊黃色楔形較長；_F18U.PIC 是單座藍天使塗裝改畫的雙座版。實心黃色條紋從座艙兩側沿背脊延伸，往前收尖。座艙罩保留原本的貼圖，面和頂點顏色都是藍天使深藍，低細節模型也有較大的機翼。輪艙門漆成機身的深藍色。已比照 F/A-18D 升級（11/21）：畫出實際掛載（Mk-84 炸彈、AGM-65 小牛、HARM、AIM-120 等）、立體起落架和會轉的輪子、3 秒內變長的動態後燃器火焰，停機時外翼會折起。" },
   { sh: "F18G", name: "EA-18G Growler", sub: "Electronic attack", len: "60.2 ft (18.3 m)", span: "44.9 ft (13.7 m)", h: "16.0 ft (4.9 m)",
-    note: "Built on the F/A-18F with its own _F18G.PIC texture. New stores added as shared parts: two underwing fuel tanks (inboard), two ALQ-99 jamming pods (midboard) and one on the centerline, all on pylons, plus ALQ-218 wingtip pods with four small swept fins front and rear. Extra plane tests draw each store group in front of or behind the body and lowered flaps depending on the view, and the belly pod sits between the two main wheels.", subZh: "電子攻擊機", noteZh: "以 F/A-18F 為基礎，使用自己的 _F18G.PIC 貼圖。新增的外掛做成共用零件：兩個翼下副油箱（內側）、兩個 ALQ-99 干擾莢艙（中段）和一個機腹中線莢艙，都掛在派龍架上，另有翼尖的 ALQ-218 莢艙，前後各有四片小後掠翼片。另外加的平面測試會依視角把每組外掛畫在機身和放下的襟翼前面或後面，機腹莢艙位於兩個主輪之間。" },
+    note: "Built on the F/A-18F with its own _F18G.PIC texture. New stores added as shared parts: two underwing fuel tanks (inboard), two ALQ-99 jamming pods (midboard) and one on the centerline, all on pylons, plus ALQ-218 wingtip pods with four small swept fins front and rear. Extra plane tests draw each store group in front of or behind the body and lowered flaps depending on the view, and the belly pod sits between the two main wheels. Upgraded like the F/A-18F (Nov 22): the tanks and pods are now fixed structure, the ALQ-99 nose turbines spin when the jet moves, it carries AIM-120s on the fuselage and AGM-88 HARMs on the outermost wing stations (its own F18G.PT), and it has the 3D gear, the animated afterburner and the parked wing fold.", subZh: "電子攻擊機", noteZh: "以 F/A-18F 為基礎，使用自己的 _F18G.PIC 貼圖。新增的外掛做成共用零件：兩個翼下副油箱（內側）、兩個 ALQ-99 干擾莢艙（中段）和一個機腹中線莢艙，都掛在派龍架上，另有翼尖的 ALQ-218 莢艙，前後各有四片小後掠翼片。另外加的平面測試會依視角把每組外掛畫在機身和放下的襟翼前面或後面，機腹莢艙位於兩個主輪之間。已比照 F/A-18F 升級（11/22）：副油箱和莢艙改成固定結構，ALQ-99 莢艙前端的渦輪在飛機移動時會轉，機身兩側掛 AIM-120、最外側翼下掛 AGM-88 HARM（使用自己的 F18G.PT），也有立體起落架、動態後燃器和停機折翼。" },
 ];
 function showSpec(v){
   $("spec").innerHTML = `<h2>${v.name}  <span style="color:var(--muted);font-weight:normal;font-size:12px">${L(v.sub, v.subZh)} · ${v.sh}.SH</span></h2>
     <table><tr><td>${L("Length", "長度")}</td><td>${v.len}</td></tr><tr><td>${L("Span (incl. wingtip missiles)", "翼展（含翼尖飛彈）")}</td><td>${v.span}</td></tr><tr><td>${L("Height", "高度")}</td><td>${v.h}</td></tr></table><p>${L(v.note, v.noteZh)}</p>
-    <p>${L("Download:", "下載：")} <a href="../SH/${v.sh}.SH" download>${v.sh}.SH</a> · <a href="../PIC/_${v.sh}.PIC" download>_${v.sh}.PIC</a></p>`;
+    <p>${L("Download:", "下載：")} <a href="../SH/${v.sh}.SH" download>${v.sh}.SH</a> · <a href="../PIC/_${v.sh}.PIC" download>_${v.sh}.PIC</a> · <a href="../PT/${v.sh}.PT" download>${v.sh}.PT</a>${v.sh === "F18C" ? ` · <a href="../PT/F18A.PT" download>F18A.PT</a>` : ""}</p>`;
   document.querySelectorAll("#variants button").forEach(b => b.classList.toggle("on", b.dataset.sh === v.sh));
 }
 VAR.forEach(v => { const b = document.createElement("button"); b.dataset.sh = v.sh; b.innerHTML = `<b>${v.name}</b><span>${L(v.sub, v.subZh)}</span>`; b._v = v;
@@ -668,7 +851,7 @@ VAR.forEach(v => { const b = document.createElement("button"); b.dataset.sh = v.
 // "Download all models": fetch every variant's SH and PIC (this site's ../SH and ../PIC, else GitHub) and save them as one zip
 // (stored, uncompressed: the minimal zip format, so no library is needed)
 FAI18N.register({
-  "⬇ Download all models (.zip)": "⬇ 下載全部模型（.zip）", "All F/A-18 SH models and PIC textures from GitHub, in one zip": "從 GitHub 打包下載全部 F/A-18 的 SH 模型和 PIC 貼圖",
+  "⬇ Download all models (.zip)": "⬇ 下載全部模型（.zip）", "All F/A-18 SH models, PIC textures and PT files from GitHub, in one zip": "從 GitHub 打包下載全部 F/A-18 的 SH 模型、PIC 貼圖和 PT 檔",
   "Auto-rotate": "自動旋轉", "Wireframe": "線框", "Top": "上視", "Side": "側視", "Front": "前視",
   "Drag to rotate · scroll to zoom · click a face for details": "拖曳旋轉 · 滾輪縮放 · 點面看資料",
   "Configuration": "狀態", "Landing gear down": "起落架放下", "Flaps down": "襟翼放下", "Tailhook down": "尾鉤放下", "Speed brake open": "減速板打開", "Afterburner": "後燃器",
@@ -705,7 +888,7 @@ $("dlall").onclick = async ev => {
   ev.preventDefault(); const a = $("dlall"), label = a.textContent;
   try {
     a.textContent = L("Preparing zip…", "正在打包 zip…"); const files = [];
-    for (const v of VAR) for (const path of ["SH/" + v.sh + ".SH", "PIC/_" + v.sh + ".PIC"]) files.push({ name: path, data: await fetchModelFile(path) });
+    for (const path of [...VAR.flatMap(v => ["SH/" + v.sh + ".SH", "PIC/_" + v.sh + ".PIC", "PT/" + v.sh + ".PT"]), "PT/F18A.PT"]) files.push({ name: path, data: await fetchModelFile(path) });
     const url = URL.createObjectURL(makeZip(files)), l = document.createElement("a");
     l.href = url; l.download = "FA18_models.zip"; document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
   } catch(e){ $("msg").textContent = e.message; }

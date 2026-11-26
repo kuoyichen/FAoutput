@@ -312,9 +312,9 @@
     byte 0
 ;-------- hardpoint 5
     word $465
-    word 10
-    word -15
-    word 0
+    word 9
+    word -11
+    word -11
     word 0
     word 0
     word 0
@@ -326,8 +326,8 @@
 ;-------- hardpoint 6
     word $7e5
     word 25
-    word -12
-    word -3
+    word -10
+    word 11
     word 0
     word 0
     word 0
@@ -339,8 +339,8 @@
 ;-------- hardpoint 7
     word $5e5
     word 41
-    word -12
-    word -6
+    word -10
+    word 5
     word 0
     word 0
     word 0
@@ -351,8 +351,8 @@
     byte 4
 ;-------- hardpoint 8
     word $85
-    word 58
-    word 1
+    word 55
+    word 0
     word -9
     word 0
     word 0
@@ -1033,7 +1033,7 @@
 
 :ot_names
 	string "F/A-18C"
-	string "F/A- 18C Hornet"
+	string "F/A-18C Hornet"
 	string "F18C.PT"
 :shape
 	string "f18c.SH"
@@ -1064,7 +1064,7 @@
 :defaultTypeName5
 	string "AIM120.JT"
 :defaultTypeName6
-	string "AGM88.JT"
+	string "AGM84E.JT"
 :defaultTypeName7
 	string "MK82X2.JT"
 :defaultTypeName8

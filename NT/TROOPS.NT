@@ -1,0 +1,150 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 3
+    word 258
+    word 196
+	ptr ot_names
+    dword $821
+    word $40
+	ptr shape
+    dword 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 1961
+    word 59
+    word 0
+    word 100
+    word 100
+    word 100
+    word 100
+    word 0
+    word 35
+    word 255
+    word 255
+    word 255
+    word 255
+    word 255
+    byte 15
+    byte 0
+    dword 0
+    word 100
+
+;---------------- movement info ----------------
+
+    word 8190
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 10
+    word 10
+    dword ^25
+    dword ^25
+    dword ^0
+    dword ^0
+	symbol _GVProc	; utilProc
+
+;---------------- sound info ----------------
+
+    dword 0
+    dword 0
+    dword 0
+    dword 0
+    byte 1
+    word 2500
+    word 25
+    word 20
+    word 20
+    word 1000
+    word 0
+    word 0
+    word 0
+    dword 0
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+
+;---------------- START OF NPC_TYPE ----------------
+
+    dword $0
+    dword 0
+    byte 20
+    byte 60
+    byte 40
+    word 32767
+    word 0
+    byte 3
+	ptr hards
+
+;---------------- END OF NPC_TYPE ----------------
+
+:hards
+;-------- hardpoint 0
+    word $80a
+    word 0
+    word 10
+    word 0
+    word 0
+    word 0
+    word 32760
+    word 16380
+	ptr defaultTypeName0
+    byte 0
+    word 750
+    byte 0
+;-------- hardpoint 1
+    word $80a
+    word 0
+    word 10
+    word 10
+    word 0
+    word 0
+    word 32760
+    word 16380
+	ptr defaultTypeName1
+    byte 0
+    word 750
+    byte 0
+;-------- hardpoint 2
+    word $80a
+    word 12
+    word 10
+    word 6
+    word 0
+    word 0
+    word 32760
+    word 16380
+	ptr defaultTypeName2
+    byte 0
+    word 150
+    byte 0
+:ot_names
+	string "Soldiers"
+	string "Soldiers"
+	string "TROOPS.NT"
+:shape
+	string "troops.SH"
+:defaultTypeName0
+	string "BTR80.JT"
+:defaultTypeName1
+	string "BTR80.JT"
+:defaultTypeName2
+	string "BTR80.JT"
+	end

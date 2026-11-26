@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sound Editor</title>
+<style>
+:root{ --bg:#14181d; --card:#1d232b; --card2:#232a33; --line:#2e3742; --text:#dde3ea; --muted:#8b96a5; --accent:#ffd54a; --bad:#ff6a50; --ok:#7bd88f; --wave:#5fb4ff; --sel:rgba(255,213,74,.18); }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0 8px 0 0;font-weight:600}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+button,select,input,label.btn{background:#262e38;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font:inherit}
+button,label.btn{cursor:pointer;white-space:nowrap}
+button:hover,label.btn:hover{border-color:var(--muted)}
+button.prim{background:var(--accent);color:#14181d;font-weight:600;border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:default}
+input[type=number]{width:72px;text-align:right}
+input[type=checkbox]{accent-color:var(--accent)}
+#msg{color:var(--accent)} #msg.err{color:var(--bad)}
+#title{padding:8px 16px 0;font-size:15px;font-weight:700;color:#8fc3ff}
+#title span{color:var(--muted);font-weight:400;font-size:12px;margin-left:8px}
+main{padding:8px 16px 40px;max-width:1500px}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0}
+.sep{display:inline-block}
+.bar .sep,header .sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+.bar label.chk{display:inline-flex;gap:5px;align-items:center;cursor:pointer;color:var(--muted)}
+#waveBox{position:relative;background:#0f1317;border:1px solid var(--line);border-radius:8px;overflow:hidden;touch-action:none}
+#wave{display:block;width:100%;height:260px;cursor:text}
+#over{display:block;width:100%;height:44px;border-top:1px solid var(--line);cursor:pointer}
+#drop{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px;pointer-events:none;text-align:center;padding:20px}
+#waveBox.drag{outline:2px dashed var(--accent);outline-offset:-4px}
+.pos{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;color:var(--muted);font-size:12px;margin-top:6px}
+.pos b{color:var(--text);font-weight:600;font-family:ui-monospace,Consolas,monospace}
+.pos input{width:86px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));align-items:start;margin-top:14px}
+fieldset{border:1px solid var(--line);border-radius:8px;padding:8px 10px 10px;margin:0;background:var(--card);min-width:0}
+legend{color:#ff8f70;font-weight:700;padding:0 6px}
+.row{display:flex;align-items:center;gap:8px;margin:5px 0;flex-wrap:wrap}
+.row>label:first-child{min-width:120px;color:var(--muted)}
+.note{color:var(--muted);font-size:12px;margin:6px 0 0}
+.note code,.help code{color:#ffcf8a;font-family:ui-monospace,Consolas,monospace}
+.help{font-size:12.5px;color:#c4ccd6}
+.help table{border-collapse:collapse;width:100%;margin:6px 0}
+.help td,.help th{border-top:1px solid var(--line);padding:3px 6px;text-align:left}
+.help th{color:var(--muted);font-weight:600}
+.warn{color:var(--bad)}
+kbd{background:#262e38;border:1px solid var(--line);border-radius:4px;padding:0 4px;font:11px ui-monospace,Consolas,monospace}
+@media (max-width:600px){ header,main,#title{padding-left:10px;padding-right:10px} #wave{height:200px} }
+</style>
+<script src="fashion_i18n.js"></script>
+<script src="fashion_editors.js" defer></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <h1>Sound Editor</h1>
+  <label class="btn" title="Open an FA sound (.11K .5K .8K) or any audio file (MP3, WAV, OGG, M4A…)">📂 Open<input type="file" id="fileIn" accept="audio/*,.11k,.5k,.8k,.mp3,.wav,.ogg,.m4a,.flac,.aac" hidden></label>
+  <label class="btn" title="Insert another audio file at the cursor">➕ Insert file<input type="file" id="insIn" accept="audio/*,.11k,.5k,.8k,.mp3,.wav,.ogg,.m4a,.flac,.aac" hidden></label>
+  <span class="sep"></span>
+  <select id="fmt" title="FA sound format to save">
+    <option value="11K">.11K (11025 Hz)</option>
+    <option value="8K">.8K (8010 Hz)</option>
+    <option value="5K">.5K (5512 Hz)</option>
+  </select>
+  <input id="name" type="text" maxlength="8" size="9" spellcheck="false" title="File name, up to 8 characters (DOS 8.3)" placeholder="NAME">
+  <button id="saveBtn" class="prim" disabled title="Download the sound as an FA sound file">⬇ Save FA sound</button>
+  <button id="wavBtn" disabled title="Download a WAV that sounds exactly like the FA file (8-bit, same rate)">⬇ WAV</button>
+  <span id="langSlot"></span>
+  <span id="msg"></span>
+</header>
+<div id="title"></div>
+<main>
+  <div class="bar">
+    <button id="playBtn" disabled title="Play the selection, or from the cursor (Space)">▶ Play</button>
+    <button id="stopBtn" disabled title="Stop (Space)">■ Stop</button>
+    <label class="chk" title="Repeat the selection (or the whole sound) to check that a loop is seamless"><input type="checkbox" id="loopChk"> Loop</label>
+    <label class="chk" title="Play the sound converted to the chosen FA format (8-bit, lower rate), as the game will play it"><input type="checkbox" id="faChk" checked> Hear as FA</label>
+    <span class="sep"></span>
+    <button id="zIn" disabled title="Zoom in (mouse wheel)">＋</button>
+    <button id="zOut" disabled title="Zoom out (mouse wheel)">－</button>
+    <button id="zSel" disabled title="Zoom to the selection">⤢ Selection</button>
+    <button id="zAll" disabled title="Show the whole sound">⤢ All</button>
+    <span class="sep"></span>
+    <button id="undoBtn" disabled title="Undo (Ctrl+Z)">↶ Undo</button>
+    <button id="redoBtn" disabled title="Redo (Ctrl+Y)">↷ Redo</button>
+  </div>
+  <div class="bar">
+    <button id="cutBtn" disabled title="Cut the selection (Ctrl+X)">✂ Cut</button>
+    <button id="copyBtn" disabled title="Copy the selection (Ctrl+C)">⧉ Copy</button>
+    <button id="pasteBtn" disabled title="Paste at the cursor, or replace the selection (Ctrl+V)">📋 Paste</button>
+    <button id="mixBtn" disabled title="Mix the clipboard over the sound, starting at the cursor">⊕ Mix paste</button>
+    <button id="delBtn" disabled title="Delete the selection (Delete)">🗑 Delete</button>
+    <button id="trimBtn" disabled title="Keep only the selection">⌧ Trim to selection</button>
+    <button id="silBtn" disabled title="Make the selection silent">🔇 Silence</button>
+    <span class="sep"></span>
+    <button id="finBtn" disabled title="Fade in over the selection (or the whole sound)">◢ Fade in</button>
+    <button id="foutBtn" disabled title="Fade out over the selection (or the whole sound)">◣ Fade out</button>
+    <button id="normBtn" disabled title="Raise the volume so the loudest point is just below full scale">⇕ Normalize</button>
+    <input id="gainDb" type="number" value="3" step="0.5" title="Gain in dB (negative = quieter)"><span style="color:var(--muted)">dB</span>
+    <button id="gainBtn" disabled title="Change the volume of the selection (or the whole sound)">🔊 Gain</button>
+    <button id="revBtn" disabled title="Play the selection backwards">⇄ Reverse</button>
+    <input id="silSec" type="number" value="0.5" step="0.1" min="0" title="Length of silence to insert, in seconds"><span style="color:var(--muted)">s</span>
+    <button id="insSilBtn" disabled title="Insert silence at the cursor">⎵ Insert silence</button>
+  </div>
+  <div id="waveBox">
+    <canvas id="wave"></canvas>
+    <canvas id="over"></canvas>
+    <div id="drop"><div><span data-lang="en">Drop an MP3, WAV or FA sound (.11K / .5K / .8K) here, or use 📂 Open.</span><span data-lang="zh">把 MP3、WAV 或 FA 聲音檔（.11K / .5K / .8K）拖到這裡，或按 📂 開啟。</span></div></div>
+  </div>
+  <div class="pos">
+    <span><span data-lang="en">Cursor</span><span data-lang="zh">游標</span> <b id="curT">0.000</b></span>
+    <span><span data-lang="en">Selection</span><span data-lang="zh">選取</span> <input id="selA" type="number" step="0.001" min="0" title="Selection start (seconds)"> – <input id="selB" type="number" step="0.001" min="0" title="Selection end (seconds)"> s <b id="selLen"></b></span>
+    <span><span data-lang="en">View</span><span data-lang="zh">檢視</span> <b id="viewT"></b></span>
+    <span><span data-lang="en">Drag to select, Shift+click to extend, wheel to zoom, drag the bottom strip to scroll.</span><span data-lang="zh">拖曳選取，Shift+點擊延伸選取，滾輪縮放，拖曳下方長條捲動。</span> <kbd>Space</kbd> <kbd>Ctrl+X/C/V/Z/Y</kbd> <kbd>Del</kbd> <kbd>Ctrl+A</kbd></span>
+  </div>
+
+  <div class="grid">
+    <fieldset>
+      <legend>Output</legend>
+      <div class="row"><label>Format</label><b id="oFmt"></b></div>
+      <div class="row"><label>Length</label><b id="oLen"></b></div>
+      <div class="row"><label>File size</label><b id="oSize"></b></div>
+      <div class="row"><label>Peak</label><b id="oPeak"></b></div>
+      <div class="row"><label class="chk" style="min-width:0;color:var(--text)"><input type="checkbox" id="ditherChk" checked> Dither when converting to 8-bit</label></div>
+      <p class="note" id="nameNote"></p>
+    </fieldset>
+    <fieldset class="help">
+      <legend>FA sound file format</legend>
+      <div data-lang="en">
+        <p>FA sound files have <b>no header</b>: the whole file is raw <b>8-bit unsigned mono PCM</b> (128 = silence). FA.EXE passes the file straight to the Miles sound library as <code>DIG_F_MONO_8</code>, unsigned, and picks the playback rate from the extension only:</p>
+        <table><tr><th>Extension</th><th>Game value</th><th>Rate</th></tr>
+          <tr><td><code>.11K</code></td><td>0x100</td><td>11025 Hz</td></tr>
+          <tr><td><code>.8K</code></td><td>0xBA</td><td>8010 Hz</td></tr>
+          <tr><td><code>.5K</code></td><td>0x80</td><td>5512 Hz</td></tr></table>
+        <p>(Rate = 11025 × value / 256, worked out from FA.EXE at 0x4336E1 and 0x435A1D. Any other extension is not played.) File size in bytes = number of samples, so 1 second of .11K is 11,025 bytes.</p>
+        <p>Name prefixes used by the factory files: <code>&amp;</code> sound effects (<code>&amp;AFTBURN.11K</code>, <code>&amp;RWRLOCK.5K</code>), <code>^</code> voices and radio calls (<code>^EJECT.5K</code>), <code>AIR###.11K</code> music. Names must be 8.3 and upper case. To put a new or replaced sound in the game, add it to a LIB with <code>tools/falib.py</code> (folder <code>11K/</code>, <code>5K/</code> or <code>8K/</code>).</p>
+        <p>Converting from MP3: the sound is mixed to mono, resampled with a low-pass filter (so no aliasing), and rounded to 8 bits. Parts you have not changed in an FA file you opened stay byte-identical when saved in the same format.</p>
+      </div>
+      <div data-lang="zh">
+        <p>FA 聲音檔<b>沒有檔頭</b>：整個檔案就是原始的 <b>8 位元無號單聲道 PCM</b>（128 = 無聲）。FA.EXE 直接把檔案交給 Miles 音效函式庫，格式 <code>DIG_F_MONO_8</code>、無號，只依副檔名決定播放取樣率：</p>
+        <table><tr><th>副檔名</th><th>遊戲內數值</th><th>取樣率</th></tr>
+          <tr><td><code>.11K</code></td><td>0x100</td><td>11025 Hz</td></tr>
+          <tr><td><code>.8K</code></td><td>0xBA</td><td>8010 Hz</td></tr>
+          <tr><td><code>.5K</code></td><td>0x80</td><td>5512 Hz</td></tr></table>
+        <p>（取樣率 = 11025 × 數值 / 256，由 FA.EXE 0x4336E1 與 0x435A1D 解出。其他副檔名不會播放。）檔案大小（位元組）= 取樣數，所以 1 秒的 .11K 是 11,025 位元組。</p>
+        <p>原廠檔名的前綴：<code>&amp;</code> 音效（<code>&amp;AFTBURN.11K</code>、<code>&amp;RWRLOCK.5K</code>），<code>^</code> 語音與無線電（<code>^EJECT.5K</code>），<code>AIR###.11K</code> 音樂。檔名必須是 8.3 大寫。要放進遊戲，用 <code>tools/falib.py</code> 打包進 LIB（放在 <code>11K/</code>、<code>5K/</code> 或 <code>8K/</code> 資料夾）。</p>
+        <p>從 MP3 轉換時：先混成單聲道，再用低通濾波重新取樣（避免疊頻），最後轉成 8 位元。開啟的 FA 檔中沒有修改的部分，用相同格式儲存時會保持逐位元組相同。</p>
+      </div>
+    </fieldset>
+  </div>
+</main>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
+const FA_RATES = { "11K": 11025, "8K": 8010, "5K": 5512 };   // 11025 * {0x100, 0xBA, 0x80} >> 8
+const MAX_UNDO_SAMPLES = 80e6;
+
+let S = null;            // Float32Array, mono, -1..1
+let R = 44100;           // its sample rate
+let srcName = "", srcInfo = "", dirty = false;
+let selA = 0, selB = 0, cursor = 0;   // sample indices (selA <= selB; empty selection when equal)
+let viewStart = 0, spp = 1;           // first sample in view, samples per CSS pixel
+let clip = null;                      // { data: Float32Array, rate }
+let undo = [], redo = [];
+let ctx = null, player = null;        // AudioContext, { src, t0, a, len, rate, loop }
+
+function msg(t, err) { const m = $("msg"); m.textContent = t || ""; m.className = err ? "err" : ""; }
+function audio() { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === "suspended") ctx.resume(); return ctx; }
+const fmtT = s => (s / R).toFixed(3);
+const hasSel = () => S && selB > selA;
+
+// ---------------------------------------------------------------- DSP
+// Windowed-sinc resampler (Blackman window, 10 zero crossings each side, cutoff 0.92 x the lower Nyquist).
+function resample(x, sr, dr) {
+  if (Math.abs(sr - dr) < 1e-9) return x.slice();
+  const ratio = dr / sr, n = Math.max(0, Math.floor(x.length * ratio)), out = new Float32Array(n);
+  const fc = Math.min(1, ratio) * 0.92, ZC = 10, hw = Math.ceil(ZC / fc);
+  const RES = 256, tab = new Float32Array(hw * RES + 2);          // kernel(d) for d = 0..hw, step 1/RES
+  for (let i = 0; i < tab.length; i++) {
+    const d = i / RES; if (d > hw) { tab[i] = 0; continue; }
+    const xx = Math.PI * fc * d, s = d === 0 ? 1 : Math.sin(xx) / xx;
+    const w = 0.42 + 0.5 * Math.cos(Math.PI * d / hw) + 0.08 * Math.cos(2 * Math.PI * d / hw);
+    tab[i] = fc * s * w;
+  }
+  const N = x.length;
+  for (let i = 0; i < n; i++) {
+    const t = i / ratio, k0 = Math.ceil(t - hw), k1 = Math.floor(t + hw);
+    let acc = 0;
+    for (let k = k0 < 0 ? 0 : k0, ke = k1 >= N ? N - 1 : k1; k <= ke; k++) {
+      let d = t - k; if (d < 0) d = -d;
+      const p = d * RES, j = p | 0, f = p - j;
+      acc += x[k] * (tab[j] + (tab[j + 1] - tab[j]) * f);
+    }
+    out[i] = acc;
+  }
+  return out;
+}
+// float -1..1 -> unsigned 8-bit. Samples already on the 8-bit grid (from an opened FA file) are kept exactly.
+function toU8(x, dither) {
+  const o = new Uint8Array(x.length);
+  for (let i = 0; i < x.length; i++) {
+    let v = x[i] * 128 + 128;
+    if (dither && Math.abs(v - Math.round(v)) > 1e-4) v += Math.random() - Math.random();
+    v = Math.round(v); o[i] = v < 0 ? 0 : v > 255 ? 255 : v;
+  }
+  return o;
+}
+const fromU8 = b => { const o = new Float32Array(b.length); for (let i = 0; i < b.length; i++) o[i] = (b[i] - 128) / 128; return o; };
+function faBytes(x, fmt) { return toU8(resample(x, R, FA_RATES[fmt]), $("ditherChk").checked); }
+function cat(...parts) { let n = 0; for (const p of parts) n += p.length; const o = new Float32Array(n); let i = 0; for (const p of parts) { o.set(p, i); i += p.length; } return o; }
+
+// ---------------------------------------------------------------- loading
+function faExt(name) { const m = /\.(11K|8K|5K)$/i.exec(name || ""); return m ? m[1].toUpperCase() : null; }
+async function decodeFile(file) {
+  const buf = await file.arrayBuffer(), ext = faExt(file.name);
+  if (ext) return { data: fromU8(new Uint8Array(buf)), rate: FA_RATES[ext], info: `FA .${ext}, 8-bit mono, ${FA_RATES[ext]} Hz`, fa: ext };
+  let ab;
+  try { ab = await audio().decodeAudioData(buf.slice(0)); }
+  catch (e) { throw new Error(L("This browser cannot decode this file. Try MP3, WAV or OGG.", "瀏覽器無法解碼此檔。請改用 MP3、WAV 或 OGG。")); }
+  const ch = ab.numberOfChannels, n = ab.length, d = new Float32Array(n);
+  for (let c = 0; c < ch; c++) { const s = ab.getChannelData(c); for (let i = 0; i < n; i++) d[i] += s[i] / ch; }
+  return { data: d, rate: ab.sampleRate, info: `${(file.name.split(".").pop() || "").toUpperCase()}, ${ch === 1 ? "mono" : ch + " ch → mono"}, ${ab.sampleRate} Hz`, fa: null };
+}
+function suggestName(fn) {
+  let b = (fn || "SOUND").replace(/\.[^.]*$/, "").toUpperCase().replace(/[^A-Z0-9_\-&^$!#%@~]/g, "");
+  return (b || "SOUND").slice(0, 8);
+}
+async function openFile(file) {
+  if (!file) return;
+  if (dirty && !confirm(L("Discard the changes to the current sound?", "放棄目前聲音的修改？"))) return;
+  stop(); msg(L("Decoding…", "解碼中…"));
+  try {
+    const r = await decodeFile(file);
+    S = r.data; R = r.rate; srcName = file.name; srcInfo = r.info; dirty = false;
+    undo = []; redo = []; selA = selB = cursor = 0;
+    $("name").value = suggestName(file.name);
+    if (r.fa) $("fmt").value = r.fa;
+    zoomAll(); msg(L("Opened ", "已開啟 ") + file.name);
+  } catch (e) { msg(e.message, true); }
+  refresh();
+}
+async function insertFile(file) {
+  if (!file || !S) return openFile(file);
+  stop(); msg(L("Decoding…", "解碼中…"));
+  try {
+    const r = await decodeFile(file), d = resample(r.data, r.rate, R);
+    edit(() => { S = cat(S.subarray(0, cursor), d, S.subarray(cursor)); selA = cursor; selB = cursor + d.length; });
+    msg(L("Inserted ", "已插入 ") + file.name);
+  } catch (e) { msg(e.message, true); }
+}
+
+// ---------------------------------------------------------------- editing
+function memUsed() { let n = 0; for (const u of undo) n += u.S.length; for (const u of redo) n += u.S.length; return n; }
+function edit(fn) {
+  undo.push({ S, selA, selB, cursor }); redo = [];
+  fn(); dirty = true;
+  while (undo.length > 1 && memUsed() > MAX_UNDO_SAMPLES) undo.shift();
+  clampSel(); refresh();
+}
+function clampSel() {
+  const n = S ? S.length : 0;
+  selA = Math.max(0, Math.min(n, selA)); selB = Math.max(selA, Math.min(n, selB)); cursor = Math.max(0, Math.min(n, cursor));
+}
+function doUndo(from, to) {
+  if (!from.length) return; stop();
+  to.push({ S, selA, selB, cursor }); const u = from.pop();
+  S = u.S; selA = u.selA; selB = u.selB; cursor = u.cursor; dirty = true; clampSel(); refresh();
+}
+const range = () => hasSel() ? [selA, selB] : [0, S.length];
+function mapRange(f) {   // apply f(sample, indexInRange, rangeLength) to the selection or whole sound
+  const [a, b] = range(); edit(() => { const o = S.slice(); for (let i = a; i < b; i++) o[i] = f(o[i], i - a, b - a); S = o; });
+}
+const ops = {
+  copy() { if (!hasSel()) return; clip = { data: S.slice(selA, selB), rate: R }; msg(L(`Copied ${fmtT(selB - selA)} s`, `已複製 ${fmtT(selB - selA)} 秒`)); refresh(); },
+  cut() { if (!hasSel()) return; ops.copy(); ops.del(); },
+  del() { if (!hasSel()) return; edit(() => { S = cat(S.subarray(0, selA), S.subarray(selB)); cursor = selA; selB = selA; }); },
+  trim() { if (!hasSel()) return; edit(() => { S = S.slice(selA, selB); selA = 0; selB = S.length; cursor = 0; }); zoomAll(); },
+  silence() { if (!hasSel()) return; mapRange(() => 0); },
+  paste() {
+    if (!clip || !S) return; const d = resample(clip.data, clip.rate, R), at = hasSel() ? selA : cursor, end = hasSel() ? selB : cursor;
+    edit(() => { S = cat(S.subarray(0, at), d, S.subarray(end)); selA = at; selB = at + d.length; cursor = at; });
+  },
+  mix() {
+    if (!clip || !S) return; const d = resample(clip.data, clip.rate, R), at = hasSel() ? selA : cursor;
+    edit(() => { const o = new Float32Array(Math.max(S.length, at + d.length)); o.set(S); for (let i = 0; i < d.length; i++) o[at + i] += d[i]; S = o; selA = at; selB = at + d.length; });
+  },
+  fadeIn() { mapRange((v, i, n) => v * (n > 1 ? i / (n - 1) : 1)); },
+  fadeOut() { mapRange((v, i, n) => v * (n > 1 ? 1 - i / (n - 1) : 1)); },
+  normalize() {
+    const [a, b] = range(); let pk = 0; for (let i = a; i < b; i++) pk = Math.max(pk, Math.abs(S[i]));
+    if (pk < 1e-6) return msg(L("Nothing to normalize: the range is silent.", "無法正規化：範圍內是無聲。"), true);
+    const g = 0.99 / pk; mapRange(v => v * g); msg(L(`Gain ${(20 * Math.log10(g)).toFixed(1)} dB`, `增益 ${(20 * Math.log10(g)).toFixed(1)} dB`));
+  },
+  gain() { const g = Math.pow(10, (+$("gainDb").value || 0) / 20); mapRange(v => v * g); },
+  reverse() { const [a, b] = range(); edit(() => { const o = S.slice(); o.subarray(a, b).reverse(); S = o; }); },
+  insSil() {
+    const n = Math.round(Math.max(0, +$("silSec").value || 0) * R); if (!n || !S) return;
+    edit(() => { S = cat(S.subarray(0, cursor), new Float32Array(n), S.subarray(cursor)); selA = cursor; selB = cursor + n; });
+  },
+  selectAll() { if (!S) return; selA = 0; selB = S.length; refresh(); },
+};
+
+// ---------------------------------------------------------------- playback
+function stop() {
+  if (player) { try { player.src.onended = null; player.src.stop(); } catch (e) {} player = null; }
+  refresh();
+}
+function play() {
+  if (!S || !S.length) return; stop();
+  const c = audio(), loop = $("loopChk").checked;
+  let a = hasSel() ? selA : (cursor >= S.length ? 0 : cursor), b = hasSel() ? selB : S.length;
+  if (loop && !hasSel()) a = 0;
+  let data = S.subarray(a, b), rate = R;
+  if ($("faChk").checked) { const fmt = $("fmt").value; rate = FA_RATES[fmt]; data = fromU8(faBytes(data, fmt)); }
+  let buf;
+  try { buf = c.createBuffer(1, Math.max(1, data.length), rate); buf.getChannelData(0).set(data); }
+  catch (e) {   // some browsers refuse very low buffer rates: upsample to the device rate instead
+    const up = resample(data, rate, c.sampleRate); buf = c.createBuffer(1, Math.max(1, up.length), c.sampleRate); buf.getChannelData(0).set(up);
+  }
+  const src = c.createBufferSource(); src.buffer = buf; src.loop = loop; src.connect(c.destination);
+  src.onended = () => { if (player && player.src === src) { player = null; refresh(); } };
+  src.start(); player = { src, t0: c.currentTime, a, len: b - a, loop };
+  refresh(); requestAnimationFrame(tick);
+}
+function playPos() {
+  if (!player) return null;
+  let s = (ctx.currentTime - player.t0) * R;
+  if (player.loop) s = player.len ? s % player.len : 0; else if (s > player.len) s = player.len;
+  return player.a + s;
+}
+function tick() { if (!player) return; drawWave(); requestAnimationFrame(tick); }
+
+// ---------------------------------------------------------------- drawing
+const wave = $("wave"), over = $("over");
+function fit(cv) {
+  const dpr = devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); return [g, w, h];
+}
+function clampView() {
+  const W = wave.clientWidth || 1, n = S ? S.length : 0;
+  spp = Math.max(1 / 64, Math.min(spp, Math.max(n / W, 1 / 64)));
+  viewStart = Math.max(0, Math.min(viewStart, n - W * spp));
+}
+function zoomAll() { if (!S) return; spp = Math.max(S.length / (wave.clientWidth || 1), 1 / 64); viewStart = 0; clampView(); }
+function zoomAt(f, px) { const s = viewStart + px * spp; spp *= f; clampView(); viewStart = s - px * spp; clampView(); drawAll(); }
+function drawWave() {
+  const [g, W, H] = fit(wave);
+  g.fillStyle = "#0f1317"; g.fillRect(0, 0, W, H);
+  if (!S) return;
+  const mid = H / 2, amp = H / 2 - 6, X = s => (s - viewStart) / spp;
+  // time grid
+  const secPx = R / spp; let step = 0.001; for (const st of [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 30, 60]) { step = st; if (st * secPx >= 80) break; }
+  g.font = "10px ui-monospace,Consolas,monospace"; g.fillStyle = "#56626f"; g.strokeStyle = "#1e252d"; g.lineWidth = 1;
+  const t0 = Math.floor(viewStart / R / step) * step;
+  for (let t = t0; t <= (viewStart + W * spp) / R; t += step) {
+    const x = Math.round(X(t * R)) + 0.5; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke();
+    g.fillText(t.toFixed(step < 0.01 ? 3 : step < 0.1 ? 2 : step < 1 ? 1 : 0) + "s", x + 3, 11);
+  }
+  g.strokeStyle = "#2a333d"; g.beginPath(); g.moveTo(0, mid + .5); g.lineTo(W, mid + .5); g.stroke();
+  // selection
+  if (hasSel()) { const x0 = X(selA), x1 = X(selB); g.fillStyle = "rgba(255,213,74,.16)"; g.fillRect(x0, 0, x1 - x0, H); }
+  // samples
+  g.strokeStyle = g.fillStyle = "#5fb4ff";
+  if (spp >= 1) {
+    g.beginPath();
+    for (let x = 0; x < W; x++) {
+      const a = Math.floor(viewStart + x * spp), b = Math.min(S.length, Math.floor(viewStart + (x + 1) * spp));
+      if (a >= S.length) break;
+      let lo = S[a], hi = S[a]; for (let i = a + 1; i < b; i++) { const v = S[i]; if (v < lo) lo = v; else if (v > hi) hi = v; }
+      g.moveTo(x + .5, mid - hi * amp); g.lineTo(x + .5, mid - lo * amp + 1);
+    }
+    g.stroke();
+  } else {
+    const a = Math.max(0, Math.floor(viewStart)), b = Math.min(S.length - 1, Math.ceil(viewStart + W * spp));
+    g.beginPath(); for (let i = a; i <= b; i++) { const x = X(i), y = mid - S[i] * amp; i === a ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke();
+    if (spp < 0.15) for (let i = a; i <= b; i++) g.fillRect(X(i) - 1.5, mid - S[i] * amp - 1.5, 3, 3);
+  }
+  // clipping band
+  g.fillStyle = "rgba(255,106,80,.10)"; g.fillRect(0, 0, W, 6); g.fillRect(0, H - 6, W, 6);
+  // cursor, playhead
+  g.fillStyle = "#ffd54a"; g.fillRect(Math.round(X(cursor)), 0, 1, H);
+  const p = playPos(); if (p != null) { g.fillStyle = "#7bd88f"; g.fillRect(Math.round(X(p)), 0, 2, H); }
+}
+function drawOver() {
+  const [g, W, H] = fit(over);
+  g.fillStyle = "#141a20"; g.fillRect(0, 0, W, H);
+  if (!S || !S.length) return;
+  const per = S.length / W, mid = H / 2;
+  g.strokeStyle = "#3d6f99"; g.beginPath();
+  for (let x = 0; x < W; x++) {
+    const a = Math.floor(x * per), b = Math.max(a + 1, Math.floor((x + 1) * per)), st = Math.max(1, ((b - a) / 64) | 0);
+    let pk = 0; for (let i = a; i < b && i < S.length; i += st) pk = Math.max(pk, Math.abs(S[i]));
+    g.moveTo(x + .5, mid - pk * (mid - 2)); g.lineTo(x + .5, mid + pk * (mid - 2) + 1);
+  }
+  g.stroke();
+  if (hasSel()) { g.fillStyle = "rgba(255,213,74,.25)"; g.fillRect(selA / per, 0, (selB - selA) / per, H); }
+  g.strokeStyle = "#ffd54a"; g.lineWidth = 1.5; g.strokeRect(viewStart / per + .5, 1, Math.max(3, wave.clientWidth * spp / per - 1), H - 2); g.lineWidth = 1;
+}
+function drawAll() { drawWave(); drawOver(); updatePos(); }
+
+// ---------------------------------------------------------------- UI state
+function updatePos() {
+  $("curT").textContent = S ? fmtT(cursor) : "–";
+  if (document.activeElement !== $("selA")) $("selA").value = S && hasSel() ? fmtT(selA) : "";
+  if (document.activeElement !== $("selB")) $("selB").value = S && hasSel() ? fmtT(selB) : "";
+  $("selLen").textContent = hasSel() ? `(${fmtT(selB - selA)} s)` : "";
+  $("viewT").textContent = S ? `${fmtT(viewStart)} – ${fmtT(Math.min(S.length, viewStart + wave.clientWidth * spp))} s` : "–";
+}
+function refresh() {
+  const has = !!S, n = has ? S.length : 0, sel = hasSel();
+  for (const id of ["saveBtn", "wavBtn", "zIn", "zOut", "zAll", "finBtn", "foutBtn", "normBtn", "gainBtn", "revBtn", "insSilBtn", "playBtn"]) $(id).disabled = !has || (id !== "insSilBtn" && !n);
+  for (const id of ["cutBtn", "copyBtn", "delBtn", "trimBtn", "silBtn", "zSel"]) $(id).disabled = !sel;
+  $("pasteBtn").disabled = $("mixBtn").disabled = !(has && clip);
+  $("stopBtn").disabled = !player;
+  $("undoBtn").disabled = !undo.length; $("redoBtn").disabled = !redo.length;
+  $("playBtn").textContent = player ? L("▶ Restart", "▶ 重新播放") : L("▶ Play", "▶ 播放");
+  $("drop").style.display = has ? "none" : "";
+  $("title").innerHTML = has ? `${esc(srcName)}${dirty ? " *" : ""}<span>${esc(srcInfo)} · ${L("editing at", "編輯取樣率")} ${R} Hz · ${(n / R).toFixed(3)} s${clip ? " · " + L("clipboard", "剪貼簿") + " " + (clip.data.length / clip.rate).toFixed(3) + " s" : ""}</span>` : "";
+  // output panel
+  const fmt = $("fmt").value, rate = FA_RATES[fmt], outN = has ? Math.floor(n * rate / R) : 0;
+  $("oFmt").textContent = `.${fmt} · 8-bit unsigned mono · ${rate} Hz`;
+  $("oLen").textContent = has ? `${(outN / rate).toFixed(3)} s · ${outN.toLocaleString()} ${L("samples", "取樣")}` : "–";
+  $("oSize").textContent = has ? `${outN.toLocaleString()} ${L("bytes", "位元組")} (${(outN / 1024).toFixed(1)} KB)` : "–";
+  let pk = 0; if (has) for (let i = 0; i < n; i++) { const v = Math.abs(S[i]); if (v > pk) pk = v; }
+  $("oPeak").innerHTML = has ? (pk > 0 ? `${(20 * Math.log10(pk)).toFixed(1)} dBFS` : "−∞ dBFS") + (pk > 1.0001 ? ` <span class="warn">${L("clips: use Normalize or a negative Gain", "會削波：請用正規化或負增益")}</span>` : "") : "–";
+  const nm = $("name").value, ok = /^[A-Z0-9_\-&^$!#%@~]{1,8}$/.test(nm);
+  $("nameNote").innerHTML = ok ? `${L("Saves as", "儲存為")} <code>${esc(nm)}.${fmt}</code>.` : `<span class="warn">${L("Name: 1 to 8 characters, A–Z 0–9 and _ - & ^ $ ! # % @ ~", "檔名：1 到 8 個字元，A–Z 0–9 及 _ - & ^ $ ! # % @ ~")}</span>`;
+  $("saveBtn").disabled = $("wavBtn").disabled = !has || !n || !ok;
+  drawAll();
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ---------------------------------------------------------------- save
+function download(bytes, name, type) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([bytes], { type })); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function wav8(u8, rate) {
+  const b = new Uint8Array(44 + u8.length + (u8.length & 1)), v = new DataView(b.buffer), w = (o, s) => { for (let i = 0; i < 4; i++) b[o + i] = s.charCodeAt(i); };
+  w(0, "RIFF"); v.setUint32(4, b.length - 8, true); w(8, "WAVE"); w(12, "fmt "); v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true); v.setUint32(28, rate, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  w(36, "data"); v.setUint32(40, u8.length, true); b.set(u8, 44); return b;
+}
+function save(asWav) {
+  if (!S) return; const fmt = $("fmt").value, nm = $("name").value;
+  msg(L("Converting…", "轉換中…"));
+  setTimeout(() => {
+    const u8 = faBytes(S, fmt);
+    if (asWav) download(wav8(u8, FA_RATES[fmt]), `${nm}_${fmt}.wav`, "audio/wav");
+    else { download(u8, `${nm}.${fmt}`, "application/octet-stream"); dirty = false; }
+    msg(L(`Saved ${u8.length.toLocaleString()} bytes`, `已儲存 ${u8.length.toLocaleString()} 位元組`)); refresh();
+  }, 20);
+}
+
+// ---------------------------------------------------------------- mouse / keys
+let drag = null;
+const sampleAt = ev => { const r = wave.getBoundingClientRect(); return Math.max(0, Math.min(S.length, Math.round(viewStart + (ev.clientX - r.left) * spp))); };
+wave.addEventListener("pointerdown", ev => {
+  if (!S) return; wave.setPointerCapture(ev.pointerId);
+  const s = sampleAt(ev);
+  if (ev.shiftKey) { const anchor = Math.abs(s - selA) > Math.abs(s - selB) ? selA : selB; drag = { anchor: hasSel() ? anchor : cursor }; }
+  else drag = { anchor: s };
+  const a = drag.anchor; selA = Math.min(a, s); selB = Math.max(a, s); cursor = s === a ? s : selA; drawAll(); refresh();
+});
+wave.addEventListener("pointermove", ev => {
+  if (!drag) return; const s = sampleAt(ev), a = drag.anchor;
+  selA = Math.min(a, s); selB = Math.max(a, s); cursor = selA;
+  const r = wave.getBoundingClientRect();   // auto-scroll at the edges
+  if (ev.clientX < r.left + 10) { viewStart -= 20 * spp; clampView(); } else if (ev.clientX > r.right - 10) { viewStart += 20 * spp; clampView(); }
+  drawAll();
+});
+wave.addEventListener("pointerup", () => { if (drag) { drag = null; refresh(); } });
+wave.addEventListener("wheel", ev => {
+  if (!S) return; ev.preventDefault(); const r = wave.getBoundingClientRect();
+  if (ev.shiftKey || Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) { viewStart += (ev.deltaX || ev.deltaY) * spp; clampView(); drawAll(); }
+  else zoomAt(ev.deltaY > 0 ? 1.25 : 0.8, ev.clientX - r.left);
+}, { passive: false });
+let odrag = false;
+function overTo(ev) { const r = over.getBoundingClientRect(), per = S.length / r.width; viewStart = (ev.clientX - r.left) * per - wave.clientWidth * spp / 2; clampView(); drawAll(); }
+over.addEventListener("pointerdown", ev => { if (!S) return; odrag = true; over.setPointerCapture(ev.pointerId); overTo(ev); });
+over.addEventListener("pointermove", ev => { if (odrag) overTo(ev); });
+over.addEventListener("pointerup", () => { odrag = false; });
+
+function selFromInputs() {
+  if (!S) return; let a = Math.round((+$("selA").value || 0) * R), b = Math.round((+$("selB").value || 0) * R);
+  if (b < a) [a, b] = [b, a]; selA = a; selB = b; cursor = a; clampSel(); refresh();
+}
+$("selA").onchange = $("selB").onchange = selFromInputs;
+
+const box = $("waveBox");
+box.addEventListener("dragover", e => { e.preventDefault(); box.classList.add("drag"); });
+box.addEventListener("dragleave", () => box.classList.remove("drag"));
+box.addEventListener("drop", e => { e.preventDefault(); box.classList.remove("drag"); const f = e.dataTransfer.files[0]; if (f) (e.shiftKey || e.altKey) && S ? insertFile(f) : openFile(f); });
+$("fileIn").onchange = e => { openFile(e.target.files[0]); e.target.value = ""; };
+$("insIn").onchange = e => { insertFile(e.target.files[0]); e.target.value = ""; };
+$("fmt").onchange = refresh;
+$("name").oninput = () => { const p = $("name").selectionStart, v = $("name").value.toUpperCase(); if (v !== $("name").value) { $("name").value = v; $("name").setSelectionRange(p, p); } refresh(); };
+$("playBtn").onclick = play; $("stopBtn").onclick = stop;
+$("zIn").onclick = () => zoomAt(0.5, wave.clientWidth / 2); $("zOut").onclick = () => zoomAt(2, wave.clientWidth / 2);
+$("zAll").onclick = () => { zoomAll(); drawAll(); };
+$("zSel").onclick = () => { if (!hasSel()) return; spp = (selB - selA) / wave.clientWidth * 1.05; clampView(); viewStart = selA - (selB - selA) * 0.025; clampView(); drawAll(); };
+$("undoBtn").onclick = () => doUndo(undo, redo); $("redoBtn").onclick = () => doUndo(redo, undo);
+$("cutBtn").onclick = ops.cut; $("copyBtn").onclick = ops.copy; $("pasteBtn").onclick = ops.paste; $("mixBtn").onclick = ops.mix;
+$("delBtn").onclick = ops.del; $("trimBtn").onclick = ops.trim; $("silBtn").onclick = ops.silence;
+$("finBtn").onclick = ops.fadeIn; $("foutBtn").onclick = ops.fadeOut; $("normBtn").onclick = ops.normalize;
+$("gainBtn").onclick = ops.gain; $("revBtn").onclick = ops.reverse; $("insSilBtn").onclick = ops.insSil;
+$("saveBtn").onclick = () => save(false); $("wavBtn").onclick = () => save(true);
+$("ditherChk").onchange = refresh;
+addEventListener("keydown", e => {
+  if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== "checkbox") return;
+  const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
+  if (k === " ") { e.preventDefault(); player ? stop() : play(); }
+  else if (mod && k === "z" && !e.shiftKey) { e.preventDefault(); doUndo(undo, redo); }
+  else if (mod && (k === "y" || (k === "z" && e.shiftKey))) { e.preventDefault(); doUndo(redo, undo); }
+  else if (mod && k === "x") { e.preventDefault(); ops.cut(); }
+  else if (mod && k === "c") { e.preventDefault(); ops.copy(); }
+  else if (mod && k === "v") { e.preventDefault(); ops.paste(); }
+  else if (mod && k === "a") { e.preventDefault(); ops.selectAll(); }
+  else if (k === "delete" || k === "backspace") { e.preventDefault(); ops.del(); }
+  else if (k === "home") { cursor = 0; selA = selB = 0; viewStart = 0; clampView(); refresh(); }
+  else if (k === "end" && S) { cursor = selA = selB = S.length; viewStart = S.length; clampView(); refresh(); }
+});
+addEventListener("resize", () => { clampView(); drawAll(); });
+addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+// ---------------------------------------------------------------- i18n
+FAI18N.register({
+  "FAshion home": "FAshion 首頁", "Sound Editor": "聲音編輯器",
+  "📂 Open": "📂 開啟", "➕ Insert file": "➕ 插入檔案", "⬇ Save FA sound": "⬇ 儲存 FA 聲音檔", "⬇ WAV": "⬇ WAV",
+  "Open an FA sound (.11K .5K .8K) or any audio file (MP3, WAV, OGG, M4A…)": "開啟 FA 聲音檔（.11K .5K .8K）或任何音訊檔（MP3、WAV、OGG、M4A…）",
+  "Insert another audio file at the cursor": "在游標處插入另一個音訊檔", "FA sound format to save": "要儲存的 FA 聲音格式",
+  "File name, up to 8 characters (DOS 8.3)": "檔名，最多 8 個字元（DOS 8.3）",
+  "Download the sound as an FA sound file": "下載為 FA 聲音檔", "Download a WAV that sounds exactly like the FA file (8-bit, same rate)": "下載與 FA 檔聽起來完全相同的 WAV（8 位元、相同取樣率）",
+  "▶ Play": "▶ 播放", "■ Stop": "■ 停止", "Loop": "循環", "Hear as FA": "以 FA 音質試聽",
+  "Play the selection, or from the cursor (Space)": "播放選取範圍，或從游標開始（空白鍵）", "Stop (Space)": "停止（空白鍵）",
+  "Repeat the selection (or the whole sound) to check that a loop is seamless": "重複播放選取範圍（或整段），檢查循環接縫",
+  "Play the sound converted to the chosen FA format (8-bit, lower rate), as the game will play it": "以選定的 FA 格式（8 位元、較低取樣率）播放，聽起來和遊戲中一樣",
+  "Zoom in (mouse wheel)": "放大（滑鼠滾輪）", "Zoom out (mouse wheel)": "縮小（滑鼠滾輪）", "⤢ Selection": "⤢ 選取範圍", "⤢ All": "⤢ 全部",
+  "Zoom to the selection": "縮放到選取範圍", "Show the whole sound": "顯示整段聲音",
+  "↶ Undo": "↶ 復原", "↷ Redo": "↷ 重做", "Undo (Ctrl+Z)": "復原（Ctrl+Z）", "Redo (Ctrl+Y)": "重做（Ctrl+Y）",
+  "✂ Cut": "✂ 剪下", "⧉ Copy": "⧉ 複製", "📋 Paste": "📋 貼上", "⊕ Mix paste": "⊕ 混音貼上", "🗑 Delete": "🗑 刪除",
+  "⌧ Trim to selection": "⌧ 只保留選取", "🔇 Silence": "🔇 靜音", "◢ Fade in": "◢ 淡入", "◣ Fade out": "◣ 淡出",
+  "⇕ Normalize": "⇕ 正規化", "🔊 Gain": "🔊 增益", "⇄ Reverse": "⇄ 反轉", "⎵ Insert silence": "⎵ 插入靜音",
+  "Cut the selection (Ctrl+X)": "剪下選取範圍（Ctrl+X）", "Copy the selection (Ctrl+C)": "複製選取範圍（Ctrl+C）",
+  "Paste at the cursor, or replace the selection (Ctrl+V)": "貼在游標處，或取代選取範圍（Ctrl+V）",
+  "Mix the clipboard over the sound, starting at the cursor": "從游標處把剪貼簿疊加混音進去",
+  "Delete the selection (Delete)": "刪除選取範圍（Delete）", "Keep only the selection": "只保留選取範圍", "Make the selection silent": "把選取範圍變成無聲",
+  "Fade in over the selection (or the whole sound)": "在選取範圍（或整段）淡入", "Fade out over the selection (or the whole sound)": "在選取範圍（或整段）淡出",
+  "Raise the volume so the loudest point is just below full scale": "提高音量，使最大值剛好低於滿刻度",
+  "Gain in dB (negative = quieter)": "增益 dB（負值 = 變小聲）", "Change the volume of the selection (or the whole sound)": "改變選取範圍（或整段）的音量",
+  "Play the selection backwards": "把選取範圍倒過來播", "Length of silence to insert, in seconds": "要插入的靜音長度（秒）", "Insert silence at the cursor": "在游標處插入靜音",
+  "Selection start (seconds)": "選取起點（秒）", "Selection end (seconds)": "選取終點（秒）",
+  "Output": "輸出", "Format": "格式", "Length": "長度", "File size": "檔案大小", "Peak": "峰值",
+  "Dither when converting to 8-bit": "轉成 8 位元時加入抖動（dither）", "FA sound file format": "FA 聲音檔格式",
+});
+$("langSlot").append(FAI18N.picker()); FAI18N.apply();
+FAI18N.onChange(refresh);
+refresh();
+window.sndEditor = { get S() { return S; }, get R() { return R; }, resample, toU8, fromU8, faBytes, ops, openFile, FA_RATES };
+</script>
+</body>
+</html>

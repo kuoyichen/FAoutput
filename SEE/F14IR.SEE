@@ -1,0 +1,31 @@
+[brent's_relocatable_format]
+    byte 10
+	ptr si_names
+    word 0
+    byte $0
+    byte 2
+    byte $0
+    byte 15
+    byte 0
+    byte 0
+    byte 0
+    byte 50
+    word 13650
+    word 5460
+    dword ^0
+    dword ^700602
+    dword $8011c180
+    dword $7fee3e80
+    word 13650
+    word 5460
+    dword ^0
+    dword ^700602
+    dword $8011c180
+    dword $7fee3e80
+    byte 100
+    byte 100
+:si_names
+	string ""
+	string "115 nm IRST"
+	string "F14IR.SEE"
+	end

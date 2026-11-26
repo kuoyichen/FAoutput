@@ -11,6 +11,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sh_subdivide import pe_sections, main_lod
 
 
+F0_VARS = None          # None: F0 blocks follow their first push (gear down); see parse()
+
+
 def load(path):
     d = open(path, 'rb').read()
     pe, opt, secs = pe_sections(d); code = next(s for s in secs if s['name'] == 'CODE')
@@ -66,6 +69,16 @@ def parse(c, start=None):
                 pos = struct.unpack_from('<3h', c, p+2)
                 ptf = (lambda pos, tf: lambda v: tf(tuple(pos[j] + v[j] for j in range(3))))(pos, tf)
                 items.append(('call', p, seq(p+16+h(p+14), ptf, depth+1, 'c4'))); p += 16
+            elif op == 0xF0 and c[p+1] == 0 and F0_VARS is not None and c[p+2:p+5] == b'\x66\x83\x3d' and c[p+10] in (0x74, 0x75):
+                # `cmp word [var], imm8; jne/je; push target; push thunk; ret` (gear / brake / hook / flap switches):
+                # take the branch for the variable values in F0_VARS ({CODE offset of the variable: value}, default 0)
+                a = struct.unpack_from('<I', c, p+5)[0] - 0x1000; imm = struct.unpack_from('<b', c, p+9)[0]
+                eq = F0_VARS.get(a, 0) == imm
+                q = p+12 if eq == (c[p+10] == 0x75) else p+12+struct.unpack_from('<b', c, p+11)[0]
+                r = next((struct.unpack_from('<I', c, k+1)[0] - 0x1000 for k in range(q, q+80)
+                          if c[k] == 0x68 and c[k+5] == 0x68 and c[k+10] == 0xC3), None)
+                if r is None or not 0 < r < len(c): break
+                p = r; ctx = ctx or 'f0'
             elif op == 0xF0 and c[p+1] == 0:
                 r = None
                 for q in range(p+2, p+200):

@@ -1,0 +1,126 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 3
+    word 210
+    word 162
+	ptr ot_names
+    dword $2000821
+    word $800
+	ptr shape
+	ptr shadowShape
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 1956
+    word 78
+    word 0
+    word 100
+    word 100
+    word 100
+    word 100
+    word 0
+    word 100
+    word 255
+    word 255
+    word 255
+    word 255
+    word 255
+    byte 21
+    byte 6
+    dword 0
+    word 100
+
+;---------------- movement info ----------------
+
+    word 5460
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    dword ^0
+    dword ^0
+    dword ^0
+    dword ^0
+	symbol _GVProc	; utilProc
+
+;---------------- sound info ----------------
+
+	ptr loopSound
+	ptr secondSound
+    dword 0
+    dword 0
+    byte 1
+    word 2500
+    word 25
+    word 20
+    word 20
+    word 1000
+    word 0
+    word 0
+    word 0
+    dword 0
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+
+;---------------- START OF NPC_TYPE ----------------
+
+    dword $0
+    dword 0
+    byte 40
+    byte 80
+    byte 40
+    word 32767
+    word 0
+    byte 1
+	ptr hards
+
+;---------------- END OF NPC_TYPE ----------------
+
+:hards
+;-------- hardpoint 0
+    word $8
+    word 0
+    word 30
+    word 40
+    word 0
+    word 0
+    word 0
+    word 16380
+	ptr defaultTypeName0
+    byte 0
+    word 1000
+    byte 0
+:ot_names
+	string "S-60"
+	string "S-60 57mm AAA"
+	string "S60.NT"
+:shape
+	string "aa85.SH"
+:shadowShape
+	string "aa35b.SH"
+:loopSound
+	string "&TANK.11K"
+:secondSound
+	string "&TURRET.11K"
+:defaultTypeName0
+	string "ZSU57.JT"
+	end

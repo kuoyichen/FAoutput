@@ -177,9 +177,9 @@ def build(side):
     if side in 'LR':
         sx = 1 if side == 'L' else -1                     # L：支柱在 +x，輪子在外側 -x
         g_s = prism(st, (3*sx, 1, 1), (3*sx, 1, -20), 1.42, 4, STRUT, rot=math.pi/4)   # 底到 -20，包住輪軸（輪軸 z -20..-18）
-        g_s += prism(st, (3*sx, 1, -6), (3*sx, 1, -9), 1.9, 4, BRACE, rot=math.pi/4)
+        g_s += prism(st, (3*sx, 1, -6), (3*sx, 1, -9), 1.0, 4, BRACE, rot=math.pi/4)   # 主起落架斜撐改細（v13）
         g_s += prism(st, (3*sx, 1, -19), (-1*sx, 1, -19), 0.71, 4, BRACE, rot=math.pi/4)   # 輪軸
-        g_b = prism(st, (3*sx, 1, -11), (6*sx, 8, 0), 0.75, 4, BRACE, rot=math.pi/4)
+        g_b = prism(st, (3*sx, 1, -11), (6*sx, 8, 0), 0.5, 4, BRACE, rot=math.pi/4)     # 斜撐改細（v13）
         wheels = [((-1*sx, -19, 1), tread(st, (-1*sx, 1, -19), 5, -1, 1))]     # 主輪厚 2
         split = ((16384*sx, 0, 0), (-1*sx, 0, 0), None)         # 眼睛在 x=1 的支柱那一側 → 先畫輪子
         fwd = (0, 0, -3)
@@ -190,11 +190,7 @@ def build(side):
         g = {}
         g['housing'] = prism(st, (0, 5, -1), (0, 5, -5), 2.0, 4, STRUT, caps=(True, True))   # 菱形，角離中心 2
         g['piston'] = prism(st, (0, 5, -5), (0, 5, -12), 1.0, 4, BRACE, caps=(False, False))
-        g['piston'] += prism(st, (0, 5, -8), (0, 5, -9), 2.0, 4, STRUT)                       # 套環
         g['block'] = box(st, (-3, 3), (4, 6), (-14, -12), STRUT)                               # 輪叉座 = 輪軸
-        A = [st.v(p) for p in ((0, 6, -9), (1, 6, -9), (1, 6, -8), (0, 6, -8))]
-        B = [st.v(p) for p in ((0, 15, -3), (1, 15, -3), (1, 15, -2), (0, 15, -2))]
-        g['bar'] = [st.face([A[i], A[(i+1) % 4], B[(i+1) % 4], B[i]], BRACE, (0.5, 10.5, -5.5)) for i in range(4)] + [st.face(B, BRACE, (0.5, 10.5, -5.5))]
         g_s, g_b = g, None
         wheels = [((x, -13, 5), tread(st, (x, 5, -13), 3, 0, 1)) for x in (-4, 3)]   # 前輪厚 1：-4..-3、3..4
         split = ((16384, 0, 0), (3, 0, 0), (-3, 0, 0))                               # x=-3 分左輪，x=3 分右輪
@@ -220,13 +216,14 @@ def part_block(side, at, header):
         c4s.append(C)
     else:
         G_ = {k: st.group(v)[0] for k, v in g_s.items()}
-        slen = 3 * 20 + sum(len(v) for v in G_.values())
+        slen = 2 * 20 + sum(len(v) for v in G_.values())
         N1 = at + len(out); WL = N1 + 20; N2 = WL + len(T[0]) + 17; WR = N2 + 20; s = WR + len(T[1]) + 17; wpos = s + slen + 6
         CL, CR = WL + len(T[0]), WR + len(T[1])
         # 結構：node(前後 y=7：其餘 → 斜撐) → node(z=-5：下段 → 筒身) → node(z=-12：輪叉座 → 活塞＋套環)
-        R1 = s + 20; R2 = R1 + 20; PC = R2 + 20; BK = PC + len(G_['piston']); HS = BK + len(G_['block']); BR = HS + len(G_['housing'])
-        S = (node(s, (0, 0, 16384), (0, 0, -7), R1, BR) + node(R1, (0, 16384, 0), (0, 5, 0), R2, HS)
-             + node(R2, (0, 16384, 0), (0, 12, 0), BK, PC) + G_['piston'] + G_['block'] + G_['housing'] + G_['bar'])
+        # v13：斜撐拿掉後，最上層「其餘 → 斜撐」那個 node 也拿掉（否則它的背面分支會跳到輪子零件的範圍標頭 → 外部視角當掉）
+        R1 = s; R2 = R1 + 20; PC = R2 + 20; BK = PC + len(G_['piston']); HS = BK + len(G_['block'])
+        S = (node(R1, (0, 16384, 0), (0, 5, 0), R2, HS)
+             + node(R2, (0, 16384, 0), (0, 12, 0), BK, PC) + G_['piston'] + G_['block'] + G_['housing'])
         assert len(S) == slen
         out += node(N1, n, d, WL, N2) + T[0] + c4(CL, wheels[0][0], wpos) + b'\x1e'
         out += node(N2, n, d2, s, WR) + T[1] + c4(CR, wheels[1][0], wpos) + b'\x1e' + S + WB

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gun hit boxes fixed</title>
+<meta name="description" content="FAshion release #7: why gun rounds in Fighters Anthology hit empty air around an aircraft, where FA.EXE defines the bullet hit box, and a patched FA.EXE (with FA_BIG limits) that makes it fit the shape.">
+<style>
+:root{ --bg:#0e1216; --card:#161c22; --card2:#1b232b; --line:#26303a; --text:#e2e8ee; --muted:#8a96a4; --accent:#ffd54a; --cyan:#6fd3ff; --ok:#5fd38a; --bad:#ff6b6b; --warn:#ffb347; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}
+a{color:var(--cyan)}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+header{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:12px 16px;background:#0e1216ee;border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+header .crumb{color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#langSlot{margin-left:auto}
+.fa-lang{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font:inherit;font-size:13px}
+main{max-width:980px;margin:0 auto;padding:24px 16px 60px}
+.kicker{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.6px;text-transform:uppercase}
+h1{font-size:clamp(30px,6vw,46px);line-height:1.1;margin:8px 0 8px}
+h1 b{color:var(--accent)}
+h2{font-size:22px;margin:44px 0 6px}
+h3{font-size:17px;margin:18px 0 6px}
+.lead{font-size:17px;color:#c4ccd5;max-width:760px}
+.muted{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+.dl{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:18px}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#1a1a1a;font-weight:700;text-decoration:none;border-radius:10px;padding:11px 18px}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:none;color:var(--text);border:1px solid var(--line);font-weight:600}
+code{font:13px/1.4 ui-monospace,Consolas,monospace;background:#0b0f13;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+figure{margin:16px 0}
+figure img{width:100%;display:block;border-radius:12px;border:1px solid var(--line);background:#161c22}
+figcaption{color:var(--muted);font-size:13px;margin-top:6px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+.bad{color:var(--bad);font-weight:700}.ok{color:var(--ok);font-weight:700}
+.note{border-left:3px solid var(--warn);padding:8px 12px;background:#ffb3470f;border-radius:0 8px 8px 0;margin:12px 0}
+.flow{display:grid;gap:8px;margin:12px 0}
+.flow div{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:14px}
+.flow div b{color:var(--accent)}
+ol.steps{padding-left:0;list-style:none;counter-reset:s}
+ol.steps li{counter-increment:s;position:relative;padding:4px 0 12px 42px}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:2px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#1a1a1a;font-weight:800;display:grid;place-items:center}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+@media (max-width:700px){ .two{grid-template-columns:1fr} }
+</style>
+<script src="fashion_i18n.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <span class="crumb">Gun hit boxes</span>
+  <span id="langSlot"></span>
+</header>
+<main>
+  <div class="kicker">Release #7</div>
+  <h1 data-lang="en">Gun hit boxes <b>fixed</b></h1>
+  <h1 data-lang="zh">機砲判定框<b>修好了</b></h1>
+  <p class="lead" data-lang="en">In Fighters Anthology, cannon rounds often “hit” an aircraft while the tracer is still a long way from the airframe. That is not your aim: FA.EXE tests bullets against a box that is far bigger than the plane. This page shows where that box comes from, and gives you an <code>FA.EXE</code> that makes it fit.</p>
+  <p class="lead" data-lang="zh">在 Fighters Anthology 裡，機砲子彈常常離機身還很遠就顯示「擊中」。這不是你瞄不準：FA.EXE 判定子彈時用的框，比飛機大非常多。這一頁說明那個框從哪裡來，並提供一個讓它貼近機身的 <code>FA.EXE</code>。</p>
+  <div class="dl">
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/FA_BIG/FA_BIG.ZIP" download>⬇ <span data-lang="en">Download FA_BIG.ZIP</span><span data-lang="zh">下載 FA_BIG.ZIP</span></a>
+    <a class="btn ghost" href="#install"><span data-lang="en">How to install</span><span data-lang="zh">安裝方式</span></a>
+    <span class="muted" style="font-size:13px">ZIP 619 KB · FA.EXE 1,319,424 B · CRC32 7EE82875</span>
+  </div>
+  <p class="muted" style="font-size:13px" data-lang="en">One file inside: <code>FA.EXE</code> (1.02f) with both the <a href="fa_big.html">FA_BIG</a> limits and the new bullet hit box. It replaces the earlier FA_BIG.ZIP.</p>
+  <p class="muted" style="font-size:13px" data-lang="zh">裡面只有一個檔案：<code>FA.EXE</code>（1.02f），同時有 <a href="fa_big.html">FA_BIG</a> 的放大上限和新的子彈判定框。它取代之前的 FA_BIG.ZIP。</p>
+
+  <h2 data-lang="en">The problem</h2><h2 data-lang="zh">問題</h2>
+  <p data-lang="en">Fire the gun at an enemy and the hit flash appears in the air beside a wing, above the tail, or in front of the nose. The round never touched the model you see. The hit test is simply generous, and for a small, thin target like a fighter it is <b>generous in every direction by 70 units</b>.</p>
+  <p data-lang="zh">對敵機開砲，擊中的火花會出現在機翼旁邊、垂尾上方，或機鼻前面的空氣中。子彈根本沒碰到你看到的模型。原因是判定框給得太寬，對戰鬥機這種又小又薄的目標，<b>每個方向都多給了 70 單位</b>。</p>
+  <figure>
+    <img src="img/gunbox/f14_planA.png" alt="F-14 top and side view with the original and fixed bullet boxes" loading="lazy">
+    <figcaption data-lang="en">F-14: the shape’s bounding box (orange), the original bullet box (red dashes) and the fixed one (green). Units are FA world units (the same as the SH collision table).</figcaption>
+    <figcaption data-lang="zh">F-14：外形的外框（橘）、原版子彈判定框（紅色虛線）和修正後的框（綠）。單位是 FA 的世界單位（和 SH 碰撞表相同）。</figcaption>
+  </figure>
+
+  <h2 data-lang="en">Where FA.EXE defines it</h2><h2 data-lang="zh">FA.EXE 在哪裡定義</h2>
+  <p class="muted" data-lang="en">Found by static analysis of FA.EXE 1.02f. Addresses are virtual addresses.</p>
+  <p class="muted" data-lang="zh">用靜態分析 FA.EXE 1.02f 找到的。位址是虛擬位址。</p>
+  <div class="flow">
+    <div data-lang="en"><b>1.</b> Every frame a moving object sweeps a line segment from its old to new position: <code>0x46345C</code> → <code>0x42B800</code>. For each object it calls <code>0x42C9B0</code>, which clips the segment against that object’s box (<code>0x42D050</code>).</div>
+    <div data-lang="zh"><b>1.</b> 每一幀，移動的物件會從舊位置到新位置掃出一條線段：<code>0x46345C</code> → <code>0x42B800</code>。對每個物件呼叫 <code>0x42C9B0</code>，用 <code>0x42D050</code> 把線段和該物件的框做裁切。</div>
+    <div data-lang="en"><b>2.</b> The box is the <b>bounding box in the shape’s <code>F2</code> table</b> (wing tip to wing tip, gear to fin top). Aircraft shapes have no part boxes, so the whole airframe is one block.</div>
+    <div data-lang="zh"><b>2.</b> 這個框就是外形 <code>F2</code> 表裡的<b>整體外框</b>（翼尖到翼尖、起落架到垂尾頂）。飛機外形沒有分段的框，整架飛機就是一個方塊。</div>
+    <div data-lang="en"><b>3.</b> The bullet has a radius, taken from its JT file (<code>PROJ</code> field 81). Guns have 0, but FA raises it to at least <b>20</b> (<code>0x463364</code>). Aircraft types carry a flag (<code>0x800</code>) that grows the box by that radius.</div>
+    <div data-lang="zh"><b>3.</b> 子彈有半徑，來自它的 JT 檔（<code>PROJ</code> 第 81 欄）。機砲是 0，但 FA 會把它補到至少 <b>20</b>（<code>0x463364</code>）。飛機的型別有個旗標（<code>0x800</code>）會把框放大這個半徑。</div>
+    <div data-lang="en"><b>4.</b> Aircraft types also carry flags <code>0x1E00</code>. For a projectile these add another <b>+50</b> to the box and to the quick-reject sphere (<code>0x42D10B</code>, <code>0x42CB84</code>). All 319 aircraft PT files have them.</div>
+    <div data-lang="zh"><b>4.</b> 飛機型別還有 <code>0x1E00</code> 旗標。對投射物來說，會再把框和快速排除的球多加 <b>50</b>（<code>0x42D10B</code>、<code>0x42CB84</code>）。319 個飛機 PT 檔全都有。</div>
+  </div>
+  <p data-lang="en">So the stock bullet box is the shape box plus <b>20 + 50 = 70</b> on every side.</p>
+  <p data-lang="zh">所以原版的子彈判定框 = 外形外框，每一邊再加 <b>20 + 50 = 70</b>。</p>
+  <div class="scroll"><table>
+    <thead><tr><th data-lang="en">Aircraft</th><th data-lang="zh">飛機</th><th data-lang="en">Shape box (x · up · fwd)</th><th data-lang="zh">外形外框（左右 · 上下 · 前後）</th><th data-lang="en">Original bullet box</th><th data-lang="zh">原版子彈框</th><th data-lang="en">Fixed bullet box</th><th data-lang="zh">修正後子彈框</th></tr></thead>
+    <tbody>
+      <tr><td>F-14</td><td class="n">191 × 58 × 208</td><td class="n bad">331 × 198 × 348</td><td class="n ok">195 × 62 × 212</td></tr>
+      <tr><td>F/A-18</td><td class="n">107 × 51 × 193</td><td class="n bad">247 × 191 × 333</td><td class="n ok">111 × 55 × 197</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted" data-lang="en">For the F-14 the original box is about 9 times the volume of the fixed one, and over three times as tall as the jet.</p>
+  <p class="muted" data-lang="zh">以 F-14 來說，原版的框體積大約是修正後的 9 倍，高度是飛機本身的三倍多。</p>
+
+  <h2 data-lang="en">The fix</h2><h2 data-lang="zh">修正方式</h2>
+  <p data-lang="en">Only 8 bytes of <code>FA.EXE</code> change: the extra <b>50 → 0</b> (two places) and the minimum bullet radius <b>20 → 2</b> (two places). The CRC32 is forged back to the original, like FA_BIG, so launchers that check it still work. Missiles and bombs are not affected: their own proximity radius in the JT is 50 or more.</p>
+  <p data-lang="zh"><code>FA.EXE</code> 只改 8 個 byte：額外的 <b>50 → 0</b>（兩處）、子彈最小半徑 <b>20 → 2</b>（兩處）。CRC32 和 FA_BIG 一樣被調回原版的值，會檢查 CRC 的啟動器照樣能用。飛彈和炸彈不受影響：它們在 JT 裡自己的近炸半徑是 50 以上。</p>
+  <div class="note" data-lang="en">The box is still one block per aircraft, so empty corners between the wing tips and the tail still count as a hit. It is now only 2 units larger than the shape, not 70.</div>
+  <div class="note" data-lang="zh">框仍然是每架飛機一個方塊，翼尖和尾翼之間的空角落還是會算命中，只是現在比外形只大 2 單位，不是 70。</div>
+
+  <h3 data-lang="en">Want it tighter, or looser?</h3><h3 data-lang="zh">想要更緊，或更鬆？</h3>
+  <p data-lang="en"><code>FA_BIG/fa_gun_hitbox.py</code> makes the patched EXE from any 1.02f or FA_BIG <code>FA.EXE</code>: <code>python fa_gun_hitbox.py FA.EXE OUT.EXE &lt;extra&gt; &lt;min radius&gt;</code>. The original game is <code>50 20</code>, this release is <code>0 2</code>. Something like <code>10 5</code> is a more forgiving middle.</p>
+  <p data-lang="zh"><code>FA_BIG/fa_gun_hitbox.py</code> 可以從任何 1.02f 或 FA_BIG 的 <code>FA.EXE</code> 產生修改版：<code>python fa_gun_hitbox.py FA.EXE OUT.EXE &lt;額外值&gt; &lt;最小半徑&gt;</code>。原版是 <code>50 20</code>，這次發布是 <code>0 2</code>。想寬鬆一點可以用 <code>10 5</code> 之類的值。</p>
+
+  <h2 data-lang="en">Optional: hit boxes that follow the shape</h2><h2 data-lang="zh">進階：貼合外形的分段碰撞框</h2>
+  <p data-lang="en">FA already supports several small boxes per shape (carriers and buildings use them): the box list in the <code>F2</code> table is tested after the bounding box, the nearest one wins, and a shot that hits none is a miss. No aircraft shape ships with any. <code>tools/shgen/hitbox/sh_hitbox.py</code> builds them from the drawn faces (swing wings covered at every sweep). It needs the patched EXE, otherwise each small box would be grown by 70 again. I generated test builds with it, but it is <b>not</b> part of the download; a Tomcat shape only has room for 9 boxes, a Hornet 14.</p>
+  <p data-lang="zh">FA 本來就支援每個外形有多個小框（航艦和建築就是這樣）：<code>F2</code> 表裡的框清單會在整體外框之後逐一測試，取最近的，一個都沒打中就算沒中。但沒有任何飛機外形附這種框。<code>tools/shgen/hitbox/sh_hitbox.py</code> 可以依畫出來的面自動產生（變後掠翼涵蓋每個掠角）。它必須搭配修改過的 EXE，否則每個小框又會被放大 70。我用它做過測試版本，但<b>不包含</b>在下載裡；Tomcat 的外形只剩 9 個框的空間，Hornet 是 14 個。</p>
+  <div class="two">
+    <figure><img src="img/gunbox/f14_partboxes.png" alt="F-14 with 9 part hit boxes" loading="lazy"><figcaption data-lang="en">F-14 test build: 9 part boxes (blue) inside the old boxes.</figcaption><figcaption data-lang="zh">F-14 測試版：9 個分段框（藍）在舊的框裡面。</figcaption></figure>
+    <figure><img src="img/gunbox/f18_partboxes.png" alt="F/A-18 with 14 part hit boxes" loading="lazy"><figcaption data-lang="en">F/A-18 test build: 14 part boxes.</figcaption><figcaption data-lang="zh">F/A-18 測試版：14 個分段框。</figcaption></figure>
+  </div>
+
+  <h2 id="install" data-lang="en">Install</h2><h2 id="install-zh" data-lang="zh">安裝</h2>
+  <ol class="steps" data-lang="en">
+    <li><b>Make sure you have FA 1.02f.</b> The patch is built from the 1.02f <code>FA.EXE</code>.</li>
+    <li><b>Back up your current <code>FA.EXE</code></b> (for example rename it to <code>FA_ORIG.EXE</code>).</li>
+    <li><a href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/FA_BIG/FA_BIG.ZIP">Download FA_BIG.ZIP</a> and unzip it into the game folder. It contains one file, <code>FA.EXE</code>.</li>
+    <li><b>Keep the name <code>FA.EXE</code>.</b> The game looks for <code>&lt;exe name&gt;.SMS</code>.</li>
+    <li>Start a mission and shoot at a jet from behind. Rounds that pass beside a wing tip should now fly on.</li>
+  </ol>
+  <ol class="steps" data-lang="zh">
+    <li><b>確認你的 FA 是 1.02f 版。</b>修改是從 1.02f 的 <code>FA.EXE</code> 做的。</li>
+    <li><b>先備份目前的 <code>FA.EXE</code></b>（例如改名成 <code>FA_ORIG.EXE</code>）。</li>
+    <li><a href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/FA_BIG/FA_BIG.ZIP">下載 FA_BIG.ZIP</a>，解壓到遊戲目錄。裡面只有一個檔案：<code>FA.EXE</code>。</li>
+    <li><b>檔名一定要是 <code>FA.EXE</code>。</b>遊戲會用自己的檔名去找 <code>&lt;檔名&gt;.SMS</code>。</li>
+    <li>開始任務，從後面對一架噴射機開砲。從翼尖旁邊擦過的子彈現在應該會直接飛過去。</li>
+  </ol>
+  <div class="note" data-lang="en">To undo: delete the new <code>FA.EXE</code> and rename <code>FA_ORIG.EXE</code> back. Missions and settings are not touched. If you play online, I have not tested it with other players.</div>
+  <div class="note" data-lang="zh">要還原：刪掉新的 <code>FA.EXE</code>，再把 <code>FA_ORIG.EXE</code> 改回來。任務檔和設定都不受影響。連線對戰我沒有和其他玩家測試過。</div>
+  <p class="muted" style="font-size:13px" data-lang="en">Source: <a href="https://github.com/kuoyichen/FAoutput/tree/main/FA_BIG">FA_BIG on GitHub</a> has <code>fa_gun_hitbox.py</code> (every address is commented), <code>fa_patch_limits.py</code> and <code>crc_match.py</code>.</p>
+  <p class="muted" style="font-size:13px" data-lang="zh">原始碼：<a href="https://github.com/kuoyichen/FAoutput/tree/main/FA_BIG">GitHub 上的 FA_BIG 目錄</a>有 <code>fa_gun_hitbox.py</code>（每個位址都有註解）、<code>fa_patch_limits.py</code> 和 <code>crc_match.py</code>。</p>
+</main>
+<footer data-lang="en">FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>). Use the patched FA.EXE at your own risk and keep a backup of your original.</footer>
+<footer data-lang="zh">FAshion 是 hawke 為 Jane's Fighters Anthology 做的同好專案（<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>）。使用修改過的 FA.EXE 請自行承擔風險，並保留原版備份。</footer>
+<script>
+"use strict";
+FAI18N.register({ "FAshion home": "FAshion 首頁", "Gun hit boxes": "機砲命中判定框", "Release #7": "發布 #7" });
+document.getElementById("langSlot").append(FAI18N.picker()); FAI18N.apply();
+</script>
+</body>
+</html>
