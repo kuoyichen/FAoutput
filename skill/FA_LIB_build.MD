@@ -154,10 +154,47 @@ in the ToolKit itself has not been tried yet.
 
 The ToolKit folders are **output**: the repo (plus the extra folder) is the source. If you change or
 add a file inside a ToolKit folder, the next `build --toolkit` **stops** and lists it
-(`different from the source file (edited in the ToolKit?)` / `in the ToolKit folder but not in the set file`),
-so ToolKit work is never lost silently. Copy the file into its repo folder (and add its name to the set
-file), then build again. `--overwrite-toolkit` throws such changes away instead. Files removed from the
-set file are removed from the ToolKit folder. `SHORTCUT.DAT` (the ToolKit's recent-files list) is left alone.
+(`changed in the ToolKit folder` / `in the ToolKit folder but not in this LIB of the set file`),
+so ToolKit work is never lost silently. Bring it back with `import` (below), then build again.
+`--overwrite-toolkit` throws such changes away instead. A ToolKit file that only *looks* different
+because the source got newer (it still equals what falib wrote last time, per FA_0.LIB's checksum list)
+is simply replaced. Files removed from the set file are removed from the ToolKit folder.
+`SHORTCUT.DAT` (the ToolKit's recent-files list) is left alone.
+
+### Bringing ToolKit work back (`import`)
+
+For Kuoyi's own ToolKit edits, or a project folder another player edited and sent back:
+
+```
+python tools/falib.py import JKPFA6\JKPFA6C --set LIB/JKPFA6.txt --to . --src "...\JKPFA54_extra" --dry-run
+python tools/falib.py import JKPFA6\JKPFA6C --set LIB/JKPFA6.txt --to . --src "...\JKPFA54_extra"
+```
+
+`--to` is the writable copy of the repo (new files go to `<EXT>/` there); `--src` as in `build`
+(changed files that live there are updated in place). Always run `--dry-run` first.
+
+It compares three copies of every file, so it never guesses which is newest:
+the ToolKit copy, the source copy, and the **released** copy (the `$FALIB.INF` checksum list in
+`JKPFA6\FA_JKPFA6_C.LIB` next to the folder, else the folder's `FA_0.LIB`, or `--base LIB`).
+
+| line | meaning | what happens |
+|---|---|---|
+| `IMPORT` | changed in the ToolKit, source unchanged since release | ToolKit file copied into the source |
+| `KEEP` | source changed since release, ToolKit copy unchanged | nothing (source is newer) |
+| `CONFLICT` | both changed, differently (or no release record) | **nothing at all is written**; rerun with `--take-toolkit NAME` or `--take-source NAME` |
+| `NEW` | in ITEM.DAT but not in the set file | file copied to `<EXT>/`, name + description added to the set file; says which LIB the `[rules]` put it in |
+| `DESC` | description changed in the ToolKit | set file line updated |
+| `GONE?` | in the set file for this LIB, no longer in ITEM.DAT | kept; `--remove-missing` deletes the set-file line |
+| `MISSING` / `IGNORED` | ITEM.DAT names a file that is not there / a file not in ITEM.DAT | reported only |
+
+Tested (2026-11-26) on copies with all of these at once: a ToolKit edit, a repo edit, the same file
+edited on both sides, a new JT with a description, a new PT dropped into the weapons project (correctly
+sent to LIB A), a file removed from ITEM.DAT and a changed description. Build refused before the import,
+import refused while the conflict was open, `--take-toolkit` resolved it, and the following build passed
+with the repo edit kept.
+
+On Kuoyi's PC (no git), `--to` must be a local copy of the repo; the changed files then go to GitHub
+the usual way (for now: through a cloud thread).
 
 ## 6. Other commands
 

@@ -7,6 +7,7 @@ Needs only Python 3.8+ (no extra packages). See skill/FA_LIB_build.MD.
   python tools/falib.py unpack  FA_JKPFA54_D.LIB out_folder [--by-ext]
   python tools/falib.py verify  build_or_game_folder_or_LIBs [--set LIB/JKPFA6.txt --src .]
   python tools/falib.py check   LIB/JKPFA6.txt --src . [--src EXTRA] [--game GAME_FOLDER]
+  python tools/falib.py import  JKPFA6/JKPFA6C --set LIB/JKPFA6.txt --to . [--src EXTRA] [--dry-run]
   python tools/falib.py build   LIB/JKPFA6.txt --src . [--src EXTRA] --out JKPFA6 [--toolkit] [--only D] [--store]
 
 build always ends with verify; ship a LIB only after "RESULT: PASSED".
@@ -849,14 +850,30 @@ def toolkit_conflicts(folder, names, datas):
     if not os.path.isdir(folder):
         return out
     want = set(names)
+    # what falib wrote last time (FA_0.LIB's checksum list): a file still equal to it was not
+    # edited in the ToolKit, it is only older than the source, so it may be replaced
+    last = {}
+    p0 = os.path.join(folder, 'FA_0.LIB')
+    if os.path.exists(p0):
+        try:
+            blob, ents = read_lib(p0)
+            for n, f, st, en in ents:
+                if n.upper() == INFO_NAME:
+                    last = parse_info(entry_data(blob, f, st, en))
+        except Exception:
+            last = {}
     for fn in sorted(os.listdir(folder)):
         n = fn.upper()
         if n in TOOLKIT_FILES or not os.path.isfile(os.path.join(folder, fn)):
             continue
         if n not in want:
-            out.append(f'{fn}: in the ToolKit folder but not in the set file')
-        elif _read(os.path.join(folder, fn)) != datas[n]:
-            out.append(f'{fn}: different from the source file (edited in the ToolKit?)')
+            # fine if it is in the set (another LIB) with the same bytes: it just moved
+            if n not in datas or _read(os.path.join(folder, fn)) != datas[n]:
+                out.append(f'{fn}: in the ToolKit folder but not in this LIB of the set file')
+        else:
+            d = _read(os.path.join(folder, fn))
+            if d != datas[n] and last.get(n) != (len(d), hashlib.sha1(d).hexdigest()):
+                out.append(f'{fn}: changed in the ToolKit folder')
     return out
 
 
@@ -875,6 +892,172 @@ def write_toolkit(folder, project, names, datas, lib_path, desc=None):
             f.write(data)
     with open(lib_path, 'rb') as src, open(os.path.join(folder, 'FA_0.LIB'), 'wb') as dst:
         dst.write(src.read())
+
+
+def read_item_dat(folder):
+    """ToolKit ITEM.DAT -> [(NAME, description)] in file order."""
+    p = os.path.join(folder, 'ITEM.DAT')
+    if not os.path.exists(p):
+        raise FALibError(f'{folder}: no ITEM.DAT, not a ToolKit project folder')
+    out = []
+    for line in _read(p).decode('latin1').splitlines():
+        if line.strip():
+            cols = line.strip().strip('"').split('","')
+            out.append((cols[0].upper(), cols[1] if len(cols) > 1 else cols[0]))
+    return out
+
+
+def _edit_set_file(path, changes):
+    """changes: {NAME: new description, or None to delete the line}; names not in the file are appended."""
+    with open(path, encoding='utf-8') as f:
+        lines = f.read().split('\n')
+    section, done = None, set()
+    out = []
+    for line in lines:
+        text = line.split('#', 1)[0].strip()
+        if text.startswith('[') and text.endswith(']'):
+            section = text[1:-1].strip().lower()
+        elif section == 'files' and text:
+            name = text.split(None, 1)[0].upper()
+            if name in changes:
+                done.add(name)
+                d = changes[name]
+                if d is None:
+                    continue
+                comment = ('  #' + line.split('#', 1)[1]) if '#' in line else ''
+                line = (name if d == name else f'{name:14}{d}') + comment
+        out.append(line)
+    while out and out[-1] == '':
+        out.pop()
+    for name in sorted(set(changes) - done):
+        if changes[name] is not None:
+            d = changes[name]
+            out.append(name if d == name else f'{name:14}{d}')
+    with open(path, 'w', encoding='utf-8', newline='\n') as f:
+        f.write('\n'.join(out) + '\n')
+
+
+def cmd_import(a):
+    """Bring changes made in an FA ToolKit project folder back into the source folders.
+
+    Three-way, so nothing is guessed: for each file, compare the ToolKit copy, the source copy
+    and the copy that was released (the $FALIB.INF checksum list in the LIB built from the set).
+      ToolKit changed, source unchanged  -> copy the ToolKit file into the source folder
+      source changed, ToolKit unchanged  -> keep the source (it is newer), report it
+      both changed differently           -> CONFLICT: nothing is written until you choose
+    """
+    folder = a.folder.rstrip('\\/')
+    s = SetFile(a.set)
+    plan = s.plan()
+    proj = os.path.basename(folder).upper()
+    libs = [lib for lib in plan if project_name(lib) == proj] or \
+           [lib for lib, _ in s.rules if project_name(lib) == proj]
+    if not libs:
+        raise FALibError(f'{folder}: no LIB in {a.set} has the ToolKit project name {proj}')
+    lib = libs[0]
+    # the released checksum list
+    base = None
+    for cand in ([a.base] if a.base else []) + [os.path.join(os.path.dirname(folder), lib),
+                                                 os.path.join(folder, 'FA_0.LIB')]:
+        if cand and os.path.exists(cand):
+            blob, ents = read_lib(cand)
+            for n, f, st, en in ents:
+                if n.upper() == INFO_NAME:
+                    base = parse_info(entry_data(blob, f, st, en))
+                    print(f'released version: {cand}')
+                    break
+            if base is not None:
+                break
+    if base is None:
+        print('NOTE  no released checksum list found (use --base FA_..LIB): every difference counts as a conflict')
+        base = {}
+    roots = [a.to] + (a.src or [])
+    src = Sources(roots)
+    items = read_item_dat(folder)
+    in_toolkit = {n for n, _ in items}
+    take_tk = {x.upper() for x in (a.take_toolkit or [])}
+    take_src = {x.upper() for x in (a.take_source or [])}
+    writes, set_changes, notes, conflicts = [], {}, [], []
+    for name, desc in items:
+        p = os.path.join(folder, name)
+        if not os.path.exists(p):
+            notes.append(f'MISSING   {name}: in ITEM.DAT but the file is not in the folder (skipped)')
+            continue
+        tk = _read(p)
+        tk_sig = (len(tk), hashlib.sha1(tk).hexdigest())
+        if name not in s.desc_of:                         # a new file
+            hits = src.index.get(name)
+            if hits:
+                cur, label = src.get(name)
+                if cur != tk and name not in take_tk:
+                    conflicts.append(f'CONFLICT  {name}: new in the set, but a different {label} already exists '
+                                     '(--take-toolkit / --take-source)')
+                    continue
+            target_lib = s.lib_for(name)
+            where = f'goes into {target_lib}' if target_lib else 'matches NO [rules] line: add one'
+            if target_lib and target_lib != lib:
+                where += f' (not {lib}: the [rules] decide)'
+            writes.append((name, tk, None))
+            set_changes[name] = desc
+            notes.append(f'NEW       {name}: added to {os.path.basename(a.set)}, {where}')
+            continue
+        if desc != s.desc_of[name]:
+            set_changes[name] = desc
+            notes.append(f'DESC      {name}: description "{s.desc_of[name]}" -> "{desc}"')
+        try:
+            cur, label = src.get(name)
+        except FALibError as ex:
+            writes.append((name, tk, None))
+            notes.append(f'RESTORED  {name}: {ex}; the ToolKit copy is used')
+            continue
+        if cur == tk:
+            continue
+        cur_sig = (len(cur), hashlib.sha1(cur).hexdigest())
+        rel = base.get(name)
+        if name in take_tk or (rel == cur_sig and rel != tk_sig):
+            writes.append((name, tk, label))
+            notes.append(f'IMPORT    {name}: changed in the ToolKit -> {label}')
+        elif name in take_src or (rel == tk_sig and rel != cur_sig):
+            notes.append(f'KEEP      {name}: the source is newer than the ToolKit copy (not changed)')
+        else:
+            conflicts.append(f'CONFLICT  {name}: ToolKit copy and {label} both differ'
+                             + (' from the release' if rel else ' (no release record)')
+                             + ' (--take-toolkit / --take-source)')
+    # files of this LIB that the ToolKit project no longer lists
+    for name in plan.get(lib, []):
+        if name not in in_toolkit:
+            if a.remove_missing:
+                set_changes[name] = None
+                notes.append(f'REMOVE    {name}: not in the ToolKit project, line removed from the set file')
+            else:
+                notes.append(f'GONE?     {name}: not in the ToolKit project any more (kept; --remove-missing drops it)')
+    for fn in sorted(os.listdir(folder)):
+        n = fn.upper()
+        if (n not in in_toolkit and n not in TOOLKIT_FILES and n not in plan.get(lib, [])
+                and os.path.isfile(os.path.join(folder, fn))):
+            notes.append(f'IGNORED   {fn}: in the folder but not in ITEM.DAT')
+    for line in notes + conflicts:
+        print(line)
+    if conflicts:
+        print(f'RESULT: {len(conflicts)} conflicts, nothing was written. Decide per file with '
+              '--take-toolkit NAME or --take-source NAME and run again.')
+        return 1
+    if not writes and not set_changes:
+        print('RESULT: nothing to import, the ToolKit project matches the source')
+        return 0
+    if a.dry_run:
+        print(f'RESULT: dry run, would write {len(writes)} files and change {len(set_changes)} set-file lines')
+        return 0
+    for name, data, label in writes:
+        dest = label if label and os.path.isfile(label) else os.path.join(a.to, name.rsplit('.', 1)[-1], name)
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        with open(dest, 'wb') as f:
+            f.write(data)
+    if set_changes:
+        _edit_set_file(a.set, set_changes)
+    print(f'RESULT: wrote {len(writes)} files, changed {len(set_changes)} set-file lines. '
+          'Now run build (and commit the repo changes).')
+    return 0
 
 
 def cmd_build(a):
@@ -900,7 +1083,8 @@ def cmd_build(a):
         if conflicts:
             for c in conflicts:
                 print('ERROR', c)
-            print('nothing was built: copy these changes into the repo (or delete them) and run again,\n'
+            print('nothing was built: bring these changes into the repo first with\n'
+                  '  python tools/falib.py import <ToolKit folder> --set <set file> --to <repo>\n'
                   'or add --overwrite-toolkit to throw them away.')
             return 1
     os.makedirs(a.out, exist_ok=True)
@@ -965,10 +1149,22 @@ def main(argv=None):
             x.add_argument('--no-verify', action='store_true',
                            help='skip the full check after building (not recommended)')
             x.add_argument('--jobs', type=int, default=None, help='parallel compressors (default: all cores)')
+    x = sub.add_parser('import', help='bring changes made in an FA ToolKit project folder back into the sources')
+    x.add_argument('folder', help='ToolKit project folder, e.g. JKPFA6\\JKPFA6C')
+    x.add_argument('--set', required=True, help='set file, e.g. LIB/JKPFA6.txt (updated in place)')
+    x.add_argument('--to', required=True, help='source root to write into (the repo); new files go to <EXT>/')
+    x.add_argument('--src', action='append', help='more source roots, as in build (files there are updated in place)')
+    x.add_argument('--base', help='released LIB whose checksum list is the common ancestor '
+                                  '(default: the LIB next to the folder, then its FA_0.LIB)')
+    x.add_argument('--take-toolkit', nargs='+', metavar='NAME', help='resolve conflicts: use the ToolKit copy')
+    x.add_argument('--take-source', nargs='+', metavar='NAME', help='resolve conflicts: keep the source copy')
+    x.add_argument('--remove-missing', action='store_true',
+                   help='drop set-file lines for files the ToolKit project no longer lists')
+    x.add_argument('--dry-run', action='store_true', help='only show what would change')
     a = p.parse_args(argv)
     try:
         return {'list': cmd_list, 'unpack': cmd_unpack, 'verify': cmd_verify,
-                'check': cmd_check, 'build': cmd_build}[a.cmd](a) or 0
+                'check': cmd_check, 'build': cmd_build, 'import': cmd_import}[a.cmd](a) or 0
     except FALibError as ex:
         print('ERROR', ex)
         return 1
