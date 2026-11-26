@@ -1,20 +1,26 @@
 # Building FA .LIB files (JKPFA set)
 
-Tool: `tools/falib.py` (Python 3.8+, no packages). Set file: `LIB/JKPFA54.txt`.
-It replaces the FA ToolKit for building: no ITEM.DAT, no project folders, and a full
-build of every JKPFA54 LIB takes about 1 minute the first time and 1-2 seconds after that.
+Tool: `tools/falib.py` (Python 3.8+, no packages). Current set file: `LIB/JKPFA6.txt` (the JKPFA6
+release; `LIB/JKPFA54.txt` was the first draft and is replaced by it).
+It replaces the FA ToolKit for building: no hand-edited ITEM.DAT, and a full build of every LIB
+takes about 1 minute the first time and a few seconds after that. It also writes FA ToolKit project
+folders, so the ToolKit can still open every LIB's project (section 5).
 
 ## 1. The short version
 
 ```
-python tools/falib.py check LIB/JKPFA54.txt --src . --game "C:\Program Files\Fighters Anthology"
-python tools/falib.py build LIB/JKPFA54.txt --src . --out build
+python tools/falib.py check LIB/JKPFA6.txt --src . --game "C:\Program Files\Fighters Anthology"
+python tools/falib.py build LIB/JKPFA6.txt --src . --out JKPFA6 --toolkit
 ```
 
 Run from the repo root. `check` says what will change and stops on any problem;
-`build` writes `build/FA_JKPFA54_A.LIB` ... `build/FA_JKPFA54_M.LIB`, then checks them and must end
-with `RESULT: PASSED` (section 4). Copy them into the game folder (after removing the old JKPFA LIBs,
-see section 6).
+`build` writes `JKPFA6/FA_JKPFA6_A.LIB` ... `JKPFA6/FA_JKPFA6_M.LIB` plus one ToolKit project folder
+per LIB (`JKPFA6/JKPFA6A/` ...), then checks the LIBs and must end with `RESULT: PASSED` (section 4).
+Copy the LIBs into the game folder (after removing the old JKPFA LIBs, see section 7).
+
+On Kuoyi's PC the working copy is `C:\Users\hawke\Documents\SH\Lib pack study\JKPFA6`, built with
+`--src` the repo **and** `--src "...\Lib pack study\JKPFA54_extra"` (216 files not uploaded to GitHub:
+sound effects, `$` pictures, HUD/PTS/GAS, maps, music; same `<EXT>/` layout).
 
 Without a local clone, use the GitHub copy directly: `--src github:kuoyichen/FAoutput`
 (downloads the `main` branch zip; `@branch` picks another branch).
@@ -41,28 +47,31 @@ Identical copies are fine.
 
 `SHX/` and other folders not named after an extension are never read.
 
-## 3. The set file `LIB/JKPFA54.txt`
+## 3. The set file `LIB/JKPFA6.txt`
 
 Two sections. `#` starts a comment.
 
 ```
 [rules]
-FA_JKPFA54_A.LIB  *.PT *.ECM *.SEE *.HUD *.PTS    # aircraft
-FA_JKPFA54_B.LIB  *.NT *.OT                       # ground units, ships, objects
-FA_JKPFA54_C.LIB  *.JT *.GAS                      # weapons, fuel tanks
-FA_JKPFA54_D.LIB  *.SH                            # 3D shapes
-FA_JKPFA54_E.LIB  *.PIC                           # pictures
-FA_JKPFA54_S.LIB  AIR*.11K                        # music
-FA_JKPFA54_F.LIB  *.11K *.5K *.8K                 # sound effects
-FA_JKPFA54_M.LIB  *.MM *.T2                       # maps
+FA_JKPFA6_A.LIB  *.PT *.ECM *.SEE *.HUD *.PTS    # aircraft
+FA_JKPFA6_B.LIB  *.NT *.OT                       # ground units, ships, objects
+FA_JKPFA6_C.LIB  *.JT *.GAS                      # weapons, fuel tanks
+FA_JKPFA6_D.LIB  *.SH                            # 3D shapes
+FA_JKPFA6_E.LIB  *.PIC                           # pictures
+FA_JKPFA6_S.LIB  AIR*.11K                        # music (was _MUSIC.LIB)
+FA_JKPFA6_F.LIB  *.11K *.5K *.8K                 # sound effects
+FA_JKPFA6_M.LIB  *.MM *.T2                       # maps (was _MAP.LIB)
 
 [files]
-F14.PT
+F14.PT        F-14A Tomcat
 F14.SH
+AIR004.11K    sound file
 ...
 ```
 
 * `[files]` is the full list of files in the mod. Order does not matter; a name listed twice is an error.
+* After the name, optional text is the **description** the FA ToolKit shows (ITEM.DAT column 2).
+  Without one, the description is the file name, as the ToolKit does by default. No `"` allowed.
 * `[rules]` decides which LIB each file goes into. **The first matching line wins**, so the music
   line (`AIR*.11K`) sits above the general sound line (`*.11K`). A file that matches no rule is an error.
 * Names must be 8.3 and upper case (the game's limit).
@@ -74,9 +83,9 @@ F14.SH
 | add a new file | put it in its extension folder, add its name under `[files]` |
 | update a file | replace it in its folder. Nothing else. |
 | remove a file from the mod | delete its line under `[files]` (the source file can stay) |
-| add a new LIB | add one `[rules]` line, e.g. `FA_JKPFA54_G.LIB *.FNT` (free letters: G-L, N-R, T-Z) |
-| move one file to another LIB | add a rule above the general one, e.g. `FA_JKPFA54_G.LIB F14*.PT` |
-| start version 55 | copy the set file to `LIB/JKPFA55.txt` and rename the LIBs in `[rules]` |
+| add a new LIB | add one `[rules]` line, e.g. `FA_JKPFA6_G.LIB *.FNT` (free letters: G-L, N-R, T-Z) |
+| move one file to another LIB | add a rule above the general one, e.g. `FA_JKPFA6_G.LIB F14*.PT` |
+| start version 7 | copy the set file to `LIB/JKPFA7.txt` and rename the LIBs in `[rules]` |
 | build just one LIB | `build ... --only D` |
 | quick test build | `build ... --store` (no compression; the game reads stored entries too) |
 
@@ -96,7 +105,7 @@ Check LIBs at any time, for example after copying, uploading or downloading them
 ```
 python tools/falib.py verify build                                   # every .LIB in a folder
 python tools/falib.py verify "C:\Program Files\Fighters Anthology"   # what is installed now
-python tools/falib.py verify build --set LIB/JKPFA54.txt --src .     # also compare with the sources
+python tools/falib.py verify JKPFA6 --set LIB/JKPFA6.txt --src .     # also compare with the sources
 ```
 
 What is checked, in order:
@@ -124,18 +133,44 @@ again without sources. `verify` failed every one and passed the undamaged LIB. R
 found real problems: `_HUD.LIB` holds `~F14S.PIC` twice, and DRNR1.PT, HAWK.NT, UH1.PT are each in two
 JKPFA54 LIBs.
 
-## 5. Other commands
+## 5. FA ToolKit compatibility (`build --toolkit`)
+
+With `--toolkit`, every LIB also gets an FA ToolKit 1.0 project folder in `--out`, named after the LIB:
+`FA_JKPFA6_A.LIB` -> `JKPFA6A\` (drop `FA_` and `_`; at most 8 characters). Each folder holds what the
+ToolKit itself keeps in a project folder:
+
+| file | content |
+|---|---|
+| every source file of that LIB | flat, as the ToolKit stores them |
+| `ITEM.DAT` | one line per file: `"NAME","description","D","NAME","","1.0"` (`D` = data file) |
+| `PROJECT.DAT` | project name twice, then an empty line |
+| `README.TXT` | ToolKit header, then `NAME` padded to 14 columns + description |
+| `FA_0.LIB` | the built LIB (same bytes as `FA_JKPFA6_A.LIB`) |
+
+These match the ToolKit's own files: generated from the JKP54A-E and MAP projects' own lists and
+descriptions, PROJECT.DAT is byte-identical and ITEM.DAT differs only where the ToolKit filled column 5
+(a few aircraft, e.g. F18E.PT) and in README.TXT line order (informational only). Opening a JKPFA6 project
+in the ToolKit itself has not been tried yet.
+
+The ToolKit folders are **output**: the repo (plus the extra folder) is the source. If you change or
+add a file inside a ToolKit folder, the next `build --toolkit` **stops** and lists it
+(`different from the source file (edited in the ToolKit?)` / `in the ToolKit folder but not in the set file`),
+so ToolKit work is never lost silently. Copy the file into its repo folder (and add its name to the set
+file), then build again. `--overwrite-toolkit` throws such changes away instead. Files removed from the
+set file are removed from the ToolKit folder. `SHORTCUT.DAT` (the ToolKit's recent-files list) is left alone.
+
+## 6. Other commands
 
 ```
-python tools/falib.py list   FA_JKPFA54_D.LIB                  # entries, flags, sizes
-python tools/falib.py unpack FA_JKPFA54_D.LIB out --by-ext     # extract into PT/ SH/ ... folders
-python tools/falib.py verify FA_JKPFA54_D.LIB --against folder # compare with a folder of sources
+python tools/falib.py list   FA_JKPFA6_D.LIB                  # entries, flags, sizes
+python tools/falib.py unpack FA_JKPFA6_D.LIB out --by-ext     # extract into PT/ SH/ ... folders
+python tools/falib.py verify FA_JKPFA6_D.LIB --against folder # compare with a folder of sources
 ```
 
 `unpack --by-ext` is how to bring files from any LIB (an old release, a downloaded mod) into the
 repo layout. The factory LIBs (FA_1, FA_2, FA_4B, FA_4D) unpack fine too; never write to them.
 
-## 6. Installing and load order
+## 7. Installing and load order
 
 * The game picks up every `*.LIB` in its folder (the JKPFA, `_MAP` and `_HUD` LIBs all load with no
   config entry; FA.EXE only names `.LIB`). Loose files in the game folder override every LIB.
@@ -147,7 +182,7 @@ repo layout. The factory LIBs (FA_1, FA_2, FA_4B, FA_4D) unpack fine too; never 
 * Keep mod LIB names sorting after `FA_4D.LIB` (the `FA_JKPFA...` names do). Inferred from the working
   setup, not tested with other names.
 
-## 7. File format (for reference)
+## 8. File format (for reference)
 
 ```
 "EALIB"  uint16 count
@@ -163,9 +198,13 @@ entry data
   (seen in SCDN_B.SH and AIR109.11K). The decoder handles this.
 * ToolKit LIBs also hold `$TOOLKIT.INF` (project name, serial). The game does not need it and
   falib does not write it; falib writes `$FALIB.INF` instead (section 4).
-* Compression ratio matches the ToolKit (JKP54D: 1,627,337 bytes by ToolKit, 1,634,908 by falib).
+* Factory LIBs and ToolKit LIBs use the same compressor: 7 unchanged files that are in both
+  compress to the same bytes (76,761 total). The only difference is that EA stored some files
+  uncompressed (all of FA_4D's music, 126 files in FA_2); the ToolKit compresses everything.
+  Sound barely compresses (FA_4B music: 99.3% of original size).
+* Compression ratio is close to the ToolKit (JKP54D: 1,627,337 bytes by ToolKit, 1,634,908 by falib).
 
-## 8. How the tool itself was checked
+## 9. How the tool itself was checked
 
 * Every entry of all 21 LIBs in `Lib pack study` (factory, JKPFA_53b, JKPFA54, MAP, MUSIC) unpacks,
   and the JKPFA54 ToolKit LIBs unpack byte-identical to their ToolKit project folders.
@@ -173,7 +212,7 @@ entry data
 * Same input gives the same LIB bytes on every build (folder or zip source).
 * In-game test: see the LIB 製作 thread (FA_JKPFA54_D.LIB rebuilt by falib in place of the ToolKit one).
 
-## 9. Speed
+## 10. Speed
 
 Compressed entries are cached by content in `%LOCALAPPDATA%\falib\pk`, so only new or changed files
 are compressed, on all CPU cores. Measured on Kuoyi's PC (8 threads): all 8 LIBs from cold 63 s,
