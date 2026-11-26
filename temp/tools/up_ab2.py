@@ -45,7 +45,11 @@ def run(src, psrc, dst, pdst, old, length, grow=3000, ignore=(), slots=None):
     TAIL = NOZ - length
     vb = struct.pack('<BBHH', 0x82, 0, n, t) + b''.join(struct.pack('<3h', *v) for v in V)
     faces = []; p = old + 6 + 6 * n
-    while c[p] == 0xFC:
+    while True:
+        if c[p] == 0x6C: p += 10; continue                  # F-104 style: view test (6C) + jump (38) between faces
+        if c[p] == 0x38: p += 3; continue
+        if c[p] == 0x1E and c[p + 1] in (0xFC, 0x6C): p += 1; continue
+        if c[p] != 0xFC: break
         fl = struct.unpack_from('<H', c, p + 1)[0]; nv = c[p + 14]
         assert fl & 0x604 == 0x604 and fl & 0x60 and fl & 0x200 and nv >= 3, hex(fl)
         hdr = bytearray(c[p:p + 14]); struct.pack_into('<H', hdr, 1, fl & ~0x100)     # u8 UVs (F-111) are written as u16
