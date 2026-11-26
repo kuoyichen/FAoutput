@@ -18,6 +18,13 @@ different content. `python falib.py bump JKP600.txt` writes `JKP601.txt` with ev
 then build it into a new folder, e.g. `--out ..\JKP601`. Keep the set file of every released build.
 Web page for LIB makers: https://fashion-hawke.vercel.app/tools/lib_release.html
 
+**JKP 600 released (2026-11-26)**, tested in game on FA.EXE and FA_BIG. Released LIBs and the download
+zip live in `lib_release/` (`JKP600_*.LIB`, `JKP600.zip`, `README_JKP600.txt`); the public page with
+history (JKP continues Zephyr's JKPFA 4.55-5.3b; thanks to Zephyr), per-LIB contents and a searchable
+file list is `tools/jkp_lib.html`. Its file list is generated from the built LIBs (in-game names from
+each file's `si_names` strings). For each new release: bump, build, verify, test in game, then add
+`lib_release/JKP6xx.zip` + LIBs and update the page's numbers and file list.
+
 ## 1. Rules FA.EXE imposes on a LIB (read this first)
 
 Found by testing 33 LIB sets in the game and by disassembling FA.EXE (original, `Libs\FA.EXE_org`).
