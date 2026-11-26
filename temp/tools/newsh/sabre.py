@@ -63,7 +63,11 @@ K = dict(
        # F-102A Delta Dagger: 68.4 ft, 38.1 ft span
        '102': dict(L=68.4, span=19.05, sweep=60.0, wle=29.5, wch=35.5, tch=3.0, dih=0.0, fs=1.35, canopy='framed', ab=True, radome=False,
                    fin=(50.0, 16.5, 14.5, 4.5), tail=None, gear=(46.0, 7.7), nose=13.0, ground=7.2, fsw=55.0,
-                   solid=True, nosecol=68, side=(15.5, 24.0, 1.0, -1.4), iw=1.5, c0=10.0, col=148)})
+                   solid=True, nosecol=68, side=(15.5, 24.0, 1.0, -1.4), iw=1.5, c0=10.0, col=148),
+       # RA-5C Vigilante: 76.5 ft, 53 ft span, high 37.5 deg wing, box intakes, twin J79 afterburners, low tailplane
+       'RA5': dict(L=76.5, span=26.5, sweep=37.5, wle=33.0, wch=24.0, tch=5.5, dih=-2.0, fs=1.5, canopy='framed', ab=True, radome=False,
+                   fin=(55.0, 18.0, 15.0, 6.0), tail=(63.0, 10.0, 11.0, 4.0), gear=(42.0, 7.8), nose=12.0, ground=7.6, wh=2.6, th=-0.8,
+                   solid=True, nosecol=148, side=(20.0, 34.0, 2.0, -2.6), iw=2.2, c0=11.0, col=148, twin=1.7, gz=-1.6, fsw=40.0)})
 
 
 def body(M, k):
@@ -118,7 +122,7 @@ def body(M, k):
 def wings(M, k):
     L = k['L']; q = L / 37.5
     dz = np.tan(np.radians(k['dih'])); sw = np.tan(np.radians(k['sweep'])); b = k['span']
-    def W(x, ch, t): return dict(s=x * U, le=(S0 - (k['wle'] + sw * (x - 2.3))) * U, chord=ch * U, h=(-1.1 + dz * (x - 2.3)) * U, t=t * U)
+    def W(x, ch, t): return dict(s=x * U, le=(S0 - (k['wle'] + sw * (x - 2.3))) * U, chord=ch * U, h=(k.get('wh', -1.1) + dz * (x - 2.3)) * U, t=t * U)
     r, tp = k['wch'], k['tch']
     geo.surface(M, [W(2.3, r, 1.15), W(2.3 + 0.45 * (b - 2.3), r + 0.45 * (tp - r), 0.75), W(b - 0.6, tp + 0.4, 0.45), W(b, tp, 0.35)],
                 k.get('col', METAL), smooth=True)
@@ -168,18 +172,20 @@ def flame():
 OUT = {'F': ('F86N', [('F86F.PT', 'f86')]), 'D': ('F86DN', [('F86D.PT', 'f86'), ('F86K.PT', 'f86')]),
        '84F': ('F84FN', [('F84F.PT', 'f86')]), '84E': ('F84EN', [('F84E.PT', 'f84')]), '100': ('F100N', [('F100D.PT', 'mig21')]),
        '80': ('F80N', [('F80.PT', 'bast')]), '94': ('F94N', [('F94.PT', 'bast')]), '9F': ('F9F5N', [('F9F.PT', 'f9f5')]),
-       '9F6': ('F9F6N', [('F9F6.PT', 'dem')]), '106': ('F106N', [('F106.PT', 'mrg')]), '102': ('F102N', [('F102A.PT', 'mrg')])}
+       '9F6': ('F9F6N', [('F9F6.PT', 'dem')]), '106': ('F106N', [('F106.PT', 'mrg')]), '102': ('F102N', [('F102A.PT', 'mrg')]), 'RA5': ('RA5CN', [('RA5.PT', 'ra5c')])}
 
 
 def build(kind, out):
     k = K[kind]; os.makedirs(out, exist_ok=True)
     M = Mesh(); body(M, k); wings(M, k)
     gs, gx = k['gear']; G = k['ground']
-    wz = -1.1 + np.tan(np.radians(k['dih'])) * (gx - 2.3)
+    wz = k.get('gz', k.get('wh', -1.1) + np.tan(np.radians(k['dih'])) * (gx - 2.3))
     g = [core.Gear(n, main_gear(sx, G + wz - 1.15), P(gs, sx * gx, wz), field=0x0C, neg=(sx > 0)) for sx, n in ((1, 'R'), (-1, 'L'))]
     nz = -2.2 if not k['radome'] else -2.2
     g.append(core.Gear('N', nose_gear(G + nz - 0.8), P(k['nose'], 0, nz), field=0x0A, neg=True))
-    if k['ab']: g.append(core.Gear('AB', flame(), P(k['L'] - 0.55, 0, 0.05), var='AB', anim=False))
+    if k['ab'] and k.get('twin'):
+        for sx, n in ((1, 'AR'), (-1, 'AL')): g.append(core.Gear(n, flame(), P(k['L'] - 0.55, sx * k['twin'], 0.05), var='AB', anim=False))
+    elif k['ab']: g.append(core.Gear('AB', flame(), P(k['L'] - 0.55, 0, 0.05), var='AB', anim=False))
     name, pts = OUT[kind]
     core.build(os.path.join(REPO, 'SH', 'F86.SH'), os.path.join(out, name + '.SH'), M, g, [], smooth_ok=lambda c: c not in (BLACK, GLASS))
     for pt, old in pts:
