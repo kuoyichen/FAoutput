@@ -1,5 +1,5 @@
-// POST /api/pt-commit { adminKey, name: "F18.PT" | "AIM54C.JT" | "F14.SH", content: <base64 of the file>, message? }
-//   -> { ok, sha, commitUrl } after writing PT/<name>, JT/<name> or SH/<name> on main of kuoyichen/FAoutput
+// POST /api/pt-commit { adminKey, name: "F18.PT" | "AIM54C.JT" | "2S6.NT" | "F14.SH", content: <base64 of the file>, message? }
+//   -> { ok, sha, commitUrl } after writing PT/<name>, JT/<name>, NT/<name> or SH/<name> on main of kuoyichen/FAoutput
 //   ("Commit to GitHub" in tools/pt_editor.html, tools/jt_editor.html and tools/sh_editor.html).
 // POST /api/pt-commit { check: true, adminKey } -> { admin, githubConfigured }
 // Only the site admin can commit: adminKey must equal MISSIONS_ADMIN_KEY (the key used by the missions panel and the board).
@@ -9,8 +9,8 @@ import { timingSafeEqual } from "node:crypto";
 import { adminKey, rateLimited } from "./_missions.js";
 
 const REPO = "kuoyichen/FAoutput", BRANCH = "main";
-const NAME_RE = /^[A-Z0-9_~\-]{1,12}\.(PT|JT|SH)$/;
-const MAX = { PT: 256 * 1024, JT: 256 * 1024, SH: 2 * 1024 * 1024 };
+const NAME_RE = /^[A-Z0-9_~\-]{1,12}\.(PT|JT|NT|SH)$/;
+const MAX = { PT: 256 * 1024, JT: 256 * 1024, NT: 256 * 1024, SH: 2 * 1024 * 1024 };
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-methods": "POST, OPTIONS", "access-control-allow-headers": "content-type" };
 const json = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json", "cache-control": "no-store", ...CORS } });
 const same = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && timingSafeEqual(x, y); };
@@ -40,13 +40,14 @@ export async function POST(request) {
   if (!NAME_RE.test(name)) return json({ error: "bad file name" }, 400);
   let bytes;
   try { bytes = Buffer.from(String(body.content || ""), "base64"); } catch { return json({ error: "bad content" }, 400); }
-  const dir = name.slice(-2);   // PT (aircraft), JT (ordnance) or SH (shape, from the SH editor)
+  const dir = name.slice(-2);   // PT (aircraft), JT (ordnance), NT (vehicle) or SH (shape, from the SH editor)
   if (!bytes.length || bytes.length > MAX[dir]) return json({ error: "bad size" }, 400);
   const head = bytes.subarray(0, 40).toString("latin1");
   if (dir === "SH") {   // an SH is a small PE file with a CODE section
     if (head.slice(0, 2) !== "MZ" || !bytes.subarray(0, 1024).includes(Buffer.from("CODE\0", "latin1"))) return json({ error: "not an SH file" }, 400);
   } else if (!head.startsWith("[brent's_relocatable_format]")) return json({ error: "not a PT / JT file" }, 400);
   if (dir === "PT" && !/START OF PLANE_TYPE/.test(bytes.toString("latin1"))) return json({ error: "not an aircraft PT" }, 400);
+  if (dir === "NT" && (!/START OF NPC_TYPE/.test(bytes.toString("latin1")) || /START OF PLANE_TYPE/.test(bytes.toString("latin1")))) return json({ error: "not a vehicle NT" }, 400);
   if (dir === "JT" && !/START OF PROJ_TYPE/.test(bytes.toString("latin1"))) return json({ error: "not an ordnance JT" }, 400);
 
   const path = `${dir}/${name}`;
