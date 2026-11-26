@@ -125,6 +125,9 @@
     const changed = JSON.stringify(pt.hp.map(hpKey)) !== pt.hpOrig || pt.hp.some((h, k) => h._orig !== k);
     if (changed && pt.hardsLine >= 0 && pt.envLine > pt.hardsLine) {
       // the hardpoint count lives in NPC_TYPE (byte before `ptr hards`)
+      // OBJ_TYPE words 1 and 2 grow by 24 and 17 per hardpoint (24 = the binary size of one hardpoint; same step in every PT and NT)
+      const dn = pt.hp.length - get(pt, "NPC", 7);
+      if (dn) { set(pt, "OBJ", 1, get(pt, "OBJ", 1) + 24 * dn); set(pt, "OBJ", 2, get(pt, "OBJ", 2) + 17 * dn); }
       set(pt, "NPC", 7, pt.hp.length); lines = pt.lines.slice();
       // drop the old defaultTypeNameN labels, then rewrite the :hards block and append the new labels before `end`
       const drop = new Set();
