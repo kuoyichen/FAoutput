@@ -32,7 +32,14 @@ FIN6C = 0x346B                   # 主 LOD：6C 眼睛 x ≥ 0 → 左面尾翼(
 FIN_FACES = ((0x67E0, 0x680E), (0x7141, 0x7167))   # 中、低 LOD 的兩片尾翼面
 # 尾引擎（原版座標，之後乘 S）：中心 up 17、半徑 5（底部貼在機背 up 12），進氣口 fwd −66、噴嘴 −114
 NAC_UC = 17
-NAC_RINGS = ((-66, 3.7), (-68, 4.6), (-72, 5.0), (-100, 5.0), (-108, 4.3), (-114, 3.4))
+NAC_RINGS = ((-66, 3.7), (-68, 4.6), (-72, 5.0), (-82, 5.0), (-100, 5.0), (-108, 4.3), (-114, 3.4))
+# 貼圖照 KC-135 翼下引擎（_KC135.PIC）：整流罩 u 165..227、後段 u 78..163（往後增加），v 130（上）..78（下）；
+# 這兩塊貼圖大多是透明（只有蒙皮線和標誌），底色是 Gouraud 的機身灰（0x02 + F6）。進氣口用風扇圖（中心 204,56）。
+NAC_SPLIT = -82                  # 整流罩 / 後段分界
+COWL_U, AFT_U, NAC_V = (165, 227), (78, 163), (130, 78)
+FAN_UV = (204, 56, 23, 18)       # 中心 u, v、半徑 u, v
+F_TEX = 0x05EE                   # 照原版引擎艙 0x7EE（去掉 0x200：平面點 i16）：Gouraud 底色 + 貼圖 + u8 UV
+F_FAN = 0x0564                   # 照原版進氣口 0x764：色號 0 的貼圖面
 NSIDE = 12
 HIDE_U = 10                      # 原版座標：眼睛低於這個高度（水平尾翼 8..11、機背 12）就先畫尾引擎
 FIN_ROOT = NAC_UC + 5            # 尾翼根部搬到引擎艙頂
@@ -80,48 +87,67 @@ def remove_outer(d):
 
 
 def nacelle():
-    """回傳 (82 緩衝 bytes, 左半面 bytes, 右半面 bytes)；座標已放大。"""
-    V = []
-    def vert(x, u, f): V.append((x, u, f)); return NAC_SLOT + len(V) - 1
+    """回傳 (82 緩衝 + F6 bytes, 左半面 bytes, 右半面 bytes)；座標已放大。"""
+    V = []; NRM = []
+    def vert(x, u, f, n): V.append((x, u, f)); NRM.append(n); return NAC_SLOT + len(V) - 1
     rings = []
+    f0, f1 = NAC_RINGS[0][0], NAC_RINGS[-1][0]
     for f, r in NAC_RINGS:
         ring = []
         for k in range(NSIDE):
             a = 2 * math.pi * k / NSIDE
-            ring.append(vert(sc(r * math.sin(a)), sc(NAC_UC + r * math.cos(a)), sc(f)))
+            ring.append(vert(sc(r * math.sin(a)), sc(NAC_UC + r * math.cos(a)), sc(f), (math.sin(a), math.cos(a), 0)))
         rings.append(ring)
     P = lambda i: V[i - NAC_SLOT]
     axis_u = NAC_UC * S
 
-    def face(idx, out):
-        """out = 朝外的大概方向；照 (B−A)×(C−A) 排頂點順序，法向量用三點叉積。"""
+    def ring_u(ri, seg_front):
+        """第 ri 環的 u；seg_front = 這個面在分界前面（整流罩）。"""
+        f = NAC_RINGS[ri][0]
+        if seg_front: a, b, lo, hi = f0, NAC_SPLIT, *COWL_U
+        else: a, b, lo, hi = NAC_SPLIT, f1, *AFT_U
+        return lo + (hi - lo) * (f - a) / (b - a)
+
+    def face(idx, out, flags, col, uv=None):
+        """out = 朝外的大概方向；照 (B−A)×(C−A) 排頂點順序（UV 跟著反），法向量用三點叉積。"""
         A, B, C = P(idx[0]), P(idx[1]), P(idx[2])
         e1 = [B[t] - A[t] for t in range(3)]; e2 = [C[t] - A[t] for t in range(3)]
         n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]
-        if sum(n[t] * out[t] for t in range(3)) < 0: n = [-k for k in n]; idx = idx[::-1]
+        if sum(n[t] * out[t] for t in range(3)) < 0:
+            n = [-k for k in n]; idx = idx[::-1]; uv = uv[::-1] if uv else uv
         L = math.sqrt(sum(k * k for k in n)); n = [int(round(k / L * 32767)) for k in n]
-        b = bytearray(b'\xFC') + struct.pack('<HH', F_FLAT, C_HOLE if out[1] == 0 and out[0] == 0 else C_NAC)
+        b = bytearray(b'\xFC') + struct.pack('<HH', flags, col)
         b += struct.pack('<3h', *n) + struct.pack('<3h', *A) + bytes([len(idx)])
         b += b''.join(struct.pack('<H', i) for i in idx)
+        if uv: b += b''.join(bytes([int(round(u)), int(round(v))]) for u, v in uv)
         return bytes(b)
 
     halves = []
+    vk = lambda j: NAC_V[0] + (NAC_V[1] - NAC_V[0]) * j / (NSIDE // 2)
     for sx in (-1, 1):
         ks = list(range(0, NSIDE // 2 + 1))                      # 0（上）..6（下）
         if sx < 0: ks = [0] + list(range(NSIDE - 1, NSIDE // 2 - 1, -1))
         fb = bytearray()
         for ri in range(len(rings) - 1):
+            front = NAC_RINGS[ri + 1][0] >= NAC_SPLIT
+            ua, ub = ring_u(ri, front), ring_u(ri + 1, front)
             for j in range(len(ks) - 1):
                 q = [rings[ri][ks[j]], rings[ri][ks[j + 1]], rings[ri + 1][ks[j + 1]], rings[ri + 1][ks[j]]]
-                q = list(dict.fromkeys(q))
-                if len(q) < 3: continue
+                uv = [(ua, vk(j)), (ua, vk(j + 1)), (ub, vk(j + 1)), (ub, vk(j))]
                 cen = [sum(P(i)[t] for i in q) / len(q) for t in range(3)]
-                fb += face(q, (cen[0], cen[1] - axis_u, 0))
-        fb += face([rings[0][k] for k in ks], (0, 0, 1))         # 進氣口（深色）
-        fb += face([rings[-1][k] for k in ks], (0, 0, -1))       # 噴嘴（深色）
+                fb += face(q, (cen[0], cen[1] - axis_u, 0), F_TEX, BODY, uv)
+        cu, cv, ru, rv = FAN_UV
+        fan = []
+        for k in ks:
+            a = 2 * math.pi * k / NSIDE
+            fan.append((cu + ru * math.sin(a), cv - rv * math.cos(a)))
+        fb += face([rings[0][k] for k in ks], (0, 0, 1), F_FAN, 0, fan)          # 進氣口（風扇貼圖）
+        fb += face([rings[-1][k] for k in ks], (0, 0, -1), F_FLAT, C_HOLE)       # 噴嘴（深色）
         halves.append(bytes(fb))
     buf = bytearray(b'\x82\x00') + struct.pack('<HH', len(V), NAC_SLOT * 8)
     for x, u, f in V: buf += struct.pack('<3h', x, f, u)
+    for i, (nx, nu, nf) in enumerate(NRM):                        # F6：Gouraud 底色要每點的色號和法向量
+        buf += b'\xF6' + struct.pack('<HB3b', NAC_SLOT + i, BODY, int(round(nx * 127)), int(round(nu * 127)), int(round(nf * 127)))
     assert NAC_SLOT + len(V) <= 900
     return bytes(buf), halves[0], halves[1]
 
