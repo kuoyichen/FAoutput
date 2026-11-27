@@ -328,6 +328,13 @@ def build_pic(b):
         for u in range(92):
             if BODY < b[r + u] <= 159: b[r + u] = BODY; m += 1
     print('fin pixels set to body grey', m)
+    # 主翼貼圖（v 471..568）：很淺的灰 144..150 打光後變白點（KC10_7）→ 壓到 152..153
+    m = 0
+    for v in range(471, min(h, 569)):
+        r = struct.unpack_from('<I', b, rt + 4 * v)[0]
+        for u in range(w):
+            if 144 <= b[r + u] <= 150: b[r + u] = 152 + (b[r + u] - 144) // 4; m += 1
+    print('wing light pixels darkened', m)
     if SIDE_MODE == 'baked':
         w, h = struct.unpack_from('<II', b, 2); rt = struct.unpack_from('<I', b, 0x22)[0]
         rows = [struct.unpack_from('<I', b, rt + 4 * r)[0] for r in range(h)]
