@@ -82,52 +82,88 @@ def sc(v, S):
     return -r if v < 0 else r
 
 
+def _axes(S):
+    return tuple(S) if isinstance(S, (tuple, list)) else (S, S, S)
+
+
+def _nrm(n, A, lim):
+    """法向量 n=(x,上,前) 在各軸縮放 A 之後的新方向（逆縮放），長度維持 lim。等比例時原樣回傳。"""
+    if A[0] == A[1] == A[2]: return list(n)
+    m = [n[i] / A[i] for i in range(3)]; L = math.sqrt(sum(k * k for k in m)) or 1
+    L0 = math.sqrt(sum(k * k for k in n)) or 1
+    return [int(round(k / L * min(lim, L0))) for k in m]
+
+
 def scale_code(c, S, verbose=True):
+    """S = 倍率，或 (x, 上, 前) 三軸倍率（不等比例時法向量、BSP 平面跟著換）。"""
     c = bytearray(c)
-    sig = c.find(bytes([1, 2, 3, 2, 1, 2, 3, 2, 1]))
+    A = _axes(S); X, U, F = A; M = max(A)
     ops, unk, c4t = walk(c)
     assert not unk, [hex(u) for u in unk]
-    W = lambda p, n=1: [struct.pack_into('<h', c, p + 2 * i, sc(struct.unpack_from('<h', c, p + 2 * i)[0], S)) for i in range(n)]
-    # 標頭
-    W(4); W(8, 3)
+    def W(p, n=1, k=None):
+        ks = k if k is not None else [M] * n
+        for i in range(n):
+            struct.pack_into('<h', c, p + 2 * i, sc(struct.unpack_from('<h', c, p + 2 * i)[0], ks[i]))
+    XUF = (X, U, F)
+    # 標頭：CODE+4 半徑（取最大倍率）、CODE+8 範圍 (x, 上, 前)
+    W(4); W(8, 3, XUF)
     for p, t in ops.items():
         if t == 'CE':
             for o in (2, 2 + 0xE, 2 + 0x1A):
                 for i in range(3):
-                    v = struct.unpack_from('<i', c, p + o + 4 * i)[0]; struct.pack_into('<i', c, p + o + 4 * i, sc(v, S))
+                    v = struct.unpack_from('<i', c, p + o + 4 * i)[0]; struct.pack_into('<i', c, p + o + 4 * i, sc(v, XUF[i]))
         elif t == 'F2':
             f2 = p + 4 + struct.unpack_from('<h', c, p + 2)[0]
-            r = struct.unpack_from('<i', c, f2)[0]; struct.pack_into('<i', c, f2, sc(r, S)); W(f2 + 4, 6)
-    stat = dict(v=0, pt=0, pt_fix=0, node=0, eye=0, c4=0)
+            r = struct.unpack_from('<i', c, f2)[0]; struct.pack_into('<i', c, f2, sc(r, M)); W(f2 + 4, 6, (X, X, U, U, F, F))
+    stat = dict(v=0, pt=0, pt_fix=0, node=0, eye=0, c4=0, f6=0)
     for p, t in sorted(ops.items()):
         if t == '82':
-            n = struct.unpack_from('<H', c, p + 2)[0]; W(p + 6, 3 * n); stat['v'] += n
+            n = struct.unpack_from('<H', c, p + 2)[0]; W(p + 6, 3 * n, (X, F, U) * n); stat['v'] += n
+        elif t == 'F6':
+            if X == U == F: continue
+            nv = struct.unpack_from('<3b', c, p + 4)
+            struct.pack_into('<3b', c, p + 4, *_nrm(nv, XUF, 127)); stat['f6'] += 1
         elif t == 'FC':
             fl = struct.unpack_from('<H', c, p + 1)[0]
             if not fl & 0x60: continue
             nrm = struct.unpack_from('<3h', c, p + 5); q = p + 11
+            nn2 = _nrm(nrm, XUF, 32767); struct.pack_into('<3h', c, p + 5, *nn2)
             if fl & 0x200:
-                pt = struct.unpack_from('<3b', c, q); new = [sc(v, S) for v in pt]
+                pt = struct.unpack_from('<3b', c, q); new = [sc(pt[i], XUF[i]) for i in range(3)]
                 if max(abs(v) for v in new) > 127:
                     # 平面上離原點最近的點：n (n·q) / |n|²
-                    nn = sum(k * k for k in nrm); dq = sum(nrm[i] * pt[i] * S for i in range(3))
-                    new = [int(round(nrm[i] * dq / nn)) for i in range(3)]
+                    nn = sum(k * k for k in nn2); dq = sum(nn2[i] * pt[i] * XUF[i] for i in range(3))
+                    new = [int(round(nn2[i] * dq / nn)) for i in range(3)]
+                    if max(abs(v) for v in new) > 127:        # 改用 L∞ 最小的點：每軸 d·sign(n)/Σ|n|
+                        l1 = sum(abs(k) for k in nn2)
+                        new = [int(round(dq / l1 * (1 if k > 0 else -1 if k < 0 else 0))) for k in nn2]
                     assert max(abs(v) for v in new) <= 127, (hex(p), pt, new)
                     stat['pt_fix'] += 1
                 struct.pack_into('<3b', c, q, *new)
-            else: W(q, 3)
+            else: W(q, 3, XUF)
             stat['pt'] += 1
-        elif t == '06': W(p + 4); W(p + 8); W(p + 12); stat['node'] += 1
-        elif t in ('0C', '0E', '10'): W(p + 4); W(p + 8); stat['node'] += 1
+        elif t == '06':
+            nn = [struct.unpack_from('<h', c, p + 2 + 4 * i)[0] for i in range(3)]
+            n2 = _nrm(nn, XUF, 32767)
+            for i in range(3): struct.pack_into('<h', c, p + 2 + 4 * i, n2[i])
+            W(p + 4, 1, [X]); W(p + 8, 1, [U]); W(p + 12, 1, [F]); stat['node'] += 1
+        elif t in ('0C', '0E', '10'):
+            ax = {'0C': (U, F), '0E': (X, F), '10': (X, U)}[t]
+            nn = [struct.unpack_from('<h', c, p + 2 + 4 * i)[0] for i in range(2)]
+            if ax[0] != ax[1]:
+                m = [nn[i] / ax[i] for i in range(2)]; L = math.hypot(*m) or 1; L0 = math.hypot(*nn) or 1
+                for i in range(2): struct.pack_into('<h', c, p + 2 + 4 * i, int(round(m[i] / L * min(32767, L0))))
+            W(p + 4, 1, [ax[0]]); W(p + 8, 1, [ax[1]]); stat['node'] += 1
         elif t == '6C':
-            if struct.unpack_from('<h', c, p + 2)[0] in (6, 8, 10): W(p + 4); stat['eye'] += 1
-        elif t == 'C4': W(p + 2, 3); stat['c4'] += 1
-        elif t == '7A': W(p + 2, 3)
-        elif t == '78': W(p + 4, 3)
+            var = struct.unpack_from('<h', c, p + 2)[0]
+            if var in (6, 8, 10): W(p + 4, 1, [{6: X, 8: U, 10: F}[var]]); stat['eye'] += 1
+        elif t == 'C4': W(p + 2, 3, XUF); stat['c4'] += 1
+        elif t == '7A': W(p + 2, 3, (X, F, U))
+        elif t == '78': W(p + 4, 3, XUF)
         elif t == 'C8': W(p + 2)
     for t in c4t:
         assert bytes(c[t:t + 2]) == b'\x82\x00'
-        W(t - 6, 3)
+        W(t - 6, 3, XUF)
     if verbose: print('scaled', stat, 'parts', len(c4t))
     return bytes(c)
 
