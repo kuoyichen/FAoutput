@@ -301,7 +301,7 @@
     word $785
     word -20
     word -13
-    word -5
+    word -30
     word 0
     word 0
     word 0
@@ -314,7 +314,7 @@
     word $785
     word 20
     word -13
-    word -5
+    word -30
     word 0
     word 0
     word 0
@@ -327,7 +327,7 @@
     word $705
     word 30
     word -13
-    word -12
+    word -37
     word 0
     word 0
     word 0
@@ -339,8 +339,8 @@
 ;-------- hardpoint 7
     word $1701
     word -40
-    word -10
-    word -16
+    word -14
+    word -44
     word 0
     word 0
     word 0
@@ -352,8 +352,8 @@
 ;-------- hardpoint 8
     word $1701
     word 40
-    word -10
-    word -16
+    word -14
+    word -44
     word 0
     word 0
     word 0

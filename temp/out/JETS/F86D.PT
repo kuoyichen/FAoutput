@@ -300,8 +300,8 @@
 ;-------- hardpoint 4
     word $1701
     word -22
-    word -8
-    word -6
+    word -15
+    word -16
     word 0
     word 0
     word 0
@@ -313,8 +313,8 @@
 ;-------- hardpoint 5
     word $1701
     word 22
-    word -8
-    word -6
+    word -15
+    word -16
     word 0
     word 0
     word 0

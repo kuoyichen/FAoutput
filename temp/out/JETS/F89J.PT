@@ -300,8 +300,8 @@
 ;-------- hardpoint 4
     word $c5
     word 25
-    word -4
-    word 5
+    word -8
+    word -25
     word 0
     word 0
     word 0
@@ -313,8 +313,8 @@
 ;-------- hardpoint 5
     word $50d
     word 35
-    word -4
-    word 5
+    word -8
+    word -23
     word 0
     word 0
     word 0

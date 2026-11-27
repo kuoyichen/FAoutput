@@ -313,8 +313,8 @@
 ;-------- hardpoint 5
     word $1301
     word -24
-    word -8
-    word -8
+    word -2
+    word -93
     word 0
     word 0
     word 0
@@ -326,8 +326,8 @@
 ;-------- hardpoint 6
     word $1301
     word 24
-    word -8
-    word -8
+    word -2
+    word -93
     word 0
     word 0
     word 0
@@ -339,8 +339,8 @@
 ;-------- hardpoint 7
     word $1301
     word -34
-    word -8
-    word -11
+    word -2
+    word -97
     word 0
     word 0
     word 0
@@ -352,8 +352,8 @@
 ;-------- hardpoint 8
     word $1301
     word 34
-    word -8
-    word -11
+    word -2
+    word -97
     word 0
     word 0
     word 0
