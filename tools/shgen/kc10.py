@@ -321,6 +321,13 @@ def build_pic(b):
     for i in range(po, po + ps):
         if b[i] in G.GREENS: b[i] = min(159, b[i] + SHIFT); n += 1
     print('pic pixels recoloured', n)
+    # 垂直尾翼貼圖（u 0..95, v 251..317）：方向舵原本是深綠（u 92.. 是別的小貼圖，不動），+50 後夾到 159 變黑一塊 → 156..159 改成機身灰 BODY（KC10_5）
+    w, h = struct.unpack_from('<II', b, 2); rt = struct.unpack_from('<I', b, 0x22)[0]; m = 0
+    for v in range(251, 318):
+        r = struct.unpack_from('<I', b, rt + 4 * v)[0]
+        for u in range(92):
+            if BODY < b[r + u] <= 159: b[r + u] = BODY; m += 1
+    print('fin pixels set to body grey', m)
     if SIDE_MODE == 'baked':
         w, h = struct.unpack_from('<II', b, 2); rt = struct.unpack_from('<I', b, 0x22)[0]
         rows = [struct.unpack_from('<I', b, rt + 4 * r)[0] for r in range(h)]
