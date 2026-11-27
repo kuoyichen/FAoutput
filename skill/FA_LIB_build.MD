@@ -195,6 +195,13 @@ python tools/falib.py verify JKPFA6_D.LIB --against folder # compare with a fold
 `unpack --by-ext` brings files from any LIB (old release, downloaded mod, factory) into the repo layout.
 Never write to the factory LIBs (FA_1, FA_2, FA_4B, FA_4D).
 
+**In the browser:** https://fashion-hawke.vercel.app/tools/lib_tool.html (`tools/lib_tool.html`,
+engine `tools/falib_core.js`, a line-by-line JS port of falib) opens a LIB, lists its files and downloads
+the checked ones as a ToolKit project ZIP (files + ITEM.DAT, PROJECT.DAT, README.TXT), or packs dropped
+files / a project ZIP / another LIB into a new LIB (+ optional project ZIP with FA_0.LIB). Its LIBs are
+byte-identical to `falib build` (no `--store`); `python tools/test_falib_core.py` checks that (needs
+node). **Changing `implode()` or the LIB layout in falib.py means changing falib_core.js the same way.**
+
 ## 8. File format
 
 ```
