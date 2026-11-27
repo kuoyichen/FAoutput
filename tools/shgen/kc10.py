@@ -361,12 +361,25 @@ def configure_refuel(d_scaled):
     R.GROW = 0x2000
 
 
+def wing_grey(d, old=148, new=BODY):
+    """KC10_6：主翼／引擎艙的頂點色 148（很淺的灰）在貼圖透明處被打亮成白點 → F6 和 FC 的 148 改成機身灰。"""
+    d = bytearray(d); pe, secs, code, c = code_of(d)
+    ops, _, _ = sh_scale.walk(c); n = 0
+    for p, t in ops.items():
+        if t == 'F6' and c[p + 3] == old: c[p + 3] = new; n += 1
+        elif t == 'FC' and struct.unpack_from('<H', c, p + 3)[0] == old: struct.pack_into('<H', c, p + 3, new); n += 1
+    d[code['ro']:code['ro'] + code['vs']] = c
+    print('wing grey', old, '->', new, n)
+    return bytes(d)
+
+
 def build(src, dst, pic_in=None, pic_out=None, preview=None, tmp='/tmp'):
     d = open(src, 'rb').read()
     d = remove_outer(d)
     d = raise_fin(d)
     G.BODY = BODY
     d = G.build_sh(d)
+    d = wing_grey(d)
     d = sh_scale.scale_file(d, (SX, SU, SF))
     configure_refuel(d)
     # 尾引擎先插（區塊離主 LOD 根節點 0x1461 要在 rel16 ±32 KB 內），硬桿和 x86 插在它後面
