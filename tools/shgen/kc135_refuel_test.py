@@ -15,6 +15,8 @@ tail = c.find(bytes([1, 2, 3, 2, 1, 2, 3, 2, 1]))
 assert c[0x3716:0x3718] == b'\xEB\x13' and c[0x372B] == 0xE8
 tgt = 0x372B + 5 + struct.unpack_from('<i', c, 0x372C)[0]
 import kc135_refuel as K
+if os.environ.get('KC10'):                    # KC-10：kc10.py 換過的常數（樞紐、標頭、燈）
+    import kc10; kc10.configure_refuel(d)
 G = K.make_parts()
 blk0 = c.find(K.HDR + b'\x82\x00' + struct.pack('<HH', G['nverts'], K.BOOM_SLOT * 8)); assert blk0 > 0
 EYE = 0x51cdac
@@ -76,7 +78,7 @@ def frame(th_deg, rel_fwd, rel_up, rel_right, fuel=None, spd=(500, 500), ph_deg=
 w(EYE, '<h', 100)
 L, P = 130, 30
 back, down = L*math.cos(math.radians(P)), L*math.sin(math.radians(P))
-cf, cu = -126 - back - 50, -4 - down - 20
+cf, cu = K.HINGE_FWD - back - 50, K.HINGE_UP - down - 20
 print('far        ', frame(0, -5000, 0, 0, fuel=1000))
 for k in range(3): print('trail 1000 ft', frame(0, -1000, -300, 0))
 for k in range(4): print('contact h0 ', frame(0, cf, cu, 0))
@@ -86,7 +88,7 @@ print('speed diff 50', frame(0, cf, cu, 0, spd=(500, 550)))
 print('near full', frame(0, cf, cu, 0, fuel=16190)); print('full ', frame(0, cf, cu, 0))
 def rel(L, P):
     b, dn = L*math.cos(math.radians(P)), L*math.sin(math.radians(P))
-    return -126 - b - 50, -4 - dn - 20
+    return K.HINGE_FWD - b - 50, K.HINGE_UP - dn - 20
 for k in range(12): f = frame(0, *rel(110, 57), 0)
 print('steep 57 deg L110', f)
 for k in range(12): f = frame(0, *rel(205, 35), 0)
