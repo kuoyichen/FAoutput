@@ -37,7 +37,23 @@ K = dict(
             canopy=(11.0, 16.5, 3.6, 4.4, 5.6), wing=dict(h=-0.5, root=(30.0, 15.5, 2.8), mid=(26.0, 33.0, 11.0, 1.9), tip=(51.9, 38.5, 5.6, 0.7), dih=4.0),
             tail=dict(h=2.6, root=(73.0, 10.5), tip=(17.0, 78.0, 5.0)), fin=((4.0, 66.0, 18.0), (21.0, 79.0, 6.5)),
             eng=[dict(x=12.5, kind='prop', s=24.0, w=3.0, len=22.0, R=7.6, blades=4), dict(x=31.0, kind='jet', s=30.0, w=1.6, len=11.0)],
-            gear=dict(s=34.0, x=12.5, L=None, nose=8.0, ground=11.0), boom=(84.0, 91.7), glazed=True, top=141, bot=141))
+            gear=dict(s=34.0, x=12.5, L=None, nose=8.0, ground=11.0), boom=(84.0, 91.7), glazed=True, top=141, bot=141),
+    # P-8A Poseidon (737-800 airframe): 129.5 ft, span 123.6 ft, 25 deg wing, two CFM56 pods, Navy grey
+    P8=dict(S0=60.0, fus=[(0.0, 0.6, 0.6, -1.2, -0.2), (3.0, 3.8, 3.6, -4.4, -0.3), (9.0, 6.0, 5.8, -6.0, 0.0), (16.0, 6.15, 6.15, -6.15, 0.0),
+                          (95.0, 6.15, 6.15, -6.15, 0.0), (110.0, 4.6, 5.8, -3.0, 1.2), (122.0, 2.4, 5.4, 1.2, 3.0), (128.5, 0.9, 5.0, 3.4, 4.0)],
+            canopy=(5.0, 9.5, 3.4, 4.6, 5.6), wing=dict(h=-4.0, root=(48.0, 24.0, 3.4), mid=(28.0, 59.0, 12.5, 2.0), tip=(59.0, 74.0, 5.0, 0.8), dih=6.0),
+            sweep=25.0, tail=dict(h=1.8, root=(108.0, 17.0), tip=(23.5, 119.5, 6.0)), fin=((6.0, 100.0, 24.0), (36.0, 120.0, 8.0)),
+            eng=[dict(x=15.9, kind='jet', s=42.0, w=3.4, len=15.0, drop=0.4)], gear=dict(s=66.0, x=9.5, L=None, nose=14.0, ground=11.6),
+            top=150, bot=147, name='P8N', pt=('P8.PT', 'a310'), noglass=True),
+    # EC-121D Warning Star (Super Constellation): 116.2 ft, span 123 ft, four R-3350s (3-blade 15.2 ft props), triple tail,
+    # tall dorsal radome and ventral radome; natural metal with a white crown
+    EC121=dict(S0=52.0, fus=[(0.0, 0.6, 0.0, -1.6, -0.8), (3.0, 3.4, 1.8, -4.8, -1.4), (10.0, 5.2, 4.2, -5.8, -0.8), (20.0, 5.6, 5.2, -5.6, 0.0),
+                             (60.0, 5.6, 5.4, -5.4, 0.2), (85.0, 4.0, 5.6, -3.0, 1.6), (105.0, 2.0, 6.2, 1.8, 4.0), (114.0, 0.8, 6.4, 4.4, 5.4)],
+               canopy=(6.0, 10.5, 1.6, 3.6, 4.5), wing=dict(h=-3.6, root=(42.0, 19.0, 3.0), mid=(34.0, 46.0, 12.0, 1.8), tip=(61.5, 52.0, 5.5, 0.7), dih=5.0),
+               tail=dict(h=5.6, root=(102.0, 9.5), tip=(25.0, 105.0, 5.2)), fin=((7.0, 102.0, 9.0), (17.0, 106.0, 5.0)),
+               endfins=(25.0, 101.0, 9.0, 10.0), radomes=[(40.0, 62.0, 5.0, 13.0, 1.0), (38.0, 58.0, -5.0, -11.0, 4.6)],
+               eng=[dict(x=17.0, kind='prop', s=31.0, w=2.6, len=18.0, R=7.6, blades=3), dict(x=34.0, kind='prop', s=34.0, w=2.6, len=17.0, R=7.6, blades=3)],
+               gear=dict(s=48.0, x=17.0, L=None, nose=10.0, ground=13.0), top=146, bot=150, name='EC121N', pt=('EC121.PT', 'p3c'), noglass=True))
 
 
 def build(kind, out):
@@ -54,6 +70,9 @@ def build(kind, out):
     a, b, z0, z1, z2 = k['canopy']
     C = [st(a, geo.interp(S, P(a)[1], 'w') / U * 0.75, z1, z0, z0, 2.0), st(a + 1.5, geo.interp(S, P(a + 1.5)[1], 'w') / U * 0.85, z2, z0, z0, 2.4),
          st(b - 1.0, geo.interp(S, P(b - 1.0)[1], 'w') / U * 0.85, z2, z0, z0, 2.4), st(b, geo.interp(S, P(b)[1], 'w') / U * 0.6, z1, z0, z0, 2.2)]
+    if k.get('noglass'):      # airliner: a windscreen band on the nose instead of a canopy
+        def band(s_): return st(s_, geo.interp(S, P(s_)[1], 'w') / U + 0.08, geo.interp(S, P(s_)[1], 'zt') / U + 0.08, z0, z0, 2.4)
+        C = [band(a), band((a + b) / 2), band(b)]
     geo.loft(M, upper([geo.ring_pts(c['y'], c['w'], c['zt'], c['zb'], c['zc'], 12, c['n']) for c in C]), GLASS, False, None, None)
     if k.get('boom'):
         s0, s1 = k['boom']
@@ -70,6 +89,17 @@ def build(kind, out):
     (z0f, le0, c0), (z1f, le1, c1) = k['fin']
     def Fv(z, le, ch, tt): return dict(s=z * U, le=(S0 - le) * U, chord=ch * U, h=0.0, t=tt * U)
     geo.surface(M, [Fv(z0f, le0, c0, 1.0), Fv(z1f, le1, c1, 0.5)], SK, mirror=False, vertical=True)
+    if k.get('endfins'):      # twin end-plate fins on the tailplane tips (triple tail)
+        ex, ele, ech, eh = k['endfins']
+        for sx in (1, -1):
+            geo.surface(M, [dict(s=(t['h'] - eh * 0.35) * U, le=(S0 - ele) * U, chord=ech * 0.8 * U, h=sx * ex * U, t=0.6 * U),
+                            dict(s=(t['h'] + eh * 0.65) * U, le=(S0 - ele - 1.5) * U, chord=ech * 0.6 * U, h=sx * ex * U, t=0.4 * U)],
+                        SK, mirror=False, vertical=True)
+    for (r0, r1, zb_, zt_, w_) in k.get('radomes', []):     # dorsal / ventral radome (thin height-finder fin / flat bulge)
+        lo, hi = min(zb_, zt_), max(zb_, zt_)
+        R = [st(r0, 0.3, (lo + hi) / 2 + 0.2, (lo + hi) / 2 - 0.2, (lo + hi) / 2, 2.0), st(r0 + (r1 - r0) * 0.3, w_, hi, lo, (lo + hi) / 2, 2.2),
+             st(r0 + (r1 - r0) * 0.7, w_, hi, lo, (lo + hi) / 2, 2.2), st(r1, 0.3, (lo + hi) / 2 + 0.2, (lo + hi) / 2 - 0.2, (lo + hi) / 2, 2.0)]
+        geo.loft(M, [geo.ring_pts(c['y'], c['w'], c['zt'], c['zb'], c['zc'], 10, c['n']) for c in R], 147, True, None, None)
     discs, flames = [], []
     for e in k['eng']:
         for sx in (1, -1):
@@ -85,7 +115,7 @@ def build(kind, out):
                 discs.append((core.Disc('p%d%s' % (len(discs), 'R' if sx > 0 else 'L'), [(x0 + R, yp, zc + R), (x0 - R, yp, zc + R), (x0 - R, yp, zc - R),
                                                                                        (x0 + R, yp, zc - R)], (0, 1, 0), props.FRAMES), e['blades']))
             else:     # jet pod on a pylon
-                cz = hzz - 2.4 - e['w']
+                cz = hzz - e.get('drop', 2.4) - e['w']
                 N = [st(e['s'], e['w'] * 0.9, cz + e['w'] * 0.9, cz - e['w'] * 0.9, cz, 2.0), st(e['s'] + 1.2, e['w'], cz + e['w'], cz - e['w'], cz, 2.0),
                      st(e['s'] + e['len'] - 2.0, e['w'] * 0.9, cz + e['w'] * 0.9, cz - e['w'] * 0.9, cz, 2.0), st(e['s'] + e['len'], e['w'] * 0.6, cz + e['w'] * 0.6, cz - e['w'] * 0.6, cz, 2.0)]
                 rings = [[(px + x * U, py, pz) for px, py, pz in geo.ring_pts(c['y'], c['w'], c['zt'], c['zb'], c['zc'], 10, c['n'])] for c in N]
@@ -110,14 +140,14 @@ def build(kind, out):
     g = [core.Gear(n, main_gear(G + mz - 1.35), P(gq['s'], sx * gq['x'], mz), field=0x0A, neg=True) for sx, n in ((1, 'R'), (-1, 'L'))]
     nz = geo.interp(S, P(gq['nose'])[1], 'zb') / U + 0.3
     g.append(core.Gear('N', nose_gear(G + nz - 0.95), P(gq['nose'], 0, nz), field=0x0A, neg=True))
-    name = {'S2': 'S2N', 'S3': 'S3N', 'P2': 'P2N'}[kind]
+    name = k.get('name') or {'S2': 'S2N', 'S3': 'S3N', 'P2': 'P2N'}[kind]
     donor = os.path.join(REPO, 'SH', 'A47.SH')
     D = [d for d, _ in discs]
     if D:
         props.make(os.path.join(REPO, 'PIC', '_A47.PIC'), os.path.join(out, '_%s.PIC' % name), blades=discs[0][1])
     core.build(donor, os.path.join(out, name + '.SH'), M, g, D, pic_name=('_%s.PIC' % name) if D else None,
                smooth_ok=lambda c: c not in (BLACK, GLASS), grow=0x5000)
-    pt, old = {'S2': ('S2.PT', 's2trk'), 'S3': ('S3.PT', 's3vik'), 'P2': ('P2.PT', 'a26in')}[kind]
+    pt, old = k.get('pt') or {'S2': ('S2.PT', 's2trk'), 'S3': ('S3.PT', 's3vik'), 'P2': ('P2.PT', 'a26in')}[kind]
     tx = open(os.path.join(REPO, 'PT', pt), encoding='latin1', newline='').read()
     tx = re.sub(r'string "%s\.SH"' % old, 'string "%s.SH"' % name.lower(), tx, flags=re.I)
     open(os.path.join(out, pt), 'w', encoding='latin1', newline='').write(tx)
