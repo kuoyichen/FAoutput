@@ -43,6 +43,7 @@ F_FAN = 0x0564                   # 照原版進氣口 0x764：色號 0 的貼圖
 NSIDE = 12
 HIDE_U = 10                      # 原版座標：眼睛低於這個高度（水平尾翼 8..11、機背 12）就先畫尾引擎
 FIN_ROOT = NAC_UC + 5            # 尾翼根部搬到引擎艙頂
+THUNK_PUSH = 0x3D99               # 原本 F0 的 `push do_start_interp 跳板`（運算元有重定位）
 NODE_LEN = {0x06: 18, 0x0C: 14, 0x0E: 14, 0x10: 14, 0x6C: 10}
 F_FLAT = 0x0461                  # u16 索引 + 背面剔除 + 打光 + 單色；平面點用 i16（放大後超過 i8）
 
@@ -209,50 +210,66 @@ def node_copy(c, p, at):
 
 def add_tail_engine(d):
     """尾引擎區塊（插在簽章前）：
-      * 尾翼的位置（每個 LOD）：載入頂點（眼睛低於 HIDE_U 時收成一點）→ 6C x：左半 / 尾翼 / 右半。
-      * 每個 LOD 的根節點前面（最先畫）：眼睛低於 HIDE_U 時才載入真的頂點 → 6C x：遠的半邊先畫。
+      * 尾翼的位置（每個 LOD）：眼睛高於 HIDE_U → 載入頂點 → 6C x：左半 / 尾翼 / 右半；否則只畫尾翼。
+      * 每個 LOD 的根節點前面（最先畫）：眼睛低於 HIDE_U 才載入頂點、畫兩半（遠的先），再跑原本的根節點。
         從下面看，引擎被機身、水平尾翼蓋住的地方就照常被蓋住，機尾後面露出來的部分照樣看得到。
-      6C（cmp [眼睛+var], val）≥ 時先 A 後 B，最後載入的頂點有效，用來選「畫 / 收成一點」。"""
+      高低用一小段 F0 x86 選（不能像 KC10-1 那樣把頂點收成一點：貼圖面退化成一點會讓 FA 當掉，KC10-2）。"""
     from f18g_growler import grow_vas
     d = bytearray(grow_vas(bytes(d), 0x1000))      # 尾引擎約 2.9 KB；硬桿在後面再 grow 0x2000
     pe, secs, code, c = code_of(d)
     tail = c.find(R.SIG); assert tail > 0
     assert c[FIN6C:FIN6C + 6] == bytes.fromhex('6c0006000000') and c[FIN6C + 10] == 0x38
     buf, left, right = nacelle()
+    assert c[THUNK_PUSH] == 0x68 and (THUNK_PUSH + 1) in R.reloc_sites(bytes(d), pe, code)
     blk = bytearray()
     nv = struct.unpack_from('<H', buf, 2)[0]
-    coll = bytearray(buf[:6]) + struct.pack('<3h', 0, sc(-90), sc(NAC_UC)) * nv
     six = lambda var, val, A, B, at: struct.pack('<HHhhh', 0x6C, var, val, A - (at + 8), B - (at + 10))
-    o_coll = len(blk); blk += coll + b'\x1E'
+
+    def f0_select(at, A, B):
+        """F0 x86（48 byte，放在區塊位移 at）：眼睛高度 word[0x51cdac] ≥ HIDE_U 時接著跑 A，否則跑 B。
+        不用重定位：call/pop 取自己位址；do_start_interp 的跳板位址從原本 F0 的 push 運算元讀（載入時已重定位）。"""
+        x = bytearray(b'\xF0\x00\xE8\x00\x00\x00\x00\x5B')            # call base; base: pop ebx
+        x += b'\x66\xA1' + struct.pack('<I', 0x51CDAC)                     # mov ax, [eye up]
+        x += b'\x66\x3D' + struct.pack('<h', sc(HIDE_U))                   # cmp ax, HIDE_U
+        x += b'\x7D\x08'                                                   # jge hi
+        x += b'\x81\xC3' + struct.pack('<i', B - (at + 7)) + b'\xEB\x06'  # add ebx, B; jmp go
+        x += b'\x81\xC3' + struct.pack('<i', A - (at + 7))                 # hi: add ebx, A
+        x += b'\x53\xE8\x00\x00\x00\x00\x5B'                             # go: push ebx; call b2; b2: pop ebx
+        x += b'\xFF\xB3' + struct.pack('<i', (THUNK_PUSH + 1) - (tail + at + 40)) + b'\xC3'   # push [thunk]; ret
+        assert len(x) == 48
+        return bytes(x)
+
     o_real = len(blk); blk += buf + b'\x1E'
     o_left = len(blk); blk += left + b'\x1E'
     o_right = len(blk); blk += right + b'\x1E'
-    o_late = len(blk); blk += six(8, sc(HIDE_U), o_coll, o_real, o_late) + b'\x1E'     # 高：真的；低：一點
-    o_early = len(blk); blk += six(8, sc(HIDE_U), o_real, o_coll, o_early) + b'\x1E'   # 高：一點；低：真的
     o_halves = len(blk); blk += six(6, 0, o_left, o_right, o_halves) + b'\x1E'
-    h = lambda p: struct.unpack_from('<h', c, p)[0]
     hooks = []        # (位址, 原本長度, 區塊入口)
-    # 尾翼位置
+    # 尾翼位置：眼睛高 → 載入、左半 / 尾翼 / 右半；眼睛低 → 只畫尾翼（引擎已經在最前面畫過）
     fins = [('6c', FIN6C, FIN6C + 10)] + [('faces', a, e) for a, e in FIN_FACES]
+    def fin_bytes(kind, a, e, at):
+        return (node_copy(c, FIN6C, tail + at) if kind == '6c' else bytes(c[a:e])) + b'\x1E'
     for kind, a, e in fins:
-        o = len(blk); hooks.append((a, e, o))
-        blk += b'\x12\x00' + struct.pack('<h', o_late - (o + 4))
+        o = len(blk); hooks.append((a, e, o)); blk += bytes(48)
+        o_full = len(blk)
+        blk += b'\x12\x00' + struct.pack('<h', o_real - (o_full + 4))
         n1 = len(blk); blk += bytes(10) + b'\x1E'
         n2 = len(blk); blk += bytes(10) + b'\x1E'
-        of = len(blk)
-        if kind == '6c': blk += node_copy(c, FIN6C, tail + of) + b'\x1E'
-        else: blk += c[a:e] + b'\x1E'
+        of = len(blk); blk += fin_bytes(kind, a, e, of)
         blk[n1:n1 + 10] = six(6, 0, o_left, n2, n1)
         blk[n2:n2 + 10] = six(6, 0, of, o_right, n2)
-    # 根節點
+        o_fin = len(blk); blk += fin_bytes(kind, a, e, o_fin)
+        blk[o:o + 48] = f0_select(o, o_full, o_fin)
+    # 根節點：眼睛低 → 先載入、畫兩半（遠的先），再跑原本的根節點；眼睛高 → 直接跑原本的根節點
     for a, n, _ in LOD_BUFS:
         p = a + 6 + 6 * struct.unpack_from('<H', c, a + 2)[0]
         while c[p] == 0xF6: p += 7
         L = NODE_LEN[c[p]]; assert c[p + 1] == 0 and c[p + L] == 0x38, hex(p)
-        o = len(blk); hooks.append((p, p + L, o))
-        blk += b'\x12\x00' + struct.pack('<h', o_early - (o + 4))
-        blk += b'\x12\x00' + struct.pack('<h', o_halves - (o + 8))
-        blk += node_copy(c, p, tail + len(blk)) + b'\x1E'
+        o = len(blk); hooks.append((p, p + L, o)); blk += bytes(48)
+        o_low = len(blk)
+        blk += b'\x12\x00' + struct.pack('<h', o_real - (o_low + 4))
+        blk += b'\x12\x00' + struct.pack('<h', o_halves - (o_low + 8))
+        o_root = len(blk); blk += node_copy(c, p, tail + o_root) + b'\x1E'
+        blk[o:o + 48] = f0_select(o, o_root, o_low)
     # 掛勾：原位置 12 → 區塊入口、38 → 原本結尾
     for a, e, o in hooks:
         assert e - a >= 7
