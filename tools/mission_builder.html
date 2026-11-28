@@ -45,6 +45,10 @@ header h1{font-size:16px;margin:0;font-weight:700;white-space:nowrap}
 #stage.orig #hk{width:29px;height:27px;top:-6px;background:url(mb_assets/sliderh.png);border:0;border-radius:0;box-shadow:none}
 #stage.orig #vk{width:26px;height:30px;left:-6px;background:url(mb_assets/sliderv.png);border:0;border-radius:0;box-shadow:none}
 #map{image-rendering:pixelated}
+#stage.orig .fbtn{border:0;box-shadow:none;margin-top:-4px;text-align:left}
+#stage.orig #ok{width:92px;height:33px;background:url(mb_assets/btn_ok.png);line-height:30px;padding-left:34px}
+#stage.orig #ok::before{top:7px;left:6px}
+#stage.orig #cancel{width:74px;height:30px;background:url(mb_assets/btn_cancel.png);line-height:22px;padding-left:0;width:74px;text-align:left;text-indent:11px}
 #logo{position:absolute;left:2px;top:0;width:76px;height:64px;background:radial-gradient(circle at 50% 40%,#8c949c,#4a5056 60%,#2c3034);border:1px solid #1d2023;
   border-radius:3px;box-shadow:inset 1px 1px 0 #a8b0b8,inset -1px -1px 0 #202326;overflow:hidden}
 #logo .jet{position:absolute;left:10px;top:4px;font-size:34px;line-height:1;color:#d8dde2;transform:rotate(-35deg);text-shadow:1px 1px 0 #222}
@@ -172,8 +176,8 @@ header h1{font-size:16px;margin:0;font-weight:700;white-space:nowrap}
     <p data-lang="zh">這個頁面的用法和 FA 內建的 <b>Mission Creator</b> 一樣：在地圖上點選物件，再點右邊<b>方框裡的字</b>來修改。拖曳物件和航點可以移動，拖曳空白地圖可以捲動，用滾輪或小滑桿縮放。按 <b>OK</b> 會存出 <code>.M</code> 任務檔和 <code>.MT</code> 簡報檔，兩個都放進 FA 目錄即可。所有東西都只在你的瀏覽器裡處理。只有<a href="../mission/fighters_anthology_mission_generator_SKILL.md">任務 skill</a> 裡已解碼的設定可以修改；開啟的檔案裡其他內容都會原樣保留。</p>
     <p data-lang="en">Want an AI to write the first draft? Use the <a href="mission_gen.html">Mission Generator</a>, then open its files here.</p>
     <p data-lang="zh">想讓 AI 先寫出初稿？用<a href="mission_gen.html">任務產生器</a>，再把產生的檔案在這裡開啟。</p>
-    <p data-lang="en">The title bar, background, sliders, map icons, waypoint letters and map font are the original FA art (MSNCREA3, PANEL, SLIDERH/V, MCICONS and MAPFONT .PIC), converted to PNG in <code>tools/mb_assets</code>.</p>
-    <p data-lang="zh">標題列、背景、滑桿、地圖圖示、航點字母和地圖字型都是 FA 原廠圖檔（MSNCREA3、PANEL、SLIDERH/V、MCICONS、MAPFONT .PIC）轉成的 PNG，放在 <code>tools/mb_assets</code>。</p>
+    <p data-lang="en">The title bar, background, sliders, map icons, waypoint letters and map font are the original FA art (MSNCREA3, PANEL, SLIDERH/V, ACTDFT0/ACTION0 buttons, MCICONS and MAPFONT .PIC), converted to PNG in <code>tools/mb_assets</code>.</p>
+    <p data-lang="zh">標題列、背景、滑桿、地圖圖示、航點字母和地圖字型都是 FA 原廠圖檔（MSNCREA3、PANEL、SLIDERH/V、ACTDFT0/ACTION0 按鈕、MCICONS、MAPFONT .PIC）轉成的 PNG，放在 <code>tools/mb_assets</code>。</p>
   </div>
 </div>
 <script src="mission_core.js"></script>
@@ -378,7 +382,7 @@ function centerOn(x, z, fpp) { st.view.cx = x; st.view.cz = z; if (fpp) st.view.
 // MAPFONT .PIC files). Until it has loaded (or if it fails) the page falls back to the drawn look below.
 const ART = { ok: false, img: {} };
 (() => {
-  const names = ["mcicons", "msncrea3", "mapfont", "sliderh", "sliderv", "panel"]; let left = names.length;
+  const names = ["mcicons", "msncrea3", "mapfont", "sliderh", "sliderv", "panel", "btn_ok", "btn_cancel"]; let left = names.length;
   for (const n of names) { const im = new Image(); im.onload = () => { if (--left === 0) { ART.ok = true; $("stage").classList.add("orig"); layout(); render(); } }; im.onerror = () => {}; im.src = "mb_assets/" + n + ".png"; ART.img[n] = im; }
 })();
 function drawHeader() {
