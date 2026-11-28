@@ -72,17 +72,17 @@ header h1{font-size:16px;margin:0;font-weight:700;white-space:nowrap}
 #zs .trk2{position:absolute;left:3px;top:0;width:6px;height:32px;background:#1c1d1f;border:1px solid #000}
 #zs .zk{position:absolute;left:-2px;width:16px;height:12px;background:linear-gradient(#f4f6f8,#aeb4ba);border:1px solid #222;border-radius:2px;cursor:grab}
 #panel{position:absolute;left:458px;top:84px;width:178px;height:356px;overflow-y:auto;overflow-x:hidden;padding:2px 6px 8px 2px;scrollbar-width:thin;scrollbar-color:#6a6e72 #2a2c2e}
-#panel p{margin:0 0 9px;font-size:9.5px;line-height:1.55;text-shadow:1px 1px 0 #000}
+#panel p{margin:0 0 8px;font-size:10px;line-height:1.6;text-shadow:1px 1px 0 #000}
 #panel .h{display:inline-block;font-size:10.5px;letter-spacing:.3px;margin-right:4px}
 #panel .u{text-decoration:underline;font-size:10.5px;letter-spacing:.3px}
 #panel .bx{display:inline;padding:0 2px;border:1px solid #9aa0a6;background:rgba(0,0,0,.28);box-shadow:inset 1px 1px 0 rgba(0,0,0,.6);cursor:pointer;white-space:nowrap;line-height:1.9}
 #panel .bx:hover{border-color:#ffe23a;color:#ffe23a}
 #panel .bx.ro{cursor:default;border-color:#6a6e72;color:#c8ccd0}
 #panel .bx.ro:hover{color:#c8ccd0}
-#panel .rt{display:grid;grid-template-columns:62px 1fr;gap:1px 4px;margin:0 0 9px;font-size:9.5px}
+#panel .rt{display:grid;grid-template-columns:70px 1fr;gap:2px 6px;margin:0 0 9px;font-size:10px}
 #panel .dim{color:#aab0b6;font-weight:normal}
 #panel .help{font-weight:normal;color:#d8dce0}
-.fbtn{position:absolute;top:449px;height:24px;font:bold 12px/22px Tahoma,Verdana,"Microsoft JhengHei",sans-serif;color:#fff;text-align:center;cursor:pointer;border:1px solid #000;text-shadow:1px 1px 0 #000}
+.fbtn{position:absolute;top:449px;width:auto;height:24px;font:bold 12px/22px Tahoma,Verdana,"Microsoft JhengHei",sans-serif;color:#fff;text-align:center;cursor:pointer;border:1px solid #000;text-shadow:1px 1px 0 #000}
 #ok{left:463px;width:85px;background:linear-gradient(#5574f0,#2440c0 55%,#18308f);box-shadow:inset 1px 1px 0 #9fb2ff}
 #ok::before{content:"";position:absolute;left:3px;top:3px;width:14px;height:16px;background:repeating-linear-gradient(135deg,#c8d4ff 0 2px,#2440c0 2px 4px)}
 #cancel{left:563px;width:66px;background:linear-gradient(#3aa05a,#1c7a38 55%,#105a26);box-shadow:inset 1px 1px 0 #8fe0a8}
@@ -318,14 +318,29 @@ const letter = i => String.fromCharCode(65 + i);
 
 // ---------------------------------------------------------------- view
 const cv = $("map"), ctx = cv.getContext("2d");
-const MW = 400, MH = 323;
+let MW = 400, MH = 323, SW = 640, SH = 480;
 let scale = 1, dpr = 1;
+// The FA screen is 640x480, but on a big window it grows in size (more map, wider panel) instead of being
+// magnified, so the text stays about as large as the rest of the page (~13 px).
 function layout() {
-  const hw = $("holder").clientWidth; scale = Math.min(hw / 640, (innerHeight - 120) / 480); scale = Math.max(0.5, Math.min(scale, 2.6));
-  $("stage").style.transform = `scale(${scale})`; $("holder").style.height = (480 * scale) + "px";
-  $("holder").style.width = "100%"; $("stage").style.left = Math.max(0, (hw - 640 * scale) / 2) + "px";
+  const hw = $("holder").clientWidth, vh = Math.max(420, innerHeight - 110);
+  scale = Math.min(1.35, hw / 640);
+  SW = Math.max(640, Math.floor(hw / scale)); SH = Math.max(480, Math.min(Math.round(SW * 0.72), Math.floor(vh / scale)));
+  const pw = SW >= 860 ? 236 : 178, mapW = SW - pw - 60, mapH = SH - 155;
+  const S = (id, css) => Object.assign($(id).style, css);
+  S("stage", { width: SW + "px", height: SH + "px", transform: `scale(${scale})`, left: Math.max(0, (hw - SW * scale) / 2) + "px" });
+  $("holder").style.height = (SH * scale) + "px";
+  S("menubar", { width: Math.min(SW - 108, 900) + "px" });
+  S("mapbox", { width: mapW + 2 + "px", height: mapH + 2 + "px" });
+  S("era", { left: (15 + mapW + 2 - 160) + "px", width: "160px" });
+  S("vs", { left: (15 + mapW + 13) + "px", height: mapH + 2 + "px" });
+  S("hs", { top: (93 + mapH + 10) + "px", width: mapW + 2 + "px" });
+  S("zs", { left: (15 + mapW + 17) + "px", top: (93 + mapH + 10) + "px" });
+  S("panel", { left: (SW - pw - 4) + "px", width: pw + "px", height: (SH - 128) + "px" });
+  S("ok", { left: (SW - 177) + "px", top: (SH - 31) + "px" }); S("cancel", { left: (SW - 77) + "px", top: (SH - 31) + "px" });
+  MW = mapW; MH = mapH;
   dpr = devicePixelRatio || 1; cv.width = Math.round(MW * scale * dpr); cv.height = Math.round(MH * scale * dpr);
-  cv.style.width = MW + "px"; cv.style.height = MH + "px"; draw();
+  cv.style.width = MW + "px"; cv.style.height = MH + "px"; if (st.M) clampView(); draw();
 }
 const zoomMin = () => EXT() / MH * 1.02, zoomMax = () => EXT() / MH / 24;
 function clampView() {
@@ -463,8 +478,8 @@ function scaleBar() {
 }
 function sliders() {
   const E = EXT(), v = st.view;
-  $("hk").style.left = (v.cx / E * (402 - 26)) + "px";
-  $("vk").style.top = ((1 - v.cz / E) * (325 - 24)) + "px";
+  $("hk").style.left = (v.cx / E * (MW - 24)) + "px";
+  $("vk").style.top = ((1 - v.cz / E) * (MH - 22)) + "px";
   const t = Math.log(zoomMin() / v.fpp) / Math.log(zoomMin() / zoomMax());
   $("zk").style.top = ((1 - t) * 20) + "px";
 }
@@ -492,7 +507,7 @@ function choose(anchor, items, cur, onPick, title) {
   const sr = $("stage").getBoundingClientRect(), r = anchor.getBoundingClientRect();
   let x = (r.left - sr.left) / scale, y = (r.bottom - sr.top) / scale + 1;
   $("stage").append(pop);
-  const w = pop.offsetWidth, h = pop.offsetHeight; if (x + w > 636) x = 636 - w; if (y + h > 476) y = Math.max(2, (r.top - sr.top) / scale - h - 1);
+  const w = pop.offsetWidth, h = pop.offsetHeight; if (x + w > SW - 4) x = SW - 4 - w; if (y + h > SH - 4) y = Math.max(2, (r.top - sr.top) / scale - h - 1);
   pop.style.left = x + "px"; pop.style.top = y + "px";
   const cu = pop.querySelector(".cur"); if (cu) cu.scrollIntoView({ block: "nearest" });
 }
@@ -1020,7 +1035,7 @@ function openMenu(m, k) {
     dd.append(d);
   }
   $("stage").append(dd); dd.style.left = (80 + m.offsetLeft) + "px"; dd.style.top = "59px";
-  const r = dd.offsetLeft + dd.offsetWidth; if (r > 636) dd.style.left = (636 - dd.offsetWidth) + "px";
+  const r = dd.offsetLeft + dd.offsetWidth; if (r > SW - 4) dd.style.left = (SW - 4 - dd.offsetWidth) + "px";
 }
 function dlgHelp() {
   const b = el("div"); b.innerHTML = L(
@@ -1171,8 +1186,8 @@ function sliderDrag(knob, onMove) {
     const up = () => { knob.removeEventListener("pointermove", mv); knob.removeEventListener("pointerup", up); };
     knob.addEventListener("pointermove", mv); knob.addEventListener("pointerup", up); });
 }
-sliderDrag($("hk"), x => { st.view.cx = Math.max(0, Math.min(1, x / (402 - 26))) * EXT(); clampView(); draw(); });
-sliderDrag($("vk"), (x, y) => { st.view.cz = (1 - Math.max(0, Math.min(1, y / (325 - 24)))) * EXT(); clampView(); draw(); });
+sliderDrag($("hk"), x => { st.view.cx = Math.max(0, Math.min(1, x / (MW - 24))) * EXT(); clampView(); draw(); });
+sliderDrag($("vk"), (x, y) => { st.view.cz = (1 - Math.max(0, Math.min(1, y / (MH - 22)))) * EXT(); clampView(); draw(); });
 sliderDrag($("zk"), (x, y) => { const t = 1 - Math.max(0, Math.min(1, y / 20)); st.view.fpp = zoomMin() * Math.pow(zoomMax() / zoomMin(), t); clampView(); draw(); });
 $("hs").addEventListener("pointerdown", e => { if (e.target !== $("hs")) return; const r = $("hs").getBoundingClientRect(); st.view.cx = (e.clientX - r.left) / r.width * EXT(); clampView(); draw(); });
 $("vs").addEventListener("pointerdown", e => { if (e.target !== $("vs")) return; const r = $("vs").getBoundingClientRect(); st.view.cz = (1 - (e.clientY - r.top) / r.height) * EXT(); clampView(); draw(); });
