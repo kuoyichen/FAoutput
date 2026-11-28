@@ -34,6 +34,17 @@ header h1{font-size:16px;margin:0;font-weight:700;white-space:nowrap}
   background:#3a3c3e repeating-linear-gradient(115deg,#3c3e40 0 2px,#36383a 2px 3px,#3e4042 3px 5px)}
 #stage *{box-sizing:border-box}
 #title{position:absolute;left:0;top:0;width:640px;height:34px}
+#hdr{position:absolute;left:0;top:0;height:77px;display:none;image-rendering:pixelated}
+#stage.orig{background:#3c3c3c url(mb_assets/panel.png)}
+#stage.orig #hdr{display:block}
+#stage.orig #logo,#stage.orig #ttl{display:none}
+#stage.orig #menubar{background:none;border:0;box-shadow:none;top:37px;height:21px}
+#stage.orig #menubar .mi{color:#0c1c8c;text-shadow:none}
+#stage.orig #menubar .mi:hover,#stage.orig #menubar .mi.open{background:#2e44c8;color:#fff}
+#stage.orig #menubar .tail{display:none}
+#stage.orig #hk{width:29px;height:27px;top:-6px;background:url(mb_assets/sliderh.png);border:0;border-radius:0;box-shadow:none}
+#stage.orig #vk{width:26px;height:30px;left:-6px;background:url(mb_assets/sliderv.png);border:0;border-radius:0;box-shadow:none}
+#map{image-rendering:pixelated}
 #logo{position:absolute;left:2px;top:0;width:76px;height:64px;background:radial-gradient(circle at 50% 40%,#8c949c,#4a5056 60%,#2c3034);border:1px solid #1d2023;
   border-radius:3px;box-shadow:inset 1px 1px 0 #a8b0b8,inset -1px -1px 0 #202326;overflow:hidden}
 #logo .jet{position:absolute;left:10px;top:4px;font-size:34px;line-height:1;color:#d8dde2;transform:rotate(-35deg);text-shadow:1px 1px 0 #222}
@@ -142,7 +153,7 @@ header h1{font-size:16px;margin:0;font-weight:700;white-space:nowrap}
   </div>
   <div id="holder">
     <div id="stage">
-      <div id="title"><div id="logo"><span class="jet">✈</span><span class="an">ANTHOLOGY</span></div><div id="ttl">MISSION CREATOR</div></div>
+      <canvas id="hdr"></canvas><div id="title"><div id="logo"><span class="jet">✈</span><span class="an">ANTHOLOGY</span></div><div id="ttl">MISSION CREATOR</div></div>
       <div id="menubar"></div>
       <div id="scale"><span class="bar" id="scaleBar"></span><span id="scaleTxt"></span></div>
       <div id="era"></div>
@@ -161,6 +172,8 @@ header h1{font-size:16px;margin:0;font-weight:700;white-space:nowrap}
     <p data-lang="zh">這個頁面的用法和 FA 內建的 <b>Mission Creator</b> 一樣：在地圖上點選物件，再點右邊<b>方框裡的字</b>來修改。拖曳物件和航點可以移動，拖曳空白地圖可以捲動，用滾輪或小滑桿縮放。按 <b>OK</b> 會存出 <code>.M</code> 任務檔和 <code>.MT</code> 簡報檔，兩個都放進 FA 目錄即可。所有東西都只在你的瀏覽器裡處理。只有<a href="../mission/fighters_anthology_mission_generator_SKILL.md">任務 skill</a> 裡已解碼的設定可以修改；開啟的檔案裡其他內容都會原樣保留。</p>
     <p data-lang="en">Want an AI to write the first draft? Use the <a href="mission_gen.html">Mission Generator</a>, then open its files here.</p>
     <p data-lang="zh">想讓 AI 先寫出初稿？用<a href="mission_gen.html">任務產生器</a>，再把產生的檔案在這裡開啟。</p>
+    <p data-lang="en">The title bar, background, sliders, map icons, waypoint letters and map font are the original FA art (MSNCREA3, PANEL, SLIDERH/V, MCICONS and MAPFONT .PIC), converted to PNG in <code>tools/mb_assets</code>.</p>
+    <p data-lang="zh">標題列、背景、滑桿、地圖圖示、航點字母和地圖字型都是 FA 原廠圖檔（MSNCREA3、PANEL、SLIDERH/V、MCICONS、MAPFONT .PIC）轉成的 PNG，放在 <code>tools/mb_assets</code>。</p>
   </div>
 </div>
 <script src="mission_core.js"></script>
@@ -337,7 +350,7 @@ function layout() {
   const S = (id, css) => Object.assign($(id).style, css);
   S("stage", { width: SW + "px", height: SH + "px", transform: `scale(${scale})`, left: Math.max(0, (hw - SW * scale) / 2) + "px" });
   $("holder").style.height = (SH * scale) + "px";
-  S("menubar", { width: Math.min(SW - 108, 900) + "px" });
+  S("menubar", { width: (ART.ok ? SW - 109 : Math.min(SW - 108, 900)) + "px" });
   S("mapbox", { width: mapW + 2 + "px", height: mapH + 2 + "px" });
   S("era", { left: (15 + mapW + 2 - 160) + "px", width: "160px", display: mapW < 470 ? "none" : "" });
   S("vs", { left: (15 + mapW + 13) + "px", height: mapH + 2 + "px" });
@@ -346,7 +359,7 @@ function layout() {
   S("panel", { left: (SW - pw - 4) + "px", width: pw + "px", height: (SH - 128) + "px" });
   S("split", { left: (15 + mapW + 34) + "px", height: (SH - 128) + "px" });
   S("ok", { left: (SW - 177) + "px", top: (SH - 31) + "px" }); S("cancel", { left: (SW - 77) + "px", top: (SH - 31) + "px" });
-  MW = mapW; MH = mapH;
+  drawHeader(); MW = mapW; MH = mapH;
   dpr = devicePixelRatio || 1; cv.width = Math.round(MW * scale * dpr); cv.height = Math.round(MH * scale * dpr);
   cv.style.width = MW + "px"; cv.style.height = MH + "px"; if (st.M) clampView(); draw();
 }
@@ -361,7 +374,31 @@ function fitAll() { st.view = { cx: EXT() / 2, cz: EXT() / 2, fpp: zoomMin() }; 
 function centerOn(x, z, fpp) { st.view.cx = x; st.view.cz = z; if (fpp) st.view.fpp = fpp; clampView(); draw(); }
 
 // ---------------------------------------------------------------- drawing
-const ICON = 15;
+// ---- original FA art (tools/mb_assets, converted from the factory MCICONS / MSNCREA3 / PANEL / SLIDERH / SLIDERV /
+// MAPFONT .PIC files). Until it has loaded (or if it fails) the page falls back to the drawn look below.
+const ART = { ok: false, img: {} };
+(() => {
+  const names = ["mcicons", "msncrea3", "mapfont", "sliderh", "sliderv", "panel"]; let left = names.length;
+  for (const n of names) { const im = new Image(); im.onload = () => { if (--left === 0) { ART.ok = true; $("stage").classList.add("orig"); layout(); render(); } }; im.onerror = () => {}; im.src = "mb_assets/" + n + ".png"; ART.img[n] = im; }
+})();
+function drawHeader() {
+  if (!ART.ok) return; const c = $("hdr"), im = ART.img.msncrea3; c.width = SW; c.height = 77; c.style.width = SW + "px";
+  const g = c.getContext("2d"); g.imageSmoothingEnabled = false;
+  g.drawImage(im, 0, 0, 560, 77, 0, 0, 560, 77);                                // logo, title, start of the bar
+  for (let x = 560; x < SW - 40; x += 40) g.drawImage(im, 560, 0, Math.min(40, SW - 40 - x), 77, x, 0, Math.min(40, SW - 40 - x), 77);
+  g.drawImage(im, 600, 0, 40, 77, SW - 40, 0, 40, 77);                          // end of the bar
+}
+// MCICONS.PIC: 24x20 cells (23x19 art). Row 0 friendly (blue), row 1 enemy (red): 0-7 fighter N,NE,E,..NW;
+// 8 SAM, 9 AAA, 10 tank, 11 vehicle, 12 structure, 13 ship, 14 other, 15 airfield, 16 carrier; 17-24 helicopter,
+// 25-32 bomber (8 headings). Rows 2/3: waypoint letters A-Q (normal / selected). Selection frame at (0,80) 31x27.
+const ICON = 19;
+function iconCell(kind, hdg, type) {
+  const d = ((Math.round((hdg || 0) / 45) % 8) + 8) % 8, t = String(type || "").toUpperCase();
+  if (kind === "fighter") return d; if (kind === "heli") return 17 + d; if (kind === "bomber") return 25 + d;
+  if (kind === "ship") return /^(KITT|NIMZ|CV|ESSE|CDEG|INVN|ELIZ|KUZN|ENTR|MIDW|FORR|KIEV|TARA|WASP|NIMI|IWO|TICO?N?D?)/.test(t) && !/^TICO/.test(t) || /carrier/i.test(info(type).long) ? 16 : 13;
+  if (kind === "structure" && /^(STRIP|DTSTRP|RNWY|AIRF)/.test(t)) return 15;
+  return { sam: 8, aaa: 9, tank: 10, vehicle: 11, structure: 12, other: 14 }[kind] ?? 14;
+}
 function glyph(g, kind, x, y) {
   g.save(); g.translate(x, y); g.fillStyle = "#ffe23a"; g.strokeStyle = "#5a3a00"; g.lineWidth = 0.6; g.beginPath();
   if (kind === "fighter" || kind === "bomber") {
@@ -385,16 +422,25 @@ function glyph(g, kind, x, y) {
   g.fill(); g.stroke(); g.restore();
 }
 function drawIcon(g, x, y, enemy, kind, opts = {}) {
-  const h = ICON / 2; x = Math.round(x) + 0.5; y = Math.round(y) + 0.5;
-  g.fillStyle = "rgba(0,0,0,.55)"; g.fillRect(x - h + 2, y - h + 2, ICON, ICON);
-  g.fillStyle = enemy ? "#d01818" : "#2f4fd0"; g.fillRect(x - h, y - h, ICON, ICON);
+  if (ART.ok) {
+    const c = iconCell(kind, opts.hdg, opts.type); x = Math.round(x); y = Math.round(y);
+    if (opts.sel) g.drawImage(ART.img.mcicons, 0, 80, 31, 27, x - 15, y - 13, 31, 27);
+    g.drawImage(ART.img.mcicons, c * 24, enemy ? 20 : 0, 23, 19, x - 11, y - 9, 23, 19);
+    if (opts.human) { g.strokeStyle = "#ffffff"; g.lineWidth = 1; g.strokeRect(x - 12.5, y - 10.5, 25, 21); }
+    return;
+  }
+  const S = 15, h = S / 2; x = Math.round(x) + 0.5; y = Math.round(y) + 0.5;
+  g.fillStyle = "rgba(0,0,0,.55)"; g.fillRect(x - h + 2, y - h + 2, S, S);
+  g.fillStyle = enemy ? "#d01818" : "#2f4fd0"; g.fillRect(x - h, y - h, S, S);
   g.strokeStyle = enemy ? "#ff8a7a" : "#9ab0ff"; g.lineWidth = 1; g.beginPath(); g.moveTo(x - h, y + h); g.lineTo(x - h, y - h); g.lineTo(x + h, y - h); g.stroke();
   g.strokeStyle = enemy ? "#600" : "#0c1a60"; g.beginPath(); g.moveTo(x + h, y - h); g.lineTo(x + h, y + h); g.lineTo(x - h, y + h); g.stroke();
   glyph(g, kind, x, y + 0.3);
-  if (opts.human) { g.strokeStyle = "#ffffff"; g.lineWidth = 1; g.strokeRect(x - h - 2, y - h - 2, ICON + 4, ICON + 4); }
-  if (opts.sel) { g.strokeStyle = "#ffe23a"; g.lineWidth = 1.5; g.setLineDash([3, 2]); g.strokeRect(x - h - 4, y - h - 4, ICON + 8, ICON + 8); g.setLineDash([]); }
+  if (opts.human) { g.strokeStyle = "#ffffff"; g.lineWidth = 1; g.strokeRect(x - h - 2, y - h - 2, S + 4, S + 4); }
+  if (opts.sel) { g.strokeStyle = "#ffe23a"; g.lineWidth = 1.5; g.setLineDash([3, 2]); g.strokeRect(x - h - 4, y - h - 4, S + 8, S + 8); g.setLineDash([]); }
 }
 function drawWp(g, x, y, ch, sel) {
+  const k = ch.charCodeAt(0) - 65;
+  if (ART.ok && k >= 0 && k < 17) { x = Math.round(x); y = Math.round(y); g.drawImage(ART.img.mcicons, k * 24, sel ? 60 : 40, 23, 19, x - 11, y - 9, 23, 19); return; }
   const h = 6.5; x = Math.round(x) + 0.5; y = Math.round(y) + 0.5;
   g.fillStyle = "rgba(0,0,0,.5)"; g.fillRect(x - h + 2, y - h + 2, 13, 13);
   g.fillStyle = sel ? "#ffb000" : "#e08a18"; g.fillRect(x - h, y - h, 13, 13);
@@ -404,7 +450,25 @@ function drawWp(g, x, y, ch, sel) {
   g.lineWidth = 2; g.strokeStyle = "#5a3000"; g.strokeText(ch, x, y + 0.5); g.fillText(ch, x, y + 0.5);
   if (sel) { g.strokeStyle = "#fff"; g.lineWidth = 1; g.setLineDash([2, 2]); g.strokeRect(x - h - 3, y - h - 3, 19, 19); g.setLineDash([]); }
 }
+// MAPFONT.PIC: outlined 11-px map font; [x, width] of each glyph in the strip, 1 px between letters.
+const FONT = {"!":[62,3],"\"":[66,3],"#":[70,6],"$":[77,5],"%":[83,8],"&":[92,6],"'":[99,2],"(":[102,4],")":[107,4],"*":[112,4],"+":[117,5],",":[123,2],"-":[126,3],".":[130,2],"/":[133,4],"0":[138,5],"1":[144,3],"2":[148,5],"3":[154,5],"4":[160,5],"5":[166,5],"6":[172,5],"7":[178,5],"8":[184,5],"9":[190,5],":":[196,2],";":[199,2],"<":[202,5],"=":[208,5],">":[214,6],"?":[221,5],"@":[227,7],"A":[235,7],"B":[243,6],"C":[250,7],"D":[258,6],"E":[265,5],"F":[271,5],"G":[277,7],"H":[285,5],"I":[292,2],"J":[295,5],"K":[301,6],"L":[308,5],"M":[314,7],"N":[322,6],"O":[329,7],"P":[337,5],"Q":[343,7],"R":[351,6],"S":[358,6],"T":[365,6],"U":[372,6],"V":[379,6],"W":[386,9],"X":[396,6],"Y":[403,6],"Z":[410,6],"[":[417,3],"\\":[421,4],"]":[426,3],"^":[430,4],"_":[435,5],"a":[443,5],"b":[449,5],"c":[455,6],"d":[462,5],"e":[468,5],"f":[474,4],"g":[479,5],"h":[485,5],"i":[491,2],"j":[494,2],"k":[497,5],"l":[503,2],"m":[506,7],"n":[514,5],"o":[520,6],"p":[527,6],"q":[534,5],"r":[540,4],"s":[545,5],"t":[551,4],"u":[556,5],"v":[562,5],"w":[568,8],"x":[577,5],"y":[583,6],"z":[590,5],"{":[596,4],"|":[601,2],"}":[604,3],"~":[608,5]};
+const tinted = {};
+function fontFor(color) {
+  if (tinted[color]) return tinted[color];
+  const im = ART.img.mapfont, c = document.createElement("canvas"); c.width = im.width; c.height = im.height;
+  const g = c.getContext("2d"); g.drawImage(im, 0, 0); const d = g.getImageData(0, 0, c.width, c.height), p = d.data;
+  const r = parseInt(color.slice(1, 3), 16), gg = parseInt(color.slice(3, 5), 16), b = parseInt(color.slice(5, 7), 16);
+  for (let i = 0; i < p.length; i += 4) if (p[i + 3] && p[i] > 128) { p[i] = r; p[i + 1] = gg; p[i + 2] = b; }
+  g.putImageData(d, 0, 0); return (tinted[color] = c);
+}
+const bitmapOk = t => ART.ok && /^[\x20-\x7e]*$/.test(t);
+function textW(t) { let w = 0; for (const ch of t) w += FONT[ch] ? FONT[ch][1] + 1 : 3; return w; }
+function bitmapText(g, t, x, y, color, align) {
+  const f = fontFor(color); let cx = Math.round(align === "center" ? x - textW(t) / 2 : x); y = Math.round(y);
+  for (const ch of t) { const m = FONT[ch]; if (m) { g.drawImage(f, m[0], 0, m[1], 11, cx, y, m[1], 11); cx += m[1] + 1; } else cx += 3; }
+}
 function label(g, lines, x, y, color) {
+  if (lines.every(bitmapOk)) { lines.forEach((t, i) => { if (t) bitmapText(g, t, x, y + i * 10, i ? "#ffffff" : (color || "#ffffff"), "center"); }); return; }
   g.font = "bold 8px Tahoma,Verdana,sans-serif"; g.textAlign = "center"; g.textBaseline = "top"; g.lineJoin = "round";
   lines.forEach((t, i) => { if (!t) return; g.lineWidth = 2.5; g.strokeStyle = "#000"; g.strokeText(t, x, y + i * 9); g.fillStyle = i ? "#ffffff" : (color || "#ffffff"); g.fillText(t, x, y + i * 9); });
 }
@@ -419,7 +483,7 @@ function paint() {
   const E = EXT(), [x0, y0] = w2s(0, E), sz = E / st.view.fpp;
   if (st.picCv) { g.imageSmoothingEnabled = st.view.fpp > E / st.picCv.width * 0.8; g.drawImage(st.picCv, x0, y0, sz, sz); }
   else { g.fillStyle = "#5a78c8"; g.fillRect(x0, y0, sz, sz); }
-  g.imageSmoothingEnabled = true;
+  g.imageSmoothingEnabled = !ART.ok;
   // map objects and names (from the theater's .MM)
   if (st.mm && st.show.mmobj) for (const o of st.mm.objs) {
     const p = C.pos(o), [sx, sy] = w2s(p[0], p[2]); if (sx < -10 || sy < -10 || sx > MW + 10 || sy > MH + 10) continue;
@@ -429,6 +493,7 @@ function paint() {
   }
   if (st.mm && st.show.mmnames) for (const s of st.mm.specials) {
     const p = C.pos(s), n = C.getS(s, "name").replace(/[\x00-\x1f]/g, ""); if (!n) continue; const [sx, sy] = w2s(p[0], p[2]);
+    if (bitmapOk(n)) { bitmapText(g, n, sx, sy - 5, "#ffe23a", "center"); continue; }
     g.font = "bold 11px Tahoma,Verdana,sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.lineWidth = 3; g.strokeStyle = "#000"; g.strokeText(n, sx, sy); g.fillStyle = "#ffe23a"; g.fillText(n, sx, sy);
   }
   const visibleObj = o => C.isEnemy(o) ? st.show.enemy : st.show.friend;
@@ -449,12 +514,12 @@ function paint() {
   for (const o of order) {
     if (!visibleObj(o)) continue; const p = C.pos(o), [sx, sy] = w2s(p[0], p[2]);
     if (sx < -20 || sy < -20 || sx > MW + 20 || sy > MH + 20) { hits.push({ x: sx, y: sy, r: 0, kind: "obj", o }); continue; }
-    const i = objInfo(o); drawIcon(g, sx, sy, C.isEnemy(o), i.kind, { human: isHuman(o), sel: o === selObj });
-    hits.push({ x: sx, y: sy, r: 9, kind: "obj", o });
+    const i = objInfo(o); drawIcon(g, sx, sy, C.isEnemy(o), i.kind, { human: isHuman(o), sel: o === selObj, hdg: C.heading(o), type: C.get(o, "type") });
+    hits.push({ x: sx, y: sy, r: ART.ok ? 11 : 9, kind: "obj", o });
     if (st.show.names) {
       const ms = C.wing(o) ? wingMembers(o) : [o]; if (labelled.has(ms[0])) continue; labelled.add(ms[0]);
       const names = ms.map(objName).filter(Boolean); const head = (ms.length > 1 ? ms.length + "-" : "") + i.short;
-      label(g, [head, names.length ? "(" + names.join(", ").slice(0, 60) + ")" : ""], sx, sy + (o === selObj ? 13 : 9), C.isEnemy(o) ? "#ffd0c8" : "#ffffff");
+      label(g, [head, names.length ? "(" + names.join(", ").slice(0, 60) + ")" : ""], sx, sy + (o === selObj ? 14 : ART.ok ? 10 : 9), C.isEnemy(o) ? "#ffd0c8" : "#ffffff");
     }
   }
   // waypoints on top
@@ -464,11 +529,11 @@ function paint() {
     let k = 0; w.recs.forEach((r, idx) => {
       if (C.getN(r, "w_flags") & 3) return; const q = C.wpPos(r), [sx, sy] = w2s(q.x, q.z);
       const isSel = sel && sel.kind === "wp" && sel.w === w && sel.i === idx;
-      drawWp(g, sx, sy, letter(k), isSel); hits.push({ x: sx, y: sy, r: 8, kind: "wp", w, i: idx, o }); k++;
+      drawWp(g, sx, sy, letter(k), isSel); hits.push({ x: sx, y: sy, r: ART.ok ? 10 : 8, kind: "wp", w, i: idx, o }); k++;
     });
   }
   // the ghost of the object being placed
-  if (st.mode && st.mode.kind === "place" && st.mode.at) { g.globalAlpha = 0.6; drawIcon(g, st.mode.at[0], st.mode.at[1], st.mode.enemy, info(st.mode.type).kind); g.globalAlpha = 1; }
+  if (st.mode && st.mode.kind === "place" && st.mode.at) { g.globalAlpha = 0.6; drawIcon(g, st.mode.at[0], st.mode.at[1], st.mode.enemy, info(st.mode.type).kind, { type: st.mode.type }); g.globalAlpha = 1; }
   if (st.mode && st.mode.kind === "addwp" && st.mode.at) {
     const w = routeFor(st.mode.o), vis = w ? C.visible(w) : []; const last = st.mode.after != null && w ? w.recs[st.mode.after] : vis[vis.length - 1];
     const p = last ? C.wpPos(last) : { x: C.pos(st.mode.o)[0], z: C.pos(st.mode.o)[2] }; const [ax, ay] = w2s(p.x, p.z);
@@ -484,10 +549,11 @@ function scaleBar() {
   const era = C.num(C.headGet(st.M, "historicalera") || 4);
   $("era").textContent = era === 4 ? L("Historical Era ( 1956 - 2010)", "歷史年代（1956 - 2010）") : L(`Historical Era ${era}`, `歷史年代 ${era}`);
 }
+const KW = () => ART.ok ? 29 : 24, KH = () => ART.ok ? 30 : 22;
 function sliders() {
   const E = EXT(), v = st.view;
-  $("hk").style.left = (v.cx / E * (MW - 24)) + "px";
-  $("vk").style.top = ((1 - v.cz / E) * (MH - 22)) + "px";
+  $("hk").style.left = (v.cx / E * (MW - KW())) + "px";
+  $("vk").style.top = ((1 - v.cz / E) * (MH - KH())) + "px";
   const t = Math.log(zoomMin() / v.fpp) / Math.log(zoomMin() / zoomMax());
   $("zk").style.top = ((1 - t) * 20) + "px";
 }
@@ -1194,8 +1260,8 @@ function sliderDrag(knob, onMove) {
     const up = () => { knob.removeEventListener("pointermove", mv); knob.removeEventListener("pointerup", up); };
     knob.addEventListener("pointermove", mv); knob.addEventListener("pointerup", up); });
 }
-sliderDrag($("hk"), x => { st.view.cx = Math.max(0, Math.min(1, x / (MW - 24))) * EXT(); clampView(); draw(); });
-sliderDrag($("vk"), (x, y) => { st.view.cz = (1 - Math.max(0, Math.min(1, y / (MH - 22)))) * EXT(); clampView(); draw(); });
+sliderDrag($("hk"), x => { st.view.cx = Math.max(0, Math.min(1, x / (MW - KW()))) * EXT(); clampView(); draw(); });
+sliderDrag($("vk"), (x, y) => { st.view.cz = (1 - Math.max(0, Math.min(1, y / (MH - KH())))) * EXT(); clampView(); draw(); });
 sliderDrag($("zk"), (x, y) => { const t = 1 - Math.max(0, Math.min(1, y / 20)); st.view.fpp = zoomMin() * Math.pow(zoomMax() / zoomMin(), t); clampView(); draw(); });
 $("hs").addEventListener("pointerdown", e => { if (e.target !== $("hs")) return; const r = $("hs").getBoundingClientRect(); st.view.cx = (e.clientX - r.left) / r.width * EXT(); clampView(); draw(); });
 $("vs").addEventListener("pointerdown", e => { if (e.target !== $("vs")) return; const r = $("vs").getBoundingClientRect(); st.view.cz = (1 - (e.clientY - r.top) / r.height) * EXT(); clampView(); draw(); });
