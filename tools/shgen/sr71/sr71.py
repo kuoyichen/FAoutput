@@ -27,6 +27,7 @@ BODY, SPIKE, DUCT, GLASS, FRAME = 158, 157, 160, 74, 159
 TYRE, GREY, FLAME, CORE = 160, 150, 182, 189
 NAC_X = 14.5                   # nacelle axis (ft from the centreline), z 0
 GZ = -7.0                      # ground (wheel bottoms), ft
+FLAME_R, FLAME_L = 4.3, 44.0    # flame sheet half width / length, ft (SR71_1 cone was 22 ft)
 
 
 def P(s, x=0.0, z=0.0): return (x * U, (S0 - s) * U, z * U)
@@ -46,16 +47,16 @@ def chine_ring(s, wb, zt, zb, wc, zch, zs, lo=None):
 
 
 #      s     wb    zt     zb     wc     zch    zs
-FUS = [(1.2, 0.28, 0.24, -0.30, 0.36, -0.06, 0.02),
-       (4.0, 0.72, 0.62, -0.72, 1.05, -0.15, 0.05),
-       (9.0, 1.30, 1.20, -1.30, 2.05, -0.28, 0.06),
-       (15.0, 1.80, 1.70, -1.75, 3.10, -0.38, 0.10),
-       (21.0, 2.20, 2.10, -2.05, 4.05, -0.42, 0.14),
-       (28.0, 2.50, 2.40, -2.25, 5.15, -0.42, 0.18),
-       (36.0, 2.70, 2.55, -2.40, 6.45, -0.38, 0.20),
-       (45.0, 2.82, 2.62, -2.48, 7.95, -0.30, 0.18),
-       (52.0, 2.88, 2.66, -2.50, 9.25, -0.20, 0.15),
-       (57.0, 2.92, 2.68, -2.50, 10.35, -0.10, 0.12),
+FUS = [(1.2, 0.28, 0.24, -0.30, 0.42, -0.06, 0.02),
+       (4.0, 0.72, 0.62, -0.72, 1.30, -0.15, 0.05),
+       (9.0, 1.30, 1.20, -1.30, 2.45, -0.28, 0.06),
+       (15.0, 1.80, 1.70, -1.75, 3.50, -0.38, 0.10),
+       (21.0, 2.20, 2.10, -2.05, 4.30, -0.42, 0.14),
+       (28.0, 2.50, 2.40, -2.25, 5.00, -0.42, 0.18),
+       (36.0, 2.70, 2.55, -2.40, 5.50, -0.38, 0.20),     # SR71_2: chine edge runs straight (parallel) from here
+       (45.0, 2.82, 2.62, -2.48, 5.85, -0.30, 0.18),
+       (51.0, 2.88, 2.66, -2.50, 6.05, -0.22, 0.15),     # ... and only flares out to the nacelle aft of the spike tips
+       (56.0, 2.92, 2.68, -2.50, 8.90, -0.10, 0.12),
        (61.0, 2.94, 2.68, -2.50, 11.6, 0.00, 0.10),
        (75.0, 2.94, 2.66, -2.45, 11.6, 0.00, 0.10),
        (95.0, 2.70, 2.40, -2.20, 11.6, 0.00, 0.10),
@@ -196,15 +197,18 @@ def build(outdir, name='SR71'):
     dedupe(M); print('verts', len(M.V), 'faces', len(M.F))
     if os.environ.get('DRY'): return
     g = []
-    for sx in (1, -1):
-        g.append(core.Gear('A' + 'RL'[sx < 0], flame(), P(101.1, sx * NAC_X, 0.0), var='AB', anim=False))
+    for sx in (1, -1):        # SR71_2: F-14 style animated flame (3 frames + 3 s grow), twice the SR71_1 length
+        G = core.Gear('A' + 'RL'[sx < 0], None, P(101.1, sx * NAC_X, 0.0), var='AB', anim=False)
+        G.flame = (int(round(FLAME_R * U)), int(round(FLAME_L * U))); g.append(G)
     mz = -1.6                                     # inner wing underside at x 8.4
     for sx in (1, -1):
         g.append(core.Gear('RL'[sx < 0], main_gear(sx, mz - GZ - 1.3), P(65.0, sx * 8.4, mz), field=0x0C, neg=(sx > 0)))
     nz = -1.9
     g.append(core.Gear('N', nose_gear(nz - GZ - 1.05), P(27.0, 0, nz), field=0x0A, neg=True))
     out = os.path.join(outdir, name + '.SH')
-    r = core.build(os.path.join(REPO, 'SH', 'F86.SH'), out, M, g, [],
+    import sr_flame
+    sr_flame.write_pic(os.path.join(outdir, '_SR71.PIC'), os.path.join(outdir, 'pic_preview.png'))
+    r = core.build(os.path.join(REPO, 'SH', 'F86.SH'), out, M, g, [], pic_name='_sr71.PIC',
                    smooth_ok=lambda c: c not in (DUCT, GLASS, TYRE, FLAME, CORE, 185), grow=0x5000)
     fix_header(out)
     return out

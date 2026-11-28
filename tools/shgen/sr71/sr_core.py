@@ -262,6 +262,11 @@ def build(donor, out, M, gears=(), discs=(), pic_name=None, pic_src=None, pic_ou
     # gear parts: own buffers (shared slots after the main buffer)
     part_data = {}
     for G in gears:
+        if getattr(G, 'flame', None):                      # SR-71: F-14 style animated flame part (sr_flame)
+            import sr_flame
+            PV = sr_flame.flame_cross(*G.flame); P = np.array(PV, float)
+            part_data[G.name] = dict(G=G, PV=PV, pvn=[], pt=None, pcol={}, lo=P.min(0), hi=P.max(0), flame=True)
+            continue
         PV = [tuple(int(round(x)) for x in p) for p in G.M.V]
         pf = mesh_faces(G.M, PV, smooth_ok)
         pvn = [np.array(n) for n in vertex_normals(pf, len(PV))]
@@ -311,7 +316,8 @@ def build(donor, out, M, gears=(), discs=(), pic_name=None, pic_src=None, pic_ou
     tree = B.build(faces, objs)
     nn, nf = count(tree)
     base = len(V)
-    for k, pd in part_data.items(): shift_tree(pd['pt'], base)
+    for k, pd in part_data.items():
+        if pd['pt'] is not None: shift_tree(pd['pt'], base)
     nslots = base + (max(len(pd['PV']) for pd in part_data.values()) if part_data else 0)
     print(f'main: {nn} plane nodes, {nf} faces, {B.splits} splits, {len(V)} vertices; slots {nslots}')
     if nslots > 880: sys.exit('too many vertex slots')
@@ -338,6 +344,9 @@ def build(donor, out, M, gears=(), discs=(), pic_name=None, pic_src=None, pic_ou
         for k, pd in part_data.items():
             a.emit(part_hdr)
             a.label('part_' + k)
+            if pd.get('flame'):
+                import sr_flame
+                sr_flame.emit_flame(sys.modules[__name__], a, *pd['G'].flame, base); continue
             a.emit(struct.pack('<BBHH', 0x82, 0, len(pd['PV']), base * 8))
             for v in pd['PV']: a.emit(struct.pack('<hhh', *v))
             for i, n in enumerate(pd['pvn']):
