@@ -45,6 +45,8 @@ td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
 ol.steps{padding-left:0;list-style:none;counter-reset:s}
 ol.steps li{counter-increment:s;position:relative;padding:4px 0 12px 42px}
 ol.steps li::before{content:counter(s);position:absolute;left:0;top:2px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#1a1a1a;font-weight:800;display:grid;place-items:center}
+iframe.gal{width:100%;height:400px;border:1px solid var(--line);border-radius:12px;background:#0b0f13;display:block}
+@media (max-width:700px){ iframe.gal{height:820px} }
 .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
 @media (max-width:700px){ .two{grid-template-columns:1fr} }
@@ -87,6 +89,7 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
     <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PIC/_KC130.PIC" download>⬇ <span data-lang="en">Download _KC130.PIC</span><span data-lang="zh">下載 _KC130.PIC</span></a>
     <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PT/KC130.PT" download>⬇ <span data-lang="en">Download KC130.PT</span><span data-lang="zh">下載 KC130.PT</span></a>
     <a class="btn ghost" href="#kc130"><span data-lang="en">KC-130 hose refueling</span><span data-lang="zh">KC-130 軟管加油</span></a>
+    <a class="btn ghost" href="#gallery"><span data-lang="en">3D models</span><span data-lang="zh">3D 模型</span></a>
     <span class="muted" style="font-size:13px">KC130.SH 37,888 B + _KC130.PIC + KC130.PT · FA 1.02f</span>
   </div>
   <div class="two">
@@ -165,9 +168,21 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
   <div class="note" data-lang="en">To undo, put your original <code>KC135.SH</code>, <code>_KC135.PIC</code> and <code>KC135.PT</code> back (for the KC-130, remove <code>KC130.SH</code>, <code>_KC130.PIC</code> and <code>KC130.PT</code>). Nothing else is changed.</div>
   <div class="note" data-lang="zh">要還原，把原本的 <code>KC135.SH</code>、<code>_KC135.PIC</code> 和 <code>KC135.PT</code> 放回去就好（KC-130 則刪掉 <code>KC130.SH</code>、<code>_KC130.PIC</code> 和 <code>KC130.PT</code>），其他東西都沒有改。</div>
 
+  <h2 id="gallery" data-lang="en">The three tankers in 3D</h2><h2 data-lang="zh">三架加油機的 3D 模型</h2>
+  <p data-lang="en">These are the shipped <code>KC135.SH</code>, <code>KC10.SH</code> and <code>KC130.SH</code>, drawn straight from the files by the <a href="sh_gallery.html?q=KC1">SH gallery</a>. Drag to rotate, scroll to zoom, double-click to enlarge.</p>
+  <p data-lang="zh">下面就是發布版的 <code>KC135.SH</code>、<code>KC10.SH</code> 和 <code>KC130.SH</code>，由 <a href="sh_gallery.html?q=KC1">SH gallery</a> 直接讀檔畫出來。拖曳旋轉、滾輪縮放、雙擊放大。</p>
+  <iframe class="gal" src="sh_gallery.html?only=KC135,KC10,KC130&amp;embed=1" title="KC-135, KC-10 and KC-130 in the SH gallery" loading="lazy"></iframe>
+
   <h2 id="kc10" data-lang="en">The KC-10 Extender: three engines, same boom</h2><h2 data-lang="zh">KC-10 Extender：三具引擎，同樣的硬桿</h2>
   <p data-lang="en"><code>KC10.SH</code> is the KC-135 rebuilt as a KC-10: the whole shape is 4/3 larger (55 m like the real one), the fuselage is 15% wider and taller, the outer wing engines are gone and a third engine sits at the base of the fin, in a slightly darker grey. The boom, the green lights, the refueling box and the 100 lb/s flow are exactly the KC-135’s, so everything in <a href="#use">How to refuel</a> applies. <code>KC10.PT</code> is a copy of <code>KC135.PT</code> named “KC-10 Extender” that points to <code>KC10.SH</code>, with the boom operator’s eye moved 16 ft further forward to suit the longer tail.</p>
   <p data-lang="zh"><code>KC10.SH</code> 是把 KC-135 改成 KC-10：整架等比例放大 4/3（跟真機一樣約 55 m），機身再寬、再高 15%，拿掉外側兩具翼下引擎，在垂直尾翼根部加上第三具引擎，顏色也稍深一點的灰。硬桿、綠燈、加油框和每秒 100 lb 的流量都跟 KC-135 完全一樣，所以<a href="#use">怎麼加油</a>那一段全部適用。<code>KC10.PT</code> 是 <code>KC135.PT</code> 的複本，名稱改成「KC-10 Extender」、外形指向 <code>KC10.SH</code>，加油操作員的視點也往前移了 16 ft，配合比較長的機尾。</p>
+  <div class="two">
+    <figure><img src="img/refuel/kc10_contact_below.jpg" alt="F-14 in contact with the KC-10 boom, seen from under the KC-10's tail" loading="lazy"><figcaption data-lang="en">In contact under the KC-10: the boom’s green band is lit, a KC-135 flies alongside.</figcaption><figcaption data-lang="zh">在 KC-10 下方接上：桿上綠色燈帶亮起，旁邊還有一架 KC-135。</figcaption></figure>
+    <figure><img src="img/refuel/kc10_side.jpg" alt="KC-10 tail and boom with a Jolly Rogers F-14 and a KC-135 behind" loading="lazy"><figcaption data-lang="en">The third engine at the base of the fin, the boom reaching down to the F-14.</figcaption><figcaption data-lang="zh">垂直尾翼根部的第三具引擎，硬桿向下伸向 F-14。</figcaption></figure>
+  </div>
+  <figure><img src="img/refuel/kc10_kc135_pair.jpg" alt="KC-10 and KC-135 flying together with a Jolly Rogers F-14 on the KC-10 boom" loading="lazy"><figcaption data-lang="en">KC-10 and KC-135 side by side: the KC-10 is longer, wider and fatter, with two wing engines instead of four.</figcaption><figcaption data-lang="zh">KC-10 和 KC-135 並排：KC-10 更長、翼展更寬、機身更胖，翼下只有兩具引擎（KC-135 是四具）。</figcaption></figure>
+  <p class="muted" style="font-size:13px" data-lang="en">Screenshots from FA 1.02f with the shipped <code>KC10.SH</code>, taken by Kuoyi.</p>
+  <p class="muted" style="font-size:13px" data-lang="zh">以上是 Kuoyi 用發布版 <code>KC10.SH</code> 在 FA 1.02f 裡的實機截圖。</p>
   <ol class="steps" data-lang="en">
     <li><b>Copy <code>KC10.SH</code>, <code>_KC10.PIC</code> and <code>KC10.PT</code></b> into your FA folder. They are new files, so nothing stock is replaced.</li>
     <li><b>Put a friendly KC-10 in a mission</b> with the mission editor and give it a straight leg, then join it exactly as you would a KC-135.</li>
