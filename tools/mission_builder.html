@@ -21,6 +21,7 @@ header h1{font-size:16px;margin:0;font-weight:700;white-space:nowrap}
 #bar button,#bar label.b{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 11px;font:inherit;font-size:13px;cursor:pointer}
 #bar button:hover,#bar label.b:hover{border-color:#3d4a57}
 #bar button:disabled{opacity:.45;cursor:default}
+#bar button.on{border-color:#ffe23a;color:#ffe23a}
 #fileInfo{color:var(--muted);font-size:13px}
 #fileInfo b{color:var(--text)}
 #fileInfo .dirty{color:var(--accent)}
@@ -153,6 +154,7 @@ header h1{font-size:16px;margin:0;font-weight:700;white-space:nowrap}
     <button id="bUndo" disabled>Undo</button>
     <button id="bBrief">Briefing</button>
     <button id="bCheck">Check</button>
+    <button id="b3d" title="Show the map in 3D: terrain, ground textures and the real shapes">3D view</button>
     <span id="fileInfo"></span>
   </div>
   <div id="holder">
@@ -174,6 +176,8 @@ header h1{font-size:16px;margin:0;font-weight:700;white-space:nowrap}
   <div id="notes">
     <p data-lang="en">This page works like the <b>Mission Creator</b> inside FA: pick an object on the map and change it by clicking the <b>boxed words</b> on the right. Drag objects and waypoints to move them, drag empty map to scroll, use the wheel or the small slider to zoom. <b>OK</b> saves the <code>.M</code> mission and its <code>.MT</code> briefing; put both in your FA folder. Everything stays in your browser. Only settings that are decoded in <a href="../mission/fighters_anthology_mission_generator_SKILL.md">the mission skill</a> can be changed; anything else in an opened file is kept as it was.</p>
     <p data-lang="zh">這個頁面的用法和 FA 內建的 <b>Mission Creator</b> 一樣：在地圖上點選物件，再點右邊<b>方框裡的字</b>來修改。拖曳物件和航點可以移動，拖曳空白地圖可以捲動，用滾輪或小滑桿縮放。按 <b>OK</b> 會存出 <code>.M</code> 任務檔和 <code>.MT</code> 簡報檔，兩個都放進 FA 目錄即可。所有東西都只在你的瀏覽器裡處理。只有<a href="../mission/fighters_anthology_mission_generator_SKILL.md">任務 skill</a> 裡已解碼的設定可以修改；開啟的檔案裡其他內容都會原樣保留。</p>
+    <p data-lang="en"><b>3D view</b>: the <b>3D view</b> button shows the same map box in 3D, as in the game: the theater's <code>.T2</code> heights, its ground texture tiles and every object as its real <code>.SH</code> shape. You can still pick and drag objects and waypoints there and edit them on the right; <b>Flat map</b> goes back. Drag empty ground to scroll, right-drag (or Shift+drag) to turn, wheel to zoom.</p>
+    <p data-lang="zh"><b>3D 模式</b>：按 <b>3D 模式</b> 會在同一個地圖框裡用 3D 顯示，和遊戲裡一樣：戰區 <code>.T2</code> 的地形高度、地面貼圖，所有物件都用真實的 <code>.SH</code> 外形。在 3D 裡一樣可以點選和拖曳物件、航點，並在右邊修改參數；按 <b>平面地圖</b> 回去。拖曳空地捲動，右鍵拖曳（或 Shift+拖曳）旋轉，滾輪縮放。</p>
     <p data-lang="en">Want an AI to write the first draft? Use the <a href="mission_gen.html">Mission Generator</a>, then open its files here.</p>
     <p data-lang="zh">想讓 AI 先寫出初稿？用<a href="mission_gen.html">任務產生器</a>，再把產生的檔案在這裡開啟。</p>
     <p data-lang="en">The title bar, background, sliders, map icons, waypoint letters and map font are the original FA art (MSNCREA3, PANEL, SLIDERH/V, ACTDFT0/ACTION0 buttons, MCICONS and MAPFONT .PIC), converted to PNG in <code>tools/mb_assets</code>.</p>
@@ -181,13 +185,16 @@ header h1{font-size:16px;margin:0;font-weight:700;white-space:nowrap}
   </div>
 </div>
 <script src="mission_core.js"></script>
+<script src="sh_editor_core.js"></script>
+<script src="mb_3d.js"></script>
 <script type="module">
 import { decodeText, itemsCatalog, checkMission, mtBytes, NAME_RE, ITEMS } from "./mission_ai_prompt.mjs";
 const C = window.MissionCore, I = window.FAI18N, L = (e, z) => I.L(e, z), $ = id => document.getElementById(id);
 const REMOTE = "https://raw.githubusercontent.com/kuoyichen/FAoutput/main/";
 
 I.register({ "Mission Builder": "任務編輯器", "FAshion home": "FAshion 首頁", "New": "新任務", "Open .M / .MT": "開啟 .M / .MT",
-  "Save .M + .MT": "存檔 .M + .MT", "Drag to resize the map and the panel": "拖曳可調整地圖和右側面板的寬度", "Undo": "復原", "Briefing": "簡報", "Check": "檢查" });
+  "Save .M + .MT": "存檔 .M + .MT", "Drag to resize the map and the panel": "拖曳可調整地圖和右側面板的寬度", "Undo": "復原", "Briefing": "簡報", "Check": "檢查", "3D view": "3D 模式",
+  "Show the map in 3D: terrain, ground textures and the real shapes": "用 3D 顯示地圖：地形、地面貼圖和真實的物件外形" });
 $("langSlot").append(I.picker()); I.apply();
 
 // ---------------------------------------------------------------- tables
@@ -365,7 +372,7 @@ function layout() {
   S("ok", { left: (SW - 177) + "px", top: (SH - 31) + "px" }); S("cancel", { left: (SW - 77) + "px", top: (SH - 31) + "px" });
   drawHeader(); MW = mapW; MH = mapH;
   dpr = devicePixelRatio || 1; cv.width = Math.round(MW * scale * dpr); cv.height = Math.round(MH * scale * dpr);
-  cv.style.width = MW + "px"; cv.style.height = MH + "px"; if (st.M) clampView(); draw();
+  cv.style.width = MW + "px"; cv.style.height = MH + "px"; if (st.M) clampView(); V3.resize(MW, MH, scale, dpr); draw();
 }
 const zoomMin = () => EXT() / MH * 1.02, zoomMax = () => EXT() / MH / 24;
 function clampView() {
@@ -375,7 +382,15 @@ function clampView() {
 const w2s = (x, z) => [(x - st.view.cx) / st.view.fpp + MW / 2, (st.view.cz - z) / st.view.fpp + MH / 2];
 const s2w = (sx, sy) => [st.view.cx + (sx - MW / 2) * st.view.fpp, st.view.cz - (sy - MH / 2) * st.view.fpp];
 function fitAll() { st.view = { cx: EXT() / 2, cz: EXT() / 2, fpp: zoomMin() }; }
-function centerOn(x, z, fpp) { st.view.cx = x; st.view.cz = z; if (fpp) st.view.fpp = fpp; clampView(); draw(); }
+function centerOn(x, z, fpp) { st.view.cx = x; st.view.cz = z; if (fpp) st.view.fpp = fpp; clampView(); if (V3.on) V3.reset(); draw(); }
+// ---- 3D view (tools/mb_3d.js) inside the map box; the flat-map sliders and scale are hidden while it is on
+const V3 = window.MB3D;
+function set3D(on) {
+  closePop(); V3.set(on); for (const id of ["vs", "hs", "zs", "scale"]) $(id).style.visibility = on ? "hidden" : "";
+  $("b3d").textContent = on ? L("Flat map", "平面地圖") : L("3D view", "3D 模式"); $("b3d").classList.toggle("on", on);
+  try { localStorage.setItem("fashion_mb_3d", on ? "1" : ""); } catch (e) {}
+  draw();
+}
 
 // ---------------------------------------------------------------- drawing
 // ---- original FA art (tools/mb_assets, converted from the factory MCICONS / MSNCREA3 / PANEL / SLIDERH / SLIDERV /
@@ -480,6 +495,7 @@ let hits = [];
 let drawQueued = false;
 function draw() { if (drawQueued) return; drawQueued = true; requestAnimationFrame(() => { drawQueued = false; paint(); }); }
 function paint() {
+  if (V3.on) { V3.redraw(); return; }
   const g = ctx; g.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0); hits = [];
   g.fillStyle = "#152349"; g.fillRect(0, 0, MW, MH);
   g.save(); g.globalAlpha = 0.25; g.strokeStyle = "#2a3d7a"; for (let i = -MH; i < MW; i += 6) { g.beginPath(); g.moveTo(i, MH); g.lineTo(i + MH, 0); g.stroke(); } g.restore();
@@ -1127,7 +1143,8 @@ function menus() {
       [L("Briefing text (.MT)…", "簡報文字 (.MT)…"), () => dlgBrief()], [L("Check mission", "檢查任務"), () => dlgCheck()]]],
     ["View", "檢視", [[L("Zoom in", "放大"), () => zoomBy(1 / 1.6), "+"], [L("Zoom out", "縮小"), () => zoomBy(1.6), "−"], [L("Whole map", "整張地圖"), () => { fitAll(); draw(); }],
       [L("Center on player", "以玩家為中心"), () => { const h = st.M.objs.find(isHuman); if (h) centerOn(C.pos(h)[0], C.pos(h)[2], zoomMin() / 4); }],
-      [L("Center on selection", "以選取物件為中心"), o ? () => centerOn((sel.kind === "wp" ? C.wpPos(sel.w.recs[sel.i]).x : C.pos(o)[0]), (sel.kind === "wp" ? C.wpPos(sel.w.recs[sel.i]).z : C.pos(o)[2])) : null]]],
+      [L("Center on selection", "以選取物件為中心"), o ? () => centerOn((sel.kind === "wp" ? C.wpPos(sel.w.recs[sel.i]).x : C.pos(o)[0]), (sel.kind === "wp" ? C.wpPos(sel.w.recs[sel.i]).z : C.pos(o)[2])) : null], "-",
+      [L("3D view", "3D 模式"), () => set3D(true), "3", V3.on], [L("Flat map", "平面地圖"), () => set3D(false), "2", !V3.on], [L("Reset the 3D camera", "重設 3D 視角"), V3.on ? () => V3.reset() : null]]],
     ["World", "環境", [[L("Theater…", "戰區…"), () => pickTheater($("menubar").children[4])], [L("Time, weather and era…", "時間、天氣和年代…"), () => dlgWorld()],
       [L("Skill levels", "技術等級"), () => select(null)], "-",
       [L("Items: factory FA", "物件清單：原版 FA"), () => setProfile("default"), null, profile === "default"], [L("Items: FA + JKP 600", "物件清單：FA + JKP 600"), () => setProfile("jkp600"), null, profile === "jkp600"]]],
@@ -1178,12 +1195,14 @@ function dlgHelp() {
 <p><b>Move</b>: drag an object or waypoint. <b>Scroll</b>: drag empty map or the red sliders. <b>Zoom</b>: wheel, + / − keys or the small slider.</p>
 <p><b>Add</b>: Object menu, pick a type, then click on the map. A new friendly plane is flown by the player if nobody is yet.</p>
 <p><b>Route</b>: select an object, Waypoint › Add waypoints, click up to ten points, Esc when done. A wing flies its leader's route.</p>
+<p><b>3D view</b> (3D button, View menu or key 3; key 2 goes back): the real terrain, ground textures and shapes. Drag an object or waypoint to move it, drag empty ground to scroll, right-drag or Shift+drag to turn the view, wheel to zoom. Two fingers on a phone: pinch to zoom, twist to turn.</p>
 <p><b>Keys</b>: Del delete, Ctrl+Z undo, Ctrl+D duplicate, W add waypoints, Esc stop.</p>
 <p><b>OK</b> saves NAME.M and NAME.MT. <b>Cancel</b> goes back to the last opened or saved version.</p>`,
     `<p><b>選取</b>：點物件或航點；點右邊方框裡的字來修改。</p>
 <p><b>移動</b>：拖曳物件或航點。<b>捲動</b>：拖曳空白地圖或紅色滑桿。<b>縮放</b>：滾輪、+ / − 鍵或小滑桿。</p>
 <p><b>新增</b>：Object 選單選種類，再點地圖。若還沒有玩家駕駛的飛機，新的友軍飛機會設為玩家駕駛。</p>
 <p><b>航線</b>：選物件，Waypoint › 新增航點，最多點十個點，完成按 Esc。編隊會跟著長機的航線飛。</p>
+<p><b>3D 模式</b>（3D 按鈕、檢視選單或按 3；按 2 回到平面）：顯示真實的地形、地面貼圖和物件外形。拖曳物件或航點可移動，拖曳空地可捲動，右鍵拖曳或 Shift+拖曳可旋轉視角，滾輪縮放。手機上用兩指：捏合縮放、轉動旋轉。</p>
 <p><b>按鍵</b>：Del 刪除、Ctrl+Z 復原、Ctrl+D 複製、W 新增航點、Esc 結束。</p>
 <p><b>OK</b> 存出 NAME.M 和 NAME.MT。<b>Cancel</b> 回到上次開啟或存檔的版本。</p>`);
   dialog(L("How to use", "使用說明"), b, [["OK", "", null]]);
@@ -1348,6 +1367,7 @@ addEventListener("keydown", e => {
   if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === "z") { e.preventDefault(); undo(); return; }
   if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === "s") { e.preventDefault(); save(); return; }
   if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === "d") { e.preventDefault(); if (st.sel) duplicate(st.sel.o); return; }
+  if (!e.ctrlKey && !e.metaKey && !e.altKey && (k === "3" || k === "2")) { set3D(k === "3"); return; }
   if (k === "Delete" || k === "Backspace") { if (st.sel?.kind === "wp") deleteWp(); else if (st.sel?.kind === "obj") deleteObj(st.sel.o); return; }
   if (k === "+" || k === "=") zoomBy(1 / 1.4); if (k === "-") zoomBy(1.4);
   if (k.toLowerCase() === "w" && st.sel) startAddWp(st.sel.o);
@@ -1400,6 +1420,9 @@ $("bSave").onclick = () => save();
 $("bUndo").onclick = () => undo();
 $("bBrief").onclick = () => dlgBrief();
 $("bCheck").onclick = () => dlgCheck();
+$("b3d").onclick = () => set3D(!V3.on);
+V3.init({ st, C, $, L, EXT, info, leaderOf, wingMembers, objName, drawWp, fetchAny, render, pushUndo, syncRoutes, reparkAfterDrag, placeAt, addWpAt,
+  pickTargetFor, joinWing, showMM, closePop, dlgOpen, setHint, gamePal: () => gamePal, TYPES: () => TYPES });
 $("ok").onclick = () => save();
 $("cancel").onclick = async () => {
   if (!st.dirty) return; if (!(await confirmBox(L("Throw away the changes since the last open or save?", "放棄上次開啟或存檔之後的修改？")))) return;
@@ -1407,7 +1430,7 @@ $("cancel").onclick = async () => {
 };
 addEventListener("beforeunload", e => { if (st.dirty) { e.preventDefault(); e.returnValue = ""; } });
 addEventListener("resize", layout);
-I.onChange?.(() => { buildMenubar(); $("cancel").textContent = L("Cancel", "取消"); render(); });
+I.onChange?.(() => { buildMenubar(); $("cancel").textContent = L("Cancel", "取消"); $("b3d").textContent = V3.on ? L("Flat map", "平面地圖") : L("3D view", "3D 模式"); render(); });
 
 // ---------------------------------------------------------------- start
 (async () => {
@@ -1419,8 +1442,10 @@ I.onChange?.(() => { buildMenubar(); $("cancel").textContent = L("Cancel", "取�
   if (hand && hand.m) await openMission(hand.m, hand.mt || "", hand.name || "");
   else await newMission(new URLSearchParams(location.search).get("map")?.toUpperCase() || "WTA");
   layout();
+  let want3d = new URLSearchParams(location.search).get("view") === "3d"; try { want3d ||= localStorage.getItem("fashion_mb_3d") === "1"; } catch (e) {}
+  if (want3d) set3D(true);
 })();
-window.__mb = { st, C, render, openMission, askAlt, parkSpots, get TYPES() { return TYPES; } };   // for tests
+window.__mb = { st, C, render, openMission, askAlt, parkSpots, set3D, V3, get TYPES() { return TYPES; } };   // for tests
 </script>
 </body>
 </html>
