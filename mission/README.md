@@ -13,7 +13,7 @@ Made by hawke (kuoyichen). Web page: https://fashion-hawke.vercel.app/tools/miss
 
 | File / 檔案 | What / 說明 |
 |---|---|
-| `fighters_anthology_mission_generator_SKILL.md` | The generator rules; the version (now v27) and what is supported are at the top of the file. 產生規則；版本（目前 v27）和支援狀態寫在檔案開頭。 |
+| `fighters_anthology_mission_generator_SKILL.md` | The generator rules; the version (now v28) and what is supported are at the top of the file. 產生規則；版本（目前 v28）和支援狀態寫在檔案開頭。 |
 | `items/FA_items(default).txt` | Asset list for a factory FA install. 原版 FA 的物件清單。 |
 | `items/FA_items(default+JKP600).txt` | Asset list for FA with the JKP 600 library. 安裝 JKP 600 後的物件清單。 |
 | `maps/<MAP>.MM.txt` | The 14 theater maps (`.MM` with a `.txt` suffix so chat apps accept it): airfields, cities, defenses and their coordinates. 14 個戰區地圖。 |
