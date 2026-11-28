@@ -163,6 +163,7 @@
     rudMinYaw: ["PLANE", 34], rudMaxYaw: ["PLANE", 35], rudYawAcc: ["PLANE", 36], rudYawDacc: ["PLANE", 37], rudSlip: ["PLANE", 38], rudDrag: ["PLANE", 39], rudBank: ["PLANE", 40],
     stallWarn: ["PLANE", 53], stallDelay: ["PLANE", 54], stallSev: ["PLANE", 55], stallPitch: ["PLANE", 56],
     spinEntry: ["PLANE", 57], spinExit: ["PLANE", 58], spinYawLo: ["PLANE", 59], spinYawHi: ["PLANE", 60], spinAoaLo: ["PLANE", 61], spinAoaHi: ["PLANE", 62], spinBankLo: ["PLANE", 63], spinBankHi: ["PLANE", 64],
+    groundPitch: ["PLANE", 65],   // parked pitch in whole degrees (+ = nose up), FA.EXE 0x4514C0 [confirmed in game 2026-11-28]
     crashFwd: ["PLANE", 66], crashSide: ["PLANE", 67], crashVert: ["PLANE", 68], crashPitch: ["PLANE", 69], crashRoll: ["PLANE", 70],
     engines: ["PLANE", 71], thrMil: ["PLANE", 73], thrAB: ["PLANE", 74], throtAcc: ["PLANE", 75], throtDec: ["PLANE", 76],
     vecUp: ["PLANE", 77], vecDown: ["PLANE", 78], vecSpd: ["PLANE", 79], fuelMil: ["PLANE", 80], fuelAB: ["PLANE", 81], fuel: ["PLANE", 82],
