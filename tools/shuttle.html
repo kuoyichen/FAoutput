@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Space Shuttle</title>
+<meta name="description" content="FAshion release #12: a flyable Space Shuttle for Fighters Anthology. Orange external tank and two SRBs you can drop, a vertical launch, textured orbiter, 3D landing gear and animated engine flames. SHUTTLE.SH, _SHUTTLE.PIC and SHUTTLE.PT, no FA.EXE patch.">
+<style>
+:root{ --bg:#0e1216; --card:#161c22; --card2:#1b232b; --line:#26303a; --text:#e2e8ee; --muted:#8a96a4; --accent:#ffd54a; --cyan:#6fd3ff; --ok:#5fd38a; --bad:#ff6b6b; --warn:#ffb347; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}
+a{color:var(--cyan)}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+header{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:12px 16px;background:#0e1216ee;border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+header .crumb{color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#langSlot{margin-left:auto}
+.fa-lang{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font:inherit;font-size:13px}
+main{max-width:980px;margin:0 auto;padding:24px 16px 60px}
+.kicker{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.6px;text-transform:uppercase}
+h1{font-size:clamp(30px,6vw,46px);line-height:1.1;margin:8px 0 8px}
+h1 b{color:var(--accent)}
+h2{font-size:22px;margin:44px 0 6px}
+h3{font-size:17px;margin:18px 0 6px}
+.lead{font-size:17px;color:#c4ccd5;max-width:760px}
+.muted{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+.dl{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:18px}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#1a1a1a;font-weight:700;text-decoration:none;border-radius:10px;padding:11px 18px}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:none;color:var(--text);border:1px solid var(--line);font-weight:600}
+code{font:13px/1.4 ui-monospace,Consolas,monospace;background:#0b0f13;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+figure{margin:16px 0}
+figure img{width:100%;display:block;border-radius:12px;border:1px solid var(--line);background:#161c22}
+figcaption{color:var(--muted);font-size:13px;margin-top:6px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+.bad{color:var(--bad);font-weight:700}.ok{color:var(--ok);font-weight:700}
+.note{border-left:3px solid var(--warn);padding:8px 12px;background:#ffb3470f;border-radius:0 8px 8px 0;margin:12px 0}
+.flow{display:grid;gap:8px;margin:12px 0}
+.flow div{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:14px}
+.flow div b{color:var(--accent)}
+ol.steps{padding-left:0;list-style:none;counter-reset:s}
+ol.steps li{counter-increment:s;position:relative;padding:4px 0 12px 42px}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:2px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#1a1a1a;font-weight:800;display:grid;place-items:center}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+@media (max-width:700px){ .two{grid-template-columns:1fr} }
+</style>
+<script src="fashion_i18n.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <span class="crumb">Space Shuttle</span>
+  <span id="langSlot"></span>
+</header>
+<main>
+  <div class="kicker">Release #12 · Nov 28, 2026</div>
+  <h1 data-lang="en">Fly the <b>Space Shuttle</b> in FA</h1>
+  <h1 data-lang="zh">在 FA 裡駕駛<b>太空梭</b></h1>
+  <p class="lead" data-lang="en">A brand-new shape, not a reskin. The orbiter sits on its orange external tank between two solid rocket boosters and stands upright for launch. As it gains speed it pitches over into level flight, and once the boosters and the tank are gone you fly a textured orbiter home and land it on its own 3D gear.</p>
+  <p class="lead" data-lang="zh">全新做的外形，不是換皮。軌道器掛在橘色外掛燃料箱上，兩側是固態火箭助推器，發射時整組直立。加速後機身慢慢轉成水平飛行；助推器和燃料箱丟掉之後，就是一架有貼圖的軌道器，可以飛回來用自己的 3D 起落架降落。</p>
+  <div class="dl">
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/SHUTTLE.SH" download>⬇ SHUTTLE.SH</a>
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PIC/_SHUTTLE.PIC" download>⬇ _SHUTTLE.PIC</a>
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PT/SHUTTLE.PT" download>⬇ SHUTTLE.PT</a>
+    <a class="btn ghost" href="#install"><span data-lang="en">How to install</span><span data-lang="zh">安裝方式</span></a>
+    <span class="muted" style="font-size:13px">SHUTTLE.SH 36,864 B · _SHUTTLE.PIC · SHUTTLE.PT · FA 1.02f · <span data-lang="en">no FA.EXE patch</span><span data-lang="zh">不改 FA.EXE</span></span>
+  </div>
+
+  <figure><img src="img/shuttle/launch_pad.jpg" alt="The shuttle stack standing upright on the runway" loading="lazy"><figcaption data-lang="en">On the runway with the tank and both boosters loaded, the whole stack stands upright, ready to launch.</figcaption><figcaption data-lang="zh">掛上燃料箱和兩具助推器時，整組在跑道上直立，準備發射。</figcaption></figure>
+  <figure><img src="img/shuttle/climb_et.jpg" alt="The shuttle climbing with the orange external tank" loading="lazy"><figcaption data-lang="en">Climbing out. The stack pitches toward level flight as speed builds.</figcaption><figcaption data-lang="zh">爬升中。速度越快，整組越接近水平。</figcaption></figure>
+  <div class="two">
+  <figure><img src="img/shuttle/glide_sea.jpg" alt="The orbiter gliding over the sea" loading="lazy"><figcaption data-lang="en">The orbiter on its own over the sea.</figcaption><figcaption data-lang="zh">單獨的軌道器飛過海面。</figcaption></figure>
+  <figure><img src="img/shuttle/belly.jpg" alt="The orbiter seen from below with its black belly tiles" loading="lazy"><figcaption data-lang="en">From below: black heat-shield tiles and the black leading edges.</figcaption><figcaption data-lang="zh">從下方看：黑色隔熱瓦和黑色前緣。</figcaption></figure>
+  </div>
+  <figure><img src="img/shuttle/landing.jpg" alt="The orbiter on final approach over the runway" loading="lazy"><figcaption data-lang="en">Final approach. The gear comes down and the parked pitch is set in the PT, so the nose sits slightly low like the real one.</figcaption><figcaption data-lang="zh">最後進場。放下起落架；停機俯仰角寫在 PT 裡，所以停好時機頭會像真的一樣稍微朝下。</figcaption></figure>
+  <p class="muted" style="font-size:13px" data-lang="en">In-game screenshots taken by Kuoyi during development. Some are from earlier test builds, so small details can differ from the final files.</p>
+  <p class="muted" style="font-size:13px" data-lang="zh">以上是 Kuoyi 在開發過程中的實機截圖，部分是較早的測試版，細節可能和最終檔案略有不同。</p>
+
+  <h2 data-lang="en">What you get</h2><h2 data-lang="zh">有哪些功能</h2>
+  <div class="flow">
+    <div data-lang="en"><b>Tank and boosters you can drop.</b> The external tank is a fuel-tank store (F500.GAS) and the two SRBs are two stores on a second station. The shape reads the loadout every frame, so each part disappears the moment its station is empty.</div>
+    <div data-lang="zh"><b>可以拋棄的燃料箱和助推器。</b>外掛燃料箱是一個油箱外掛（F500.GAS），兩具助推器是另一個掛點上的兩個外掛。外形每一格都讀取掛載狀態，掛點一空，那個零件就消失。</div>
+    <div data-lang="en"><b>Vertical launch.</b> While at least one booster is attached, the whole stack is tilted nose-up: straight up when standing still, easing to level by 400 ft/s. With the boosters gone it flies level like any aircraft.</div>
+    <div data-lang="zh"><b>垂直發射。</b>只要還掛著至少一具助推器，整組就會機頭朝上：靜止時完全直立，到 400 ft/s 時變成水平。助推器丟掉後就跟一般飛機一樣水平飛行。</div>
+    <div data-lang="en"><b>Realistic texture.</b> White upper surfaces, black belly tiles and leading edges, payload-bay door seams, cockpit windows, the US flag and "United States", and striped boosters.</div>
+    <div data-lang="zh"><b>擬真貼圖。</b>白色上表面、黑色機腹隔熱瓦和前緣、酬載艙門縫線、駕駛艙窗、美國國旗和「United States」字樣，以及有條紋的助推器。</div>
+    <div data-lang="en"><b>3D landing gear.</b> Twin-wheel nose and main gear, drawn only when the gear is down and the boosters are gone.</div>
+    <div data-lang="zh"><b>3D 起落架。</b>雙輪的前輪和主輪，只在放下起落架、而且助推器已經丟掉時才會畫出來。</div>
+    <div data-lang="en"><b>Engine flames.</b> Three main-engine flames in the F-14 style (two crossed sheets, animated, growing over 3 seconds) when you light the afterburner, plus a flame under each booster.</div>
+    <div data-lang="zh"><b>引擎火焰。</b>開後燃器時，三具主引擎噴出 F-14 風格的火焰（兩片交叉、會動、3 秒內變長），每具助推器下方也有火焰。</div>
+  </div>
+
+  <h2 data-lang="en">How it works</h2><h2 data-lang="zh">怎麼做到的</h2>
+  <p class="muted" data-lang="en">Everything happens in the shape and the PT file. FA.EXE was not changed.</p>
+  <p class="muted" data-lang="zh">全部都在外形檔和 PT 檔裡完成，FA.EXE 完全沒有動。</p>
+  <div class="scroll"><table>
+    <thead><tr><th data-lang="en">Piece</th><th data-lang="zh">部分</th><th data-lang="en">How</th><th data-lang="zh">做法</th></tr></thead>
+    <tbody>
+      <tr><td data-lang="en">The shape</td><td data-lang="zh">外形</td><td data-lang="en">Generated by a Python script (orbiter, fin, OMS pods, tank, boosters, gear, flames) and written into the F-86 shape as a container, with its own draw-order tree so parts hide each other correctly.</td><td data-lang="zh">用 Python 程式產生（軌道器、垂直尾翼、OMS 莢艙、燃料箱、助推器、起落架、火焰），放進 F-86 外形當容器，並有自己的繪製順序樹，讓零件之間正確遮擋。</td></tr>
+      <tr><td data-lang="en">Launch tilt</td><td data-lang="zh">發射傾角</td><td data-lang="en">A small piece of x86 inside the shape reads the aircraft's speed and the booster station, then rotates and lifts the whole stack before it is drawn.</td><td data-lang="zh">外形裡的一小段 x86 讀取飛機速度和助推器掛點，在畫之前把整組旋轉並抬高。</td></tr>
+      <tr><td data-lang="en">Parked attitude</td><td data-lang="zh">停機姿態</td><td data-lang="en">PT field PLANE[65] is the parked pitch in degrees. The shuttle uses −3, so it sits nose-low with both gears on the ground. This field is now in the <a href="pt_editor.html">PT Editor</a> as "Parked Pitch".</td><td data-lang="zh">PT 的 PLANE[65] 欄位是停機俯仰角（度）。太空梭用 −3，停好時機頭朝下、前後輪都著地。這個欄位現在在 <a href="pt_editor.html">PT 編輯器</a>裡叫「停機俯仰角」。</td></tr>
+      <tr><td data-lang="en">Flight model</td><td data-lang="zh">飛行模型</td><td data-lang="en">The PT has a 100,000 ft ceiling, and the low-speed side of the flight envelope matches the F-14, so a landing feels fast like a real shuttle (1 G stall about 270 ft/s).</td><td data-lang="zh">PT 的升限是 10 萬呎，包線的低速段和 F-14 一樣，所以降落時有真實太空梭那種速度感（1G 失速約 270 ft/s）。</td></tr>
+      <tr><td data-lang="en">No stray strokes</td><td data-lang="zh">不會亂飛的面</td><td data-lang="en">The visibility box inherited from the F-86 was far too small, so up close FA skipped clipping and the nose and belly streaked across the screen. It now covers the whole stack.</td><td data-lang="zh">從 F-86 留下來的可見範圍盒太小，近距離時 FA 跳過裁切，機頭和機腹就變成橫跨畫面的長條。現在範圍盒包住整組。</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 data-lang="en">Things to know</h2><h2 data-lang="zh">使用注意事項</h2>
+  <div class="flow">
+    <div data-lang="en"><b>Load the tank and boosters yourself.</b> Check the loadout screen: the tank station needs its fuel tank and the booster station its two stores. With an empty loadout you get the orbiter on its own.</div>
+    <div data-lang="zh"><b>燃料箱和助推器要自己掛。</b>在掛載畫面確認燃料箱掛點有油箱、助推器掛點有兩個外掛。不掛就只有軌道器本身。</div>
+    <div data-lang="en"><b>The boosters do not add thrust.</b> FA gives stores no thrust of their own, and changing that would need an FA.EXE patch. They are there for the look and the launch tilt.</div>
+    <div data-lang="zh"><b>助推器不會增加推力。</b>FA 的外掛沒有自己的推力，要改就得改 FA.EXE。它們是為了外觀和發射傾角。</div>
+    <div data-lang="en"><b>Use all three files together.</b> The PT holds the hardpoints, the parked pitch, the engine thrust and the envelope that the shape expects.</div>
+    <div data-lang="zh"><b>三個檔案要一起用。</b>PT 裡有外形需要的掛點、停機俯仰角、引擎推力和包線。</div>
+  </div>
+
+  <h2 id="install" data-lang="en">How to install</h2><h2 data-lang="zh">安裝方式</h2>
+  <ol class="steps" data-lang="en">
+    <li>Copy <code>SHUTTLE.SH</code> and <code>_SHUTTLE.PIC</code> to where your FA install loads add-on SH and PIC files, and <code>SHUTTLE.PT</code> to where it loads PT files.</li>
+    <li>Pick the Space Shuttle ("Shuttle") as your aircraft, and load the tank and boosters for a launch.</li>
+    <li>Light the afterburner to launch. Drop the boosters and then the tank when you want to fly the orbiter alone.</li>
+  </ol>
+  <ol class="steps" data-lang="zh">
+    <li>把 <code>SHUTTLE.SH</code> 和 <code>_SHUTTLE.PIC</code> 放到 FA 讀取外加 SH、PIC 檔的地方，<code>SHUTTLE.PT</code> 放到讀取 PT 檔的地方。</li>
+    <li>選太空梭（「Shuttle」）當座機，要發射就掛上燃料箱和助推器。</li>
+    <li>開後燃器發射。想單獨飛軌道器時，先丟助推器，再丟燃料箱。</li>
+  </ol>
+  <p class="muted" data-lang="en">The generator script is in <a href="https://github.com/kuoyichen/FAoutput/tree/main/tools/shgen/shuttle">tools/shgen/shuttle</a>. What we learned along the way is in the <a href="https://github.com/kuoyichen/FAoutput/blob/main/skill/SH_edit_note.MD">SH edit notes</a> (section 19) and the <a href="https://github.com/kuoyichen/FAoutput/blob/main/skill/FA_flight_model.MD">flight model notes</a> (section 5.10).</p>
+  <p class="muted" data-lang="zh">產生外形的程式在 <a href="https://github.com/kuoyichen/FAoutput/tree/main/tools/shgen/shuttle">tools/shgen/shuttle</a>。過程中學到的東西寫在 <a href="https://github.com/kuoyichen/FAoutput/blob/main/skill/SH_edit_note.MD">SH 修改筆記</a>（第 19 節）和<a href="https://github.com/kuoyichen/FAoutput/blob/main/skill/FA_flight_model.MD">飛行模型筆記</a>（第 5.10 節）。</p>
+</main>
+<footer data-lang="en">FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>). Keep a backup of your original files.</footer>
+<footer data-lang="zh">FAshion 是 hawke 為 Jane's Fighters Anthology 做的同好專案（<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>）。請保留原本檔案的備份。</footer>
+<script>
+"use strict";
+FAI18N.register({ "FAshion home": "FAshion 首頁", "Space Shuttle": "太空梭", "Release #12 · Nov 28, 2026": "發布 #12 · 2026 年 11 月 28 日", "no FA.EXE patch": "不改 FA.EXE" });
+document.getElementById("langSlot").append(FAI18N.picker()); FAI18N.apply();
+</script>
+</body>
+</html>
