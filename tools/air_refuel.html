@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Air refueling: KC-135 and KC-130</title>
-<meta name="description" content="FAshion release #8: air refueling in Fighters Anthology. A KC135.SH that lowers and aims its boom, and a KC130.SH that trails two hoses whose drogues come to your nose, all done with x86 inside the shapes.">
+<title>Air refueling: KC-135, KC-10 and KC-130</title>
+<meta name="description" content="FAshion release #8: air refueling in Fighters Anthology. A KC135.SH and a KC10.SH that lower and aim their booms, and a KC130.SH that trails two hoses whose drogues come to your nose, all done with x86 inside the shapes.">
 <style>
 :root{ --bg:#0e1216; --card:#161c22; --card2:#1b232b; --line:#26303a; --text:#e2e8ee; --muted:#8a96a4; --accent:#ffd54a; --cyan:#6fd3ff; --ok:#5fd38a; --bad:#ff6b6b; --warn:#ffb347; }
 *{box-sizing:border-box}
@@ -59,12 +59,14 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
 </header>
 <main>
   <div class="kicker">Release #8 · updated Nov 25</div>
-  <h1 data-lang="en">Air refueling from the <b>KC-135</b> and the <b>KC-130</b></h1>
-  <h1 data-lang="zh">FA 可以<b>空中加油</b>了：KC-135 和 KC-130</h1>
+  <h1 data-lang="en">Air refueling from the <b>KC-135</b>, the <b>KC-10</b> and the <b>KC-130</b></h1>
+  <h1 data-lang="zh">FA 可以<b>空中加油</b>了：KC-135、KC-10 和 KC-130</h1>
   <p class="lead" data-lang="en">Fly up behind a friendly KC-135 and it lowers its boom, aims it at you, extends the telescope to your receptacle and pumps fuel into your tanks. Everything lives inside <code>KC135.SH</code>, with no FA.EXE patch. The tanker now also wears today’s USAF grey and sits on shorter gear, so <code>_KC135.PIC</code> comes with it. Drop in the two files and every mission that has a friendly KC-135 becomes a tanker mission.</p>
   <p class="lead" data-lang="en">The <b>KC-130</b> refuels the Navy way: a pod under each wing trails a long hose with a shuttlecock drogue. Both hoses reel out when you come near, and the drogue on your side swings to meet your nose. <a href="#kc130">Jump to the KC-130</a>.</p>
+  <p class="lead" data-lang="en"><b>New: the KC-10 Extender.</b> A bigger, wider three-engine boom tanker built from the KC-135, with the same boom and the same refueling box. <a href="#kc10">Jump to the KC-10</a>.</p>
   <p class="lead" data-lang="zh">飛到友軍 KC-135 的後下方，它會放下硬桿、對準你、把伸縮管伸到你的受油口，然後開始加油。全部都做在 <code>KC135.SH</code> 裡，不改 FA.EXE。加油機也換上現行美軍的灰色塗裝、起落架改短，所以要一起換 <code>_KC135.PIC</code>。換上這兩個檔案之後，任何有友軍 KC-135 的任務都能空中加油。</p>
   <p class="lead" data-lang="zh"><b>KC-130</b> 則是海軍的軟管式加油：兩側機翼下的莢艙各拖出一條長軟管，末端是羽毛球形的錐套。你一靠近，兩條軟管都會放出來，你那一側的錐套會自動擺過來對準你的機頭。<a href="#kc130">跳到 KC-130</a>。</p>
+  <p class="lead" data-lang="zh"><b>新加入：KC-10 Extender。</b>從 KC-135 改出來、更大更胖的三引擎硬桿加油機，硬桿和加油框都跟 KC-135 一樣。<a href="#kc10">跳到 KC-10</a>。</p>
   <div class="dl">
     <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/KC135.SH" download>⬇ <span data-lang="en">Download KC135.SH</span><span data-lang="zh">下載 KC135.SH</span></a>
     <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PIC/_KC135.PIC" download>⬇ <span data-lang="en">Download _KC135.PIC</span><span data-lang="zh">下載 _KC135.PIC</span></a>
@@ -72,6 +74,13 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
     <a class="btn ghost" href="#rearview"><span data-lang="en">Boom operator view</span><span data-lang="zh">加油操作員視角</span></a>
     <a class="btn ghost" href="#use"><span data-lang="en">How to refuel</span><span data-lang="zh">怎麼加油</span></a>
     <span class="muted" style="font-size:13px">KC135.SH 41,984 B + _KC135.PIC + KC135.PT (optional) · FA 1.02f</span>
+  </div>
+  <div class="dl">
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/KC10.SH" download>⬇ <span data-lang="en">Download KC10.SH</span><span data-lang="zh">下載 KC10.SH</span></a>
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PIC/_KC10.PIC" download>⬇ <span data-lang="en">Download _KC10.PIC</span><span data-lang="zh">下載 _KC10.PIC</span></a>
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PT/KC10.PT" download>⬇ <span data-lang="en">Download KC10.PT</span><span data-lang="zh">下載 KC10.PT</span></a>
+    <a class="btn ghost" href="#kc10"><span data-lang="en">KC-10 Extender</span><span data-lang="zh">KC-10 Extender</span></a>
+    <span class="muted" style="font-size:13px">KC10.SH 45,568 B + _KC10.PIC + KC10.PT · FA 1.02f</span>
   </div>
   <div class="dl">
     <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/KC130.SH" download>⬇ <span data-lang="en">Download KC130.SH</span><span data-lang="zh">下載 KC130.SH</span></a>
@@ -155,6 +164,20 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
   </div>
   <div class="note" data-lang="en">To undo, put your original <code>KC135.SH</code>, <code>_KC135.PIC</code> and <code>KC135.PT</code> back (for the KC-130, remove <code>KC130.SH</code>, <code>_KC130.PIC</code> and <code>KC130.PT</code>). Nothing else is changed.</div>
   <div class="note" data-lang="zh">要還原，把原本的 <code>KC135.SH</code>、<code>_KC135.PIC</code> 和 <code>KC135.PT</code> 放回去就好（KC-130 則刪掉 <code>KC130.SH</code>、<code>_KC130.PIC</code> 和 <code>KC130.PT</code>），其他東西都沒有改。</div>
+
+  <h2 id="kc10" data-lang="en">The KC-10 Extender: three engines, same boom</h2><h2 data-lang="zh">KC-10 Extender：三具引擎，同樣的硬桿</h2>
+  <p data-lang="en"><code>KC10.SH</code> is the KC-135 rebuilt as a KC-10: the whole shape is 4/3 larger (55 m like the real one), the fuselage is 15% wider and taller, the outer wing engines are gone and a third engine sits at the base of the fin, in a slightly darker grey. The boom, the green lights, the refueling box and the 100 lb/s flow are exactly the KC-135’s, so everything in <a href="#use">How to refuel</a> applies. <code>KC10.PT</code> is a copy of <code>KC135.PT</code> named “KC-10 Extender” that points to <code>KC10.SH</code>, with the boom operator’s eye moved 16 ft further forward to suit the longer tail.</p>
+  <p data-lang="zh"><code>KC10.SH</code> 是把 KC-135 改成 KC-10：整架等比例放大 4/3（跟真機一樣約 55 m），機身再寬、再高 15%，拿掉外側兩具翼下引擎，在垂直尾翼根部加上第三具引擎，顏色也稍深一點的灰。硬桿、綠燈、加油框和每秒 100 lb 的流量都跟 KC-135 完全一樣，所以<a href="#use">怎麼加油</a>那一段全部適用。<code>KC10.PT</code> 是 <code>KC135.PT</code> 的複本，名稱改成「KC-10 Extender」、外形指向 <code>KC10.SH</code>，加油操作員的視點也往前移了 16 ft，配合比較長的機尾。</p>
+  <ol class="steps" data-lang="en">
+    <li><b>Copy <code>KC10.SH</code>, <code>_KC10.PIC</code> and <code>KC10.PT</code></b> into your FA folder. They are new files, so nothing stock is replaced.</li>
+    <li><b>Put a friendly KC-10 in a mission</b> with the mission editor and give it a straight leg, then join it exactly as you would a KC-135.</li>
+  </ol>
+  <ol class="steps" data-lang="zh">
+    <li><b>把 <code>KC10.SH</code>、<code>_KC10.PIC</code> 和 <code>KC10.PT</code></b> 複製到 FA 目錄。這三個都是新檔，不會蓋掉任何原版檔案。</li>
+    <li><b>用任務編輯器放一架友軍 KC-10</b>，讓它飛一段直線，然後像跟 KC-135 加油一樣靠過去就好。</li>
+  </ol>
+  <p class="muted" data-lang="en">The third engine is plain grey without a texture: every textured version we tried made FA crash on the loading screen.</p>
+  <p class="muted" data-lang="zh">第三具引擎是沒有貼圖的灰色：試過的每一個貼圖版本都會讓 FA 在載入畫面當掉。</p>
 
   <h2 id="kc130" data-lang="en">The KC-130: hose and drogue</h2><h2 data-lang="zh">KC-130：軟管和錐套</h2>
   <p data-lang="en">FA’s C-130 shape (<code>AN12A.SH</code>, which the stock KC-130 uses) gets a refueling pod under each outer wing. When you come near, both pods reel out a 360 ft hose that hangs in a curve and trails level into a shuttlecock drogue. Fly your nose toward one of them: within about 660 ft the drogue on your side swings to meet your nose (holding a drogue by hand in FA would be close to impossible), and when you are in contact that pod turns green and fuel flows at 50 lb/s. Either side can refuel you, but only one at a time. Like the KC-135, its collision radius drops from 198 ft to 10 ft while you are within 3,000 ft, so you can fly through it.</p>
@@ -259,8 +282,8 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
   <p class="muted" style="font-size:13px" data-lang="en">Source: <a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_refuel.py">tools/shgen/kc135_refuel.py</a> builds the file from the factory <code>KC135.SH</code> (the copy in your game, or this repo before release #8; <code>python3 kc135_refuel.py original.SH out.SH</code>; distances, rates and the box are constants at the top; <a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_gray.py">kc135_gray.py</a> then adds the grey paint and short gear). <a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_refuel_test.py">kc135_refuel_test.py</a> runs the x86 in an emulator against fake objects.</p>
   <p class="muted" style="font-size:13px" data-lang="zh">原始碼：<a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_refuel.py">tools/shgen/kc135_refuel.py</a> 從出廠的 <code>KC135.SH</code> 產生這個檔（遊戲裡的原檔，或本 repo 發布 #8 之前的版本；<code>python3 kc135_refuel.py 原版.SH 輸出.SH</code>；距離、速度和加油框都是檔案開頭的常數；再用 <a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_gray.py">kc135_gray.py</a> 換灰色塗裝和短起落架）。<a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/shgen/kc135_refuel_test.py">kc135_refuel_test.py</a> 用模擬器拿假物件執行這段 x86。</p>
 </main>
-<footer data-lang="en">FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>). Keep a backup of your original KC135.SH and KC130.PT.</footer>
-<footer data-lang="zh">FAshion 是 hawke 為 Jane's Fighters Anthology 做的同好專案（<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>）。請保留原版 KC135.SH 和 KC130.PT 的備份。</footer>
+<footer data-lang="en">FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>). Keep a backup of your original KC135.SH and KC130.PT. KC10.SH/.PT are new files.</footer>
+<footer data-lang="zh">FAshion 是 hawke 為 Jane's Fighters Anthology 做的同好專案（<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>）。請保留原版 KC135.SH 和 KC130.PT 的備份。KC10.SH/.PT 是新增的檔案。</footer>
 <script>
 "use strict";
 FAI18N.register({ "FAshion home": "FAshion 首頁", "Air refueling": "空中加油", "Release #8": "發布 #8", "Release #8 · updated Nov 25": "發布 #8 · 11 月 25 日更新" });

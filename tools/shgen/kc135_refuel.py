@@ -96,6 +96,9 @@ BELLY_UP = -7                # 機腹平底 up −7（x ±2，fwd −16..67）
 LIGHT_F = [30 + 5 * j for j in range(7)]   # 機腹燈 7 個，各 2×2
 REAR_LIGHTS = [(-66, -68, 1, 3), (-71, -74, 2, 4)]   # 機尾下方綠燈 (fwd 前, fwd 後, x 內, x 外)，左右對稱
 EYE_BELOW = BELLY_UP         # 眼睛低於機腹平面才在最後畫（燈、硬桿）
+REAR_SLOPE = 8 / 15          # 機尾下方斜面 up/fwd 斜率
+REAR_F0 = -64                # 機尾下方斜面起點（fwd，up 0）
+GROW = 0x2000                # grow_vas 量（KC-10 另外加尾引擎，用 0x3000）
 END_JMP = 0x146B             # 主 LOD 最外層 BSP 結束後的 38 → 0x42AD（1E）
 
 
@@ -217,7 +220,7 @@ def make_parts():
         lf += lm.face(q, (0, -1, 0), (0, BELLY_UP, f), C_GREEN, F_GLOW)
     # 機尾下方斜面（硬桿樞紐後方，fwd −64 → −79 由 up 0 升到 8，面朝下後方）：左右各兩個，
     # 從受油機看過去不會被硬桿擋住（Kuoyi 2026-11-22 在預覽圖上指的位置）
-    up_at = lambda f: (-64 - f) * 8 / 15
+    up_at = lambda f: (REAR_F0 - f) * REAR_SLOPE
     for f0, f1, x0, x1 in REAR_LIGHTS:
         for sx in (-1, 1):
             q = [lm.vert(sx * x0, round(up_at(f0)), f0), lm.vert(sx * x1, round(up_at(f0)), f0),
@@ -242,12 +245,12 @@ def make_parts():
 def build(src, dst, preview=None, mode='full'):
     d = bytearray(open(src, 'rb').read())
     from f18g_growler import grow_vas
-    d = bytearray(grow_vas(d, 0x2000))        # 新硬桿 + 程式約 8.7 KB（伸縮管加長後）：CODE 結尾必須在 .idata 的 VA 之前（KC135-14 只加 0x1000，重疊而一進任務就當機）
+    d = bytearray(grow_vas(d, GROW))        # 新硬桿 + 程式約 8.7 KB（伸縮管加長後）：CODE 結尾必須在 .idata 的 VA 之前（KC135-14 只加 0x1000，重疊而一進任務就當機）
     pe, opt, secs = pe_sections(d)
     code = next(s for s in secs if s['name'] == 'CODE')
     c = bytearray(d[code['ro']:code['ro'] + code['vs']])
     tail = c.find(SIG); assert tail > 0
-    assert c[F0_HOOK:F0_HOOK + 10] == bytes.fromhex('f000 66833d00840000 01'.replace(' ', ''))
+    assert c[F0_HOOK:F0_HOOK + 5] == bytes.fromhex('f00066833d') and c[F0_HOOK + 9] == 1   # 運算元是重定位（KC-10 先插尾引擎後值會變）
     assert c[0x372B:0x372F] == bytes.fromhex('1200c30d')
     assert c[BOOM:BOOM + 2] == b'\x82\x00' and struct.unpack_from('<i', c, F2TBL)[0] == ORIG_R
 
