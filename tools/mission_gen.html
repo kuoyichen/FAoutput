@@ -234,6 +234,10 @@ async function show(text, map, items){
     d.innerHTML = `<b></b><span class="muted"></span><a class="btn" download>⬇ ${L("Download", "下載")}</a>`;
     d.querySelector("b").textContent = name; d.querySelector("span").textContent = bytes.length.toLocaleString() + " B"; const a = d.querySelector("a"); a.href = url; a.download = name; return d; };
   $("gFiles").append(card(base + ".M", mb)); if (mtb) $("gFiles").append(card(base + ".MT", mtb));
+  { const d = document.createElement("div"); d.className = "fcard"; const a = document.createElement("a"); a.className = "btn ghost"; a.href = "mission_builder.html"; a.target = "_blank";
+    a.textContent = L("✎ Open in Mission Builder", "✎ 在任務編輯器開啟"); const lat = u8 => new TextDecoder("latin1").decode(u8);
+    a.onclick = () => { try { localStorage.setItem("fashion_mb_open", JSON.stringify({ name: base, m: lat(mb), mt: mtb ? lat(mtb) : "" })); } catch (e) {} };
+    d.append(a); $("gFiles").append(d); }
   let catalog = null; try { catalog = MA.itemsCatalog(await src(MA.ITEMS[items])); } catch(e){}
   const checks = MA.checkMission(fm.text, { name: base, mapCode: map, catalog, L });
   if (!mtb) checks.push({ ok: false, s: L("No .MT briefing", "沒有 .MT 簡報") });

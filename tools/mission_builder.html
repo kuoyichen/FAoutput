@@ -1,0 +1,1265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FA Mission Builder</title>
+<meta name="description" content="A web version of Fighters Anthology's Mission Creator: place aircraft, ships and ground units on the theater map, draw waypoints, set targets, reactions and mission success, and save the .M mission and .MT briefing.">
+<style>
+:root{ --bg:#0e1216; --card:#161c22; --line:#26303a; --text:#e2e8ee; --muted:#8a96a4; --accent:#ffd54a; --cyan:#6fd3ff; --bad:#ff6b6b; --ok:#5fd38a; }
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}
+a{color:var(--cyan)}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:#0e1216;border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0;font-weight:700;white-space:nowrap}
+#langSlot{margin-left:auto}
+.fa-lang{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font:inherit;font-size:13px}
+#wrap{max-width:1300px;margin:0 auto;padding:12px 16px 40px}
+#bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px}
+#bar button,#bar label.b{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 11px;font:inherit;font-size:13px;cursor:pointer}
+#bar button:hover,#bar label.b:hover{border-color:#3d4a57}
+#bar button:disabled{opacity:.45;cursor:default}
+#fileInfo{color:var(--muted);font-size:13px}
+#fileInfo b{color:var(--text)}
+#fileInfo .dirty{color:var(--accent)}
+#holder{position:relative;width:100%;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none}
+#notes{color:var(--muted);font-size:13px;margin-top:12px;max-width:900px}
+#notes b{color:var(--text)}
+
+/* ---------- the 640x480 FA screen ---------- */
+#stage{position:absolute;left:0;top:0;width:640px;height:480px;transform-origin:0 0;overflow:hidden;
+  font:bold 10px/1.25 Tahoma,Verdana,"Microsoft JhengHei",sans-serif;color:#fff;
+  background:#3a3c3e repeating-linear-gradient(115deg,#3c3e40 0 2px,#36383a 2px 3px,#3e4042 3px 5px)}
+#stage *{box-sizing:border-box}
+#title{position:absolute;left:0;top:0;width:640px;height:34px}
+#logo{position:absolute;left:2px;top:0;width:76px;height:64px;background:radial-gradient(circle at 50% 40%,#8c949c,#4a5056 60%,#2c3034);border:1px solid #1d2023;
+  border-radius:3px;box-shadow:inset 1px 1px 0 #a8b0b8,inset -1px -1px 0 #202326;overflow:hidden}
+#logo .jet{position:absolute;left:10px;top:4px;font-size:34px;line-height:1;color:#d8dde2;transform:rotate(-35deg);text-shadow:1px 1px 0 #222}
+#logo .an{position:absolute;left:0;right:0;bottom:3px;text-align:center;font:900 10px/1 "Arial Black",Impact,sans-serif;color:#fff;letter-spacing:.2px;text-shadow:1px 1px 0 #000}
+#ttl{position:absolute;left:84px;top:3px;font:900 27px/1 "Arial Black",Impact,sans-serif;letter-spacing:2.5px;
+  background:linear-gradient(#ffffff,#c9ced3 45%,#7e868e 55%,#e8ecef);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(1px 1px 0 #111) drop-shadow(-1px 0 0 #222)}
+#menubar{position:absolute;left:80px;top:36px;width:532px;height:23px;display:flex;align-items:center;gap:0;padding:0 4px;
+  background:linear-gradient(90deg,#16268e,#2e44c8 30%,#3550d8 60%,#2236a8);border:1px solid #0a1048;box-shadow:inset 0 1px 0 #6f86ff,inset 0 -1px 0 #101a60}
+#menubar .mi{padding:2px 5px;font:bold 12.5px/1 Tahoma,Verdana,"Microsoft JhengHei",sans-serif;color:#fff;cursor:pointer;letter-spacing:.3px;text-shadow:1px 1px 0 #0a1048;white-space:nowrap}
+#menubar .mi:hover,#menubar .mi.open{background:#5a72ff;color:#fff}
+#menubar .tail{flex:1;align-self:stretch;margin-left:6px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35) 85%,#cfd6ff)}
+.dd{position:absolute;z-index:50;min-width:150px;background:#2a2c2e;border:1px solid #0c0d0e;box-shadow:inset 1px 1px 0 #6a6e72,2px 3px 0 rgba(0,0,0,.5);padding:2px}
+.dd .it{display:flex;gap:10px;justify-content:space-between;padding:3px 10px 3px 16px;font:bold 11px/1.3 Tahoma,Verdana,"Microsoft JhengHei",sans-serif;color:#fff;cursor:pointer;white-space:nowrap;position:relative}
+.dd .it:hover{background:#2e44c8}
+.dd .it.off{color:#7d8186;cursor:default}
+.dd .it.off:hover{background:none}
+.dd .it .k{color:#9aa0a6;font-weight:normal}
+.dd .it.chk::before{content:"✓";position:absolute;left:4px;color:#ffe23a}
+.dd .sep{height:1px;background:#55595d;margin:3px 4px}
+#scale{position:absolute;left:15px;top:76px;height:14px;display:flex;align-items:center;gap:6px;font-size:9.5px;color:#fff;text-shadow:1px 1px 0 #000}
+#scale .bar{height:5px;border:1px solid #000;background:repeating-linear-gradient(90deg,#fff 0 50%,#9aa0a6 50% 100%);background-size:50% 100%}
+#era{position:absolute;left:286px;top:76px;width:132px;text-align:right;font-size:9.5px;text-shadow:1px 1px 0 #000;white-space:nowrap}
+#mapbox{position:absolute;left:15px;top:93px;width:402px;height:325px;border:1px solid #000;box-shadow:0 0 0 1px #6a6e72;background:#152349;overflow:hidden}
+#map{position:absolute;left:0;top:0;width:400px;height:323px;cursor:default}
+#hint{position:absolute;left:4px;right:4px;top:4px;padding:3px 6px;background:rgba(0,0,0,.72);color:#ffe23a;font-size:10px;pointer-events:none;border:1px solid #000}
+.trk{position:absolute;background:linear-gradient(90deg,#1c1d1f,#2c2e30);border:1px solid #000;box-shadow:inset 1px 1px 0 #111,0 0 0 1px #5c6064}
+#vs{left:428px;top:93px;width:16px;height:325px;background:linear-gradient(#1c1d1f,#2c2e30)}
+#hs{left:15px;top:426px;width:402px;height:16px}
+.knob{position:absolute;width:24px;height:22px;border-radius:3px;cursor:grab;
+  background:radial-gradient(circle at 40% 35%,#ff6a6a,#b80d16 55%,#5a0408);border:1px solid #200;box-shadow:inset 1px 1px 0 #ff9a9a,1px 1px 0 #000}
+#vs .knob{left:-5px}
+#hs .knob{top:-4px}
+#zs{position:absolute;left:432px;top:426px;width:14px;height:32px}
+#zs .pm{position:absolute;left:-9px;font-size:10px;color:#fff;line-height:1}
+#zs .trk2{position:absolute;left:3px;top:0;width:6px;height:32px;background:#1c1d1f;border:1px solid #000}
+#zs .zk{position:absolute;left:-2px;width:16px;height:12px;background:linear-gradient(#f4f6f8,#aeb4ba);border:1px solid #222;border-radius:2px;cursor:grab}
+#panel{position:absolute;left:458px;top:84px;width:178px;height:356px;overflow-y:auto;overflow-x:hidden;padding:2px 6px 8px 2px;scrollbar-width:thin;scrollbar-color:#6a6e72 #2a2c2e}
+#panel p{margin:0 0 9px;font-size:9.5px;line-height:1.55;text-shadow:1px 1px 0 #000}
+#panel .h{display:inline-block;font-size:10.5px;letter-spacing:.3px;margin-right:4px}
+#panel .u{text-decoration:underline;font-size:10.5px;letter-spacing:.3px}
+#panel .bx{display:inline;padding:0 2px;border:1px solid #9aa0a6;background:rgba(0,0,0,.28);box-shadow:inset 1px 1px 0 rgba(0,0,0,.6);cursor:pointer;white-space:nowrap;line-height:1.9}
+#panel .bx:hover{border-color:#ffe23a;color:#ffe23a}
+#panel .bx.ro{cursor:default;border-color:#6a6e72;color:#c8ccd0}
+#panel .bx.ro:hover{color:#c8ccd0}
+#panel .rt{display:grid;grid-template-columns:62px 1fr;gap:1px 4px;margin:0 0 9px;font-size:9.5px}
+#panel .dim{color:#aab0b6;font-weight:normal}
+#panel .help{font-weight:normal;color:#d8dce0}
+.fbtn{position:absolute;top:449px;height:24px;font:bold 12px/22px Tahoma,Verdana,"Microsoft JhengHei",sans-serif;color:#fff;text-align:center;cursor:pointer;border:1px solid #000;text-shadow:1px 1px 0 #000}
+#ok{left:463px;width:85px;background:linear-gradient(#5574f0,#2440c0 55%,#18308f);box-shadow:inset 1px 1px 0 #9fb2ff}
+#ok::before{content:"";position:absolute;left:3px;top:3px;width:14px;height:16px;background:repeating-linear-gradient(135deg,#c8d4ff 0 2px,#2440c0 2px 4px)}
+#cancel{left:563px;width:66px;background:linear-gradient(#3aa05a,#1c7a38 55%,#105a26);box-shadow:inset 1px 1px 0 #8fe0a8}
+.fbtn:active{filter:brightness(.85)}
+/* popups and dialogs inside the FA screen */
+.pop{position:absolute;z-index:60;max-height:230px;overflow-y:auto;min-width:90px;background:#232527;border:1px solid #000;box-shadow:inset 1px 1px 0 #6a6e72,2px 3px 0 rgba(0,0,0,.55);padding:2px;scrollbar-width:thin}
+.pop .it{padding:2px 8px;font-size:10px;cursor:pointer;white-space:nowrap}
+.pop .it:hover,.pop .it.cur{background:#2e44c8}
+.pop .it.cur::after{content:" ◂";color:#ffe23a}
+.pop .ttl{padding:2px 8px 3px;color:#ffe23a;font-size:9.5px;border-bottom:1px solid #444;margin-bottom:2px;white-space:nowrap}
+#veil{position:absolute;inset:0;z-index:70;background:rgba(0,0,0,.35)}
+.dlg{position:absolute;z-index:80;left:50%;top:50%;transform:translate(-50%,-50%);min-width:260px;max-width:600px;max-height:440px;display:flex;flex-direction:column;
+  background:#3a3c3e;border:1px solid #000;box-shadow:inset 1px 1px 0 #8a8e92,inset -1px -1px 0 #1a1b1c,4px 5px 0 rgba(0,0,0,.5)}
+.dlg .dt{padding:4px 8px;background:linear-gradient(90deg,#16268e,#3550d8);font-size:11.5px;border-bottom:1px solid #000;text-shadow:1px 1px 0 #000}
+.dlg .db{padding:8px 10px;overflow:auto;font-size:10px;line-height:1.5}
+.dlg .db p{margin:0 0 6px}
+.dlg .df{display:flex;justify-content:flex-end;gap:8px;padding:6px 10px 8px}
+.dlg button{font:bold 11px Tahoma,Verdana,"Microsoft JhengHei",sans-serif;color:#fff;border:1px solid #000;padding:3px 14px;cursor:pointer;background:linear-gradient(#5574f0,#2440c0);box-shadow:inset 1px 1px 0 #9fb2ff}
+.dlg button.c{background:linear-gradient(#3aa05a,#1c7a38);box-shadow:inset 1px 1px 0 #8fe0a8}
+.dlg button.g{background:linear-gradient(#6a6e72,#44484c);box-shadow:inset 1px 1px 0 #a0a4a8}
+.dlg input,.dlg select,.dlg textarea{font:10.5px Tahoma,Verdana,"Microsoft JhengHei",sans-serif;background:#141516;color:#fff;border:1px solid #000;box-shadow:inset 1px 1px 0 #000,0 0 0 1px #6a6e72;padding:2px 4px}
+.dlg textarea{font:10.5px/1.35 Consolas,ui-monospace,monospace;width:560px;height:290px;resize:none;white-space:pre}
+.dlg label{display:inline-flex;align-items:center;gap:4px;margin:0 10px 4px 0}
+.dlg .grid{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center}
+.dlg .tabs{display:flex;gap:2px;margin-bottom:6px;flex-wrap:wrap}
+.dlg .tabs span{padding:2px 8px;border:1px solid #000;background:#2a2c2e;cursor:pointer}
+.dlg .tabs span.on{background:#2e44c8}
+.dlg .list{height:200px;width:340px;overflow-y:auto;background:#141516;border:1px solid #000;box-shadow:0 0 0 1px #6a6e72}
+.dlg .list div{padding:1px 6px;cursor:pointer;white-space:nowrap;display:flex;justify-content:space-between;gap:10px}
+.dlg .list div i{font-style:normal;color:#8a9096;font-weight:normal}
+.dlg .list div:hover{background:#26282a}
+.dlg .list div.on{background:#2e44c8}
+.dlg .ok{color:#7be08f}.dlg .bad{color:#ff7b6b}
+.dlg .err{color:#ff7b6b;min-height:14px}
+</style>
+<script src="fashion_i18n.js"></script>
+<script src="fashion_editors.js" defer></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <h1>Mission Builder</h1>
+  <span id="langSlot"></span>
+</header>
+<div id="wrap">
+  <div id="bar">
+    <button id="bNew">New</button>
+    <label class="b">Open .M / .MT<input type="file" id="fileIn" accept=".M,.MT,.m,.mt,.MM,.mm" multiple hidden></label>
+    <button id="bSave">Save .M + .MT</button>
+    <button id="bUndo" disabled>Undo</button>
+    <button id="bBrief">Briefing</button>
+    <button id="bCheck">Check</button>
+    <span id="fileInfo"></span>
+  </div>
+  <div id="holder">
+    <div id="stage">
+      <div id="title"><div id="logo"><span class="jet">✈</span><span class="an">ANTHOLOGY</span></div><div id="ttl">MISSION CREATOR</div></div>
+      <div id="menubar"></div>
+      <div id="scale"><span class="bar" id="scaleBar"></span><span id="scaleTxt"></span></div>
+      <div id="era"></div>
+      <div id="mapbox"><canvas id="map"></canvas><div id="hint" hidden></div></div>
+      <div class="trk" id="vs"><div class="knob" id="vk"></div></div>
+      <div class="trk" id="hs"><div class="knob" id="hk"></div></div>
+      <div id="zs"><span class="pm" style="top:-2px">+</span><span class="pm" style="top:24px">−</span><div class="trk2"></div><div class="zk" id="zk"></div></div>
+      <div id="panel"></div>
+      <div class="fbtn" id="ok">OK</div>
+      <div class="fbtn" id="cancel">Cancel</div>
+    </div>
+  </div>
+  <div id="notes">
+    <p data-lang="en">This page works like the <b>Mission Creator</b> inside FA: pick an object on the map and change it by clicking the <b>boxed words</b> on the right. Drag objects and waypoints to move them, drag empty map to scroll, use the wheel or the small slider to zoom. <b>OK</b> saves the <code>.M</code> mission and its <code>.MT</code> briefing; put both in your FA folder. Everything stays in your browser. Only settings that are decoded in <a href="../mission/fighters_anthology_mission_generator_SKILL.md">the mission skill</a> can be changed; anything else in an opened file is kept as it was.</p>
+    <p data-lang="zh">這個頁面的用法和 FA 內建的 <b>Mission Creator</b> 一樣：在地圖上點選物件，再點右邊<b>方框裡的字</b>來修改。拖曳物件和航點可以移動，拖曳空白地圖可以捲動，用滾輪或小滑桿縮放。按 <b>OK</b> 會存出 <code>.M</code> 任務檔和 <code>.MT</code> 簡報檔，兩個都放進 FA 目錄即可。所有東西都只在你的瀏覽器裡處理。只有<a href="../mission/fighters_anthology_mission_generator_SKILL.md">任務 skill</a> 裡已解碼的設定可以修改；開啟的檔案裡其他內容都會原樣保留。</p>
+    <p data-lang="en">Want an AI to write the first draft? Use the <a href="mission_gen.html">Mission Generator</a>, then open its files here.</p>
+    <p data-lang="zh">想讓 AI 先寫出初稿？用<a href="mission_gen.html">任務產生器</a>，再把產生的檔案在這裡開啟。</p>
+  </div>
+</div>
+<script src="mission_core.js"></script>
+<script type="module">
+import { decodeText, itemsCatalog, checkMission, mtBytes, NAME_RE, ITEMS } from "./mission_ai_prompt.mjs";
+const C = window.MissionCore, I = window.FAI18N, L = (e, z) => I.L(e, z), $ = id => document.getElementById(id);
+const REMOTE = "https://raw.githubusercontent.com/kuoyichen/FAoutput/main/";
+
+I.register({ "Mission Builder": "任務編輯器", "FAshion home": "FAshion 首頁", "New": "新任務", "Open .M / .MT": "開啟 .M / .MT",
+  "Save .M + .MT": "存檔 .M + .MT", "Undo": "復原", "Briefing": "簡報", "Check": "檢查" });
+$("langSlot").append(I.picker()); I.apply();
+
+// ---------------------------------------------------------------- tables
+// theaters: code, picture, extent (map cells of 8192 ft; from each .T2 header), English / Chinese
+const THEATERS = [["APA", "APA", 256, "Panama", "巴拿馬"], ["BAL", "BAL", 256, "Baltics", "波羅的海"], ["CUB", "CUB", 256, "Cuba", "古巴"],
+  ["EGY", "EGY", 200, "Egypt", "埃及"], ["FRA", "FRA", 200, "France", "法國"], ["GRE", "GRE", 256, "Greece", "希臘"],
+  ["IRA", "IRA", 256, "Iraq", "伊拉克"], ["KURILE", "KURIL", 256, "Kurile Islands", "千島群島"], ["LFA", "LFA", 256, "Falklands", "福克蘭"],
+  ["NSK", "NSK", 256, "Korea", "朝鮮半島"], ["PGU", "PGU", 256, "Persian Gulf", "波斯灣"], ["SPA", "SPA", 256, "Pakistan", "巴基斯坦"],
+  ["TVIET", "VIET", 200, "North Vietnam", "北越"], ["UKR", "UKR", 200, "Ukraine", "烏克蘭"], ["VLA", "VLA", 200, "Vladivostok", "海參崴"],
+  ["WTA", "WTA", 256, "Taiwan", "台灣"]];
+const COUNTRY_ZH = ["美國", "英國", "中國", "法國", "德國", "比利時", "約旦", "以色列", "日本", "北韓", "俄羅斯", "南韓", "敘利亞", "阿拉伯埃及",
+  "伊斯蘭埃及", "愛沙尼亞", "拉脫維亞", "立陶宛", "波蘭", "白俄羅斯", "北越", "南越", "烏克蘭", "伊拉克", "伊朗", "科威特", "沙烏地阿拉伯", "阿曼",
+  "阿聯", "卡達", "巴林", "利比亞", "蘇丹", "古巴", "巴拿馬", "哥倫比亞", "巴基斯坦", "印度", "阿富汗", "台灣", "希臘", "土耳其", "義大利", "瑞典",
+  "芬蘭", "挪威", "西班牙", "葡萄牙", "奧地利", "丹麥", "荷蘭", "加拿大", "保加利亞", "匈牙利", "羅馬尼亞", "澳洲", "菲律賓", "阿根廷", "波士尼亞", "塞爾維亞"];
+const adj = c => L(C.ADJ[c] || "Country " + c, COUNTRY_ZH[c] || "國家 " + c);
+const cname = c => L(C.COUNTRIES[c] || "Country " + c, COUNTRY_ZH[c] || "國家 " + c);
+const CALL = [["Red", "紅"], ["Blue", "藍"], ["Green", "綠"], ["Black", "黑"], ["White", "白"], ["Orange", "橙"], ["Purple", "紫"], ["Yellow", "黃"]];
+const NUMW = [["ONE", "一"], ["TWO", "二"], ["THREE", "三"], ["FOUR", "四"], ["FIVE", "五"], ["SIX", "六"], ["SEVEN", "七"], ["EIGHT", "八"]];
+const numw = n => n >= 1 && n <= 8 ? L(NUMW[n - 1][0], NUMW[n - 1][1]) : String(n);
+const SKILL_ZH = ["新手", "普通", "良好", "專家"];
+const skillW = s => L(C.SKILLS[s] || "skill " + s, SKILL_ZH[s] || "等級 " + s);
+const CLASS_ZH = { Fighter: "戰鬥機", Bomber: "轟炸機", Ship: "艦艇", SAM: "防空飛彈", AAA: "高射砲", Tank: "戰車", Vehicle: "車輛", Structure: "建築", Other: "其他" };
+const ACT = [["Attack", "攻擊"], ["Defend", "防禦"], ["Evade", "迴避"], ["Ignore", "忽略"]];
+const DIRS = [["north", "北"], ["northeast", "東北"], ["east", "東"], ["southeast", "東南"], ["south", "南"], ["southwest", "西南"], ["west", "西"], ["northwest", "西北"]];
+const ASSIGN_ZH = { "Normal Flight": "一般飛行", MIGCAP: "MIGCAP 空中掩護", BARCAP: "BARCAP 屏障巡邏", "Wild Weasel": "野鼬（壓制防空）", CAS: "CAS 近接支援", "Anti-ship": "反艦", "Hi/Lo Sweep": "高低空掃蕩" };
+const GOAL_ZH = { 1: "抵達航點", 4: "目標受到攻擊", 8: "目標受損", 16: "目標被摧毀", 34: "在航點降落" };
+const KIND_NAMES = { fighter: ["Fighter", "戰鬥機"], bomber: ["Bomber", "轟炸機"], heli: ["Helicopter", "直升機"], ship: ["Ship", "艦艇"], sam: ["SAM", "防空飛彈"],
+  aaa: ["AAA", "高射砲"], tank: ["Tank", "戰車"], vehicle: ["Vehicle", "車輛"], structure: ["Structure", "建築"], other: ["Other", "其他"] };
+const MAX_WP = 10;
+
+// ---------------------------------------------------------------- state
+let INDEX = {}, CATS = {}, profile = "jkp600", gamePal = null;
+const st = { M: null, mt: "", name: "", map: "WTA", T: THEATERS[15], mm: null, pic: null, picCv: null, dirty: false, sel: null, mode: null,
+  view: { cx: 0, cz: 0, fpp: 1 }, show: { names: true, routes: true, mmobj: true, mmnames: true, friend: true, enemy: true }, baseline: null };
+const undoStack = [];
+try { const p = localStorage.getItem("fashion_mb_profile"); if (p === "default" || p === "jkp600") profile = p; } catch (e) {}
+try { const s = JSON.parse(localStorage.getItem("fashion_mb_show") || "null"); if (s) Object.assign(st.show, s); } catch (e) {}
+
+// ---------------------------------------------------------------- loading
+async function fetchAny(paths) {
+  const urls = [];
+  for (const p of paths) if (/^https?:$/.test(location.protocol)) urls.push(new URL("../" + p, location.href).href);
+  for (const p of paths) urls.push(REMOTE + p);
+  for (const u of urls) { try { const r = await fetch(u); if (r.ok) return new Uint8Array(await r.arrayBuffer()); } catch (e) {} }
+  return null;
+}
+const latin1 = u8 => new TextDecoder("latin1").decode(u8);
+const cleanName = s => String(s || "").replace(/([A-Za-z])-\s+(?=[\w])/g, "$1-").replace(/\s+/g, " ").trim();
+async function loadIndex() {
+  try { const r = await fetch("mission_index.json"); INDEX = await r.json(); }
+  catch (e) { const u = await fetchAny(["tools/mission_index.json"]); INDEX = u ? JSON.parse(latin1(u)) : {}; }
+}
+async function loadItems(p) {
+  if (CATS[p]) return CATS[p];
+  const u = await fetchAny([ITEMS[p]]); const text = u ? decodeText(u) : "";
+  const names = new Map();
+  for (const m of text.matchAll(/^\s*(~?[A-Za-z0-9_]+\.(PT|JT|NT|OT|GAS))\s+(.*?)\s*$/gim)) names.set(m[1].toUpperCase(), cleanName(m[3].replace(/\((?:JKP\w*|JKPFA_53b) Lib\)\s*$/i, "")));
+  const set = itemsCatalog(text); for (const f of set) if (!names.has(f)) names.set(f, f);
+  return (CATS[p] = { names, set });
+}
+async function loadPal() { const u = await fetchAny(["PIC/PALETTE.PAL"]); if (u && u.length >= 768) gamePal = u.slice(0, 768); }
+async function loadTheater(code) {
+  const T = THEATERS.find(t => t[0] === code) || THEATERS[15]; st.T = T; st.map = T[0];
+  const [mm, pic] = await Promise.all([fetchAny(["MAP/" + T[0] + ".MM"]), fetchAny(["MAP/" + T[1] + ".PIC"])]);
+  st.mm = mm ? C.parse(latin1(mm)) : null; st.pic = pic; buildPic();
+}
+function buildPic() {
+  st.picCv = null; const u8 = st.pic; if (!u8) return;
+  let W = 0; for (let w = 16; w <= 2048; w++) if (w * w + 4 * w + 448 === u8.length) { W = w; break; } if (!W) return;
+  const P = new Uint8ClampedArray(768), emb = u8.subarray(u8.length - 384);
+  if (gamePal) for (let i = 0; i < 768; i++) P[i] = gamePal[i] * 4;
+  for (let i = 0; i < 384; i++) P[i] = emb[i] * 4;
+  const cv = document.createElement("canvas"); cv.width = cv.height = W; const g = cv.getContext("2d"), img = g.createImageData(W, W);
+  for (let i = 0; i < W * W; i++) { const v = u8[64 + i]; img.data[4 * i] = P[3 * v]; img.data[4 * i + 1] = P[3 * v + 1]; img.data[4 * i + 2] = P[3 * v + 2]; img.data[4 * i + 3] = 255; }
+  g.putImageData(img, 0, 0); st.picCv = cv;
+}
+const EXT = () => st.T[2] * 8192;
+
+// ---------------------------------------------------------------- object info
+function info(type) {
+  const t = String(type || "").toUpperCase(), ix = INDEX[t], ext = t.split(".").pop(), cat = CATS[profile];
+  const long = cleanName(ix ? ix[1] : (cat && cat.names.get(t)) || t.replace(/\.\w+$/, ""));
+  const short = ix ? cleanName(ix[0]) : long.split(" ")[0];
+  const cls = ix ? ix[2] : 0; let kind = "other";
+  if (ext === "PT") kind = /heli|copter|\b(AH|UH|CH|SH|OH|MH|HH|RAH)-?\d|\bMi-?\d|\bKa-?\d|Cobra|Apache|Hind|Hokum|Havoc|Lynx|Sea ?King|Chinook|Comanche|Black ?hawk|Huey|Gazelle|Puma|Tiger|Airwolf|Kiowa|Super Stallion|Sea Knight|Hip\b|Haze|Helix/i.test(long) ? "heli" : cls === 16384 ? "bomber" : "fighter";
+  else if (ext === "NT") kind = { 8192: "ship", 4096: "sam", 2048: "aaa", 1024: "tank", 512: "vehicle", 256: "structure" }[cls] || (cls ? "other" : "vehicle");
+  else if (ext === "OT") kind = cls === 256 ? "structure" : "other";
+  return { short, long, kind, ext, plane: ext === "PT", year: ix ? ix[4] : 0 };
+}
+const objInfo = o => info(C.get(o, "type"));
+const isHuman = o => (C.getN(o, "controller", 0) & 0x80) !== 0;
+const objName = o => C.getS(o, "name");
+function wingMembers(o) { const w = C.wing(o); if (!w) return [o]; return st.M.objs.filter(x => { const v = C.wing(x); return v && v.id === w.id; }).sort((a, b) => C.wing(a).member - C.wing(b).member); }
+function leaderOf(o) { const m = wingMembers(o); return m[0]; }
+function callsign(o) {
+  const w = C.wing(o); if (!w) return null; const n = wingMembers(o).length, c = CALL[((w.id % 8) + 8) % 8];
+  return L(`${c[0]} ${NUMW[w.member] ? NUMW[w.member][0] : w.member + 1} (of ${NUMW[n - 1] ? NUMW[n - 1][0] : n})`, `${c[1]}${NUMW[w.member] ? NUMW[w.member][1] : w.member + 1}（共 ${n}）`).toUpperCase();
+}
+function findAlias(a) {
+  a = (a << 16) >> 16;
+  let o = st.M.objs.find(x => C.alias(x) === a); if (o) return { o, mm: false };
+  o = st.mm && st.mm.objs.find(x => C.alias(x) === a); return o ? { o, mm: true } : null;
+}
+function objLabel(o) { const i = objInfo(o), n = objName(o); return n ? `${i.short} (${n})` : i.short; }
+
+// ---------------------------------------------------------------- undo / dirty
+const snapshot = () => ({ m: latin1(C.serialize(st.M)), mt: st.mt, name: st.name, map: st.map });
+function pushUndo() { undoStack.push(snapshot()); if (undoStack.length > 80) undoStack.shift(); $("bUndo").disabled = false; }
+function touch() { st.dirty = true; syncRoutes(); render(); }
+function selKey() { const s = st.sel; if (!s) return null; if (s.kind === "obj") return { kind: "obj", a: C.alias(s.o) }; return { kind: "wp", a: s.w.owner, i: s.i }; }
+function reselect(k) {
+  st.sel = null; if (!k) return; const o = st.M.objs.find(x => C.alias(x) === k.a); if (!o) return;
+  if (k.kind === "obj") st.sel = { kind: "obj", o };
+  else { const w = st.M.wps.find(w => w.owner === k.a); if (w && w.recs[k.i]) st.sel = { kind: "wp", w, i: k.i, o }; }
+}
+async function undo() {
+  const s = undoStack.pop(); if (!s) return; const k = selKey();
+  const mapChanged = s.map !== st.map; st.M = C.parse(s.m); st.mt = s.mt; st.name = s.name;
+  if (mapChanged) await loadTheater(s.map);
+  reselect(k); st.dirty = true; $("bUndo").disabled = !undoStack.length; render();
+}
+
+// ---------------------------------------------------------------- routes
+// a wing flies one route: the leader's route is copied to every member (skill 15.5: identical groups per member)
+function routeFor(o) { return st.M.wps.find(w => w.owner === C.alias(o)); }
+function ensureRoute(o) {
+  let w = routeFor(o); if (w) return w;
+  const p = C.pos(o); w = { n: 2, owner: C.alias(o), recs: [C.wpRecord("start", p[0], p[1], p[2]), C.wpRecord("end")] }; st.M.wps.push(w); return w;
+}
+function syncRoutes() {
+  for (const w of st.M.wps.slice()) {
+    const o = st.M.objs.find(x => C.alias(x) === w.owner); if (!o) { st.M.wps.splice(st.M.wps.indexOf(w), 1); continue; }
+    const p = C.pos(o), s = w.recs.find(r => C.getN(r, "w_flags") & 1); if (s) C.setWpPos(s, p[0], p[1], p[2]);
+  }
+  const done = new Set();
+  for (const o of st.M.objs) {
+    const w = C.wing(o); if (!w || done.has(w.id)) continue; done.add(w.id);
+    const ms = wingMembers(o), lead = ms[0], lw = routeFor(lead); if (ms.length < 2) continue;
+    for (const m of ms.slice(1)) {
+      let mw = routeFor(m);
+      if (!lw || !C.visible(lw).length) { if (mw && lw === undefined) st.M.wps.splice(st.M.wps.indexOf(mw), 1); continue; }
+      const p = C.pos(m), recs = lw.recs.map(r => ({ f: r.f.map(f => [f[0], f[1] && typeof f[1] === "object" ? { s: f[1].s } : f[1]]) }));
+      const s = recs.find(r => C.getN(r, "w_flags") & 1); if (s) C.setWpPos(s, p[0], p[1], p[2]);
+      if (mw) mw.recs = recs; else st.M.wps.push({ n: recs.length, owner: C.alias(m), recs });
+    }
+  }
+}
+const letter = i => String.fromCharCode(65 + i);
+
+// ---------------------------------------------------------------- view
+const cv = $("map"), ctx = cv.getContext("2d");
+const MW = 400, MH = 323;
+let scale = 1, dpr = 1;
+function layout() {
+  const hw = $("holder").clientWidth; scale = Math.min(hw / 640, (innerHeight - 120) / 480); scale = Math.max(0.5, Math.min(scale, 2.6));
+  $("stage").style.transform = `scale(${scale})`; $("holder").style.height = (480 * scale) + "px";
+  $("holder").style.width = "100%"; $("stage").style.left = Math.max(0, (hw - 640 * scale) / 2) + "px";
+  dpr = devicePixelRatio || 1; cv.width = Math.round(MW * scale * dpr); cv.height = Math.round(MH * scale * dpr);
+  cv.style.width = MW + "px"; cv.style.height = MH + "px"; draw();
+}
+const zoomMin = () => EXT() / MH * 1.02, zoomMax = () => EXT() / MH / 24;
+function clampView() {
+  const v = st.view, E = EXT(); v.fpp = Math.max(zoomMax(), Math.min(zoomMin(), v.fpp));
+  v.cx = Math.max(0, Math.min(E, v.cx)); v.cz = Math.max(0, Math.min(E, v.cz));
+}
+const w2s = (x, z) => [(x - st.view.cx) / st.view.fpp + MW / 2, (st.view.cz - z) / st.view.fpp + MH / 2];
+const s2w = (sx, sy) => [st.view.cx + (sx - MW / 2) * st.view.fpp, st.view.cz - (sy - MH / 2) * st.view.fpp];
+function fitAll() { st.view = { cx: EXT() / 2, cz: EXT() / 2, fpp: zoomMin() }; }
+function centerOn(x, z, fpp) { st.view.cx = x; st.view.cz = z; if (fpp) st.view.fpp = fpp; clampView(); draw(); }
+
+// ---------------------------------------------------------------- drawing
+const ICON = 15;
+function glyph(g, kind, x, y) {
+  g.save(); g.translate(x, y); g.fillStyle = "#ffe23a"; g.strokeStyle = "#5a3a00"; g.lineWidth = 0.6; g.beginPath();
+  if (kind === "fighter" || kind === "bomber") {
+    const w = kind === "bomber" ? 5.6 : 4.6; g.moveTo(0, -5.5); g.lineTo(1, -2); g.lineTo(w, 1.5); g.lineTo(w, 2.6); g.lineTo(1, 1.2); g.lineTo(0.9, 3.5);
+    g.lineTo(2.4, 5); g.lineTo(-2.4, 5); g.lineTo(-0.9, 3.5); g.lineTo(-1, 1.2); g.lineTo(-w, 2.6); g.lineTo(-w, 1.5); g.lineTo(-1, -2); g.closePath();
+  } else if (kind === "heli") {
+    g.ellipse(-0.5, 1, 3, 2.2, 0, 0, 7); g.rect(1.5, 0.3, 4, 1.2); g.rect(-5.5, -2.6, 11, 1); g.rect(-0.8, -2.2, 1, 1.5);
+  } else if (kind === "ship") {
+    g.moveTo(-6, 1); g.lineTo(6, 1); g.lineTo(4, 4); g.lineTo(-4.5, 4); g.closePath(); g.rect(-2.5, -2, 4, 3); g.rect(-0.5, -5, 1, 3);
+  } else if (kind === "sam") {
+    g.moveTo(-3.5, 4.5); g.lineTo(2, -3); g.lineTo(3.6, -4.6); g.lineTo(3, -2.2); g.lineTo(-2.4, 5.4); g.closePath(); g.rect(-5, 3.5, 10, 2);
+  } else if (kind === "aaa") {
+    g.rect(-4, 2, 8, 3); g.moveTo(-1, 2); g.lineTo(4, -4.5); g.lineTo(5, -3.6); g.lineTo(1, 2);
+  } else if (kind === "tank") {
+    g.rect(-5.5, 0.5, 11, 3.5); g.rect(-2.5, -2, 5, 2.6); g.rect(2.5, -1.2, 4, 1);
+  } else if (kind === "vehicle") {
+    g.rect(-5.5, -1.5, 7, 4.5); g.rect(1.5, 0, 4, 3); g.arc(-3, 4, 1.3, 0, 7); g.arc(3, 4, 1.3, 0, 7);
+  } else if (kind === "structure") {
+    g.rect(-5, -1, 10, 6); g.moveTo(-6, -1); g.lineTo(0, -5.5); g.lineTo(6, -1); g.closePath();
+  } else { g.rect(-3, -3, 6, 6); }
+  g.fill(); g.stroke(); g.restore();
+}
+function drawIcon(g, x, y, enemy, kind, opts = {}) {
+  const h = ICON / 2; x = Math.round(x) + 0.5; y = Math.round(y) + 0.5;
+  g.fillStyle = "rgba(0,0,0,.55)"; g.fillRect(x - h + 2, y - h + 2, ICON, ICON);
+  g.fillStyle = enemy ? "#d01818" : "#2f4fd0"; g.fillRect(x - h, y - h, ICON, ICON);
+  g.strokeStyle = enemy ? "#ff8a7a" : "#9ab0ff"; g.lineWidth = 1; g.beginPath(); g.moveTo(x - h, y + h); g.lineTo(x - h, y - h); g.lineTo(x + h, y - h); g.stroke();
+  g.strokeStyle = enemy ? "#600" : "#0c1a60"; g.beginPath(); g.moveTo(x + h, y - h); g.lineTo(x + h, y + h); g.lineTo(x - h, y + h); g.stroke();
+  glyph(g, kind, x, y + 0.3);
+  if (opts.human) { g.strokeStyle = "#ffffff"; g.lineWidth = 1; g.strokeRect(x - h - 2, y - h - 2, ICON + 4, ICON + 4); }
+  if (opts.sel) { g.strokeStyle = "#ffe23a"; g.lineWidth = 1.5; g.setLineDash([3, 2]); g.strokeRect(x - h - 4, y - h - 4, ICON + 8, ICON + 8); g.setLineDash([]); }
+}
+function drawWp(g, x, y, ch, sel) {
+  const h = 6.5; x = Math.round(x) + 0.5; y = Math.round(y) + 0.5;
+  g.fillStyle = "rgba(0,0,0,.5)"; g.fillRect(x - h + 2, y - h + 2, 13, 13);
+  g.fillStyle = sel ? "#ffb000" : "#e08a18"; g.fillRect(x - h, y - h, 13, 13);
+  g.strokeStyle = "#ffd28a"; g.beginPath(); g.moveTo(x - h, y + h); g.lineTo(x - h, y - h); g.lineTo(x + h, y - h); g.stroke();
+  g.strokeStyle = "#5a3000"; g.beginPath(); g.moveTo(x + h, y - h); g.lineTo(x + h, y + h); g.lineTo(x - h, y + h); g.stroke();
+  g.font = "bold 9px Tahoma,Verdana,sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = "#fff";
+  g.lineWidth = 2; g.strokeStyle = "#5a3000"; g.strokeText(ch, x, y + 0.5); g.fillText(ch, x, y + 0.5);
+  if (sel) { g.strokeStyle = "#fff"; g.lineWidth = 1; g.setLineDash([2, 2]); g.strokeRect(x - h - 3, y - h - 3, 19, 19); g.setLineDash([]); }
+}
+function label(g, lines, x, y, color) {
+  g.font = "bold 8px Tahoma,Verdana,sans-serif"; g.textAlign = "center"; g.textBaseline = "top"; g.lineJoin = "round";
+  lines.forEach((t, i) => { if (!t) return; g.lineWidth = 2.5; g.strokeStyle = "#000"; g.strokeText(t, x, y + i * 9); g.fillStyle = i ? "#ffffff" : (color || "#ffffff"); g.fillText(t, x, y + i * 9); });
+}
+let hits = [];
+let drawQueued = false;
+function draw() { if (drawQueued) return; drawQueued = true; requestAnimationFrame(() => { drawQueued = false; paint(); }); }
+function paint() {
+  const g = ctx; g.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0); hits = [];
+  g.fillStyle = "#152349"; g.fillRect(0, 0, MW, MH);
+  g.save(); g.globalAlpha = 0.25; g.strokeStyle = "#2a3d7a"; for (let i = -MH; i < MW; i += 6) { g.beginPath(); g.moveTo(i, MH); g.lineTo(i + MH, 0); g.stroke(); } g.restore();
+  if (!st.M) return;
+  const E = EXT(), [x0, y0] = w2s(0, E), sz = E / st.view.fpp;
+  if (st.picCv) { g.imageSmoothingEnabled = st.view.fpp > E / st.picCv.width * 0.8; g.drawImage(st.picCv, x0, y0, sz, sz); }
+  else { g.fillStyle = "#5a78c8"; g.fillRect(x0, y0, sz, sz); }
+  g.imageSmoothingEnabled = true;
+  // map objects and names (from the theater's .MM)
+  if (st.mm && st.show.mmobj) for (const o of st.mm.objs) {
+    const p = C.pos(o), [sx, sy] = w2s(p[0], p[2]); if (sx < -10 || sy < -10 || sx > MW + 10 || sy > MH + 10) continue;
+    g.fillStyle = C.isEnemy(o) ? "rgba(255,120,110,.85)" : "rgba(150,180,255,.85)"; g.strokeStyle = "#000"; g.lineWidth = 1;
+    g.beginPath(); g.rect(Math.round(sx) - 2.5, Math.round(sy) - 2.5, 5, 5); g.fill(); g.stroke();
+    hits.push({ x: sx, y: sy, r: 5, kind: "mm", o });
+  }
+  if (st.mm && st.show.mmnames) for (const s of st.mm.specials) {
+    const p = C.pos(s), n = C.getS(s, "name").replace(/[\x00-\x1f]/g, ""); if (!n) continue; const [sx, sy] = w2s(p[0], p[2]);
+    g.font = "bold 11px Tahoma,Verdana,sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.lineWidth = 3; g.strokeStyle = "#000"; g.strokeText(n, sx, sy); g.fillStyle = "#ffe23a"; g.fillText(n, sx, sy);
+  }
+  const visibleObj = o => C.isEnemy(o) ? st.show.enemy : st.show.friend;
+  const sel = st.sel, selObj = sel && sel.o, selLead = selObj && leaderOf(selObj);
+  // routes: white lines from the object through its waypoints; a wing shows its leader's route
+  if (st.show.routes) for (const w of st.M.wps) {
+    const o = st.M.objs.find(x => C.alias(x) === w.owner); if (!o || !visibleObj(o)) continue;
+    const wn = C.wing(o); if (wn && leaderOf(o) !== o) continue;
+    const vis = C.visible(w); if (!vis.length) continue; const isSel = selLead === o;
+    const p = C.pos(o); let [px, py] = w2s(p[0], p[2]);
+    g.strokeStyle = isSel ? "#ffe23a" : "rgba(255,255,255,.92)"; g.lineWidth = isSel ? 1.5 : 1;
+    g.beginPath(); g.moveTo(px, py); for (const r of vis) { const q = C.wpPos(r), [sx, sy] = w2s(q.x, q.z); g.lineTo(sx, sy); } g.stroke();
+  }
+  // objects
+  const rank = o => (o === selObj ? 100 : 0) - (C.wing(o) ? C.wing(o).member : 0);   // leaders and the selection on top
+  const order = st.M.objs.slice().sort((a, b) => rank(a) - rank(b));
+  const labelled = new Set();
+  for (const o of order) {
+    if (!visibleObj(o)) continue; const p = C.pos(o), [sx, sy] = w2s(p[0], p[2]);
+    if (sx < -20 || sy < -20 || sx > MW + 20 || sy > MH + 20) { hits.push({ x: sx, y: sy, r: 0, kind: "obj", o }); continue; }
+    const i = objInfo(o); drawIcon(g, sx, sy, C.isEnemy(o), i.kind, { human: isHuman(o), sel: o === selObj });
+    hits.push({ x: sx, y: sy, r: 9, kind: "obj", o });
+    if (st.show.names) {
+      const ms = C.wing(o) ? wingMembers(o) : [o]; if (labelled.has(ms[0])) continue; labelled.add(ms[0]);
+      const names = ms.map(objName).filter(Boolean); const head = (ms.length > 1 ? ms.length + "-" : "") + i.short;
+      label(g, [head, names.length ? "(" + names.join(", ").slice(0, 60) + ")" : ""], sx, sy + (o === selObj ? 13 : 9), C.isEnemy(o) ? "#ffd0c8" : "#ffffff");
+    }
+  }
+  // waypoints on top
+  if (st.show.routes) for (const w of st.M.wps) {
+    const o = st.M.objs.find(x => C.alias(x) === w.owner); if (!o || !visibleObj(o)) continue;
+    if (C.wing(o) && leaderOf(o) !== o) continue;
+    let k = 0; w.recs.forEach((r, idx) => {
+      if (C.getN(r, "w_flags") & 3) return; const q = C.wpPos(r), [sx, sy] = w2s(q.x, q.z);
+      const isSel = sel && sel.kind === "wp" && sel.w === w && sel.i === idx;
+      drawWp(g, sx, sy, letter(k), isSel); hits.push({ x: sx, y: sy, r: 8, kind: "wp", w, i: idx, o }); k++;
+    });
+  }
+  // the ghost of the object being placed
+  if (st.mode && st.mode.kind === "place" && st.mode.at) { g.globalAlpha = 0.6; drawIcon(g, st.mode.at[0], st.mode.at[1], st.mode.enemy, info(st.mode.type).kind); g.globalAlpha = 1; }
+  if (st.mode && st.mode.kind === "addwp" && st.mode.at) {
+    const w = routeFor(st.mode.o), vis = w ? C.visible(w) : []; const last = st.mode.after != null && w ? w.recs[st.mode.after] : vis[vis.length - 1];
+    const p = last ? C.wpPos(last) : { x: C.pos(st.mode.o)[0], z: C.pos(st.mode.o)[2] }; const [ax, ay] = w2s(p.x, p.z);
+    g.setLineDash([4, 3]); g.strokeStyle = "#ffe23a"; g.beginPath(); g.moveTo(ax, ay); g.lineTo(st.mode.at[0], st.mode.at[1]); g.stroke(); g.setLineDash([]);
+  }
+  sliders(); scaleBar();
+}
+function scaleBar() {
+  const fpp = st.view.fpp; let nm = 1;
+  for (const c of [1, 2, 5, 10, 20, 25, 50, 100, 200, 500]) if (c * C.NM / fpp <= 150) nm = c;
+  const px = nm * C.NM / fpp; $("scaleBar").style.width = Math.round(px) + "px";
+  $("scaleTxt").textContent = L(`${nm} Nautical Mile${nm === 1 ? "" : "s"}`, `${nm} 海里`);
+  const era = C.num(C.headGet(st.M, "historicalera") || 4);
+  $("era").textContent = era === 4 ? L("Historical Era ( 1956 - 2010)", "歷史年代（1956 - 2010）") : L(`Historical Era ${era}`, `歷史年代 ${era}`);
+}
+function sliders() {
+  const E = EXT(), v = st.view;
+  $("hk").style.left = (v.cx / E * (402 - 26)) + "px";
+  $("vk").style.top = ((1 - v.cz / E) * (325 - 24)) + "px";
+  const t = Math.log(zoomMin() / v.fpp) / Math.log(zoomMin() / zoomMax());
+  $("zk").style.top = ((1 - t) * 20) + "px";
+}
+
+// ---------------------------------------------------------------- the right panel
+function box(text, on, ro) {
+  const b = document.createElement("span"); b.className = "bx" + (ro ? " ro" : ""); b.textContent = text;
+  if (on && !ro) b.onclick = e => { e.stopPropagation(); on(b); };
+  return b;
+}
+function para(...parts) {
+  const p = document.createElement("p");
+  for (const x of parts) { if (x == null || x === false) continue; p.append(typeof x === "string" ? document.createTextNode(x) : x); }
+  return p;
+}
+const head = (t, u) => { const s = document.createElement("span"); s.className = u ? "u" : "h"; s.textContent = t; return s; };
+// a popup list under a boxed word
+function choose(anchor, items, cur, onPick, title) {
+  closePop(); const pop = document.createElement("div"); pop.className = "pop";
+  if (title) { const t = document.createElement("div"); t.className = "ttl"; t.textContent = title; pop.append(t); }
+  for (const [label, val] of items) {
+    const it = document.createElement("div"); it.className = "it" + (val === cur ? " cur" : ""); it.textContent = label;
+    it.onclick = e => { e.stopPropagation(); closePop(); onPick(val); }; pop.append(it);
+  }
+  const sr = $("stage").getBoundingClientRect(), r = anchor.getBoundingClientRect();
+  let x = (r.left - sr.left) / scale, y = (r.bottom - sr.top) / scale + 1;
+  $("stage").append(pop);
+  const w = pop.offsetWidth, h = pop.offsetHeight; if (x + w > 636) x = 636 - w; if (y + h > 476) y = Math.max(2, (r.top - sr.top) / scale - h - 1);
+  pop.style.left = x + "px"; pop.style.top = y + "px";
+  const cu = pop.querySelector(".cur"); if (cu) cu.scrollIntoView({ block: "nearest" });
+}
+function closePop() { for (const p of document.querySelectorAll(".pop,.dd")) p.remove(); for (const m of document.querySelectorAll("#menubar .mi.open")) m.classList.remove("open"); }
+
+function render() { renderPanel(); draw(); fileInfo(); }
+function renderPanel() {
+  const P = $("panel"); P.textContent = ""; const s = st.sel;
+  if (!st.M) return;
+  if (st.mode) { P.append(para(head(modeTitle())), para(modeHelp())); return; }
+  if (!s) { renderMissionPanel(P); return; }
+  if (s.kind === "obj") renderObjPanel(P, s.o); else renderWpPanel(P, s);
+  P.scrollTop = 0;
+}
+function modeTitle() { const m = st.mode; return { place: L("PLACE OBJECT", "放置物件"), addwp: L("ADD WAYPOINTS", "新增航點"), target: L("PICK A TARGET", "選擇目標"), join: L("JOIN A WING", "加入編隊") }[m.kind]; }
+function modeHelp() {
+  const m = st.mode, s = document.createElement("span"); s.className = "help";
+  s.textContent = {
+    place: L("Click on the map where the new object should be. Esc or right-click to stop.", "在地圖上點一下要放新物件的位置。按 Esc 或右鍵結束。"),
+    addwp: L("Click on the map to add waypoints, up to ten per object. Esc or right-click when done.", "在地圖上點擊新增航點，每個物件最多十個。完成後按 Esc 或右鍵。"),
+    target: m.wp ? L("Click the target for this waypoint, or a friendly plane to escort. Esc to cancel.", "點這個航點的目標，或要護航的友軍飛機。按 Esc 取消。")
+      : L("Select either a friendly plane to escort, or an enemy target. Esc to cancel.", "選一架要護航的友軍飛機，或一個敵方目標。按 Esc 取消。"),
+    join: L("Click the aircraft (or vehicle) whose wing this one should join. Esc to cancel.", "點要加入的編隊中的飛機（或車輛）。按 Esc 取消。"),
+  }[m.kind]; return s;
+}
+function renderMissionPanel(P) {
+  const M = st.M, objs = M.objs, nE = objs.filter(C.isEnemy).length, human = objs.find(isHuman);
+  P.append(para(head(L("MISSION", "任務"), true)));
+  P.append(para(L("File ", "檔名 "), box(st.name || L("(not named)", "（未命名）"), () => askName()), "  ",
+    L("Theater ", "戰區 "), box(L(st.T[3], st.T[4]), b => pickTheater(b))));
+  const tm = (C.headGet(M, "time") || "12 0").split(/\s+/).map(Number);
+  P.append(para(L("Time ", "時間 "), box(`${String(tm[0]).padStart(2, "0")}:${String(tm[1] || 0).padStart(2, "0")}`, () => dlgWorld()), ".  ",
+    L(`${objs.length} objects (${objs.length - nE} friendly, ${nE} enemy).`, `${objs.length} 個物件（友軍 ${objs.length - nE}、敵軍 ${nE}）。`)));
+  P.append(para(human ? L("Flown by the player: ", "玩家駕駛：") : "",
+    human ? box(objLabel(human), () => { st.sel = { kind: "obj", o: human }; centerOn(C.pos(human)[0], C.pos(human)[2]); render(); }) : L("No plane is flown by the player yet.", "還沒有指定玩家駕駛的飛機。")));
+  const sk = k => C.num(C.headGet(M, k) ?? 3);
+  P.append(para(head(L("SKILL", "技術等級"), true)));
+  for (const [k, en, zh] of [["usAirSkill", "Friendly pilots", "友軍飛行員"], ["usGroundSkill", "Friendly ground", "友軍地面"], ["themAirSkill", "Enemy pilots", "敵軍飛行員"], ["themGroundSkill", "Enemy ground", "敵軍地面"]])
+    P.append(para(L(en + " ", zh + " "), box(skillW(sk(k)), b => choose(b, [3, 2, 1, 0].map(v => [skillW(v), v]), sk(k), v => { pushUndo(); C.headSet(M, k, String(v), ["historicalera", "time"]); touch(); }))));
+  P.append(para(head(L("BRIEFING", "簡報"), true)));
+  const flag = (k, en, zh) => box(C.headGet(M, k) !== undefined ? L("on", "開") : L("off", "關"), () => { pushUndo(); if (C.headGet(M, k) !== undefined) C.headDel(M, k); else C.headSet(M, k, "", ["textFormat", "brief", "briefmap", "selectplane"]); touch(); });
+  P.append(para(L("Briefing ", "簡報 "), flag("brief"), L(", briefing map ", "、簡報地圖 "), flag("briefmap"), L(", select plane ", "、選擇飛機 "), flag("selectplane"), L(", arm plane ", "、掛載武器 "), flag("armplane"), "."));
+  P.append(para(box(st.mt.trim() ? L("Edit the briefing text", "編輯簡報文字") : L("Write the briefing text", "撰寫簡報文字"), () => dlgBrief())));
+  const help = document.createElement("span"); help.className = "help";
+  help.textContent = L("Click an object on the map to edit it. Use the Object menu to add aircraft, ships and ground units, and the Waypoint menu to give them a route.",
+    "在地圖上點選物件來編輯。用 Object 選單新增飛機、艦艇和地面單位，再用 Waypoint 選單設定航線。");
+  P.append(para(help));
+}
+function select(s) { st.sel = s; render(); }
+
+function sideBox(o) {
+  const c = C.country(o), e = C.isEnemy(o);
+  return box(adj(c), b => {
+    const items = [[L("— Friendly (blue) —", "— 友軍（藍）—"), "F"], [L("— Enemy (red) —", "— 敵軍（紅）—"), "E"], ...C.COUNTRIES.map((n, i) => [cname(i), i])];
+    choose(b, items, c, v => {
+      pushUndo(); const ms = C.wing(o) ? wingMembers(o) : [o];
+      for (const m of ms) { let n = C.nat(m); if (v === "F") n &= 0x7f; else if (v === "E") n |= 0x80; else n = (n & 0x80) | v; setNat(m, n); }
+      if (v === "E" && ms.some(isHuman)) for (const m of ms) if (isHuman(m)) C.del(m, "controller");
+      touch();
+    }, e ? L("Enemy side", "敵方") : L("Friendly side", "友方"));
+  });
+}
+function setNat(o, n) { const k = C.get(o, "nationality3") !== undefined ? "nationality3" : C.get(o, "nationality2") !== undefined ? "nationality2" : "nationality3"; C.set(o, k, String(n), ["angle"]); }
+function typeBox(o) {
+  const i = objInfo(o);
+  return box(i.long, () => dlgAdd(i.kind, { replace: o }));
+}
+function headingBox(o) {
+  const h = C.heading(o), d = ((Math.round(h / 45) % 8) + 8) % 8;
+  return box(L(DIRS[d][0], DIRS[d][1]), b => choose(b, DIRS.map((x, k) => [L(x[0], x[1]), k]), d, k => {
+    pushUndo(); const a = C.getNs(o, "angle"); let deg = k * 45; if (deg > 180) deg -= 360; a[0] = deg; C.set(o, "angle", `${a[0]} ${a[1] || 0} ${a[2] || 0}`, ["pos"]); touch();
+  }));
+}
+function altBox(o) {
+  const p = C.pos(o);
+  return p[1] <= 0 ? [L("at ", "位於 "), box(L("ground level", "地面"), () => askAlt(o)), " ."]
+    : [L("at ", "高度 "), box(String(p[1]), () => askAlt(o)), L(" feet.", " 呎。")];
+}
+function askAlt(o) {
+  const p = C.pos(o);
+  askText(L("Altitude in feet (0 = ground level).", "高度（呎，0 = 地面）。"), String(p[1]), v => {
+    const n = Math.max(0, Math.min(90000, parseInt(v, 10) || 0)); pushUndo();
+    for (const m of (C.wing(o) ? wingMembers(o) : [o])) { const q = C.pos(m); C.set(m, "pos", `${q[0]} ${n} ${q[2]}`); }
+    touch();
+  }, "number");
+}
+function speedBox(o) {
+  const sp = C.getN(o, "speed", 0), kt = Math.round(sp / C.KT);
+  return box(String(kt), () => askText(L("Speed in knots.", "速度（節）。"), String(kt), v => {
+    const n = Math.max(0, Math.min(2500, parseInt(v, 10) || 0)); pushUndo();
+    for (const m of (C.wing(o) ? wingMembers(o) : [o])) C.set(m, "speed", String(Math.round(n * C.KT)), ["flags"]); touch();
+  }, "number"));
+}
+function successBox(o) {
+  const f = C.getN(o, "flags", 0x4017);
+  const cur = f & 0x80 ? "D" : f & 0x20 ? "S" : "N";
+  const opts = [[L("is not affected", "不受此物件影響"), "N"], [L("only if object is destroyed", "需要摧毀此物件"), "D"], [L("only if object survives", "需要此物件存活"), "S"]];
+  return box(opts.find(x => x[1] === cur)[0], b => choose(b, opts, cur, v => {
+    pushUndo(); for (const m of [o]) { let g = C.getN(m, "flags", 0x4017) & ~0xA0; if (v === "D") g |= 0x80; if (v === "S") g |= 0x20; C.set(m, "flags", C.hex(g), ["nationality3", "nationality2", "nationality"]); } touch();
+  }));
+}
+function bitBox(o, bit, onTxt, offTxt) {
+  const f = C.getN(o, "flags", 0x4017), on = (f & bit) !== 0;
+  return box(on ? onTxt : offTxt, () => { pushUndo(); C.set(o, "flags", C.hex(f ^ bit), ["nationality3", "nationality2", "nationality"]); touch(); });
+}
+function reactRows(P, rec, key) {
+  const t = C.getNs(rec, key); while (t.length < 3) t.push(0);
+  const grid = document.createElement("div"); grid.className = "rt";
+  for (const [cn, bit] of C.CLASSES) {
+    const a = t[0] & bit ? 0 : t[1] & bit ? 1 : t[2] & bit ? 2 : 3;
+    const n = document.createElement("span"); n.textContent = L(cn, CLASS_ZH[cn]);
+    const b = box(L(ACT[a][0], ACT[a][1]), bb => choose(bb, ACT.map((x, k) => [L(x[0], x[1]), k]), a, k => {
+      pushUndo(); const u = C.getNs(rec, key); while (u.length < 3) u.push(0);
+      for (let j = 0; j < 3; j++) u[j] &= ~bit; if (k < 3) u[k] |= bit;
+      C.set(rec, key, u.map(C.hex).join(" ")); touch();
+    }));
+    const c = document.createElement("span"); c.append(b); grid.append(n, c);
+  }
+  P.append(grid);
+}
+function searchBox(rec, key) {
+  const d = C.getN(rec, key, 0);
+  const opts = [[L("at any distance", "任何距離"), 0], ...[2, 5, 10, 15, 25, 40, 60, 80].map(v => [L(`within ${v} mile${v > 1 ? "s" : ""}`, `${v} 浬內`), v])];
+  return box(d ? L(`within ${d} mile${d > 1 ? "s" : ""}`, `${d} 浬內`) : L("at any distance", "任何距離"),
+    b => choose(b, opts, d, v => { pushUndo(); C.set(rec, key, String(v)); touch(); }));
+}
+function targetText(code) {
+  if (!code) return null; const prot = (code & 0x40000000) !== 0, t = findAlias(code & 0xffff);
+  const nm = t ? objLabel(t.o) + (t.mm ? L(" (map)", "（地圖）") : "") : L("alias ", "alias ") + ((code << 16) >> 16);
+  return { prot, nm };
+}
+function renderObjPanel(P, o) {
+  const i = objInfo(o), w = C.wing(o), n = w ? wingMembers(o).length : 1;
+  const unitWord = i.plane ? L("Wing", "編隊") : L("Group", "群組");
+  P.append(para(head(unitWord.toUpperCase()), box(w ? callsign(o) : L("(single)", "（單機）"), b => wingMenu(b, o))));
+  if (i.plane) {
+    const human = isHuman(o), sk = C.getN(o, "skill", 3);
+    const pilot = objName(o) || L("Anonymous", "無名");
+    P.append(L("en", "zh") === "en"
+      ? para(sideBox(o), " ", typeBox(o), ", flown by ", box(pilot, () => askPilot(o)), ", ", sk === 1 || sk === 3 ? "an " : "a ",
+        box(skillW(sk), b => pickSkill(b, o)), " ", box(human ? "human" : "computer", () => toggleHuman(o)), " pilot.")
+      : para(sideBox(o), " ", typeBox(o), "，由 ", box(pilot, () => askPilot(o)), " 駕駛，", box(skillW(sk), b => pickSkill(b, o)), "的",
+        box(human ? "人類" : "電腦", () => toggleHuman(o)), "飛行員。"));
+  } else {
+    const sk = C.getN(o, "skill", 3);
+    P.append(L("en", "zh") === "en"
+      ? para(sideBox(o), " ", typeBox(o), objName(o) ? [" ", box(objName(o), () => askPilot(o))][1] : "", ", manned by ", sk === 1 || sk === 3 ? "an " : "a ",
+        box(skillW(sk), b => pickSkill(b, o)), " ", box(adj(C.country(o)), null, true), " crew.")
+      : para(sideBox(o), " ", typeBox(o), "，由", box(skillW(sk), b => pickSkill(b, o)), "的", box(adj(C.country(o)), null, true), "人員操作。"));
+  }
+  P.append(para(L("Heading ", "航向 "), headingBox(o), " ", ...altBox(o)));
+  if (i.plane || i.kind === "ship" || C.getN(o, "speed", 0)) P.append(para(L("Speed ", "速度 "), speedBox(o), L(" knots.", " 節。")));
+  // MISSION
+  P.append(para(head(L("MISSION", "任務"), true)));
+  P.append(para(L("Mission success ", "任務成功 "), successBox(o), L(" by object.", "。")));
+  P.append(para(L("Other objects ", "其他物件 "), bitBox(o, C.FLAG.IGNORE_ME, L("ignore", "忽略"), L("can attack", "可以攻擊")), L(" me.", " 我。")));
+  P.append(para(L("Wait ", "等待 "), box(L("0 minutes", "0 分鐘"), null, true), L(" before starting.", " 再開始。")));
+  P.append(para(bitBox(o, C.FLAG.HIDE_BRIEF, L("Hide", "隱藏"), L("Show", "顯示")), L(" in briefing map.", " 於簡報地圖。")));
+  // ASSIGNMENT (object level: Target / Protect, reactions, search distance)
+  P.append(para(head(L("ASSIGNMENT", "指派"), true)));
+  const tt = targetText(C.getN(o, "preferredTargetId2", 0));
+  P.append(para(tt ? box(tt.prot ? L("Protect", "保護") : L("Target", "目標"), b => targetMenu(b, o, null)) : box(L("No assigned target.", "沒有指定目標。"), b => targetMenu(b, o, null)),
+    tt ? " " : "", tt ? box(tt.nm, () => { const t = findAlias(C.getN(o, "preferredTargetId2") & 0xffff); if (t) { const p = C.pos(t.o); centerOn(p[0], p[2]); } }) : ""));
+  if (C.get(o, "react") !== undefined || i.plane) {
+    P.append(para(L("Search for targets ", "搜尋目標 "), searchBox(o, "searchDist"), " ."));
+    reactRows(P, o, "react");
+  }
+  if (i.plane) {
+    P.append(para(head(L("LOADOUT", "掛載"), true)));
+    const hp = o.f.filter(f => f[0] === "hardpoint").map(f => f[1].trim().split(/\s+/));
+    P.append(para(hp.length ? hp.map(h => `${h[0]}: ${+h[1] ? h[1] + "× " + cleanName(info(h[2]).short) : L("empty", "空")}`).join(", ") + " " : L("Standard loadout. ", "標準掛載。"),
+      box(L("Change", "修改"), () => dlgLoadout(o))));
+  }
+  const r = routeFor(leaderOf(o)), nv = r ? C.visible(r).length : 0;
+  P.append(para(head(L("ROUTE", "航線"), true)));
+  P.append(para(nv ? L(`${nv} waypoint${nv > 1 ? "s" : ""}. `, `${nv} 個航點。`) : L("No waypoints. ", "沒有航點。"),
+    box(L("Add waypoints", "新增航點"), () => startAddWp(o)), nv ? " " : "", nv ? box(L("Delete all", "全部刪除"), () => { pushUndo(); for (const m of wingMembers(o)) { const w2 = routeFor(m); if (w2) st.M.wps.splice(st.M.wps.indexOf(w2), 1); } touch(); }) : ""));
+  const meta = document.createElement("span"); meta.className = "dim";
+  meta.textContent = `${C.get(o, "type")} · alias ${C.alias(o)}${w ? ` · wing ${w.id}/${w.member}` : ""}`;
+  P.append(para(meta));
+}
+function wpEta(w, idx, o) {
+  const p = C.pos(o); let x = p[0], z = p[2], t = 0;
+  for (let k = 0; k <= idx; k++) { const r = w.recs[k]; if (C.getN(r, "w_flags") & 3) continue; const q = C.wpPos(r), sp = C.getN(r, "w_speed", 0) || C.getN(o, "speed", 676) || 676;
+    t += Math.hypot(q.x - x, q.z - z) / sp; x = q.x; z = q.z; }
+  return t;
+}
+function assignOf(r) {
+  const re = C.getNs(r, "w_react").map(v => v >>> 0), sd = C.getN(r, "w_searchDist", 0);
+  const a = C.ASSIGN.find(([, t, d]) => t.every((v, k) => (v >>> 0) === (re[k] || 0)) && d === sd); return a ? a[0] : null;
+}
+function renderWpPanel(P, s) {
+  const { w, i: idx, o } = s, r = w.recs[idx], vis = w.recs.filter(x => !(C.getN(x, "w_flags") & 3)), k = vis.indexOf(r);
+  const nm = C.getS(r, "w_name");
+  P.append(para(head(L("WAYPOINT ", "航點 ") + letter(k), true), " ( ", box(nm || L("unnamed", "未命名"), () => askText(L("Enter the name of this waypoint.", "輸入這個航點的名稱。"), nm, v => {
+    pushUndo(); C.set(r, "w_name", { s: v.replace(/[^\x20-\x7e]/g, "").slice(0, 30) }); touch(); })), " )"));
+  P.append(para(L("For ", "屬於 "), box(objLabel(o) + (C.wing(o) ? ` · ${callsign(o)}` : ""), () => select({ kind: "obj", o }))));
+  const q = C.wpPos(r), sp = C.getN(r, "w_speed", 0), kt = Math.round(sp / C.KT);
+  const spB = box(String(kt), () => askText(L("Speed in knots.", "速度（節）。"), String(kt), v => { pushUndo(); C.set(r, "w_speed", String(Math.round((parseInt(v, 10) || 0) * C.KT))); touch(); }, "number"));
+  const altB = box(q.y > 0 ? String(q.y) : L("ground level", "地面"), () => askText(L("Altitude in feet (0 = ground level).", "高度（呎，0 = 地面）。"), String(q.y), v => {
+    pushUndo(); C.setWpPos(r, q.x, Math.max(0, parseInt(v, 10) || 0), q.z); touch(); }, "number"));
+  P.append(para(L("Maintain ", "保持 "), spB, L(" knots at ", " 節，高度 "), altB, q.y > 0 ? L(" feet.", " 呎。") : " ."));
+  const eta = wpEta(w, idx, o), hh = Math.floor(eta / 3600), mm = Math.floor(eta / 60) % 60, ss = Math.floor(eta % 60);
+  P.append(para(head(L(`ETA ${hh}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}.`, `預計抵達 ${hh}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}。`))));
+  // FORMATION
+  const g = C.getNs(r, "w_wng"); while (g.length < 4) g.push(0);
+  const setW = (j, v) => { pushUndo(); const u = C.getNs(r, "w_wng"); while (u.length < 4) u.push(0); u[j] = v; C.set(r, "w_wng", u.join(" ")); touch(); };
+  const FZ = ["梯隊", "橫隊", "縱隊"], CZ = { 1: "鬆散", 2: "中等", 3: "緊密" }, SZ = { 2048: "遠", 512: "近" }, KZ = { 0: "同高", 512: "高", "-512": "低" };
+  const plane = objInfo(o).plane;
+  if (plane) P.append(para(head(L("FORMATION", "編隊"), true)));
+  if (plane) P.append(para(box(L(C.FORMATION[g[1]] || "?", FZ[g[1]] || "?"), b => choose(b, C.FORMATION.map((x, j) => [L(x, FZ[j]), j]), g[1], v => setW(1, v))), L(" formation, ", " 隊形，"),
+    box(L(C.SPACING[g[2]] || String(g[2]), SZ[g[2]] || String(g[2])), b => choose(b, [[L("far", "遠"), 2048], [L("near", "近"), 512]], g[2], v => setW(2, v))), L(" spacing, ", " 間距，"),
+    box(L(C.STACKING[g[3]] || String(g[3]), KZ[g[3]] || String(g[3])), b => choose(b, [[L("level", "同高"), 0], [L("high", "高"), 512], [L("low", "低"), -512]], g[3], v => setW(3, v))), L(" stacking, ", " 高度層，"),
+    box(L(C.CONTROL[g[0]] || String(g[0]), CZ[g[0]] || String(g[0])), b => choose(b, [[L("loose", "鬆散"), 1], [L("medium", "中等"), 2], [L("tight", "緊密"), 3]], g[0], v => setW(0, v))), L(" control.", " 控制。")));
+  // ASSIGNMENT
+  P.append(para(head(L("ASSIGNMENT", "指派"), true)));
+  const an = assignOf(r), goal = C.getN(r, "w_goal", 1);
+  const aB = box(an ? L(an, ASSIGN_ZH[an]) : L("Custom", "自訂"), b => choose(b, C.ASSIGN.map(([n]) => [L(n, ASSIGN_ZH[n]), n]), an, v => {
+    const a = C.ASSIGN.find(x => x[0] === v); pushUndo(); C.set(r, "w_react", a[1].map(C.hex).join(" ")); C.set(r, "w_searchDist", String(a[2])); touch(); }));
+  const tt = targetText(C.getN(r, "w_preferredTargetId2", 0));
+  const tB = tt ? box(`${tt.prot ? L("Protect", "保護") : L("Target", "目標")}: ${tt.nm}`, b => targetMenu(b, o, r)) : box(L("(no assigned target)", "（沒有指定目標）"), b => targetMenu(b, o, r));
+  const gB = box(L(C.GOALS[goal] ? C.GOALS[goal] + "." : "goal " + goal, GOAL_ZH[goal] || "目標碼 " + goal), b => choose(b, [1, 4, 8, 16, 34].map(v => [L(C.GOALS[v] + ".", GOAL_ZH[v]), v]), goal, v => {
+    pushUndo(); C.set(r, "w_goal", String(v)); if (v === 34) { const p = C.getNs(r, "w_pos2"); C.set(r, "w_pos2", `1   0   ${p[2]} 0 ${p[4]}`); C.set(r, "w_speed", "0"); } touch(); }));
+  P.append(para(plane ? aB : "", plane ? " " : "", tB, L(" until ", " 直到 "), gB));
+  P.append(para(L("Search for targets ", "搜尋目標 "), searchBox(r, "w_searchDist"), " ."));
+  reactRows(P, r, "w_react");
+  P.append(para(box(L("Insert waypoint after", "在後面插入航點"), () => startAddWp(o, idx)), " ", box(L("Delete waypoint", "刪除航點"), () => deleteWp())));
+}
+function pickSkill(b, o) {
+  const sk = C.getN(o, "skill", 3);
+  choose(b, [3, 2, 1, 0].map(v => [skillW(v), v]), sk, v => { pushUndo(); for (const m of (C.wing(o) ? wingMembers(o) : [o])) C.set(m, "skill", String(v), ["name", "controller", "alias"]); touch(); });
+}
+function askPilot(o) {
+  askText(L("Enter the pilot's name.", "輸入飛行員的名字。"), objName(o), v => {
+    pushUndo(); v = v.replace(/[^\x20-\x7e]/g, "").slice(0, 30);
+    if (v) C.set(o, "name", { s: v }, ["controller", "alias"]); else C.del(o, "name"); touch();
+  });
+}
+function toggleHuman(o) {
+  if (isHuman(o)) { pushUndo(); C.del(o, "controller"); for (const m of wingMembers(o)) if (m !== o && C.get(m, "npcFlags") === "2") C.del(m, "npcFlags"); touch(); return; }
+  if (C.isEnemy(o)) { alertBox(L("You can only fly a plane that is on the BLUE side.", "只能駕駛藍方（友軍）的飛機。")); return; }
+  pushUndo(); makeHuman(o); touch();
+}
+function makeHuman(o) {
+  for (const x of st.M.objs) if (isHuman(x)) { C.del(x, "controller"); for (const m of wingMembers(x)) if (C.get(m, "npcFlags") === "2") C.del(m, "npcFlags"); }
+  C.set(o, "controller", "$80", ["alias"]); C.del(o, "npcFlags");
+  for (const m of wingMembers(o)) if (m !== o) C.set(m, "npcFlags", "2", ["wng", "wing", "searchDist"]);
+}
+function wingMenu(b, o) {
+  const w = C.wing(o), i = objInfo(o), items = [];
+  if (w) for (let k = 0; k < 8; k++) items.push([L(`Call sign: ${CALL[k][0]}`, `呼號：${CALL[k][1]}`), "c" + k]);
+  items.push([L(i.plane ? "Join another wing…" : "Join another group…", i.plane ? "加入其他編隊…" : "加入其他群組…"), "join"]);
+  if (w && wingMembers(o).length > 1) items.push([L("Leave this wing", "離開編隊"), "leave"]);
+  if (w && wingMembers(o).length > 1 && w.member !== 0) items.push([L("Make leader", "設為長機"), "lead"]);
+  choose(b, items, w ? "c" + (((w.id % 8) + 8) % 8) : null, v => {
+    if (v === "join") { setMode({ kind: "join", o }); return; }
+    pushUndo();
+    if (v === "leave") { C.del(o, "wing"); C.del(o, "npcFlags"); renumber(w.id); const r = routeFor(o); if (r) st.M.wps.splice(st.M.wps.indexOf(r), 1); }
+    else if (v === "lead") { const ms = wingMembers(o); ms.splice(ms.indexOf(o), 1); ms.unshift(o); ms.forEach((m, k) => C.set(m, "wing", `${w.id} ${k}`)); }
+    else { // a call sign is the wing number modulo 8: move the wing to a free number with that colour
+      const want = +v.slice(1), used = new Set(st.M.objs.map(C.wing).filter(Boolean).map(x => x.id)); let id = want; while (used.has(id) && id !== w.id) id += 8;
+      for (const m of wingMembers(o)) C.set(m, "wing", `${id} ${C.wing(m).member}`);
+    }
+    touch();
+  });
+}
+function renumber(id) { st.M.objs.filter(x => { const v = C.wing(x); return v && v.id === id; }).sort((a, b) => C.wing(a).member - C.wing(b).member).forEach((m, k) => C.set(m, "wing", `${id} ${k}`)); }
+function nextWingId() { const used = new Set(st.M.objs.map(C.wing).filter(Boolean).map(x => x.id)); let id = 0; while (used.has(id)) id++; return id; }
+function targetMenu(b, o, rec) {
+  const key = rec ? "w_preferredTargetId2" : "preferredTargetId2", cur = C.getN(rec || o, key, 0);
+  const items = [[L("No assigned target", "不指定目標"), "none"], [L("Pick a target or a plane to protect on the map…", "在地圖上選目標或要保護的飛機…"), "pick"]];
+  if (cur) items.push([(cur & 0x40000000) ? L("Change to Target", "改成攻擊目標") : L("Change to Protect", "改成保護"), "flip"]);
+  choose(b, items, null, v => {
+    if (v === "pick") { setMode({ kind: "target", o, rec, wp: !!rec }); return; }
+    pushUndo(); const t = rec || o;
+    if (v === "none") { if (rec) C.set(rec, key, "$0"); else C.del(o, key); }
+    else C.set(t, key, C.hex((cur ^ 0x40000000) >>> 0));
+    touch();
+  });
+}
+function pickTheater(b) {
+  choose(b, THEATERS.map(t => [`${t[0]} · ${L(t[3], t[4])}`, t[0]]), st.map, async v => {
+    if (v === st.map) return;
+    if (st.M.objs.length && !(await confirmBox(L("Move this mission to another theater? Objects keep their coordinates.", "把任務移到其他戰區？物件會保留原座標。")))) return;
+    pushUndo(); await loadTheater(v); C.headSet(st.M, "map", v.toLowerCase() + ".T2"); fitAll(); touch();
+  });
+}
+
+// ---------------------------------------------------------------- dialogs
+function dialog(title, body, buttons) {
+  closePop(); closeDialog();
+  const veil = document.createElement("div"); veil.id = "veil"; const d = document.createElement("div"); d.className = "dlg";
+  const t = document.createElement("div"); t.className = "dt"; t.textContent = title; const b = document.createElement("div"); b.className = "db";
+  if (typeof body === "string") b.innerHTML = body; else b.append(body);
+  const f = document.createElement("div"); f.className = "df";
+  for (const [label, cls, fn] of buttons) { const x = document.createElement("button"); x.className = cls || ""; x.textContent = label; x.onclick = () => { if (fn && fn() === false) return; closeDialog(); }; f.append(x); }
+  d.append(t, b, f); $("stage").append(veil, d); veil.onclick = e => e.stopPropagation();
+  const inp = d.querySelector("input,textarea,select"); if (inp) setTimeout(() => inp.focus(), 0);
+  return d;
+}
+function closeDialog() { $("veil")?.remove(); document.querySelector(".dlg")?.remove(); }
+const dlgOpen = () => !!document.querySelector(".dlg");
+function alertBox(msg) { dialog(L("Mission Creator", "任務編輯器"), Object.assign(document.createElement("p"), { textContent: msg }), [["OK", "", null]]); }
+function confirmBox(msg) {
+  return new Promise(res => dialog(L("Mission Creator", "任務編輯器"), Object.assign(document.createElement("p"), { textContent: msg }),
+    [["OK", "", () => { setTimeout(() => res(true)); }], [L("Cancel", "取消"), "c", () => { setTimeout(() => res(false)); }]]));
+}
+function askText(prompt, val, onOk, type) {
+  const wrap = document.createElement("div"), p = document.createElement("p"); p.textContent = prompt;
+  const inp = document.createElement("input"); inp.type = type || "text"; inp.value = val ?? ""; inp.style.width = "220px";
+  wrap.append(p, inp);
+  const ok = () => { onOk(inp.value.trim()); };
+  inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); ok(); closeDialog(); } if (e.key === "Escape") closeDialog(); };
+  dialog(L("Mission Creator", "任務編輯器"), wrap, [["OK", "", ok], [L("Cancel", "取消"), "c", null]]);
+  setTimeout(() => inp.select(), 0);
+}
+function el(tag, props, ...kids) { const e = document.createElement(tag); Object.assign(e, props || {}); for (const k of kids) e.append(k); return e; }
+
+// pick an object type: used for Object > Add and for changing a type
+const ADD_TABS = [["air", "Aircraft", "飛機", k => ["fighter", "bomber", "heli"].includes(k)], ["ship", "Ships", "艦艇", k => k === "ship"],
+  ["ground", "Ground units", "地面單位", k => ["tank", "vehicle", "sam", "aaa"].includes(k)], ["struct", "Structures", "建築", k => k === "structure" || k === "other"]];
+async function dlgAdd(kind, opt = {}) {
+  const cat = await loadItems(profile);
+  let tab = ADD_TABS.find(t => t[3](kind)) || ADD_TABS[0], selType = opt.replace ? C.get(opt.replace, "type").toUpperCase() : null;
+  const body = el("div"), tabs = el("div", { className: "tabs" }), search = el("input", { placeholder: L("Search", "搜尋"), style: "width:160px" });
+  const list = el("div", { className: "list" });
+  const side = el("select"); side.innerHTML = `<option value="F">${L("Friendly (blue)", "友軍（藍）")}</option><option value="E">${L("Enemy (red)", "敵軍（紅）")}</option>`;
+  const nat = el("select"); C.COUNTRIES.forEach((n, i) => nat.append(el("option", { value: i, textContent: cname(i) })));
+  const qty = el("select"); for (let k = 1; k <= 8; k++) qty.append(el("option", { value: k, textContent: String(k) }));
+  const last = (() => { try { return JSON.parse(localStorage.getItem("fashion_mb_last") || "{}"); } catch (e) { return {}; } })();
+  side.value = last.side || "F"; nat.value = last.nat ?? 0; qty.value = last.qty || 1;
+  const prof = el("select"); prof.innerHTML = `<option value="default">${L("Factory FA", "原版 FA")}</option><option value="jkp600">${L("FA + JKP 600", "FA + JKP 600")}</option>`; prof.value = profile;
+  for (const t of ADD_TABS) { const s = el("span", { textContent: L(t[1], t[2]) }); s.onclick = () => { tab = t; fill(); }; tabs.append(s); }
+  let curCat = cat;
+  function fill() {
+    for (const [k, s] of [...tabs.children].entries()) s.classList.toggle("on", ADD_TABS[k] === tab);
+    list.textContent = ""; const q = search.value.trim().toLowerCase(); const rows = [];
+    for (const [f, nm] of curCat.names) {
+      if (!/\.(PT|NT|OT)$/.test(f)) continue; const i = info(f); if (!tab[3](i.kind)) continue;
+      const long = INDEX[f] ? cleanName(INDEX[f][1]) : nm; if (q && !(f.toLowerCase().includes(q) || long.toLowerCase().includes(q))) continue;
+      rows.push([long, f, i]);
+    }
+    rows.sort((a, b) => a[0].localeCompare(b[0], "en", { numeric: true }));
+    for (const [long, f, i] of rows.slice(0, 600)) {
+      const d = el("div", { className: f === selType ? "on" : "" }, el("span", { textContent: long }), el("i", { textContent: `${L(...KIND_NAMES[i.kind])} · ${f}` }));
+      d.onclick = () => { selType = f; for (const x of list.children) x.classList.remove("on"); d.classList.add("on"); };
+      d.ondblclick = () => { selType = f; go(); closeDialog(); };
+      list.append(d);
+    }
+    if (!rows.length) list.append(el("div", { textContent: L("Nothing found.", "找不到。") }));
+  }
+  search.oninput = fill;
+  prof.onchange = async () => { profile = prof.value; try { localStorage.setItem("fashion_mb_profile", profile); } catch (e) {} curCat = await loadItems(profile); fill(); };
+  body.append(tabs, el("div", { style: "display:flex;gap:8px;align-items:center;margin-bottom:5px" }, search, el("span", { textContent: L("Items list ", "物件清單 ") }), prof), list);
+  if (!opt.replace) body.append(el("div", { style: "margin-top:6px" }, el("label", {}, L("Side ", "陣營 "), side), el("label", {}, L("Country ", "國家 "), nat), el("label", {}, L("How many ", "數量 "), qty)));
+  fill(); setTimeout(() => list.querySelector(".on")?.scrollIntoView({ block: "center" }), 0);
+  function go() {
+    if (!selType) return false;
+    if (opt.replace) { pushUndo(); const o = opt.replace; C.set(o, "type", selType); if (!/\.PT$/.test(selType)) for (const f of o.f.filter(f => f[0] === "hardpoint")) C.del(o, "hardpoint"); touch(); return; }
+    try { localStorage.setItem("fashion_mb_last", JSON.stringify({ side: side.value, nat: nat.value, qty: qty.value })); } catch (e) {}
+    setMode({ kind: "place", type: selType, enemy: side.value === "E", nat: +nat.value, qty: info(selType).plane ? +qty.value : Math.min(+qty.value, 8) });
+  }
+  dialog(opt.replace ? L("Change object type", "更換物件種類") : L("Add object", "新增物件"), body, [["OK", "", go], [L("Cancel", "取消"), "c", null]]);
+}
+function placeAt(x, z) {
+  const m = st.mode, i = info(m.type); pushUndo();
+  const reserved = st.mm ? st.mm.objs.map(C.alias) : []; const n = m.qty || 1, wid = n > 1 ? nextWingId() : null, made = [];
+  for (let k = 0; k < n; k++) {
+    const o = { f: [] }, F = (a, b) => o.f.push([a, b]);
+    const dx = i.plane ? k * 1200 : k * 300, dz = i.plane ? -k * 1200 : 0;
+    F("type", m.type); F("pos", `${Math.round(x + dx)} ${i.plane ? 15000 : 0} ${Math.round(z + dz)}`); F("angle", "0 0 0");
+    F("nationality3", String((m.nat & 0x7f) | (m.enemy ? 0x80 : 0))); F("flags", C.hex(m.enemy ? 0x4417 : 0x4017));
+    F("speed", String(i.plane ? 676 : 0)); F("alias", String(C.nextAlias(st.M, reserved))); st.M.objs.push(o);
+    F("skill", "3");
+    if (i.kind !== "structure" && i.kind !== "other") { F("react", i.plane ? "$c000 $3fff $0" : "$ffff $0 $0"); F("searchDist", i.plane ? "25" : "0"); }
+    if (wid != null) { F("wing", `${wid} ${k}`); if (i.plane) F("wng", "1 0 2048 0"); }
+    made.push(o);
+  }
+  if (i.plane && !m.enemy && !st.M.objs.some(isHuman)) makeHuman(made[0]);
+  st.sel = { kind: "obj", o: made[0] }; st.mode = null; setHint(); touch();
+}
+function dlgWorld() {
+  const M = st.M, tm = (C.headGet(M, "time") || "12 0").split(/\s+/).map(Number), wind = (C.headGet(M, "wind") || "65 7").split(/\s+/).map(Number);
+  const hh = el("input", { type: "number", min: 0, max: 23, value: tm[0], style: "width:50px" }), mi = el("input", { type: "number", min: 0, max: 59, value: tm[1] || 0, style: "width:50px" });
+  const lay = el("input", { value: C.headGet(M, "layer") || "day2.LAY 0", style: "width:120px" });
+  const cl = el("input", { type: "number", value: C.num(C.headGet(M, "clouds") || 0), style: "width:60px" });
+  const wd = el("input", { type: "number", value: wind[0], style: "width:60px" }), ws = el("input", { type: "number", value: wind[1] || 0, style: "width:60px" });
+  const era = el("input", { type: "number", min: 0, max: 9, value: C.num(C.headGet(M, "historicalera") ?? 4), style: "width:50px" });
+  const g = el("div", { className: "grid" },
+    el("span", { textContent: L("Time of day", "時間") }), el("span", {}, hh, " : ", mi),
+    el("span", { textContent: L("Sky layer", "天空層") }), el("span", {}, lay, el("span", { className: "dim", textContent: L("  e.g. day2.LAY 0", "  例 day2.LAY 0") })),
+    el("span", { textContent: L("Clouds", "雲") }), cl,
+    el("span", { textContent: L("Wind (direction, speed)", "風（方向、強度）") }), el("span", {}, wd, " ", ws),
+    el("span", { textContent: L("Historical era", "歷史年代") }), el("span", {}, era, el("span", { className: "dim", textContent: L("  4 = 1956 - 2010", "  4 = 1956 - 2010") })));
+  const note = el("p", { className: "dim", textContent: L("Cloud, wind and era codes other than the defaults are not fully decoded; FA keeps what you type.", "預設以外的雲、風和年代代碼還沒完全解碼；FA 會照你輸入的值讀取。") });
+  dialog(L("World", "環境"), el("div", {}, g, note), [["OK", "", () => {
+    pushUndo(); C.headSet(M, "time", `${Math.max(0, Math.min(23, +hh.value | 0))} ${Math.max(0, Math.min(59, +mi.value | 0))}`, ["sides4", "view"]);
+    C.headSet(M, "layer", lay.value.trim() || "day2.LAY 0", ["map"]); C.headSet(M, "clouds", String(+cl.value | 0), ["layer"]);
+    C.headSet(M, "wind", `${+wd.value | 0} ${+ws.value | 0}`, ["clouds"]); C.headSet(M, "historicalera", String(+era.value | 0), ["themAirSkill", "time"]); touch();
+  }], [L("Cancel", "取消"), "c", null]]);
+}
+async function dlgLoadout(o) {
+  const cat = await loadItems(profile), weps = [...cat.names].filter(([f]) => /\.(JT|GAS)$/.test(f)).map(([f, n]) => [f, INDEX[f] ? cleanName(INDEX[f][1]) : n]).sort((a, b) => a[1].localeCompare(b[1]));
+  const cur = {}; for (const f of o.f) if (f[0] === "hardpoint") { const h = f[1].trim().split(/\s+/); cur[h[0]] = [+h[1], h[2] || ""]; }
+  const g = el("div", { className: "grid" }), rows = {};
+  for (const s of [4, 5, 6, 7, 8]) {
+    const sel = el("select", { style: "width:250px" }); sel.append(el("option", { value: "", textContent: L("(as the aircraft file has it)", "（依飛機檔預設）") }), el("option", { value: "0", textContent: L("(empty)", "（空）") }));
+    for (const [f, n] of weps) sel.append(el("option", { value: f, textContent: `${n}  ·  ${f}` }));
+    const q = el("input", { type: "number", min: 1, max: 99, value: 1, style: "width:46px" });
+    if (cur[s]) { if (cur[s][0] === 0) sel.value = "0"; else { if (![...sel.options].some(x => x.value === cur[s][1])) sel.append(el("option", { value: cur[s][1], textContent: cur[s][1] })); sel.value = cur[s][1]; q.value = cur[s][0]; } }
+    rows[s] = [sel, q];
+    g.append(el("span", { textContent: (s <= 5 ? L("Fuselage ", "機身 ") : L("Wing ", "機翼 ")) + s }), el("span", {}, sel, " × ", q));
+  }
+  const note = el("p", { className: "dim", textContent: L("Only stations 4–8 can be changed (skill 9.6). Leave a station on the aircraft's own default to keep its standard load.", "只能修改 4–8 號掛架（skill 9.6）。保留預設就會用飛機原本的標準掛載。") });
+  dialog(L("Loadout", "掛載") + " · " + objInfo(o).long, el("div", {}, g, note), [["OK", "", () => {
+    pushUndo(); const ms = C.wing(o) ? wingMembers(o) : [o];
+    for (const m of ms) {
+      const keep = m.f.filter(f => f[0] !== "hardpoint"); const hp = [];
+      for (const s of [4, 5, 6, 7, 8]) { const [sel, q] = rows[s]; if (sel.value === "") continue; hp.push(["hardpoint", sel.value === "0" ? `${s} 0 ` : `${s} ${Math.max(1, +q.value | 0)} ${sel.value}`]); }
+      m.f = keep; let at = m.f.length; const ix = m.f.findIndex(f => f[0] === "preferredTargetId2"); if (ix >= 0) at = ix; m.f.splice(at, 0, ...hp);
+    }
+    touch();
+  }], [L("Cancel", "取消"), "c", null]]);
+}
+function mtTemplate() {
+  const M = st.M, T = st.T, human = M.objs.find(isHuman), tm = (C.headGet(M, "time") || "12 0").split(/\s+/).map(Number);
+  const title = (st.name || "MISSION").toUpperCase(), base = human ? objLabel(human) : T[3];
+  const en = M.objs.filter(C.isEnemy), air = [...new Set(en.filter(o => objInfo(o).plane).map(o => objInfo(o).long))], gnd = [...new Set(en.filter(o => !objInfo(o).plane).map(o => objInfo(o).long))];
+  return [".section 1", `${title}  (${st.name || "MISSION"})`, `${title}  (${T[3]})`, "Custom mission", ".section 2", ".center .underline .header", title, "..underline .left .body",
+    T[3].toUpperCase(), "DATE :  ", `LOCAL  TIME :  ${String(tm[0]).padStart(2, "0")}${String(tm[1] || 0).padStart(2, "0")}`, "WEATHER :  Clear",
+    ".underline .header", "SITUATION", "..underline .body", "Describe the situation here.", ".underline .header", "MISSION OBJECTIVE", "..underline .body",
+    "Describe the objective here.", ".underline .header", "THREAT SUPPRESSION DATA", "..underline .body",
+    `GROUND  OPPOSITION :  ${gnd.join(", ") || "Unknown"}`, `AIR  OPPOSITION :  ${air.join(", ") || "Unknown"}`,
+    ".section 3", ".center .underline .header", "DEBRIEF", "..underline .left .body", T[3].toUpperCase(), "DATE :  ", `MISSION :  ${title}`, "RESOLUTION :  Success", "Mission accomplished.",
+    ".section 4", ".center .underline .header", "DEBRIEF", "..underline .left .body", T[3].toUpperCase(), "DATE :  ", `MISSION :  ${title}`, "RESOLUTION :  Failure", "The mission failed.", ""].join("\n");
+}
+function dlgBrief() {
+  const ta = el("textarea"); ta.value = st.mt.replace(/\r/g, "") || mtTemplate(); ta.spellcheck = false;
+  const p = el("p", { className: "dim", textContent: L("The .MT briefing: section 1 = name, 2 = briefing, 3 = success debrief, 4 = failure debrief. ASCII only.", ".MT 簡報：第 1 段 = 名稱、2 = 簡報、3 = 成功報告、4 = 失敗報告。只能用英文字元（ASCII）。") });
+  dialog(L("Briefing text (.MT)", "簡報文字 (.MT)"), el("div", {}, p, ta), [["OK", "", () => { pushUndo(); st.mt = ta.value; touch(); }],
+    [L("New template", "重新產生範本"), "g", () => { ta.value = mtTemplate(); return false; }], [L("Cancel", "取消"), "c", null]]);
+}
+async function dlgCheck() {
+  const cat = await loadItems(profile), txt = latin1(C.serialize(st.M)).replace(/\x01([^\x01\r\n]*)\x01/g, '"$1"');
+  const res = checkMission(txt, { name: st.name || null, mapCode: st.map, catalog: cat.set, L });
+  const human = st.M.objs.filter(isHuman).length; res.push(human === 1 ? { ok: true, s: L("One plane is flown by the player", "有一架玩家駕駛的飛機") } : { ok: false, s: human ? L("More than one human pilot", "超過一個人類飛行員") : L("No plane is flown by the player", "沒有玩家駕駛的飛機") });
+  const over = st.M.wps.filter(w => C.visible(w).length > MAX_WP).length; if (over) res.push({ ok: false, s: L(`${over} route(s) with more than ten waypoints`, `${over} 條航線超過十個航點`) });
+  res.push(st.mt.trim() ? { ok: true, s: L("Briefing text present", "已有簡報文字") } : { ok: false, s: L("No briefing text yet (a template is saved)", "還沒有簡報文字（存檔時會用範本）") });
+  const ul = el("div"); for (const r of res) ul.append(el("div", { className: r.ok ? "ok" : "bad", textContent: (r.ok ? "✓ " : "✗ ") + r.s }));
+  dialog(L("Check mission", "檢查任務"), ul, [["OK", "", null]]);
+}
+function askName(then) {
+  const d = (st.name || (st.T[0] + "MSN").slice(0, 6) + "1").toUpperCase();
+  const wrap = el("div"), inp = el("input", { value: d, maxLength: 7, style: "width:110px;text-transform:uppercase" }), err = el("div", { className: "err" });
+  wrap.append(el("p", { textContent: L("Save mission as: 6 letters or digits, plus a revision character (1–9, A–Z), e.g. TAIWAN1.", "任務存檔名稱：6 個英文或數字，再加一個版次字元（1–9、A–Z），例如 TAIWAN1。") }), inp, err);
+  const ok = () => { const v = inp.value.trim().toUpperCase(); if (!NAME_RE.test(v)) { err.textContent = L("Illegal filename entered.", "檔名不合規則。"); return false; } st.name = v; fileInfo(); renderPanel(); then && then(); };
+  inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); if (ok() !== false) closeDialog(); } };
+  dialog(L("Save mission as", "任務存檔"), wrap, [["OK", "", ok], [L("Cancel", "取消"), "c", null]]);
+}
+function download(name, bytes) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" })); a.download = name;
+  document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+function save() {
+  if (!st.name || !NAME_RE.test(st.name)) { askName(save); return; }
+  // view line: the editor centre (first value not decoded, kept as is)
+  const v = (C.headGet(st.M, "view") || "4149 0 0").split(/\s+/); if (st.dirty) C.headSet(st.M, "view", `${v[0]} ${Math.round(st.view.cx)} ${Math.round(st.view.cz)}`, ["wind"]);
+  if (!st.mt.trim()) st.mt = mtTemplate();
+  download(st.name + ".M", C.serialize(st.M));
+  setTimeout(() => download(st.name + ".MT", mtBytes(st.mt)), 400);
+  st.dirty = false; st.baseline = snapshot(); fileInfo();
+}
+
+// ---------------------------------------------------------------- menus (FA: ? File View World Object Waypoint Show Multiplayer Aircraft)
+function menus() {
+  const sel = st.sel, o = sel && sel.o, plane = o && objInfo(o).plane, S = st.show;
+  const chk = (k) => ({ chk: S[k], fn: () => { S[k] = !S[k]; try { localStorage.setItem("fashion_mb_show", JSON.stringify(S)); } catch (e) {} draw(); } });
+  return [
+    ["?", "?", [[L("How to use", "使用說明"), () => dlgHelp()], [L("About the .M format", "關於 .M 格式"), () => window.open("../mission/fighters_anthology_mission_generator_SKILL.md", "_blank")], [L("Mission Generator (AI)", "任務產生器（AI）"), () => { location.href = "mission_gen.html"; }]]],
+    ["File", "檔案", [[L("New mission…", "新任務…"), () => newMissionAsk()], [L("Open .M / .MT…", "開啟 .M / .MT…"), () => $("fileIn").click()], "-",
+      [L("Save", "存檔"), () => save(), "Ctrl+S"], [L("Save as…", "另存新檔…"), () => askName(save)], "-",
+      [L("Briefing text (.MT)…", "簡報文字 (.MT)…"), () => dlgBrief()], [L("Check mission", "檢查任務"), () => dlgCheck()]]],
+    ["View", "檢視", [[L("Zoom in", "放大"), () => zoomBy(1 / 1.6), "+"], [L("Zoom out", "縮小"), () => zoomBy(1.6), "−"], [L("Whole map", "整張地圖"), () => { fitAll(); draw(); }],
+      [L("Center on player", "以玩家為中心"), () => { const h = st.M.objs.find(isHuman); if (h) centerOn(C.pos(h)[0], C.pos(h)[2], zoomMin() / 4); }],
+      [L("Center on selection", "以選取物件為中心"), o ? () => centerOn((sel.kind === "wp" ? C.wpPos(sel.w.recs[sel.i]).x : C.pos(o)[0]), (sel.kind === "wp" ? C.wpPos(sel.w.recs[sel.i]).z : C.pos(o)[2])) : null]]],
+    ["World", "環境", [[L("Theater…", "戰區…"), () => pickTheater($("menubar").children[4])], [L("Time, weather and era…", "時間、天氣和年代…"), () => dlgWorld()],
+      [L("Skill levels", "技術等級"), () => select(null)], "-",
+      [L("Items: factory FA", "物件清單：原版 FA"), () => setProfile("default"), null, profile === "default"], [L("Items: FA + JKP 600", "物件清單：FA + JKP 600"), () => setProfile("jkp600"), null, profile === "jkp600"]]],
+    ["Object", "物件", [[L("Add aircraft…", "新增飛機…"), () => dlgAdd("fighter")], [L("Add ship…", "新增艦艇…"), () => dlgAdd("ship")], [L("Add ground unit…", "新增地面單位…"), () => dlgAdd("tank")],
+      [L("Add structure…", "新增建築…"), () => dlgAdd("structure")], "-",
+      [L("Duplicate", "複製"), o ? () => duplicate(o) : null, "Ctrl+D"], [L("Delete", "刪除"), o && sel.kind === "obj" ? () => deleteObj(o) : null, "Del"],
+      [L("Change type…", "更換種類…"), o ? () => dlgAdd(objInfo(o).kind, { replace: o }) : null], [L("Join a wing…", "加入編隊…"), o ? () => setMode({ kind: "join", o }) : null]]],
+    ["Waypoint", "航點", [[L("Add waypoints", "新增航點"), o ? () => startAddWp(o) : null, "W"], [L("Insert after this waypoint", "在此航點後插入"), sel && sel.kind === "wp" ? () => startAddWp(o, sel.i) : null],
+      [L("Delete waypoint", "刪除航點"), sel && sel.kind === "wp" ? () => deleteWp() : null, "Del"],
+      [L("Delete all waypoints", "刪除全部航點"), o ? () => { pushUndo(); for (const m of wingMembers(o)) { const w = routeFor(m); if (w) st.M.wps.splice(st.M.wps.indexOf(w), 1); } st.sel = { kind: "obj", o }; touch(); } : null]]],
+    ["Show", "顯示", [[L("Names", "名稱"), ...Object.values(chk("names")).reverse()], [L("Routes", "航線"), ...Object.values(chk("routes")).reverse()],
+      [L("Friendly objects", "友軍物件"), ...Object.values(chk("friend")).reverse()], [L("Enemy objects", "敵軍物件"), ...Object.values(chk("enemy")).reverse()],
+      [L("Map objects", "地圖物件"), ...Object.values(chk("mmobj")).reverse()], [L("Map names", "地名"), ...Object.values(chk("mmnames")).reverse()]]],
+    ["Multiplayer", "多人連線", [[L("Multiplayer settings are not decoded in .M files yet", "多人連線設定在 .M 檔中尚未解碼"), null]]],
+    ["Aircraft", "飛機", [[L("Fly this aircraft", "駕駛這架飛機"), plane ? () => { if (!isHuman(o)) toggleHuman(o); } : null], [L("Loadout…", "掛載…"), plane ? () => dlgLoadout(o) : null], "-",
+      [L("Select Plane screen", "選擇飛機畫面"), () => toggleHead("selectplane"), null, hasHead("selectplane")],
+      [L("Arm Plane screen", "掛載武器畫面"), () => toggleHead("armplane"), null, hasHead("armplane")],
+      [L("Briefing map", "簡報地圖"), () => toggleHead("briefmap"), null, hasHead("briefmap")]]],
+  ];
+}
+const hasHead = k => !!st.M && C.headGet(st.M, k) !== undefined;
+function toggleHead(k) { pushUndo(); if (C.headGet(st.M, k) !== undefined) C.headDel(st.M, k); else C.headSet(st.M, k, "", ["textFormat", "brief", "briefmap", "selectplane"]); touch(); }
+async function setProfile(p) { profile = p; try { localStorage.setItem("fashion_mb_profile", p); } catch (e) {} await loadItems(p); render(); }
+function buildMenubar() {
+  const mb = $("menubar"); mb.textContent = "";
+  menus().forEach(([en, zh], k) => {
+    const m = el("span", { className: "mi", textContent: L(en, zh) }); m.dataset.k = k;
+    m.onclick = e => { e.stopPropagation(); const was = m.classList.contains("open"); closePop(); if (!was) openMenu(m, k); };
+    m.onmouseenter = () => { if (document.querySelector(".dd") && !m.classList.contains("open")) { closePop(); openMenu(m, k); } };
+    mb.append(m);
+  });
+  mb.append(el("span", { className: "tail" }));
+}
+function openMenu(m, k) {
+  const items = menus()[k][2]; m.classList.add("open"); const dd = el("div", { className: "dd" });
+  for (const it of items) {
+    if (it === "-") { dd.append(el("div", { className: "sep" })); continue; }
+    const [label, fn, key, chk] = it; const d = el("div", { className: "it" + (fn ? "" : " off") + (chk ? " chk" : "") }, el("span", { textContent: label }), el("span", { className: "k", textContent: key || "" }));
+    if (fn) d.onclick = e => { e.stopPropagation(); closePop(); fn(); };
+    dd.append(d);
+  }
+  $("stage").append(dd); dd.style.left = (80 + m.offsetLeft) + "px"; dd.style.top = "59px";
+  const r = dd.offsetLeft + dd.offsetWidth; if (r > 636) dd.style.left = (636 - dd.offsetWidth) + "px";
+}
+function dlgHelp() {
+  const b = el("div"); b.innerHTML = L(
+    `<p><b>Select</b> an object or waypoint by clicking it; change it by clicking the boxed words on the right.</p>
+<p><b>Move</b>: drag an object or waypoint. <b>Scroll</b>: drag empty map or the red sliders. <b>Zoom</b>: wheel, + / − keys or the small slider.</p>
+<p><b>Add</b>: Object menu, pick a type, then click on the map. A new friendly plane is flown by the player if nobody is yet.</p>
+<p><b>Route</b>: select an object, Waypoint › Add waypoints, click up to ten points, Esc when done. A wing flies its leader's route.</p>
+<p><b>Keys</b>: Del delete, Ctrl+Z undo, Ctrl+D duplicate, W add waypoints, Esc stop.</p>
+<p><b>OK</b> saves NAME.M and NAME.MT. <b>Cancel</b> goes back to the last opened or saved version.</p>`,
+    `<p><b>選取</b>：點物件或航點；點右邊方框裡的字來修改。</p>
+<p><b>移動</b>：拖曳物件或航點。<b>捲動</b>：拖曳空白地圖或紅色滑桿。<b>縮放</b>：滾輪、+ / − 鍵或小滑桿。</p>
+<p><b>新增</b>：Object 選單選種類，再點地圖。若還沒有玩家駕駛的飛機，新的友軍飛機會設為玩家駕駛。</p>
+<p><b>航線</b>：選物件，Waypoint › 新增航點，最多點十個點，完成按 Esc。編隊會跟著長機的航線飛。</p>
+<p><b>按鍵</b>：Del 刪除、Ctrl+Z 復原、Ctrl+D 複製、W 新增航點、Esc 結束。</p>
+<p><b>OK</b> 存出 NAME.M 和 NAME.MT。<b>Cancel</b> 回到上次開啟或存檔的版本。</p>`);
+  dialog(L("How to use", "使用說明"), b, [["OK", "", null]]);
+}
+
+// ---------------------------------------------------------------- editing actions
+function setMode(m) { st.mode = m; if (m && m.kind !== "place" && m.o) st.sel = { kind: "obj", o: m.o }; setHint(); render(); }
+function setHint() {
+  const h = $("hint"); if (!st.mode) { h.hidden = true; cv.style.cursor = "default"; return; }
+  h.hidden = false; h.textContent = modeHelp().textContent; cv.style.cursor = "crosshair";
+}
+function startAddWp(o, after) {
+  const lead = leaderOf(o); const w = routeFor(lead);
+  if (w && C.visible(w).length >= MAX_WP) { alertBox(L("Only ten waypoints are allowed per object.", "每個物件最多只能有十個航點。")); return; }
+  st.sel = { kind: "obj", o: lead }; setMode({ kind: "addwp", o: lead, after });
+}
+function addWpAt(x, z) {
+  const m = st.mode, o = m.o; const w = routeFor(o);
+  if (w && C.visible(w).length >= MAX_WP) { alertBox(L("Only ten waypoints are allowed per object.", "每個物件最多只能有十個航點。")); st.mode = null; setHint(); render(); return; }
+  pushUndo(); const route = ensureRoute(o);
+  const vis = C.visible(route), prev = m.after != null ? route.recs[m.after] : vis[vis.length - 1];
+  const i = objInfo(o), alt = prev ? C.wpPos(prev).y : (C.pos(o)[1] || (i.plane ? 15000 : 0));
+  const opts = prev ? { goal: 1, speed: C.getN(prev, "w_speed", 676), wng: C.get(prev, "w_wng"), react: C.get(prev, "w_react"), search: C.getN(prev, "w_searchDist", 0) }
+    : { goal: 1, speed: i.plane ? (C.getN(o, "speed", 676) || 676) : (C.getN(o, "speed", 0) || 30), wng: i.plane ? "1 0 2048 0" : "0 0 0 0", react: i.plane ? "$0 $8000 $0" : "$0 $0 $0", search: 0 };
+  const r = C.wpRecord("point", x, i.plane ? Math.max(alt, i.plane ? 500 : 0) : 0, z, opts);
+  if (i.kind === "ship") { C.set(r, "w_flags", "$4"); C.set(r, "w_pos2", `1   0   ${Math.round(x)} 0 ${Math.round(z)}`); }
+  const at = m.after != null ? m.after + 1 : route.recs.findIndex(x2 => C.getN(x2, "w_flags") & 2);
+  route.recs.splice(at < 0 ? route.recs.length : at, 0, r);
+  if (m.after != null) m.after = at;
+  st.sel = { kind: "wp", w: route, i: route.recs.indexOf(r), o };
+  if (C.visible(route).length >= MAX_WP) { st.mode = null; setHint(); }
+  touch();
+}
+function deleteWp() {
+  const s = st.sel; if (!s || s.kind !== "wp") return; pushUndo(); s.w.recs.splice(s.i, 1);
+  if (!C.visible(s.w).length) st.M.wps.splice(st.M.wps.indexOf(s.w), 1);
+  st.sel = { kind: "obj", o: s.o }; touch();
+}
+function deleteObj(o) {
+  pushUndo(); const a = C.alias(o), w = C.wing(o);
+  st.M.objs.splice(st.M.objs.indexOf(o), 1); const r = st.M.wps.find(x => x.owner === a); if (r) st.M.wps.splice(st.M.wps.indexOf(r), 1);
+  if (w) renumber(w.id);
+  for (const x of st.M.objs) { const t = C.getN(x, "preferredTargetId2", 0); if (t && ((t & 0xffff) << 16 >> 16) === a) C.del(x, "preferredTargetId2"); }
+  for (const w2 of st.M.wps) for (const r2 of w2.recs) { const t = C.getN(r2, "w_preferredTargetId2", 0); if (t && ((t & 0xffff) << 16 >> 16) === a) C.set(r2, "w_preferredTargetId2", "$0"); }
+  st.sel = null; touch();
+}
+function duplicate(o) {
+  pushUndo(); const reserved = st.mm ? st.mm.objs.map(C.alias) : [];
+  const c = { f: o.f.map(f => [f[0], f[1] && typeof f[1] === "object" ? { s: f[1].s } : f[1]]) };
+  C.set(c, "alias", String(C.nextAlias(st.M, reserved))); C.del(c, "controller"); C.del(c, "wing"); C.del(c, "npcFlags");
+  const p = C.pos(o); C.set(c, "pos", `${p[0] + 2000} ${p[1]} ${p[2] - 2000}`); st.M.objs.push(c); st.sel = { kind: "obj", o: c }; touch();
+}
+function pickTargetFor(t) {
+  const m = st.mode, o = m.o, me = C.isEnemy(o), key = m.rec ? "w_preferredTargetId2" : "preferredTargetId2";
+  if (t.o === o) { alertBox(L("You can't escort yourself!", "不能護航自己！")); return; }
+  const friend = C.isEnemy(t.o) === me, tPlane = objInfo(t.o).plane;
+  if (friend && !tPlane) { alertBox(L("The only friendlies you can select are planes, to escort.", "友軍只能選飛機（護航）。")); return; }
+  pushUndo(); const code = (C.alias(t.o) & 0xffff) | (friend ? 0x40000000 : 0);
+  if (m.rec) C.set(m.rec, key, C.hex(code >>> 0)); else C.set(o, key, C.hex(code >>> 0));
+  st.mode = null; setHint(); touch();
+}
+function joinWing(t) {
+  const o = st.mode.o, i = objInfo(o), ti = objInfo(t);
+  if (i.plane !== ti.plane) { alertBox(i.plane ? L("Only aircraft can be added to a wing.", "只有飛機可以加入編隊。") : L("Only vehicles can be added to a group.", "只有車輛可以加入群組。")); return; }
+  if (C.isEnemy(o) !== C.isEnemy(t)) { alertBox(i.plane ? L("All aircraft in a wing must be on the same side.", "同一編隊的飛機必須在同一陣營。") : L("All vehicles in a group must be on the same side.", "同一群組的車輛必須在同一陣營。")); return; }
+  let tw = C.wing(t); const size = tw ? wingMembers(t).length : 1;
+  if (size >= 8) { alertBox(i.plane ? L("No more aircraft can be added to that wing.", "這個編隊不能再加飛機。") : L("No more vehicles can be added to that group.", "這個群組不能再加車輛。")); return; }
+  pushUndo(); const old = C.wing(o);
+  if (!tw) { const id = nextWingId(); C.set(t, "wing", `${id} 0`, ["searchDist", "react", "skill"]); if (ti.plane && C.get(t, "wng") === undefined) C.set(t, "wng", "1 0 2048 0", ["wing"]); tw = { id }; }
+  C.set(o, "wing", `${tw.id} ${size}`, ["searchDist", "react", "skill"]); if (i.plane) C.set(o, "wng", C.get(t, "wng") || "1 0 2048 0", ["wing"]);
+  if (old) renumber(old.id);
+  const h = wingMembers(o).find(isHuman); if (h) makeHuman(h);
+  st.mode = null; setHint(); st.sel = { kind: "obj", o }; touch();
+}
+function zoomBy(f, sx = MW / 2, sy = MH / 2) {
+  const [wx, wz] = s2w(sx, sy); st.view.fpp *= f; clampView();
+  const [nx, nz] = s2w(sx, sy); st.view.cx += wx - nx; st.view.cz += wz - nz; clampView(); draw();
+}
+
+// ---------------------------------------------------------------- mouse
+function mpos(e) { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / scale, (e.clientY - r.top) / scale]; }
+function hitAt(x, y) {
+  let best = null, bd = 1e9;
+  for (let k = hits.length - 1; k >= 0; k--) { const h = hits[k]; if (!h.r) continue; const d = Math.max(Math.abs(h.x - x), Math.abs(h.y - y)); if (d <= h.r && d < bd - (h.kind === "mm" ? 0 : 3)) { best = h; bd = d; } }
+  return best;
+}
+let drag = null;
+cv.addEventListener("pointerdown", e => {
+  closePop(); if (dlgOpen() || !st.M) return; const [x, y] = mpos(e);
+  if (e.button === 2) { if (st.mode) { st.mode = null; setHint(); render(); } return; }
+  if (e.button !== 0) return;
+  cv.setPointerCapture(e.pointerId);
+  const m = st.mode;
+  if (m) {
+    const [wx, wz] = s2w(x, y);
+    if (m.kind === "place") { placeAt(wx, wz); return; }
+    if (m.kind === "addwp") { addWpAt(wx, wz); return; }
+    const h = hitAt(x, y);
+    if (m.kind === "target" && h && (h.kind === "obj" || h.kind === "mm")) { pickTargetFor(h); return; }
+    if (m.kind === "join" && h && h.kind === "obj") { joinWing(h.o); return; }
+    return;
+  }
+  const h = hitAt(x, y);
+  if (h && h.kind === "obj") { st.sel = { kind: "obj", o: h.o }; render(); drag = { kind: "obj", o: h.o, x0: x, y0: y, moved: false }; return; }
+  if (h && h.kind === "wp") { st.sel = { kind: "wp", w: h.w, i: h.i, o: h.o }; render(); drag = { kind: "wp", w: h.w, i: h.i, x0: x, y0: y, moved: false }; return; }
+  if (h && h.kind === "mm") { showMM(h.o); }
+  drag = { kind: "pan", x0: x, y0: y, cx: st.view.cx, cz: st.view.cz, moved: false, desel: !h };
+});
+cv.addEventListener("pointermove", e => {
+  const [x, y] = mpos(e);
+  if (st.mode && (st.mode.kind === "place" || st.mode.kind === "addwp")) { st.mode.at = [x, y]; draw(); }
+  if (!drag) { const h = !st.mode && hitAt(x, y); cv.style.cursor = st.mode ? "crosshair" : h && h.kind !== "mm" ? "move" : "default"; return; }
+  const dx = x - drag.x0, dy = y - drag.y0; if (!drag.moved && Math.hypot(dx, dy) < 3) return;
+  if (!drag.moved) { drag.moved = true; if (drag.kind !== "pan") pushUndo(); }
+  const [wx, wz] = s2w(x, y);
+  if (drag.kind === "pan") { st.view.cx = drag.cx - dx * st.view.fpp; st.view.cz = drag.cz + dy * st.view.fpp; clampView(); draw(); }
+  else if (drag.kind === "obj") { const p = C.pos(drag.o); C.set(drag.o, "pos", `${Math.round(wx)} ${p[1]} ${Math.round(wz)}`); st.dirty = true; syncRoutes(); draw(); }
+  else if (drag.kind === "wp") { const r = drag.w.recs[drag.i], q = C.wpPos(r); C.setWpPos(r, wx, q.y, wz); st.dirty = true; syncRoutes(); draw(); }
+});
+cv.addEventListener("pointerup", () => {
+  if (drag) { if (drag.kind === "pan" && !drag.moved && drag.desel) { st.sel = null; render(); } else if (drag.moved && drag.kind !== "pan") render(); }
+  drag = null;
+});
+cv.addEventListener("contextmenu", e => e.preventDefault());
+cv.addEventListener("wheel", e => { e.preventDefault(); const [x, y] = mpos(e); zoomBy(e.deltaY > 0 ? 1.25 : 0.8, x, y); }, { passive: false });
+function showMM(o) {
+  const i = objInfo(o); setHintTemp(`${i.long} · ${L("map object", "地圖物件")} · ${C.isEnemy(o) ? L("enemy", "敵") : L("friendly", "友")} ${adj(C.country(o))} · alias ${C.alias(o)}`);
+}
+let hintT = 0;
+function setHintTemp(t) { const h = $("hint"); h.hidden = false; h.textContent = t; clearTimeout(hintT); hintT = setTimeout(() => setHint(), 2500); }
+// sliders
+function sliderDrag(knob, onMove) {
+  knob.addEventListener("pointerdown", e => { e.stopPropagation(); knob.setPointerCapture(e.pointerId); const sx = e.clientX, sy = e.clientY, l = knob.offsetLeft, t = knob.offsetTop;
+    const mv = ev => onMove(l + (ev.clientX - sx) / scale, t + (ev.clientY - sy) / scale);
+    const up = () => { knob.removeEventListener("pointermove", mv); knob.removeEventListener("pointerup", up); };
+    knob.addEventListener("pointermove", mv); knob.addEventListener("pointerup", up); });
+}
+sliderDrag($("hk"), x => { st.view.cx = Math.max(0, Math.min(1, x / (402 - 26))) * EXT(); clampView(); draw(); });
+sliderDrag($("vk"), (x, y) => { st.view.cz = (1 - Math.max(0, Math.min(1, y / (325 - 24)))) * EXT(); clampView(); draw(); });
+sliderDrag($("zk"), (x, y) => { const t = 1 - Math.max(0, Math.min(1, y / 20)); st.view.fpp = zoomMin() * Math.pow(zoomMax() / zoomMin(), t); clampView(); draw(); });
+$("hs").addEventListener("pointerdown", e => { if (e.target !== $("hs")) return; const r = $("hs").getBoundingClientRect(); st.view.cx = (e.clientX - r.left) / r.width * EXT(); clampView(); draw(); });
+$("vs").addEventListener("pointerdown", e => { if (e.target !== $("vs")) return; const r = $("vs").getBoundingClientRect(); st.view.cz = (1 - (e.clientY - r.top) / r.height) * EXT(); clampView(); draw(); });
+$("stage").addEventListener("pointerdown", e => { if (!e.target.closest(".pop,.dd,.mi")) closePop(); });
+
+// keys
+addEventListener("keydown", e => {
+  if (e.target.closest && e.target.closest("input,textarea,select")) return;
+  if (dlgOpen()) { if (e.key === "Escape") closeDialog(); return; }
+  const k = e.key;
+  if (k === "Escape") { closePop(); if (st.mode) { st.mode = null; setHint(); render(); } return; }
+  if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === "z") { e.preventDefault(); undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === "s") { e.preventDefault(); save(); return; }
+  if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === "d") { e.preventDefault(); if (st.sel) duplicate(st.sel.o); return; }
+  if (k === "Delete" || k === "Backspace") { if (st.sel?.kind === "wp") deleteWp(); else if (st.sel?.kind === "obj") deleteObj(st.sel.o); return; }
+  if (k === "+" || k === "=") zoomBy(1 / 1.4); if (k === "-") zoomBy(1.4);
+  if (k.toLowerCase() === "w" && st.sel) startAddWp(st.sel.o);
+});
+
+// ---------------------------------------------------------------- files
+function fileInfo() {
+  const fi = $("fileInfo"); fi.textContent = "";
+  fi.append(el("b", { textContent: (st.name || L("(not named)", "（未命名）")) + ".M" }), ` · ${st.map} ${L(st.T[3], st.T[4])} · `,
+    L(`${st.M ? st.M.objs.length : 0} objects`, `${st.M ? st.M.objs.length : 0} 個物件`));
+  if (st.dirty) fi.append(" ", el("span", { className: "dirty", textContent: L("● unsaved changes", "● 有未存的修改") }));
+}
+async function openMission(mtext, mt, name) {
+  const M = C.parse(mtext), mp = (C.headGet(M, "map") || "wta.T2").split(/\s+/)[0].replace(/\.T2$/i, "").toUpperCase();
+  const code = THEATERS.some(t => t[0] === mp) ? mp : "WTA";
+  if (code !== st.map || !st.picCv) await loadTheater(code);
+  st.M = M; st.mt = mt || ""; st.name = (name || "").toUpperCase(); st.sel = null; st.mode = null; undoStack.length = 0; $("bUndo").disabled = true;
+  st.dirty = false; st.baseline = snapshot();
+  // start the view on the mission's objects
+  if (M.objs.length) { let x = 0, z = 0; for (const o of M.objs) { const p = C.pos(o); x += p[0]; z += p[2]; } st.view = { cx: x / M.objs.length, cz: z / M.objs.length, fpp: zoomMin() / 3 }; clampView(); }
+  else fitAll();
+  setHint(); render();
+}
+async function openFiles(files) {
+  const all = [...files]; const m = all.find(f => /\.MM?$/i.test(f.name)); const mtF = all.find(f => /\.MT$/i.test(f.name));
+  if (!m && mtF) { if (!st.M) return; st.mt = latin1(new Uint8Array(await mtF.arrayBuffer())); st.dirty = true; render(); return; }
+  if (!m) return;
+  if (st.dirty && !(await confirmBox(L("Discard the unsaved changes?", "放棄未存的修改？")))) return;
+  const base = m.name.replace(/\.MM?$/i, ""), mt = all.find(f => f.name.replace(/\.MT$/i, "").toUpperCase() === base.toUpperCase() && /\.MT$/i.test(f.name));
+  const text = latin1(new Uint8Array(await m.arrayBuffer())), mtText = mt ? latin1(new Uint8Array(await mt.arrayBuffer())) : "";
+  await openMission(text, mtText, /\.MM$/i.test(m.name) ? "" : base);
+}
+$("fileIn").onchange = e => { openFiles(e.target.files); e.target.value = ""; };
+$("holder").addEventListener("dragover", e => e.preventDefault());
+$("holder").addEventListener("drop", e => { e.preventDefault(); if (e.dataTransfer.files.length) openFiles(e.dataTransfer.files); });
+async function newMission(code) {
+  await loadTheater(code); const M = C.newMission(code); C.headSet(M, "map", code.toLowerCase() + ".T2");
+  st.M = M; st.mt = ""; st.name = ""; st.sel = null; st.mode = null; undoStack.length = 0; $("bUndo").disabled = true; st.dirty = false; st.baseline = snapshot();
+  // sides4 from the theater's own table, so countries keep their map sides
+  if (st.mm && st.mm.sides.length === 64) M.sides = st.mm.sides.slice();
+  fitAll(); setHint(); render();
+}
+async function newMissionAsk() {
+  if (st.dirty && !(await confirmBox(L("Discard the unsaved changes?", "放棄未存的修改？")))) return;
+  const sel = el("select"); for (const t of THEATERS) sel.append(el("option", { value: t[0], textContent: `${t[0]} · ${L(t[3], t[4])}` })); sel.value = st.map;
+  dialog(L("New mission", "新任務"), el("div", {}, el("p", { textContent: L("Theater:", "戰區：") }), sel), [["OK", "", () => { newMission(sel.value); }], [L("Cancel", "取消"), "c", null]]);
+}
+$("bNew").onclick = () => newMissionAsk();
+$("bSave").onclick = () => save();
+$("bUndo").onclick = () => undo();
+$("bBrief").onclick = () => dlgBrief();
+$("bCheck").onclick = () => dlgCheck();
+$("ok").onclick = () => save();
+$("cancel").onclick = async () => {
+  if (!st.dirty) return; if (!(await confirmBox(L("Throw away the changes since the last open or save?", "放棄上次開啟或存檔之後的修改？")))) return;
+  const b = st.baseline; pushUndo(); st.M = C.parse(b.m); st.mt = b.mt; st.name = b.name; if (b.map !== st.map) await loadTheater(b.map); st.sel = null; st.dirty = false; render();
+};
+addEventListener("beforeunload", e => { if (st.dirty) { e.preventDefault(); e.returnValue = ""; } });
+addEventListener("resize", layout);
+I.onChange?.(() => { buildMenubar(); $("cancel").textContent = L("Cancel", "取消"); render(); });
+
+// ---------------------------------------------------------------- start
+(async () => {
+  layout(); buildMenubar(); $("cancel").textContent = L("Cancel", "取消");
+  $("panel").append(para(L("Loading the map…", "載入地圖中…")));
+  await Promise.all([loadIndex(), loadPal(), loadItems(profile)]);
+  // a mission handed over by the Mission Generator page
+  let hand = null; try { hand = JSON.parse(localStorage.getItem("fashion_mb_open") || "null"); localStorage.removeItem("fashion_mb_open"); } catch (e) {}
+  if (hand && hand.m) await openMission(hand.m, hand.mt || "", hand.name || "");
+  else await newMission(new URLSearchParams(location.search).get("map")?.toUpperCase() || "WTA");
+  layout();
+})();
+window.__mb = { st, C, render, openMission };   // for tests
+</script>
+</body>
+</html>
