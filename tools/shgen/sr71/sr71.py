@@ -21,7 +21,7 @@ bsp.EPS = float(os.environ.get('EPS', '1.5'))
 from mesh import Mesh
 
 L_FT = 107.4
-U = 304.0 / L_FT               # Kuoyi's A10-based SR-71 is 304 units long
+U = 3.06                       # SR71_5: FA scale of the F-14 (192 units / 62.7 ft); was 304 / 107.4 (Kuoyi A10 morph)
 S0 = 54.0                      # origin 54 ft aft of the nose tip
 BODY, SPIKE, DUCT, GLASS, FRAME = 158, 157, 160, 74, 159
 TYRE, GREY, FLAME, CORE = 160, 150, 182, 189

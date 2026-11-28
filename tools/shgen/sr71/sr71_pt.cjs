@@ -12,6 +12,9 @@ set('year', 1966); set('emptyWt', 67500); set('maxWt', 140000); set('fuel', 8000
 set('thrMil', 50000); set('thrAB', 65000);          // 2 x 25,000 dry, 2 x 32,500 with afterburner (total, as F14.PT 24,700 / 41,800)
 set('fuelAB', 22);                                  // cruise in min AB ~8,000 US gal/h (~14.5 lb/s); F-14 AB 26
 set('gMax', 3);
+// SR71_5 scale (3.06 units/ft): cockpit eye (x, up, fwd) in SH units, pilot at s 21 ft, 4.3 ft above the wing plane
+const eye = pt.lines.findIndex(l => /ptr hudName/.test(l));
+pt.lines[eye - 2] = pt.lines[eye - 2].replace(/word \d+/, 'word 13'); pt.lines[eye - 1] = pt.lines[eye - 1].replace(/word \d+/, 'word 101');
 set('maxAlt', 88000);
 const CEIL = 88000;
 // one envelope per G level: left (slow) side scaled by f, top at ceil, high-speed side scaled by r
