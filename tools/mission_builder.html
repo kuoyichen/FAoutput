@@ -71,6 +71,9 @@ header h1{font-size:16px;margin:0;font-weight:700;white-space:nowrap}
 #zs .pm{position:absolute;left:-9px;font-size:10px;color:#fff;line-height:1}
 #zs .trk2{position:absolute;left:3px;top:0;width:6px;height:32px;background:#1c1d1f;border:1px solid #000}
 #zs .zk{position:absolute;left:-2px;width:16px;height:12px;background:linear-gradient(#f4f6f8,#aeb4ba);border:1px solid #222;border-radius:2px;cursor:grab}
+#split{position:absolute;top:84px;width:9px;cursor:col-resize;z-index:5;touch-action:none}
+#split::after{content:"";position:absolute;left:4px;top:0;bottom:0;width:1px;background:#6a6e72}
+#split:hover::after,#split.on::after{background:#ffe23a;width:2px;left:3px}
 #panel{position:absolute;left:458px;top:84px;width:178px;height:356px;overflow-y:auto;overflow-x:hidden;padding:2px 6px 8px 2px;scrollbar-width:thin;scrollbar-color:#6a6e72 #2a2c2e}
 #panel p{margin:0 0 8px;font-size:10px;line-height:1.6;text-shadow:1px 1px 0 #000}
 #panel .h{display:inline-block;font-size:10.5px;letter-spacing:.3px;margin-right:4px}
@@ -147,6 +150,7 @@ header h1{font-size:16px;margin:0;font-weight:700;white-space:nowrap}
       <div class="trk" id="vs"><div class="knob" id="vk"></div></div>
       <div class="trk" id="hs"><div class="knob" id="hk"></div></div>
       <div id="zs"><span class="pm" style="top:-2px">+</span><span class="pm" style="top:24px">−</span><div class="trk2"></div><div class="zk" id="zk"></div></div>
+      <div id="split" title="Drag to resize the map and the panel"></div>
       <div id="panel"></div>
       <div class="fbtn" id="ok">OK</div>
       <div class="fbtn" id="cancel">Cancel</div>
@@ -166,7 +170,7 @@ const C = window.MissionCore, I = window.FAI18N, L = (e, z) => I.L(e, z), $ = id
 const REMOTE = "https://raw.githubusercontent.com/kuoyichen/FAoutput/main/";
 
 I.register({ "Mission Builder": "任務編輯器", "FAshion home": "FAshion 首頁", "New": "新任務", "Open .M / .MT": "開啟 .M / .MT",
-  "Save .M + .MT": "存檔 .M + .MT", "Undo": "復原", "Briefing": "簡報", "Check": "檢查" });
+  "Save .M + .MT": "存檔 .M + .MT", "Drag to resize the map and the panel": "拖曳可調整地圖和右側面板的寬度", "Undo": "復原", "Briefing": "簡報", "Check": "檢查" });
 $("langSlot").append(I.picker()); I.apply();
 
 // ---------------------------------------------------------------- tables
@@ -318,7 +322,8 @@ const letter = i => String.fromCharCode(65 + i);
 
 // ---------------------------------------------------------------- view
 const cv = $("map"), ctx = cv.getContext("2d");
-let MW = 400, MH = 323, SW = 640, SH = 480;
+let MW = 400, MH = 323, SW = 640, SH = 480, splitW = 0;
+try { splitW = +localStorage.getItem("fashion_mb_split") || 0; } catch (e) {}
 let scale = 1, dpr = 1;
 // The FA screen is 640x480, but on a big window it grows in size (more map, wider panel) instead of being
 // magnified, so the text stays about as large as the rest of the page (~13 px).
@@ -326,17 +331,20 @@ function layout() {
   const hw = $("holder").clientWidth, vh = Math.max(420, innerHeight - 110);
   scale = Math.min(1.35, hw / 640);
   SW = Math.max(640, Math.floor(hw / scale)); SH = Math.max(480, Math.min(Math.round(SW * 0.72), Math.floor(vh / scale)));
-  const pw = SW >= 860 ? 236 : 178, mapW = SW - pw - 60, mapH = SH - 155;
+  const mapH = SH - 155, maxMap = SW - 60 - 178;
+  // the map box defaults to a square (the theater map is square); the splitter left of the panel moves it
+  const mapW = Math.round(Math.max(300, Math.min(maxMap, splitW || mapH))), pw = SW - 60 - mapW;
   const S = (id, css) => Object.assign($(id).style, css);
   S("stage", { width: SW + "px", height: SH + "px", transform: `scale(${scale})`, left: Math.max(0, (hw - SW * scale) / 2) + "px" });
   $("holder").style.height = (SH * scale) + "px";
   S("menubar", { width: Math.min(SW - 108, 900) + "px" });
   S("mapbox", { width: mapW + 2 + "px", height: mapH + 2 + "px" });
-  S("era", { left: (15 + mapW + 2 - 160) + "px", width: "160px" });
+  S("era", { left: (15 + mapW + 2 - 160) + "px", width: "160px", display: mapW < 470 ? "none" : "" });
   S("vs", { left: (15 + mapW + 13) + "px", height: mapH + 2 + "px" });
   S("hs", { top: (93 + mapH + 10) + "px", width: mapW + 2 + "px" });
   S("zs", { left: (15 + mapW + 17) + "px", top: (93 + mapH + 10) + "px" });
   S("panel", { left: (SW - pw - 4) + "px", width: pw + "px", height: (SH - 128) + "px" });
+  S("split", { left: (15 + mapW + 34) + "px", height: (SH - 128) + "px" });
   S("ok", { left: (SW - 177) + "px", top: (SH - 31) + "px" }); S("cancel", { left: (SW - 77) + "px", top: (SH - 31) + "px" });
   MW = mapW; MH = mapH;
   dpr = devicePixelRatio || 1; cv.width = Math.round(MW * scale * dpr); cv.height = Math.round(MH * scale * dpr);
@@ -1193,6 +1201,17 @@ $("hs").addEventListener("pointerdown", e => { if (e.target !== $("hs")) return;
 $("vs").addEventListener("pointerdown", e => { if (e.target !== $("vs")) return; const r = $("vs").getBoundingClientRect(); st.view.cz = (1 - (e.clientY - r.top) / r.height) * EXT(); clampView(); draw(); });
 $("stage").addEventListener("pointerdown", e => { if (!e.target.closest(".pop,.dd,.mi")) closePop(); });
 
+// splitter between the map and the panel
+{ const sp = $("split");
+  sp.addEventListener("pointerdown", e => {
+    e.preventDefault(); sp.setPointerCapture(e.pointerId); sp.classList.add("on"); const x0 = e.clientX, w0 = MW;
+    const mv = ev => { splitW = w0 + (ev.clientX - x0) / scale; layout(); };
+    const up = () => { sp.classList.remove("on"); sp.removeEventListener("pointermove", mv); sp.removeEventListener("pointerup", up); splitW = MW;
+      try { localStorage.setItem("fashion_mb_split", String(MW)); } catch (e) {} };
+    sp.addEventListener("pointermove", mv); sp.addEventListener("pointerup", up);
+  });
+  sp.addEventListener("dblclick", () => { splitW = 0; try { localStorage.removeItem("fashion_mb_split"); } catch (e) {} layout(); });
+}
 // keys
 addEventListener("keydown", e => {
   if (e.target.closest && e.target.closest("input,textarea,select")) return;
