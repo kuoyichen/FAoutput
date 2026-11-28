@@ -671,12 +671,63 @@ function altBox(o) {
     : [L("at ", "高度 "), box(String(p[1]), () => askAlt(o)), L(" feet.", " 呎。")];
 }
 function askAlt(o) {
-  const p = C.pos(o);
-  askText(L("Altitude in feet (0 = ground level).", "高度（呎，0 = 地面）。"), String(p[1]), v => {
-    const n = Math.max(0, Math.min(90000, parseInt(v, 10) || 0)); pushUndo();
-    for (const m of (C.wing(o) ? wingMembers(o) : [o])) { const q = C.pos(m); C.set(m, "pos", `${q[0]} ${n} ${q[2]}`); }
+  const p = C.pos(o), plane = objInfo(o).plane;
+  askText(plane ? L("Altitude in feet (0 = on the ground: only on a runway or carrier spot; otherwise at least 1000).", "高度（呎，0 = 在地面：只能停在跑道或航艦停靠點上，否則最低 1000）。")
+    : L("Altitude in feet (0 = ground level).", "高度（呎，0 = 地面）。"), String(p[1]), v => {
+    let n = Math.max(0, Math.min(90000, parseInt(v, 10) || 0)); pushUndo();
+    const ms = C.wing(o) ? wingMembers(o) : [o];
+    if (plane && n === 0) { const r = parkWing(ms); if (r) { touch(); setHintTemp(r); return; } n = MIN_AIR; }
+    if (plane && n > 0 && n < MIN_AIR) n = MIN_AIR;
+    for (const m of ms) { const q = C.pos(m); C.set(m, "pos", `${q[0]} ${n} ${q[2]}`); if (plane && n > 0 && !C.getN(m, "speed", 0)) C.set(m, "speed", "676", ["flags"]); }
     touch();
+    if (plane && n === MIN_AIR && (parseInt(v, 10) || 0) < MIN_AIR) setTimeout(() => alertBox((parseInt(v, 10) || 0) === 0 ? NO_SPOT() : L(`Aircraft fly at least ${MIN_AIR} feet; altitude set to ${MIN_AIR}.`, `飛機最低高度是 ${MIN_AIR} 呎，已設為 ${MIN_AIR}。`)), 0);
   }, "number");
+}
+// ---------------------------------------------------------------- parking spots (aircraft at altitude 0)
+// An aircraft can start at 0 ft only on a parking spot: the named points 0x11, 0x12 and 0x19..0x2C in the F2 table of a
+// runway or carrier SH (tools/mb_build/build_types.py -> mb_assets/types.json). Off a spot the lowest altitude is 1000 ft.
+let TYPES = null;
+fetch("mb_assets/types.json").then(r => r.json()).then(j => { TYPES = j; }).catch(() => {});
+const MIN_AIR = 1000, SPOT_R = 5 * 6076, SPOT_ON = 60;
+const NO_SPOT = () => L(`No runway or carrier parking spot within 5 nm, so the aircraft cannot sit at 0 ft. Altitude set to ${MIN_AIR} feet. Move it next to an airfield or carrier and set 0 again.`,
+  `5 浬內沒有跑道或航艦的停靠點，飛機不能設為 0 呎，已改成 ${MIN_AIR} 呎。把飛機移到機場或航艦旁邊，再設一次 0。`);
+const shOf = t => { t = String(t || "").toUpperCase(); return TYPES ? TYPES.types[t] || t.replace(/\.\w+$/, "") : ""; };
+function parkSpots() {
+  const out = []; if (!TYPES) return out;
+  for (const o of [...(st.mm ? st.mm.objs : []), ...st.M.objs]) {
+    const t = C.get(o, "type"); if (/\.PT$/i.test(t)) continue;
+    const pts = TYPES.spots[shOf(t)]; if (!pts) continue;
+    const p = C.pos(o), hd = C.heading(o), a = hd * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    for (const [id, lx, up, lf] of pts) out.push({ x: p[0] + lx * c + lf * s, z: p[2] - lx * s + lf * c, up, hdg: hd, id, owner: o });
+  }
+  return out;
+}
+// put every member of a wing on its own free spot near the leader; returns a hint text, or null when there is no spot
+function parkWing(ms) {
+  const spots = parkSpots(); if (!spots.length) return null;
+  const others = st.M.objs.filter(x => !ms.includes(x) && objInfo(x).plane && C.pos(x)[1] <= 0).map(C.pos);
+  const free = spots.filter(sp => !others.some(q => Math.hypot(q[0] - sp.x, q[2] - sp.z) < SPOT_ON));
+  const lp = C.pos(ms[0]); let ref = null, moved = false;
+  for (const m of ms) {
+    const q = ref || C.pos(m); let best = null, bd = SPOT_R;
+    for (const sp of free) { const d = Math.hypot(sp.x - q[0], sp.z - q[2]); if (d < bd) { bd = d; best = sp; } }
+    if (!best) { if (m === ms[0]) return null; break; }
+    free.splice(free.indexOf(best), 1); if (!ref) ref = [best.x, 0, best.z];
+    const mp = C.pos(m); if (Math.hypot(mp[0] - best.x, mp[2] - best.z) > 1) moved = true;
+    C.set(m, "pos", `${Math.round(best.x)} 0 ${Math.round(best.z)}`);
+    const a = C.getNs(m, "angle"); let h = Math.round(best.hdg); if (h > 180) h -= 360; C.set(m, "angle", `${h} ${a[1] || 0} ${a[2] || 0}`, ["pos"]);
+    C.set(m, "speed", "0", ["flags"]);
+  }
+  const left = ms.filter(m => C.pos(m)[1] > 0);
+  for (const m of left) { const q = C.pos(m); C.set(m, "pos", `${q[0]} ${MIN_AIR} ${q[2]}`); }
+  return (moved ? L("Moved onto the nearest parking spot: on the ground at 0 ft.", "已移到最近的停靠點上：在地面 0 呎。") : L("On a parking spot: on the ground at 0 ft.", "在停靠點上：在地面 0 呎。"))
+    + (left.length ? L(` ${left.length} wingman(s) had no free spot and stay at ${MIN_AIR} ft.`, ` ${left.length} 架僚機沒有空的停靠點，維持 ${MIN_AIR} 呎。`) : "");
+}
+// after a drag: a parked aircraft must stay on a spot
+function reparkAfterDrag(o) {
+  if (!objInfo(o).plane || C.pos(o)[1] > 0) return;
+  const r = parkWing([o]); if (r) { setHintTemp(r); return; }
+  const q = C.pos(o); C.set(o, "pos", `${q[0]} ${MIN_AIR} ${q[2]}`); alertBox(NO_SPOT());
 }
 function speedBox(o) {
   const sp = C.getN(o, "speed", 0), kt = Math.round(sp / C.KT);
@@ -1253,7 +1304,7 @@ cv.addEventListener("pointermove", e => {
   else if (drag.kind === "wp") { const r = drag.w.recs[drag.i], q = C.wpPos(r); C.setWpPos(r, wx, q.y, wz); st.dirty = true; syncRoutes(); draw(); }
 });
 cv.addEventListener("pointerup", () => {
-  if (drag) { if (drag.kind === "pan" && !drag.moved && drag.desel) { st.sel = null; render(); } else if (drag.moved && drag.kind !== "pan") render(); }
+  if (drag) { if (drag.kind === "pan" && !drag.moved && drag.desel) { st.sel = null; render(); } else if (drag.moved && drag.kind !== "pan") { if (drag.kind === "obj") reparkAfterDrag(drag.o); syncRoutes(); render(); } }
   drag = null;
 });
 cv.addEventListener("contextmenu", e => e.preventDefault());
@@ -1369,7 +1420,7 @@ I.onChange?.(() => { buildMenubar(); $("cancel").textContent = L("Cancel", "取�
   else await newMission(new URLSearchParams(location.search).get("map")?.toUpperCase() || "WTA");
   layout();
 })();
-window.__mb = { st, C, render, openMission };   // for tests
+window.__mb = { st, C, render, openMission, askAlt, parkSpots, get TYPES() { return TYPES; } };   // for tests
 </script>
 </body>
 </html>
