@@ -13,7 +13,7 @@ Made by hawke (kuoyichen). Web page: https://fashion-hawke.vercel.app/tools/miss
 
 | File / 檔案 | What / 說明 |
 |---|---|
-| `fighters_anthology_mission_generator_SKILL_v26.md` | The generator rules (skill v26): file format, flags, reactions, waypoints, carriers, loadouts. 產生規則（skill v26）。 |
+| `fighters_anthology_mission_generator_SKILL.md` | The generator rules; the version (now v27) and what is supported are at the top of the file. 產生規則；版本（目前 v27）和支援狀態寫在檔案開頭。 |
 | `items/FA_items(default).txt` | Asset list for a factory FA install. 原版 FA 的物件清單。 |
 | `items/FA_items(default+JKP600).txt` | Asset list for FA with the JKP 600 library. 安裝 JKP 600 後的物件清單。 |
 | `maps/<MAP>.MM.txt` | The 14 theater maps (`.MM` with a `.txt` suffix so chat apps accept it): airfields, cities, defenses and their coordinates. 14 個戰區地圖。 |
@@ -30,8 +30,7 @@ NSK Korea, PGU Persian Gulf, SPA Pakistan, TVIET North Vietnam, VLA Vladivostok,
 2. Send this first message (once): / 先送這段訊息（一次就好）：
 
    > Follow the attached Fighters Anthology mission generator skill exactly. Use the attached items file as the
-   > asset catalog and the attached .MM.txt as the map reference. If the items file is marked "JKP600" instead of
-   > "JKPFA_53b", treat it as the DEFAULT_PLUS_JKPFA_53B profile (JKP 600 is the newer JKP library).
+   > asset catalog and the attached .MM.txt as the map reference.
    > Give me the .M and .MT as downloadable files.
 
 3. Describe the mission, in English or Chinese, for example: / 描述任務，中英文都可以，例如：

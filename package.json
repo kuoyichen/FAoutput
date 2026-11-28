@@ -2,9 +2,10 @@
   "name": "fashion",
   "private": true,
   "type": "module",
-  "description": "FAshion site: static pages plus /api routes for online mission storage (Vercel Blob)",
+  "description": "FAshion site: static pages plus /api routes for online mission storage (Vercel Blob) and the Mission Generator allowance (Claude API)",
   "engines": { "node": ">=20" },
   "dependencies": {
+    "@anthropic-ai/sdk": "1.8.0",
     "@vercel/blob": "2.8.2"
   }
 }

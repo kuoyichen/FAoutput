@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FA Mission Generator</title>
-<meta name="description" content="Describe a Fighters Anthology mission in words and get a .M mission and .MT briefing that follow FA.EXE's rules. Download the generator pack (skill v26, items lists, 14 maps) for your own AI.">
+<meta name="description" content="Describe a Fighters Anthology mission in words and get a .M mission and .MT briefing that follow FA.EXE's rules. Download the generator pack (mission skill, items lists, 14 maps) for your own AI.">
 <style>
 :root{ --bg:#0e1216; --card:#161c22; --card2:#1b232b; --line:#26303a; --text:#e2e8ee; --muted:#8a96a4; --accent:#ffd54a; --cyan:#6fd3ff; --ok:#5fd38a; --bad:#ff6b6b; }
 *{box-sizing:border-box}
@@ -39,7 +39,20 @@ ol.steps li::before{content:counter(s);position:absolute;left:0;top:2px;width:28
 .maps span{background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:2px 9px;font-size:13px}
 .maps b{font-family:ui-monospace,Consolas,monospace;color:var(--accent);margin-right:5px}
 .copy{float:right;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:3px 10px;font:inherit;font-size:12px;cursor:pointer}
-.soon{border-style:dashed}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin:8px 0}
+select,textarea,input[type=password]{background:#0b0f13;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;font-size:14px}
+textarea{width:100%;resize:vertical;margin-top:6px}
+input[type=password]{flex:1 1 260px;min-width:0;font-family:ui-monospace,Consolas,monospace}
+.small{font-size:13px}
+[hidden]{display:none!important}
+#gFiles{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
+.fcard{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:12px}
+.fcard b{font-family:ui-monospace,Consolas,monospace}
+.checks{list-style:none;padding:0;margin:8px 0;font-size:14px}
+.checks li::before{content:"✓ ";color:var(--ok)} .checks li.bad::before{content:"✗ ";color:var(--bad)}
+details summary{cursor:pointer;color:var(--muted);font-size:14px;margin-top:8px}
+#gRaw{max-height:420px;overflow:auto}
+.err{color:var(--bad)}
 </style>
 <script src="fashion_i18n.js"></script>
 </head>
@@ -55,16 +68,47 @@ ol.steps li::before{content:counter(s);position:absolute;left:0;top:2px;width:28
   <p class="lead" data-lang="zh">用一般的文字（中文或英文）描述一場 Fighters Anthology 任務，AI 就會幫你寫出 <code>.M</code> 任務檔和 <code>.MT</code> 簡報檔，而且符合 FA.EXE 的規則：敵我與國籍、編隊與僚機、航點、目標、反應、航艦、掛載和任務成功條件。</p>
   <div class="dl">
     <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/mission/FA_mission_generator_pack.zip" download>⬇ <span data-lang="en">Download the generator pack</span><span data-lang="zh">下載產生器套件</span></a>
-    <a class="btn ghost" href="#use"><span data-lang="en">How to use it</span><span data-lang="zh">使用方法</span></a>
+    <a class="btn ghost" href="#gen">✦ <span data-lang="en">Generate here</span><span data-lang="zh">在這裡產生</span></a>
+    <a class="btn ghost" href="#use"><span data-lang="en">Use your own AI</span><span data-lang="zh">用自己的 AI</span></a>
     <a class="btn ghost" href="https://github.com/kuoyichen/FAoutput/tree/main/mission"><span data-lang="en">Files on GitHub</span><span data-lang="zh">GitHub 上的檔案</span></a>
   </div>
   <p class="muted" data-lang="en">FA_mission_generator_pack.zip, 250 KB. It runs with your own AI; nothing is sent to FAshion.</p>
   <p class="muted" data-lang="zh">FA_mission_generator_pack.zip，250 KB。用你自己的 AI 執行，不會傳任何東西到 FAshion。</p>
 
+  <h2 id="gen" data-lang="en">Generate it here</h2><h2 data-lang="zh">直接在這裡產生</h2>
+  <div class="card" id="genCard">
+    <div class="row">
+      <label><span data-lang="en">Map</span><span data-lang="zh">地圖</span> <select id="gMap"></select></label>
+      <label><span data-lang="en">Your FA</span><span data-lang="zh">你的 FA</span> <select id="gItems"><option value="jkp600">FA + JKP 600</option><option value="default">Factory FA</option></select></label>
+    </div>
+    <textarea id="gPrompt" rows="5" maxlength="3000" placeholder="Taiwan map. I fly an F-16 from Chiayi with three wingmen at 20,000 ft. Four MiG-29s come from the west. Destroy them; Chiayi airbase must survive."></textarea>
+    <div class="row mode">
+      <label><input type="radio" name="gMode" value="free" checked> <span data-lang="en">Free allowance</span><span data-lang="zh">免費額度</span> <span id="freeInfo" class="muted"></span></label>
+      <label><input type="radio" name="gMode" value="own"> <span data-lang="en">My own Anthropic API key</span><span data-lang="zh">我自己的 Anthropic API key</span></label>
+    </div>
+    <div id="keyRow" class="row" hidden>
+      <input id="gKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-...">
+      <label class="muted"><input type="checkbox" id="gRemember"> <span data-lang="en">Remember on this device</span><span data-lang="zh">記在這台裝置</span></label>
+    </div>
+    <p id="keyNote" class="muted small" hidden><span data-lang="en">Your key goes straight from this browser to Anthropic; FAshion never sees it. One mission costs about US$0.5–0.8 on your key (the rules are long), less when you make several within a few minutes.</span><span data-lang="zh">你的 key 只從這個瀏覽器直接送到 Anthropic，FAshion 看不到。每產生一個任務大約花你 US$0.5–0.8（規則很長），幾分鐘內連續產生會便宜很多。</span></p>
+    <div class="row"><button class="btn" id="gGo" type="button">✦ <span data-lang="en">Generate mission</span><span data-lang="zh">產生任務</span></button><span id="gStatus" class="muted"></span></div>
+    <div id="gOut" hidden>
+      <pre id="gSummary"></pre>
+      <div id="gFiles"></div>
+      <ul id="gChecks" class="checks"></ul>
+      <details><summary data-lang="en">Everything the AI wrote</summary><summary data-lang="zh">AI 寫的全部內容</summary><pre id="gRaw"></pre></details>
+      <div id="gRev" hidden>
+        <h3 data-lang="en">Change something</h3><h3 data-lang="zh">修改</h3>
+        <textarea id="gChange" rows="3" maxlength="3000" placeholder="Make the MiGs come from the north and add an E-2C for us."></textarea>
+        <div class="row"><button class="btn ghost" id="gRevGo" type="button">↻ <span data-lang="en">Make the next revision</span><span data-lang="zh">產生下一版</span></button></div>
+      </div>
+    </div>
+  </div>
+
   <h2 data-lang="en">What is in the pack</h2><h2 data-lang="zh">套件內容</h2>
   <div class="card scroll"><table>
     <tr><th data-lang="en">File</th><th data-lang="zh">檔案</th><th data-lang="en">What it is</th><th data-lang="zh">說明</th></tr>
-    <tr><td class="f">fighters_anthology_mission_generator_SKILL_v26.md</td><td><span data-lang="en">The generator rules (skill v26): file format, nations and sides, object flags, reactions, waypoints and formations, carriers, fuel and hardpoints, the .MT briefing, and a check list. Worked out from many Mission Creator test files.</span><span data-lang="zh">產生規則（skill v26）：檔案格式、國籍與敵我、物件旗標、反應、航點與編隊、航艦、油量與掛架、.MT 簡報，以及檢查清單。由許多 Mission Creator 測試檔比對整理出來。</span></td></tr>
+    <tr><td class="f">fighters_anthology_mission_generator_SKILL.md</td><td><span data-lang="en">The generator rules (now v27; the version and what is supported are at the top of the file): file format, nations and sides, object flags, reactions, waypoints and formations, carriers, fuel and hardpoints, the .MT briefing, and a check list. Worked out from many Mission Creator test files.</span><span data-lang="zh">產生規則（目前 v27，版本和支援狀態寫在檔案開頭）：檔案格式、國籍與敵我、物件旗標、反應、航點與編隊、航艦、油量與掛架、.MT 簡報，以及檢查清單。由許多 Mission Creator 測試檔比對整理出來。</span></td></tr>
     <tr><td class="f">items/FA_items(default).txt</td><td><span data-lang="en">Every aircraft, weapon, vehicle, ship, object, layer, map and country of a factory FA install.</span><span data-lang="zh">原版 FA 的所有飛機、武器、車輛、船艦、物件、圖層、地圖和國家。</span></td></tr>
     <tr><td class="f">items/FA_items(default+JKP600).txt</td><td><span data-lang="en">The same with the <a href="jkp_lib.html">JKP 600 library</a> installed. A JKP file replaces the factory file with the same name.</span><span data-lang="zh">安裝 <a href="jkp_lib.html">JKP 600 資料庫</a>後的清單。同檔名時以 JKP 的為準。</span></td></tr>
     <tr><td class="f">maps/&lt;MAP&gt;.MM.txt</td><td><span data-lang="en">The 14 theater maps: airfields, cities, defenses and named areas with their exact positions, so "take off from Chiayi" lands on the real runway.</span><span data-lang="zh">14 個戰區地圖：機場、城市、防禦據點和地名的精確位置，所以「從嘉義起飛」會真的在跑道上。</span></td></tr>
@@ -78,18 +122,13 @@ ol.steps li::before{content:counter(s);position:absolute;left:0;top:2px;width:28
   <ol class="steps">
     <li><span data-lang="en">Give your AI three files: the skill, <b>one</b> items file that matches your FA install, and the <code>.MM.txt</code> of your map. In Claude, put them in a Project or attach them to a chat. Use a strong model: the skill is long (about 60,000 tokens).</span><span data-lang="zh">給 AI 三個檔案：skill、<b>一個</b>和你的 FA 安裝相符的 items 檔，以及地圖的 <code>.MM.txt</code>。在 Claude 可以放進 Project 或附加在對話裡。請用強一點的模型：skill 很長（約 6 萬 token）。</span></li>
     <li><span data-lang="en">Send this first message once:</span><span data-lang="zh">先送一次這段訊息：</span>
-      <pre id="first"><button class="copy" type="button" id="copyBtn">Copy</button>Follow the attached Fighters Anthology mission generator skill exactly. Use the attached items file as the asset catalog and the attached .MM.txt as the map reference. If the items file is marked "JKP600" instead of "JKPFA_53b", treat it as the DEFAULT_PLUS_JKPFA_53B profile (JKP 600 is the newer JKP library). Give me the .M and .MT as downloadable files.</pre></li>
+      <pre id="first"><button class="copy" type="button" id="copyBtn">Copy</button>Follow the attached Fighters Anthology mission generator skill exactly. Use the attached items file as the asset catalog and the attached .MM.txt as the map reference. Give me the .M and .MT as downloadable files.</pre></li>
     <li><span data-lang="en">Describe the mission, for example:</span><span data-lang="zh">描述任務，例如：</span>
       <pre data-lang="en">Taiwan map. I fly an F-16 from Chiayi with three wingmen at 20,000 ft. Four MiG-29s come from the west. Destroy them; Chiayi airbase must survive.</pre>
       <pre data-lang="zh">台灣地圖。我駕駛 F-16 帶三架僚機從嘉義起飛，高度 20,000 呎。四架 MiG-29 從西邊來，擊落它們，嘉義基地必須存活。</pre></li>
     <li><span data-lang="en">Copy the <code>.M</code> and <code>.MT</code> into your FA folder and pick the mission in FA. Ask the AI for real files, not text to copy: a <code>.M</code> has 0x01 bytes around names and ends with a 0x00 byte, which a copied text block loses. To change the mission, ask in the same chat; the name keeps its six-letter stem and the last character counts up (TAIWAN1 → TAIWAN2).</span><span data-lang="zh">把 <code>.M</code> 和 <code>.MT</code> 放進 FA 目錄，在 FA 裡選這個任務。請 AI 給真正的檔案，不要複製文字：<code>.M</code> 的名稱前後有 0x01 位元組、檔尾是 0x00，複製文字會遺失。要修改就在同一個對話裡說，檔名前六個字不變，最後一個字遞增（TAIWAN1 → TAIWAN2）。</span></li>
   </ol>
 
-  <h2 data-lang="en">Generate it here</h2><h2 data-lang="zh">直接在這裡產生</h2>
-  <div class="card soon">
-    <p data-lang="en">Coming next on this page: type the mission here and get the files, with your own Anthropic API key (kept only in your browser) or a small free daily allowance. A visual Mission Builder that looks like FA's own Mission Creator is on the way too.</p>
-    <p data-lang="zh">這一頁接下來會加上：直接在這裡輸入任務描述就拿到檔案，可以用你自己的 Anthropic API key（只存在你的瀏覽器），或每天少量的免費額度。外觀和 FA 內建 Mission Creator 一樣的圖形化任務編輯器也在製作中。</p>
-  </div>
 </main>
 <script>
 "use strict";
@@ -100,6 +139,111 @@ document.getElementById("copyBtn").addEventListener("click", e => {
   const t = document.getElementById("first").textContent.replace(e.target.textContent, "").trim();
   navigator.clipboard.writeText(t).then(() => { e.target.textContent = FAI18N.L("Copied", "已複製"); setTimeout(() => { e.target.textContent = FAI18N.L("Copy", "複製"); }, 1500); });
 });
+</script>
+<script type="module">
+import * as MA from "./mission_ai_prompt.mjs";
+const $ = id => document.getElementById(id), L = (e, z) => FAI18N.L(e, z);
+FAI18N.register({
+  "Taiwan map. I fly an F-16 from Chiayi with three wingmen at 20,000 ft. Four MiG-29s come from the west. Destroy them; Chiayi airbase must survive.": "台灣地圖。我駕駛 F-16 帶三架僚機從嘉義起飛，高度 20,000 呎。四架 MiG-29 從西邊來，擊落它們，嘉義基地必須存活。",
+  "Make the MiGs come from the north and add an E-2C for us.": "讓 MiG 改從北邊來，再幫我們加一架 E-2C。",
+  "Factory FA": "原版 FA", "FA + JKP 600": "FA + JKP 600",
+});
+FAI18N.apply();
+const LS = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k, v){ try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch(e){} } };
+for (const [c, en, zh] of MA.MAPS){ const o = document.createElement("option"); o.value = c; o.textContent = `${c} · ${L(en, zh)}`; o.dataset.en = en; o.dataset.zh = zh; $("gMap").append(o); }
+FAI18N.onChange?.(() => { renderFree(); for (const o of $("gMap").options) o.textContent = `${o.value} · ${L(o.dataset.en, o.dataset.zh)}`; });
+$("gMap").value = LS.get("fashion_mg_map") || "WTA"; $("gItems").value = LS.get("fashion_mg_items") || "jkp600";
+const savedKey = LS.get("fashion_mg_key"); if (savedKey){ $("gKey").value = savedKey; $("gRemember").checked = true; }
+
+// free allowance status (only on the Vercel site, which has the /api routes)
+let free = null;
+const apiBase = /vercel\.app$|localhost|127\.0\.0\.1/.test(location.hostname) ? "/api/mission-ai" : "https://fashion-hawke.vercel.app/api/mission-ai";
+async function freeStatus(){
+  try { const r = await fetch(apiBase, { cache: "no-store" }); free = await r.json(); } catch(e){ free = { enabled: false }; }
+  renderFree();
+}
+function renderFree(){
+  if (!free) return;
+  if (!free.enabled){ $("freeInfo").textContent = L("(not available right now)", "（目前沒有開放）");
+    if (!document.querySelector('input[name=gMode][value=own]').checked){ document.querySelector('input[name=gMode][value=own]').checked = true; modeChanged(); } }
+  else $("freeInfo").textContent = L(`(${free.left} of ${free.daily} left today, ${free.perIp} per person)`, `（今天還剩 ${free.left} / ${free.daily} 次，每人 ${free.perIp} 次）`);
+}
+const mode = () => document.querySelector("input[name=gMode]:checked").value;
+function modeChanged(){ const own = mode() === "own"; $("keyRow").hidden = !own; $("keyNote").hidden = !own; }
+document.querySelectorAll("input[name=gMode]").forEach(r => r.addEventListener("change", modeChanged));
+if (savedKey) document.querySelector('input[name=gMode][value=own]').checked = true;
+modeChanged(); freeStatus();
+
+// sources for the own-key path (same files the server uses)
+const cache = new Map();
+async function src(path){
+  if (cache.has(path)) return cache.get(path);
+  for (const u of [new URL("../" + path, location.href).href, "https://raw.githubusercontent.com/kuoyichen/FAoutput/main/" + path]){
+    try { const r = await fetch(u); if (r.ok){ const t = MA.decodeText(new Uint8Array(await r.arrayBuffer())); cache.set(path, t); return t; } } catch(e){}
+  }
+  throw new Error(L("Could not load ", "無法載入 ") + path);
+}
+let Anthropic = null;
+async function sdk(){ if (!Anthropic) Anthropic = (await import("./anthropic_sdk.js")).default; return Anthropic; }
+
+let last = null;   // { name, m (text), mt (text), map, items }
+const status = (t, err) => { $("gStatus").textContent = t; $("gStatus").className = err ? "err" : "muted"; };
+const ERR = { "daily-limit": ["Today's free missions are used up. Try tomorrow or use your own key.", "今天的免費次數用完了，明天再試，或用你自己的 key。"],
+  "ip-limit": ["You have used your free missions for today. Use your own key for more.", "你今天的免費次數用完了，要再產生請用你自己的 key。"],
+  "not-enabled": ["The free allowance is not available right now. Use your own key.", "免費額度目前沒有開放，請用你自己的 key。"],
+  "too-fast": ["Please wait a minute before the next one.", "請等一分鐘再產生下一個。"], "bad-prompt": ["Describe the mission in 5 to 3,000 characters.", "任務描述請在 5 到 3,000 字之間。"] };
+
+async function generate(prompt, previous){
+  const map = $("gMap").value, items = $("gItems").value;
+  LS.set("fashion_mg_map", map); LS.set("fashion_mg_items", items);
+  if (!prompt || prompt.trim().length < 5){ status(L(...ERR["bad-prompt"]), true); return; }
+  $("gGo").disabled = $("gRevGo").disabled = true; $("gOut").hidden = false; $("gRaw").textContent = ""; $("gSummary").textContent = ""; $("gFiles").innerHTML = ""; $("gChecks").innerHTML = "";
+  let text = "", t0 = Date.now(); const tick = setInterval(() => status(L(`Working… ${Math.round((Date.now() - t0) / 1000)} s (a mission takes 1–3 minutes)`, `產生中… ${Math.round((Date.now() - t0) / 1000)} 秒（一個任務約 1–3 分鐘）`)), 1000);
+  const on = ev => {
+    if (ev.type === "text"){ text += ev.text; $("gRaw").textContent = text; const p = MA.parseReply(text); $("gSummary").textContent = p.summary; }
+    else if (ev.type === "done") text = ev.text;
+    else if (ev.type === "error") throw new Error(ev.error);
+  };
+  try {
+    if (mode() === "own"){
+      const key = $("gKey").value.trim(); if (!/^sk-ant-/.test(key)) throw new Error(L("Paste your Anthropic API key (it starts with sk-ant-).", "請貼上你的 Anthropic API key（以 sk-ant- 開頭）。"));
+      LS.set("fashion_mg_key", $("gRemember").checked ? key : null);
+      status(L("Loading the rules…", "載入規則…"));
+      const [skill, it, mm, A] = await Promise.all([src(MA.SKILL_PATH), src(MA.ITEMS[items]), src(MA.mapPath(map)), sdk()]);
+      const client = new A({ apiKey: key, dangerouslyAllowBrowser: true });
+      await MA.runStream(client, MA.buildParams({ skill, items: it, mm, mapCode: map, prompt, previous }), on);
+    } else {
+      const r = await fetch(apiBase, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ map, profile: items, prompt, previous }) });
+      if (!r.ok){ let j = {}; try { j = await r.json(); } catch(e){} throw new Error(ERR[j.error] ? L(...ERR[j.error]) : (j.error || r.status)); }
+      const rd = r.body.getReader(), dec = new TextDecoder(); let buf = "";
+      for (;;){ const { done, value } = await rd.read(); if (done) break; buf += dec.decode(value, { stream: true });
+        let i; while ((i = buf.indexOf("\n")) >= 0){ const line = buf.slice(0, i); buf = buf.slice(i + 1); if (line.trim()) on(JSON.parse(line)); } }
+      freeStatus();
+    }
+    clearInterval(tick); show(text, map, items);
+  } catch (e){ clearInterval(tick); status(String(e.message || e), true); }
+  finally { $("gGo").disabled = $("gRevGo").disabled = false; }
+}
+async function show(text, map, items){
+  const p = MA.parseReply(text); $("gSummary").textContent = p.summary || "";
+  const fm = p.files.find(f => /\.M$/i.test(f.name)), fmt = p.files.find(f => /\.MT$/i.test(f.name));
+  if (!fm){ status(L("The AI did not return a .M file. See its full answer below and try again.", "AI 沒有回傳 .M 檔，請看下面的完整回答後再試一次。"), true); return; }
+  const base = fm.name.replace(/\.M$/i, "").toUpperCase(), mb = MA.mBytes(fm.text), mtb = fmt ? MA.mtBytes(fmt.text) : null;
+  const card = (name, bytes) => { const d = document.createElement("div"); d.className = "fcard";
+    const url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
+    d.innerHTML = `<b></b><span class="muted"></span><a class="btn" download>⬇ ${L("Download", "下載")}</a>`;
+    d.querySelector("b").textContent = name; d.querySelector("span").textContent = bytes.length.toLocaleString() + " B"; const a = d.querySelector("a"); a.href = url; a.download = name; return d; };
+  $("gFiles").append(card(base + ".M", mb)); if (mtb) $("gFiles").append(card(base + ".MT", mtb));
+  let catalog = null; try { catalog = MA.itemsCatalog(await src(MA.ITEMS[items])); } catch(e){}
+  const checks = MA.checkMission(fm.text, { name: base, mapCode: map, catalog, L });
+  if (!mtb) checks.push({ ok: false, s: L("No .MT briefing", "沒有 .MT 簡報") });
+  for (const c of checks){ const li = document.createElement("li"); li.textContent = c.s; if (!c.ok) li.className = "bad"; $("gChecks").append(li); }
+  const bad = checks.filter(c => !c.ok).length;
+  status(bad ? L(`Done, with ${bad} problem(s) to look at.`, `完成，但有 ${bad} 個問題要注意。`) : L("Done. Copy both files into your FA folder.", "完成。把兩個檔案放進 FA 目錄。"), !!bad);
+  last = { name: base, m: fm.text, mt: fmt ? fmt.text : "" }; $("gRev").hidden = false;
+}
+$("gGo").addEventListener("click", () => generate($("gPrompt").value, null));
+$("gRevGo").addEventListener("click", () => last && generate($("gChange").value, last));
 </script>
 </body>
 </html>
