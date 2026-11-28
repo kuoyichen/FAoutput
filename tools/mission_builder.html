@@ -491,6 +491,12 @@ function paint() {
   // map objects and names (from the theater's .MM)
   if (st.mm && st.show.mmobj) for (const o of st.mm.objs) {
     const p = C.pos(o), [sx, sy] = w2s(p[0], p[2]); if (sx < -10 || sy < -10 || sx > MW + 10 || sy > MH + 10) continue;
+    if (ART.ok) {   // map objects use the same MCICONS art; half size when zoomed far out so the map stays readable
+      const t = C.get(o, "type"), c = iconCell(info(t).kind, C.heading(o), t), big = st.view.fpp <= zoomMin() / 3, k = big ? 1 : 0.55;
+      g.imageSmoothingEnabled = !big;
+      g.drawImage(ART.img.mcicons, c * 24, C.isEnemy(o) ? 20 : 0, 23, 19, Math.round(sx - 11.5 * k), Math.round(sy - 9.5 * k), Math.round(23 * k), Math.round(19 * k));
+      g.imageSmoothingEnabled = false; hits.push({ x: sx, y: sy, r: big ? 10 : 6, kind: "mm", o }); continue;
+    }
     g.fillStyle = C.isEnemy(o) ? "rgba(255,120,110,.85)" : "rgba(150,180,255,.85)"; g.strokeStyle = "#000"; g.lineWidth = 1;
     g.beginPath(); g.rect(Math.round(sx) - 2.5, Math.round(sy) - 2.5, 5, 5); g.fill(); g.stroke();
     hits.push({ x: sx, y: sy, r: 5, kind: "mm", o });
