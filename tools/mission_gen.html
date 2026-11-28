@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FA Mission Generator</title>
+<meta name="description" content="Describe a Fighters Anthology mission in words and get a .M mission and .MT briefing that follow FA.EXE's rules. Download the generator pack (skill v26, items lists, 14 maps) for your own AI.">
+<style>
+:root{ --bg:#0e1216; --card:#161c22; --card2:#1b232b; --line:#26303a; --text:#e2e8ee; --muted:#8a96a4; --accent:#ffd54a; --cyan:#6fd3ff; --ok:#5fd38a; --bad:#ff6b6b; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:var(--cyan)}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+header{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:12px 16px;background:#0e1216ee;border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+header .crumb{color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#langSlot{margin-left:auto}
+.fa-lang{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font:inherit;font-size:13px}
+main{max-width:960px;margin:0 auto;padding:24px 16px 60px}
+h1{font-size:clamp(30px,6vw,48px);line-height:1.08;margin:10px 0 8px}
+h1 b{color:var(--accent)}
+h2{font-size:22px;margin:40px 0 8px}
+.lead{font-size:17px;color:#c4ccd5;max-width:760px}
+.muted{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#1a1a1a;font-weight:700;text-decoration:none;border-radius:10px;padding:11px 18px;border:0;font:inherit;font-weight:700;cursor:pointer}
+.btn.ghost{background:none;color:var(--text);border:1px solid var(--line);font-weight:600}
+.dl{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:18px}
+code{font:13px/1.4 ui-monospace,Consolas,monospace;background:#0b0f13;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+pre{font:13px/1.5 ui-monospace,Consolas,monospace;background:#0b0f13;border:1px solid var(--line);border-radius:10px;padding:12px 14px;white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+td.f{font:13px ui-monospace,Consolas,monospace;white-space:nowrap}
+.scroll{overflow-x:auto}
+ol.steps{padding-left:0;list-style:none;counter-reset:s}
+ol.steps li{counter-increment:s;position:relative;padding:4px 0 14px 42px}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:2px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#1a1a1a;font-weight:800;display:grid;place-items:center}
+.maps{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.maps span{background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:2px 9px;font-size:13px}
+.maps b{font-family:ui-monospace,Consolas,monospace;color:var(--accent);margin-right:5px}
+.copy{float:right;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:3px 10px;font:inherit;font-size:12px;cursor:pointer}
+.soon{border-style:dashed}
+</style>
+<script src="fashion_i18n.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <span class="crumb">Mission Generator</span>
+  <span id="langSlot"></span>
+</header>
+<main>
+  <h1>FA <b>Mission Generator</b></h1>
+  <p class="lead" data-lang="en">Describe a Fighters Anthology mission in plain words, in English or Chinese, and an AI writes the <code>.M</code> mission file and its <code>.MT</code> briefing for you, following the rules FA.EXE needs: sides and nations, wings and wingmen, waypoints, targets, reactions, carriers, loadouts and mission success.</p>
+  <p class="lead" data-lang="zh">用一般的文字（中文或英文）描述一場 Fighters Anthology 任務，AI 就會幫你寫出 <code>.M</code> 任務檔和 <code>.MT</code> 簡報檔，而且符合 FA.EXE 的規則：敵我與國籍、編隊與僚機、航點、目標、反應、航艦、掛載和任務成功條件。</p>
+  <div class="dl">
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/mission/FA_mission_generator_pack.zip" download>⬇ <span data-lang="en">Download the generator pack</span><span data-lang="zh">下載產生器套件</span></a>
+    <a class="btn ghost" href="#use"><span data-lang="en">How to use it</span><span data-lang="zh">使用方法</span></a>
+    <a class="btn ghost" href="https://github.com/kuoyichen/FAoutput/tree/main/mission"><span data-lang="en">Files on GitHub</span><span data-lang="zh">GitHub 上的檔案</span></a>
+  </div>
+  <p class="muted" data-lang="en">FA_mission_generator_pack.zip, 250 KB. It runs with your own AI; nothing is sent to FAshion.</p>
+  <p class="muted" data-lang="zh">FA_mission_generator_pack.zip，250 KB。用你自己的 AI 執行，不會傳任何東西到 FAshion。</p>
+
+  <h2 data-lang="en">What is in the pack</h2><h2 data-lang="zh">套件內容</h2>
+  <div class="card scroll"><table>
+    <tr><th data-lang="en">File</th><th data-lang="zh">檔案</th><th data-lang="en">What it is</th><th data-lang="zh">說明</th></tr>
+    <tr><td class="f">fighters_anthology_mission_generator_SKILL_v26.md</td><td><span data-lang="en">The generator rules (skill v26): file format, nations and sides, object flags, reactions, waypoints and formations, carriers, fuel and hardpoints, the .MT briefing, and a check list. Worked out from many Mission Creator test files.</span><span data-lang="zh">產生規則（skill v26）：檔案格式、國籍與敵我、物件旗標、反應、航點與編隊、航艦、油量與掛架、.MT 簡報，以及檢查清單。由許多 Mission Creator 測試檔比對整理出來。</span></td></tr>
+    <tr><td class="f">items/FA_items(default).txt</td><td><span data-lang="en">Every aircraft, weapon, vehicle, ship, object, layer, map and country of a factory FA install.</span><span data-lang="zh">原版 FA 的所有飛機、武器、車輛、船艦、物件、圖層、地圖和國家。</span></td></tr>
+    <tr><td class="f">items/FA_items(default+JKP600).txt</td><td><span data-lang="en">The same with the <a href="jkp_lib.html">JKP 600 library</a> installed. A JKP file replaces the factory file with the same name.</span><span data-lang="zh">安裝 <a href="jkp_lib.html">JKP 600 資料庫</a>後的清單。同檔名時以 JKP 的為準。</span></td></tr>
+    <tr><td class="f">maps/&lt;MAP&gt;.MM.txt</td><td><span data-lang="en">The 14 theater maps: airfields, cities, defenses and named areas with their exact positions, so "take off from Chiayi" lands on the real runway.</span><span data-lang="zh">14 個戰區地圖：機場、城市、防禦據點和地名的精確位置，所以「從嘉義起飛」會真的在跑道上。</span></td></tr>
+  </table>
+  <div class="maps">
+    <span><b>APA</b>Panama</span><span><b>BAL</b>Baltics</span><span><b>CUB</b>Cuba</span><span><b>EGY</b>Egypt</span><span><b>FRA</b>France</span><span><b>GRE</b>Greece</span><span><b>IRA</b>Iraq</span>
+    <span><b>LFA</b>Falklands</span><span><b>NSK</b>Korea</span><span><b>PGU</b>Persian Gulf</span><span><b>SPA</b>Pakistan</span><span><b>TVIET</b>North Vietnam</span><span><b>VLA</b>Vladivostok</span><span><b>WTA</b>Taiwan</span>
+  </div></div>
+
+  <h2 id="use" data-lang="en">How to use it with your own AI</h2><h2 data-lang="zh">用你自己的 AI 執行</h2>
+  <ol class="steps">
+    <li><span data-lang="en">Give your AI three files: the skill, <b>one</b> items file that matches your FA install, and the <code>.MM.txt</code> of your map. In Claude, put them in a Project or attach them to a chat. Use a strong model: the skill is long (about 60,000 tokens).</span><span data-lang="zh">給 AI 三個檔案：skill、<b>一個</b>和你的 FA 安裝相符的 items 檔，以及地圖的 <code>.MM.txt</code>。在 Claude 可以放進 Project 或附加在對話裡。請用強一點的模型：skill 很長（約 6 萬 token）。</span></li>
+    <li><span data-lang="en">Send this first message once:</span><span data-lang="zh">先送一次這段訊息：</span>
+      <pre id="first"><button class="copy" type="button" id="copyBtn">Copy</button>Follow the attached Fighters Anthology mission generator skill exactly. Use the attached items file as the asset catalog and the attached .MM.txt as the map reference. If the items file is marked "JKP600" instead of "JKPFA_53b", treat it as the DEFAULT_PLUS_JKPFA_53B profile (JKP 600 is the newer JKP library). Give me the .M and .MT as downloadable files.</pre></li>
+    <li><span data-lang="en">Describe the mission, for example:</span><span data-lang="zh">描述任務，例如：</span>
+      <pre data-lang="en">Taiwan map. I fly an F-16 from Chiayi with three wingmen at 20,000 ft. Four MiG-29s come from the west. Destroy them; Chiayi airbase must survive.</pre>
+      <pre data-lang="zh">台灣地圖。我駕駛 F-16 帶三架僚機從嘉義起飛，高度 20,000 呎。四架 MiG-29 從西邊來，擊落它們，嘉義基地必須存活。</pre></li>
+    <li><span data-lang="en">Copy the <code>.M</code> and <code>.MT</code> into your FA folder and pick the mission in FA. Ask the AI for real files, not text to copy: a <code>.M</code> has 0x01 bytes around names and ends with a 0x00 byte, which a copied text block loses. To change the mission, ask in the same chat; the name keeps its six-letter stem and the last character counts up (TAIWAN1 → TAIWAN2).</span><span data-lang="zh">把 <code>.M</code> 和 <code>.MT</code> 放進 FA 目錄，在 FA 裡選這個任務。請 AI 給真正的檔案，不要複製文字：<code>.M</code> 的名稱前後有 0x01 位元組、檔尾是 0x00，複製文字會遺失。要修改就在同一個對話裡說，檔名前六個字不變，最後一個字遞增（TAIWAN1 → TAIWAN2）。</span></li>
+  </ol>
+
+  <h2 data-lang="en">Generate it here</h2><h2 data-lang="zh">直接在這裡產生</h2>
+  <div class="card soon">
+    <p data-lang="en">Coming next on this page: type the mission here and get the files, with your own Anthropic API key (kept only in your browser) or a small free daily allowance. A visual Mission Builder that looks like FA's own Mission Creator is on the way too.</p>
+    <p data-lang="zh">這一頁接下來會加上：直接在這裡輸入任務描述就拿到檔案，可以用你自己的 Anthropic API key（只存在你的瀏覽器），或每天少量的免費額度。外觀和 FA 內建 Mission Creator 一樣的圖形化任務編輯器也在製作中。</p>
+  </div>
+</main>
+<script>
+"use strict";
+FAI18N.register({ "Mission Generator": "任務產生器", "Copy": "複製", "Copied": "已複製", "FAshion home": "FAshion 首頁",
+  "Panama": "巴拿馬", "Baltics": "波羅的海", "Cuba": "古巴", "Egypt": "埃及", "France": "法國", "Greece": "希臘", "Iraq": "伊拉克", "Falklands": "福克蘭群島", "Korea": "朝鮮半島", "Persian Gulf": "波斯灣", "Pakistan": "巴基斯坦", "North Vietnam": "北越", "Vladivostok": "海參崴", "Taiwan": "台灣" });
+document.getElementById("langSlot").append(FAI18N.picker()); FAI18N.apply();
+document.getElementById("copyBtn").addEventListener("click", e => {
+  const t = document.getElementById("first").textContent.replace(e.target.textContent, "").trim();
+  navigator.clipboard.writeText(t).then(() => { e.target.textContent = FAI18N.L("Copied", "已複製"); setTimeout(() => { e.target.textContent = FAI18N.L("Copy", "複製"); }, 1500); });
+});
+</script>
+</body>
+</html>

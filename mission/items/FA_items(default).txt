@@ -1,0 +1,644 @@
+Aircraft:(*.PT)
+-----------------------------------------------------------
+A1.PT         	A- 1 Skyraider                           
+A10.PT        	A-10 Thunderbolt                         
+A310.PT       	Airbus 310                               
+A37.PT        	A-37 Dragonfly                           
+A4E.PT        	A- 4E Skyhawk                            
+A6.PT         	A- 6E Intruder                           
+A6V.PT        	A- 6 Intruder                            
+A7.PT         	A- 7E Corsair II                         
+A7V.PT        	A- 7A Corsair II                         
+AC130.PT      	AC-130U Spectre                          
+AF1.PT        	Air Force One                            
+AH1.PT        	AH- 1 Cobra                              
+AH64.PT       	AH-64 Apache                             
+ALPH.PT       	Alpha Jet                                
+AN74.PT       	An-74 Coaler                             
+ASTOVL.PT     	X-32 ASTOVL                              
+ASTOVLE.PT    	X-32 (Desert) ASTOVL                     
+ASTOVLF.PT    	X-32 (Forest) ASTOVL                     
+ASTOVLV.PT    	X-32 (Snow) ASTOVL                       
+ATL.PT        	Atlantique 2 (AIR)                       
+AURORA.PT     	Aurora Spy Plane                         
+AV8.PT        	Av-8B Harrier II                         
+B1.PT         	B- 1B Lancer                             
+B2.PT         	B- 2 Spirit                              
+B52.PT        	B-52 Stratofortress                      
+B707.PT       	Boeing 707                               
+B747.PT       	Boeing 747                               
+BLIMP.PT      	Anti-Stealth Blimp                       
+BUC.PT        	BAe Buccaneer                            
+C130.PT       	C-130 Hercules                           
+C17.PT        	C- 17 Globemaster                        
+C5.PT         	C-  5B Galaxy                            
+CH47.PT       	CH-47 Chinook                            
+CKUO.PT       	AIDC Ching-Kuo                           
+CMCHE.PT      	RAH-66 Commanche                         
+DRAK.PT       	Saab Draken                              
+DRNA1.PT      	Attack Drone 1                           
+DRNA2.PT      	Attack Drone 2                           
+DRND1.PT      	Decoy Drone 1                            
+DRND2.PT      	Decoy Drone 2                            
+DRNR1.PT      	Recon Drone 1 (GRD)                      
+DRNR2.PT      	Recon Drone 2 (GRD)                      
+DRNR2E.PT     	Recon (Desert) Drone 2 (GRD)             
+DRNR3.PT      	DarkStar (GRD)                           
+E2.PT         	E-2C Hawkeye (AIR)                       
+E2000.PT      	EuroFighter 2000                         
+E3.PT         	E-3 AWACS Sentry (AIR)                   
+E8.PT         	E-8C J-STARS (GRD)                       
+EA6.PT        	EA-6B Prowler                            
+F104.PT       	F-104N Starfighter                       
+F105.PT       	F-105 Thunderchief                       
+F111.PT       	F-111F Aardvark                          
+F117.PT       	F-117A Nighthawk                         
+F14.PT        	F- 14D Tomcat                            
+F15.PT        	F- 15C Eagle                             
+F15E.PT       	F- 15E Strike Eagle                      
+F15J.PT       	F- 15J Eagle                             
+F16.PT        	F- 16A Falcon                            
+F16C.PT       	F- 16C Falcon                            
+F16E.PT       	F- 16A (Desert) Falcon                   
+F16F.PT       	F- 16A (Forest) Falcon                   
+F18.PT        	F/A- 18D Hornet                          
+F18C.PT       	F/A- 18C Hornet                          
+F22.PT        	F- 22A Raptor                            
+F22N.PT       	F- 22N Raptor                            
+F260.PT       	SIAI-Marchetti SF.260                    
+F29.PT        	X-29 FSW                                 
+F31.PT        	X-31 EFM                                 
+F31E.PT       	X-31 (Desert) EFM                        
+F31F.PT       	X-31 (Forest) EFM                        
+F31V.PT       	X-31 (Snow) EFM                          
+F4.PT         	F-  4G Wild Weasel Phantom               
+F4B.PT        	F-  4B Phantom II                        
+F4E.PT        	F-  4E (Desert) Phantom                  
+F4J.PT        	F-  4J Phantom II                        
+F5E.PT        	F-  5E Tiger                             
+F5EE.PT       	F-  5E (Desert) Tiger                    
+F5EV.PT       	F-  5E (Snow) Tiger                      
+F8J.PT        	F-  8J Crusader                          
+FSX.PT        	Fighter Support-X                        
+GAZ.PT        	Gazelle                                  
+GAZE.PT       	Gazelle (Desert)                         
+GAZV.PT       	Gazelle (Snow)                           
+GRIPEN.PT     	Saab Gripen                              
+HWK.PT        	BAe Hawk                                 
+IL76.PT       	IL-76 Mainstay (AIR)                     
+IL96.PT       	IL-96                                    
+J7E.PT        	J-7E Fishbed                             
+JAG.PT        	SEPECAT Jaguar                           
+KA50.PT       	Ka-50 Hokum-A                            
+KC135.PT      	KC-135 Stratotanker                      
+KFIR.PT       	IAI Kfir                                 
+LYNX.PT       	Westland Lynx                            
+M2000.PT      	Mirage 2000                              
+M2000E.PT     	Mirage (Desert) 2000                     
+M25.PT        	MiG-25 Foxbat                            
+M5.PT         	Mirage 5                                 
+MF1.PT        	Mirage F1                                
+MI17.PT       	Mi-17 Hip                                
+MI24.PT       	Mi-24 Hind-D                             
+MIG17F.PT     	MiG-17F Fresco                           
+MIG21.PT      	MiG-21 Fishbed                           
+MIG21F.PT     	MiG-21F Fishbed-C                        
+MIG23.PT      	MiG-23 Flogger-B                         
+MIG27.PT      	MiG-27 Flogger-J                         
+MIG29.PT      	MiG-29 Fulcrum-C                         
+MIG29M.PT     	MiG-29M                                  
+MIG29V.PT     	MiG-29 (Snow) Fulcrum-C                  
+MIG31.PT      	MiG-31 Foxhound                          
+MR3.PT        	Mirage III                               
+MR3E.PT       	Mirage (Desert) III                      
+MTF1.PT       	Mitsubishi F-1                           
+P3.PT         	P-3C Orion (AIR)                         
+Q5.PT         	Q-5 Fantan                               
+RAFALE.PT     	Rafale C                                 
+RAFALEE.PT    	Rafale (Desert) C                        
+RAFALEF.PT    	Rafale M                                 
+SEAHAR.PT     	Sea Harrier FRS.2                        
+SFR.PT        	Super Frelon                             
+SFRV.PT       	Super Frelon (Snow)                      
+SH3A.PT       	SH-3A Sea King                           
+SH60.PT       	SH-60 Seahawk                            
+SPE.PT        	Super Etendard                           
+STRK.PT       	BAe Strikemaster                         
+SU24.PT       	Su-24 Fencer-D                           
+SU25.PT       	Su-25 Frogfoot-A                         
+SU27.PT       	Su-27 Flanker-B                          
+SU27V.PT      	Su-27 (Snow) Flanker-B                   
+SU33.PT       	Su-33 Flanker-D                          
+SU34.PT       	Su-34 Platypus                           
+SU35.PT       	Su-35                                    
+SU35B.PT      	Su-35 (Forest)                           
+SU7.PT        	Su- 7 Fitter                             
+TIGRE.PT      	HAC Tiger                                
+TOR.PT        	Tornado IDS                              
+TU160.PT      	Tu-160 Blackjack-A                       
+TU26.PT       	Tu- 26 Backfire-C                        
+TU95.PT       	Tu- 95 Bear-H                            
+UH60.PT       	UH-60 Black Hawk                         
+V22.PT        	V-22 Osprey                              
+VIG.PT        	Saab Viggen                              
+YAK141.PT     	Yak-141 Freestyle-A                      
+-----------------------------------------------------------
+
+
+Ordnance:(*.JT)
+-----------------------------------------------------------
+20MM_4.JT     	Colt 20mmx4                              
+2S6.JT        	2S6 Tunguska                             
+A_M1939.JT    	M1939 37mm AAA Zone                      
+AA10.JT       	AA-10 Alamo                              
+AA11.JT       	AA-11 Archer                             
+AA11B.JT      	AA-11B Backfire                          
+AA12.JT       	AA-12 Adder                              
+AA2.JT        	AA-2D Atoll                              
+AA6.JT        	AA-6 Acrid                               
+AA8.JT        	AA-8 Aphid                               
+AA9.JT        	AA-9 Amos                                
+AAA20.JT      	20mm radar AAA                           
+AAA30.JT      	30mm radar AAA                           
+AAA30BAD.JT   	30mm visual AAA                          
+AAML.JT       	AAM-L Anti-AWACS                         
+ADEN.JT       	Aden 30mm Cannon Pod                     
+ADENIN.JT     	Aden 30mm Cannon                         
+AEMP1.JT      	AEMP-1 EM Pulse                          
+AGM45.JT      	AGM-45B Shrike                           
+AGM65A.JT     	AGM-65A Maverick                         
+AGM65G.JT     	AGM-65G Maverick                         
+AGM84A.JT     	AGM-84A Harpoon                          
+AGM84E.JT     	AGM-84E SLAM                             
+AGM88.JT      	AGM-88 HARM                              
+AIM120.JT     	AIM-120 AMRAAM                           
+AIM54C.JT     	AIM-54C Phoenix                          
+AIM7.JT       	AIM-7 Sparrow                            
+AIM7E.JT      	AIM-7E Sparrow                           
+AIM9B.JT      	AIM-9B Sidewinder                        
+AIM9M.JT      	AIM-9M Sidewinder                        
+AIM9X.JT      	AIM-9X Sidewinder                        
+AM39.JT       	AM-39 Exocet                             
+AS14.JT       	AS-14 Kedge                              
+AS15.JT       	AS 15                                    
+AS16.JT       	AS-16 Kickback                           
+AS30.JT       	AS 30L                                   
+AS7.JT        	AS-7 Kerry                               
+ASROC.JT      	ASROC                                    
+AT12.JT       	AT-12 Swinger                            
+AT2.JT        	AT-2 Swatter                             
+B13.JT        	B-13L Rocket Pod                         
+B8.JT         	B-8M1 Rocket Pod                         
+BK27.JT       	27-mm Mauser BK27 Cannon                 
+BMP2.JT       	bmp2                                     
+BTR80.JT      	btr80                                    
+C_105.JT      	105mm Cannon                             
+C_25.JT       	25mm Cannon                              
+C_40.JT       	40mm Cannon                              
+CBU87.JT      	CBU-87/B Cluster                         
+CBU89.JT      	CBU-97/B Cluster                         
+DEFA.JT       	DEFA 30mm                                
+F150.GAS      	150 gal external drop tank               
+F250.GAS      	250 gal external drop tank               
+F350.GAS      	350 gal external drop tank               
+F500.GAS      	500 gal external drop tank               
+FAB1000.JT    	FAB-1000 M62                             
+FAB250.JT     	FAB-250 M62                              
+FAB500.JT     	FAB-500 M62                              
+FIM92.JT      	FIM-92 Stinger                           
+GAU12.JT      	GAU-12 Vulcan Cannon                     
+GAU13.JT      	GAU-13 Pave Claw                         
+GAU8.JT       	GAU-8/A Avenger                          
+GBU10.JT      	GBU-10E Paveway II                       
+GBU10A.JT     	GBU-10 Paveway I                         
+GBU28.JT      	GBU-28/B                                 
+GBU29.JT      	GBU-29 JDAM                              
+GBU29P.JT     	GBU-29/P JDAM                            
+GBU30.JT      	GBU-30 JDAM                              
+GSH23.JT      	GSh-23 23mmx2                            
+GSH30.JT      	GSh-30 30mmx1                            
+GSH301.JT     	GSh-301 30mmx6                           
+GSH6_23.JT    	GSh-6-23 23mmx6                          
+GSH6_30.JT    	GSh-6-30 30mmx6                          
+HQ2J.JT       	HQ-2J SAM                                
+HQ61.JT       	HQ-61                                    
+KS12.JT       	KS-12 85mm AAA                           
+KS19.JT       	KS-19 100mm AAA                          
+LAU10.JT      	LAU-10 Rocket Pod                        
+LAU61.JT      	LAU-61 Rocket Pod                        
+M1.JT         	m1                                       
+M113.JT       	m113                                     
+M163.JT       	M163                                     
+M1939.JT      	M1939 37mm AAA                           
+M2.JT         	m2                                       
+M61.JT        	M61 Vulcan Cannon                        
+MICA.JT       	Mica                                     
+MIM23.JT      	MIM-23 HAWK                              
+MIS.JT        	Mistral                                  
+MK12.JT       	Mk 12 20mmx2                             
+MK20.JT       	Mk 20 Rockeye II                         
+MK82.JT       	MK-82 Slick                              
+MK82AIR.JT    	MK-82 AIR 7-Pack                         
+MK82HD.JT     	MK-82 Snakeye                            
+MK82P.JT      	MK-82HD 6-Pack                           
+MK82P3.JT     	MK-82 3-Pack                             
+MK84.JT       	MK-84 Slick                              
+PAVEWA3.JT    	GBU-27 Paveway III                       
+PAVEWAY.JT    	GBU-10E Paveway                          
+PHALANX.JT    	20mm Phalanx                             
+PL10.JT       	Chinese PL-10                            
+PL7.JT        	Chinese PL-7                             
+R440.JT       	R-440 Matra                              
+R530.JT       	Super 530                                
+R550.JT       	R-550 Magic 2                            
+RBK250.JT     	RBK-250 Cluster                          
+RBK500.JT     	RBK-500 Cluster                          
+ROLAND.JT     	Roland Euromissile                       
+SA13.JT       	SA-13 Gopher                             
+SA14.JT       	SA-14 Gremlin                            
+SA15.JT       	SA-15 Gauntlet                           
+SA16.JT       	SA-16 Gimlet                             
+SA19.JT       	Sa-19                                    
+SA2A.JT       	SA-2A Guideline                          
+SA3.JT        	SA-3 Goa                                 
+SA6.JT        	SA-6 Gainful                             
+SA7.JT        	SA-7 Grail                               
+SA9.JT        	SA-9 Gaskin                              
+SAN11.JT      	SA-N-11                                  
+SAN3.JT       	SA-N-3 Goblet                            
+SAN4.JT       	SA-N-4 Gecko                             
+SAN5.JT       	SA-N-5 Grail                             
+SAN7.JT       	SA-N-7 Gadfly                            
+SAN8.JT       	SA-N-8 Gremlin                           
+SAN9.JT       	SA-N-9 Klinok                            
+SEA_SPAR.JT   	AIM-7 Sea Sparrow                        
+SMLARMS.JT    	Small Arms fire                          
+SSN9.JT       	SS-N-9                                   
+SUU16.JT      	SUU-16 Gun Pod                           
+T12_4.JT      	12.7mmx4 turret                          
+T20_1.JT      	20mmx1 turret                            
+T23_1.JT      	23mmx1 turret                            
+T30_1.JT      	30mmx1 turret                            
+T72.JT        	t72                                      
+ZSU23.JT      	ZSU-23 Shilka                            
+ZSU57.JT      	ZSU-57                                   
+-----------------------------------------------------------
+
+
+Vehicles: (*.NT)
+-----------------------------------------------------------
+2S6.NT        	2S6 Tunguska                             
+A_M1939.NT    	M1939 37mm AAA Zone                      
+ASA5.NT       	Crotale SAM                              
+BARGE.NT      	Barge                                    
+BMP2.NT       	BMP-2                                    
+BTR80.NT      	BTR-80                                   
+BUTLER.NT     	John C. Butler                           
+CARGO.NT      	Cargo Ship                               
+CARGO2.NT     	Cargo Ship                               
+CATGUY.NT     	Cat Officer                              
+CHAP.NT       	M48 Chaparral                            
+CIM.NT        	Cimarron Oiler                           
+CLEM.NT       	Clemenceau                               
+CYCL.NT       	Cyclone Patrol Craft                     
+EJECT.NT      	Pilot                                    
+FIM92.NT      	FIM-92 Stinger                           
+FISHBT.NT     	Fishing Boat                             
+GCI.NT        	GCI Radar                                
+HAWK.NT       	MIM-23 HAWK                              
+HUMVEE.NT     	Humvee                                   
+IOWA.NT       	Iowa                                     
+JIANC.NT      	Jianghu II China                         
+JIANE.NT      	Jianghu II Egypt                         
+JUNK.NT       	Junk                                     
+KIEV.NT       	Kiev                                     
+KIROV.NT      	Kirov                                    
+KITT.NT       	Kitty Hawk                               
+KNOX.NT       	Knox                                     
+KRIVAK.NT     	Krivak                                   
+KS12.NT       	KS-12 85mm AAA                           
+KS19.NT       	KS-19 100mm AAA                          
+LCAC.NT       	LCAC                                     
+LTRACK.NT     	Long Track Radar                         
+M1.NT         	M-1 Abrams                               
+M113.NT       	M-113                                    
+M163.NT       	M163 APC                                 
+M1939.NT      	M1939 37mm AAA                           
+M1975.NT      	M-1975                                   
+M2.NT         	M-2 Bradley                              
+MIS.NT        	Mistral SATCP                            
+MISTRK.NT     	SAM-Carrying Truck                       
+MULE_A.NT     	Mule A                                   
+MULE_B.NT     	Mule B                                   
+MULE_C.NT     	Mule C                                   
+NIMZ.NT       	Eisenhower                               
+OILR.NT       	Oil Rig (Water)                          
+OLEKMA.NT     	Olekma                                   
+OSCAR.NT      	Oscar                                    
+PLTDWN.NT     	Downed Pilot                             
+PMORN.NT      	Pomornik                                 
+RBOAT.NT      	Riverboat                                
+ROLAND.NT     	Roland SAM                               
+RUNNER.NT     	Man                                      
+SA13.NT       	SA-13 Gopher                             
+SA14.NT       	SA-14 Gremlin                            
+SA15.NT       	SA-15 Gauntlet                           
+SA16.NT       	SA-16 Gimlet                             
+SA2A.NT       	SA-2A Guideline                          
+SA3.NT        	SA-3 Goa                                 
+SA6.NT        	SA-6 Gainful                             
+SA7.NT        	SA-7 Grail                               
+SA9.NT        	SA-9 Gaskin                              
+SACRAM.NT     	Sacramento                               
+SARAN.NT      	Sarancha                                 
+SCUD.NT       	SCUD Launcher                            
+SESHDW.NT     	Sea Shadow                               
+SFLUSH.NT     	Straight Flush Radar                     
+SL100.NT      	Plymouth Hovercraft                      
+SOLDIER.NT    	Soldier                                  
+SOVR.NT       	Sovremennyy                              
+SRDR1.NT      	Stealth Radar 1                          
+SRDR2.NT      	Stealth Radar 2                          
+T72.NT        	T-72                                     
+T80.NT        	T-80                                     
+T90.NT        	T-90                                     
+TANKER.NT     	Fuel Truck                               
+TICON.NT      	Ticonderoga                              
+TROOPS.NT     	Soldiers                                 
+TRUCK.NT      	Truck                                    
+TYPE69.NT     	Type 69 A Frigate                        
+WASP.NT       	Wasp                                     
+ZIF31.NT      	ZIF-31 Type 76                           
+ZSU23.NT      	ZSU-23-4 Shilka                          
+ZSU57.NT      	ZSU-57-2 Sparka                          
+-----------------------------------------------------------
+
+
+
+Scenery: (*.OT)
+-----------------------------------------------------------
+~BNK5.OT      	Damaged Shelter 5                        
+~BNK6.OT      	Damaged Shelter 6                        
+~BNK8.OT      	Damaged Shelter 8                        
+~CLEMT.OT     	Clemenceau Tower                         
+~COLTWR.OT    	Reactor Tower                            
+~KITTT.OT     	Kitty Hawk Tower                         
+~NIMZT.OT     	Eisenhower Tower                         
+~WASPT.OT     	Wasp Tower                               
+APTB1.OT      	Apartment, Brick                         
+APTLA.OT      	Apartment Bldg 1                         
+APTLB.OT      	Apartment Bldg 2                         
+APTLC.OT      	Apartment Bldg 3                         
+APTM.OT       	Apartment                                
+APTOLD.OT     	Apartment, Old                           
+AV8TNT.OT     	Tent with Av-8                           
+BARKSA.OT     	Barracks 1                               
+BARKSB.OT     	Barracks 2                               
+BLDG1.OT      	Factory 3                                
+BLDG2.OT      	Warehouse                                
+BLDG3.OT      	Factory 4                                
+BNK1.OT       	Hardened C&C Bunker                      
+BNK2.OT       	Hardened Shelter 1                       
+BNK3.OT       	Hardened Shelter 2                       
+BNK4.OT       	Hardened Shelter 3                       
+BNK5.OT       	Hardened Shelter 5                       
+BNK6.OT       	Hardened Shelter 6                       
+BNK7.OT       	Hardened Shelter 7                       
+BNK8.OT       	Hardened Shelter 8                       
+BNK9.OT       	Super Hardened C&C Bunker                
+BR1END.OT     	Medium Bridge end                        
+BR1MID.OT     	Medium Bridge middle                     
+BR2END.OT     	Small Bridge end                         
+BR2MID.OT     	Small Bridge middle                      
+BR3END.OT     	Temporary Bridge end                     
+BR3MID.OT     	Temporary Bridge middle                  
+BRD1.OT       	Bridge - Cement                          
+BRD2.OT       	Bridge - Concrete                        
+BRD3.OT       	Bridge - Stone                           
+BRD4.OT       	Bridge - Steel                           
+BRDEND.OT     	Bridge End                               
+BRDMID.OT     	Bridge Middle                            
+BUNKER.OT     	Bunker                                   
+CASTLE.OT     	Castle                                   
+CGRP1.OT      	Commercial Block 1                       
+CGRP2.OT      	Commercial Block 2                       
+CGRP3.OT      	Commercial Block 3                       
+CITY1.OT      	Large City 1                             
+CITY2.OT      	Large City 2                             
+CITY3.OT      	Large City 3                             
+CMHQ1.OT      	Command HQ 1                             
+CMHQ2.OT      	Command HQ 2                             
+COLTWR.OT     	Reactor Tower                            
+COMM.OT       	Communications Center                    
+COMM1.OT      	Shops 1                                  
+COMM2.OT      	Shops 2                                  
+CONT1.OT      	Container 1                              
+CONT2.OT      	Container 2                              
+CONT3.OT      	Container 3                              
+CRANE.OT      	Crane                                    
+CRATE1.OT     	Crate 1                                  
+CRATE2.OT     	Crate 2                                  
+CRATE3.OT     	Crate 3                                  
+CRATE4.OT     	Crate 4                                  
+CRATER.OT     	Crater                                   
+CROPA.OT      	Crop Field 1                             
+CROPB.OT      	Crop Field 2                             
+CTOWR.OT      	Control Tower, Large                     
+CTWR1.OT      	Control Tower, New                       
+CTWR2.OT      	Control Tower 2                          
+CTYBKA.OT     	City Block 1                             
+CTYBKB.OT     	City Block 2                             
+CTYBKC.OT     	City Block 3                             
+CTYBKD.OT     	City Block 4                             
+CTYBKE.OT     	City Block 5                             
+CTYBKF.OT     	City Block 6                             
+CTYBKG.OT     	City Block 7                             
+DEST.OT       	Destroyed Vehicle                        
+DKHOS1.OT     	Dock House 1                             
+DKHOS2.OT     	Dock House 2                             
+DOCK1.OT      	Dock                                     
+DTSTRP.OT     	Small Airport                            
+FACT1.OT      	Factory, Industrial                      
+FACTD.OT      	Factory, Loading Dock                    
+FCTYA.OT      	Factory 1                                
+FCTYB.OT      	Factory 2                                
+FLAGO1.OT     	Runway Flag O1                           
+FLAGO2.OT     	Runway Flag O2                           
+FLAGR1.OT     	Runway Flag R1                           
+FLAGR2.OT     	Runway Flag R2                           
+FLAGY1.OT     	Runway Flag Y1                           
+FLAGY2.OT     	Runway Flag Y2                           
+FUEL.OT       	Fuel Tank                                
+HANGR.OT      	Hangar 1                                 
+HANGRB.OT     	Hangar 2                                 
+HAWKSITE.OT   	MIM-23 Site                              
+HGRP1.OT      	Hooch Block 1                            
+HGRP2.OT      	Hooch Block 2                            
+HGRP3.OT      	Hooch Block 3                            
+HILT.OT       	Prison Compound                          
+HOOCH.OT      	Hooches                                  
+HOUS.OT       	House 1                                  
+HOUSB.OT      	House 2                                  
+IND1.OT       	Industrial Block 1                       
+IND2.OT       	Industrial Block 2                       
+KING.OT       	Tall King Radar                          
+LOT.OT        	Parking Lot                              
+MICRO.OT      	Microwave Dish                           
+MICROM.OT     	Microwave Tower                          
+MOOSEA.OT     	Moose, Male                              
+MOOSEB.OT     	Moose, Female                            
+MTCAMO.OT     	Tent 1                                   
+NUCCT.OT      	Reactor, Tower 2                         
+NUCOB.OT      	Reactor, Office                          
+NUCRD.OT      	Reactor, Dome 2                          
+OILW.OT       	Oil Well Station                         
+PRDR1.OT      	Passive Radar 1                          
+PRDR2.OT      	Passive Radar 2                          
+REACTB.OT     	Reactor, Base                            
+REACTR.OT     	Reactor, Bldg                            
+REDOM.OT      	Reactor, Dome                            
+RELAY.OT      	Reactor Relay                            
+RES1.OT       	Residential Block 1                      
+RES2.OT       	Residential Block 2                      
+ROAD.OT       	Road, Large                              
+ROAD2.OT      	Road, Medium                             
+ROAD4.OT      	Road, Small                              
+ROADC.OT      	Road, Curve                              
+ROCKA.OT      	Rock A                                   
+ROCKB.OT      	Rock B                                   
+ROCKBA.OT     	Big Rock A                               
+ROCKBB.OT     	Big Rock B                               
+ROCKBC.OT     	Big Rock C                               
+ROCKBD.OT     	Big Rock D                               
+ROCKBE.OT     	Big Rock E                               
+ROCKC.OT      	Rock C                                   
+ROCKD.OT      	Rock D                                   
+ROCKE.OT      	Rock E                                   
+SA3SITE.OT    	SA-3 Site                                
+SGRP1.OT      	Slum Block 1                             
+SGRP2.OT      	Slum Block 2                             
+SHELT.OT      	Shelter                                  
+SILO.OT       	Missile Silo                             
+SLUM01.OT     	City Slum 1                              
+SLUM02.OT     	City Slum 2                              
+STORE.OT      	Storage                                  
+STRIP.OT      	Airport                                  
+STRIP1.OT     	Airport 1                                
+STRIP2.OT     	Airport 2                                
+STRIP3.OT     	Airport 3                                
+STRIP3A.OT    	Airport 3a                               
+STRIP4.OT     	Airport 4                                
+STRIP5.OT     	Airport 5                                
+STRIP5A.OT    	Airport 5a                               
+STRIP6.OT     	Airport 6                                
+STRIP6A.OT    	Airport 6a                               
+STRIP7.OT     	Airport 7                                
+STRIP7A.OT    	Airport 7a                               
+SUPPLY.OT     	Supply                                   
+TENT1.OT      	Tent 2                                   
+TOWER.OT      	Control Tower, Small                     
+TREE1.OT      	Tree 1                                   
+TREE2.OT      	Tree 1                                   
+TWNBKA.OT     	Town Block 1                             
+TWNBKB.OT     	Town Block 2                             
+TWNBKC.OT     	Town Block 3                             
+TWNBKD.OT     	Town Block 4                             
+TWNBKE.OT     	Town Block 5                             
+TWNBKF.OT     	Town Block 6                             
+WNDMLL.OT     	Windmill                                 
+WTRBUF.OT     	Water Buffalo                            
+-----------------------------------------------------------
+
+layer:(*.LAY)
+-----------------------------------------------------------
+day2.LAY		norman day, green terrain
+cloud1.LAY		cloud day, green terrain
+fog1.LAY		fog day, green terrain
+day2e.LAY               norman day, yellow terrain (for Iraq, Persian Gulf, Pakistan
+cloud1e.LAY		cloud day, yellow terrain (for Iraq, Persian Gulf, Pakistan
+fog1e.LAY		fog day, yellow terrain (for Iraq, Persian Gulf, Pakistan
+-----------------------------------------------------------
+
+
+Map:(*.T2), the object and area name referance to *.MM
+-----------------------------------------------------------
+APA.T2        	Panama                                   
+BAL.T2        	The Baltics                              
+CUB.T2        	Cuba                                     
+EGY.T2        	Egypt                                    
+FRA.T2        	France                                   
+GRE.T2        	Greece                                   
+IRA.T2        	Iraq                                     
+LFA.T2        	Falkland Islands                         
+NSK.T2        	North/South Korea                        
+PGU.T2        	Persian Gulf                             
+SPA.T2        	Pakistan                                 
+TVIET.T2      	North Vietnam                            
+VLA.T2        	Vladivostok                              
+WTA.T2        	Taiwan                                   
+-----------------------------------------------------------
+
+
+Country list:$0 means friends, $80 means Enemy, last 4 $0 not realted
+-----------------------------------------------------------
+America
+Britain
+China
+France
+Germany
+Belgium
+Jordan
+Israel
+Japan
+North Korea
+Russia
+South Korea
+Syria
+Arab Egypt
+Islamic Egypt
+Estonia
+Latvia
+Lithuania
+Poland
+Belorussia
+North Vietnam
+South Vietnam
+Ukraine
+Iraq
+Iran
+Kuwait
+Saudi Arabia
+Oman
+U.A.E.
+Qatar
+Bahrain
+Libya
+Sudan
+Cuba
+Panama
+Columbia
+Pakistan
+India
+Afghanistan
+Taiwan
+Greece
+Turkey
+Italy
+Sweden
+Finland
+Norway
+Spain
+Portugal
+Austria
+Denmark
+Netherlands
+Canada
+Bulgaria
+Hungary
+Romania
+Australia
+Philippines
+Argentina
+Bosnia
+Serbia
+-----------------------------------------------------------
