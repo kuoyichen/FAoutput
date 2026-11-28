@@ -1,0 +1,26 @@
+[brent's_relocatable_format]
+    byte 9
+	ptr si_names
+    word 200
+    byte $1
+    word $0
+    byte 8
+    byte 70
+    byte 127
+    byte 191
+    byte 8
+    byte 70
+    byte 127
+    byte 191
+    byte 0
+    word 0
+    byte 0
+    byte 0
+    byte 0
+    word 0
+    byte 0
+:si_names
+	string "ALE-44"
+	string "ALE-44 Decoy Pod"
+	string "ALE40.ECM"
+	end

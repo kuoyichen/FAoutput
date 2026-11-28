@@ -1,0 +1,214 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 3
+    word 354
+    word 264
+	ptr ot_names
+    dword $108331
+    word $2000
+	ptr shape
+    dword 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 1980
+    word 391
+    word 0
+    word 300
+    word 300
+    word 150
+    word 200
+    word 0
+    word 2400
+    word 255
+    word 255
+    word 255
+    word 255
+    word 255
+    byte 35
+    byte 0
+    dword 0
+    word 100
+
+;---------------- movement info ----------------
+
+    word 910
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 43
+    word 43
+    dword ^5
+    dword ^5
+    dword ^0
+    dword ^0
+	symbol _CARRIERProc	; utilProc
+
+;---------------- sound info ----------------
+
+	ptr loopSound
+	ptr secondSound
+    dword 0
+    dword 0
+    byte 1
+    word 2500
+    word 25
+    word 20
+    word 20
+    word 1000
+    word 0
+    word 0
+    word 0
+    dword 0
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+
+;---------------- START OF NPC_TYPE ----------------
+
+    dword $0
+    dword 0
+    byte 40
+    byte 100
+    byte 80
+    word 32767
+    word 0
+    byte 7
+	ptr hards
+
+;---------------- END OF NPC_TYPE ----------------
+
+:hards
+;-------- hardpoint 0
+    word $8
+    word 0
+    word 400
+    word 650
+    word 0
+    word 0
+    word 16380
+    word 16380
+	ptr defaultTypeName0
+    byte 0
+    word 6000
+    byte 0
+;-------- hardpoint 1
+    word $a
+    word -175
+    word 400
+    word -550
+    word 40950
+    word 0
+    word 16380
+    word 16380
+	ptr defaultTypeName1
+    byte 0
+    word 6000
+    byte 0
+;-------- hardpoint 2
+    word $a
+    word 200
+    word 450
+    word 0
+    word 16380
+    word 0
+    word 15470
+    word 16380
+	ptr defaultTypeName2
+    byte 0
+    word 6000
+    byte 0
+;-------- hardpoint 3
+    word $a
+    word -175
+    word 300
+    word 0
+    word 49140
+    word 0
+    word 15470
+    word 8190
+	ptr defaultTypeName3
+    byte 0
+    word 4000
+    byte 0
+;-------- hardpoint 4
+    word $a
+    word 175
+    word 450
+    word 150
+    word 16380
+    word 0
+    word 15470
+    word 8190
+	ptr defaultTypeName4
+    byte 0
+    word 4000
+    byte 0
+;-------- hardpoint 5
+    word $8
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+	ptr defaultTypeName5
+    byte 0
+    word 1
+    byte 0
+;-------- hardpoint 6
+    word $8
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+	ptr defaultTypeName6
+    byte 0
+    word 1
+    byte 0
+:ot_names
+	string "Invincible"
+	string "Invincible Class CVSA"
+	string "INVN.NT"
+:shape
+	string "invn.SH"
+:loopSound
+	string "&SHIP2.5K"
+:secondSound
+	string "&SHIP2.5K"
+:defaultTypeName0
+	string "GAU8.JT"
+:defaultTypeName1
+	string "GAU8.JT"
+:defaultTypeName2
+	string "GAU8.JT"
+:defaultTypeName3
+	string "DEFA.JT"
+:defaultTypeName4
+	string "DEFA.JT"
+:defaultTypeName5
+	string "VIS360.SEE"
+:defaultTypeName6
+	string "E2R.SEE"
+	end

@@ -1,0 +1,276 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 3
+    word 450
+    word 332
+	ptr ot_names
+    dword $131
+    word $2000
+	ptr shape
+    dword 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 1962
+    word 391
+    word 0
+    word 200
+    word 200
+    word 150
+    word 200
+    word 0
+    word 1800
+    word 255
+    word 255
+    word 255
+    word 255
+    word 255
+    byte 35
+    byte 0
+    dword 0
+    word 100
+
+;---------------- movement info ----------------
+
+    word 910
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 50
+    word 50
+    dword ^5
+    dword ^5
+    dword ^0
+    dword ^0
+	symbol _GVProc	; utilProc
+
+;---------------- sound info ----------------
+
+	ptr loopSound
+	ptr secondSound
+    dword 0
+    dword 0
+    byte 1
+    word 2500
+    word 25
+    word 20
+    word 20
+    word 1000
+    word 0
+    word 0
+    word 0
+    dword 0
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+
+;---------------- START OF NPC_TYPE ----------------
+
+    dword $2
+      ptr ctName
+    byte 40
+    byte 100
+    byte 80
+    word 32767
+    word 0
+    byte 11
+	ptr hards
+
+;---------------- END OF NPC_TYPE ----------------
+
+:hards
+;-------- hardpoint 0
+    word $8
+    word 0
+    word 0
+    word 325
+    word 0
+    word 0
+    word 27300
+    word 16380
+	ptr defaultTypeName0
+    byte 0
+    word 22
+    byte 0
+;-------- hardpoint 1
+    word $a
+    word 0
+    word 100
+    word 250
+    word 0
+    word 0
+    word 32760
+    word 16380
+	ptr defaultTypeName1
+    byte 0
+    word 16
+    byte 0
+;-------- hardpoint 2
+    word $a
+    word 0
+    word -100
+    word 300
+    word 0
+    word 0
+    word 27300
+    word 16380
+	ptr defaultTypeName2
+    byte 0
+    word 2000
+    byte 0
+;-------- hardpoint 3
+    word $a
+    word 0
+    word -100
+    word -400
+    word 0
+    word 0
+    word 27300
+    word 16380
+	ptr defaultTypeName3
+    byte 0
+    word 2000
+    byte 0
+;-------- hardpoint 4
+    word $e
+    word 65
+    word 50
+    word 550
+    word 0
+    word 0
+    word 16380
+    word 0
+	ptr defaultTypeName4
+    byte 0
+    word 6
+    byte 0
+;-------- hardpoint 5
+    word $a
+    word 0
+    word -100
+    word 400
+    word 0
+    word 0
+    word 27300
+    word 16380
+	ptr defaultTypeName5
+    byte 0
+    word 6000
+    byte 0
+;-------- hardpoint 6
+    word $a
+    word 0
+    word -50
+    word 300
+    word 0
+    word 0
+    word 27300
+    word 16380
+	ptr defaultTypeName6
+    byte 0
+    word 6000
+    byte 0
+;-------- hardpoint 7
+    word $a
+    word 0
+    word -60
+    word -275
+    word 32760
+    word 0
+    word 27300
+    word 16380
+	ptr defaultTypeName7
+    byte 0
+    word 6000
+    byte 0
+;-------- hardpoint 8
+    word $a
+    word 0
+    word -100
+    word -350
+    word 32760
+    word 0
+    word 27300
+    word 16380
+	ptr defaultTypeName8
+    byte 0
+    word 6000
+    byte 0
+;-------- hardpoint 9
+    word $8
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+	ptr defaultTypeName9
+    byte 0
+    word 1
+    byte 0
+;-------- hardpoint 10
+    word $8
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+	ptr defaultTypeName10
+    byte 0
+    word 1
+    byte 0
+:ot_names
+	string "Kynda"
+	string "Kynda Class CG"
+	string "KYND.NT"
+:shape
+	string "sovr.SH"
+:loopSound
+	string "&SHIP1.5K"
+:secondSound
+	string "&SHIP1.5K"
+:ctName
+	string "b.BI"
+:defaultTypeName0
+	string "SA3.JT"
+:defaultTypeName1
+	string "GSH6_30.JT"
+:defaultTypeName2
+	string "ZSU57.JT"
+:defaultTypeName3
+	string "ZSU57.JT"
+:defaultTypeName4
+	string "APSET95.JT"
+:defaultTypeName5
+	string "AAA30.JT"
+:defaultTypeName6
+	string "AAA30.JT"
+:defaultTypeName7
+	string "AAA30.JT"
+:defaultTypeName8
+	string "AAA30.JT"
+:defaultTypeName9
+	string "F8.ECM"
+:defaultTypeName10
+	string "VIS360.SEE"
+	end

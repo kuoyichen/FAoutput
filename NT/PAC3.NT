@@ -1,0 +1,141 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 3 ; structType
+    word 234
+    word 179
+	ptr ot_names
+    dword $2000821 ; flags
+    word $1000 ; obj_class
+	ptr shape
+	ptr shadowShape
+    dword 0
+    dword 0
+    word 0 ; dmgDebrisPos.x
+    word 0 ; dmgDebrisPos.y
+    word 0 ; dmgDebrisPos.z
+    dword 0
+    dword 0
+    word 0 ; dstDebrisPos.x
+    word 0 ; dstDebrisPos.y
+    word 0 ; dstDebrisPos.z
+    dword 0 ; dmgType
+    dword 2001
+    word 78 ; maxVisDist
+    word 0 ; cameraDist
+    word 100 ; sigs [i]
+    word 100 ; sigs [i]
+    word 100 ; sigs [i]
+    word 100 ; sigs [i]
+    word 0 ; sigs [i]
+    word 75
+    word 255
+    word 255
+    word 255
+    word 255
+    word 255
+    byte 23
+    byte 6
+    dword 0
+    word 100 ; cmdBufSize
+
+;---------------- movement info ----------------
+
+    word 16380
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    dword ^50
+    dword ^50
+    dword ^0
+    dword ^0
+	symbol _GVProc	; utilProc
+
+;---------------- sound info ----------------
+
+	ptr loopSound
+	ptr secondSound
+    dword 0
+    dword 0
+    byte 1 ; doDoppler
+    word 2500 ; maxSndDist
+    word 25 ; maxPlusDopplerPitch
+    word 20 ; maxMinusDopplerPitch
+    word 20 ; minDopplerSpeed
+    word 1000 ; maxDopplerSpeed
+    word 0 ; viewOffset.x
+    word 0 ; viewOffset.y
+    word 0 ; viewOffset.z
+    dword 0
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+
+;---------------- START OF NPC_TYPE ----------------
+
+    dword $0
+    dword 0
+    byte 20 ; searchFrequencyT
+    byte 60 ; unreadyAttackT
+    byte 40 ; attackT
+    word 32767 ; retargetT
+    word 0 ; zoneDist
+    byte 2
+	ptr hards
+
+;---------------- END OF NPC_TYPE ----------------
+
+:hards
+;-------- hardpoint 0
+    word $808
+    word 0
+    word 30
+    word -10
+    word 0
+    word 8190
+    word 32760
+    word 8190
+	ptr defaultTypeName0
+    byte 0
+    word 16
+    byte 0
+;-------- hardpoint 1
+    word $8
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+	ptr defaultTypeName1
+    byte 0
+    word 1
+    byte 1
+:ot_names
+	string "PAC-3"
+	string "MIM-104F Patriot PAC-3 ERINT"
+	string "PAC3.NT"
+:shape
+	string "asa5.SH"
+:shadowShape
+	string "aa85b.SH"
+:loopSound
+	string "&TANK.11K"
+:secondSound
+	string "&TURRET.11K"
+:defaultTypeName0
+	string "AAML.JT"
+:defaultTypeName1
+	string "E3R.SEE"
+	end

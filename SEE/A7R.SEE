@@ -1,0 +1,31 @@
+[brent's_relocatable_format]
+    byte 10
+	ptr si_names
+    word 0
+    byte $0
+    byte 3
+    byte $1
+    byte 35
+    byte 146
+    byte 0
+    byte 0
+    byte 0
+    word 3640
+    word 1820
+    dword ^0
+    dword ^280485
+    dword $8011c180
+    dword $7fee3e80
+    word 1820
+    word 1820
+    dword ^0
+    dword ^0
+    dword $8011c180
+    dword $7fee3e80
+    byte 100
+    byte 35
+:si_names
+	string ""
+	string "45 nm A2G 10 deg Pulse"
+	string "A7R.SEE"
+	end

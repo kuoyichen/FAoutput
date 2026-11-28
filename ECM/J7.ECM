@@ -1,0 +1,26 @@
+[brent's_relocatable_format]
+    byte 9
+	ptr si_names
+    word 0
+    byte $0
+    word $0
+    byte 9
+    byte 45
+    byte 191
+    byte 159
+    byte 9
+    byte 60
+    byte 63
+    byte 159
+    byte 0
+    word 0
+    byte 0
+    byte 0
+    byte 0
+    word 0
+    byte 0
+:si_names
+	string ""
+	string "(9) 45C (9) 60F Side"
+	string "J7.ECM"
+	end

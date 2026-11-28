@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SEE Editor</title>
+<style>
+:root{ --bg:#14181d; --card:#1d232b; --card2:#232a33; --line:#2e3742; --text:#dde3ea; --muted:#8b96a5; --accent:#ffd54a; --bad:#ff6a50; --ok:#7bd88f; --rws:#5fb4ff; --tws:#ff9f43; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0 8px 0 0;font-weight:600}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+button,select,input,label.btn{background:#262e38;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font:inherit}
+button,label.btn{cursor:pointer}
+button:hover,label.btn:hover{border-color:var(--muted)}
+button.prim{background:var(--accent);color:#14181d;font-weight:600;border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:default}
+input[type=number]{width:96px;text-align:right}
+input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
+#msg{color:var(--accent)} #msg.err{color:var(--bad)}
+#title{padding:8px 16px 0;font-size:15px;font-weight:700;color:#8fc3ff}
+#title span{color:var(--muted);font-weight:400;font-size:12px;margin-left:8px}
+#wrap{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:0 14px;padding:0 16px 40px}
+nav#tabs{display:flex;flex-wrap:wrap;gap:4px;padding:8px 0 0;border-bottom:1px solid var(--line)}
+nav#tabs button{border-radius:6px 6px 0 0;border-bottom:none;background:var(--card)}
+nav#tabs button.on{background:var(--card2);color:var(--accent);border-color:var(--accent)}
+main{padding:12px 0 0;min-width:0}
+.panel{display:none}.panel.on{display:block}
+fieldset{border:1px solid var(--line);border-radius:8px;padding:8px 10px 10px;margin:0;background:var(--card);min-width:0}
+legend{color:#ff8f70;font-weight:700;padding:0 6px}
+legend.rws{color:var(--rws)} legend.tws{color:var(--tws)}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));align-items:start}
+.row{display:flex;align-items:center;gap:8px;margin:4px 0}
+.row>label:first-child{flex:1;min-width:0}
+.row input[type=text]{flex:1.4;min-width:0}
+.row select{max-width:200px}
+.unit{color:var(--muted);font-size:12px;min-width:34px}
+.note{color:var(--muted);font-size:12px;margin:8px 0 0}
+.chk{display:flex;align-items:center;gap:6px;margin:3px 0;cursor:pointer}
+.g{color:#c9a65a;font-size:11px;cursor:help}
+.ovf{color:var(--bad);font-size:11px;cursor:help}
+/* side */
+#side{padding-top:12px;min-width:0}
+#pv{position:sticky;top:8px}
+#cv{width:100%;height:380px;display:block;background:radial-gradient(#25303b,#14191f);border-radius:8px}
+#pvBar{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin-top:8px;font-size:12px}
+.key{display:inline-flex;align-items:center;gap:5px}.key i{width:12px;height:12px;border-radius:3px;display:inline-block}
+#used{margin-top:10px;font-size:12px;color:var(--muted)}
+#used a{color:var(--accent);text-decoration:none;margin-right:6px;white-space:nowrap}
+/* tables */
+.raw{border-collapse:collapse;font:12px ui-monospace,Consolas,monospace;width:100%}
+.raw td{padding:1px 4px;border-top:1px solid var(--line)}
+.raw input{width:120px;font:inherit;padding:1px 4px}
+.raw .lab{color:var(--muted);font-family:system-ui,sans-serif}
+.list{border-collapse:collapse;width:100%;font-size:12px}
+.list th,.list td{padding:3px 6px;border-top:1px solid var(--line);text-align:right;white-space:nowrap}
+.list th{color:var(--muted);font-weight:600;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--bg)}
+.list td:nth-child(1),.list td:nth-child(2),.list th:nth-child(1),.list th:nth-child(2){text-align:left}
+.list td:nth-child(2){white-space:normal;min-width:160px;color:var(--muted)}
+.list tr:hover td{background:var(--card)}
+.list tr.cur td{background:var(--card2)}
+.list a{color:#8fc3ff;text-decoration:none;font-weight:600}
+.scroll{overflow-x:auto}
+dialog{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;max-width:440px}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+.small{font-size:12px;color:var(--muted)}
+@media (max-width:1000px){ #wrap{grid-template-columns:1fr} #side{order:-1} #pv{position:static} #cv{height:300px} }
+@media (max-width:600px){ header,#wrap,#title{padding-left:10px;padding-right:10px} }
+</style>
+<script src="fashion_i18n.js"></script>
+<script src="fashion_editors.js" defer></script>
+<script src="pt_core.js"></script>
+<script src="see_core.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <h1>SEE Editor</h1>
+  <select id="seeList" title="SEE seeker files in the FAoutput repository"><option value="">SEE file…</option></select>
+  <label class="btn" title="Open a .SEE file from your disk">📂 Open .SEE<input type="file" id="seeFile" accept=".see,.SEE" hidden></label>
+  <button id="saveBtn" disabled title="Download the edited .SEE file">⬇ Save .SEE</button>
+  <button id="ghBtn" disabled title="Write this SEE file to SEE/ on GitHub (admin key required)">☁ Commit to GitHub</button>
+  <a href="pt_editor.html" style="color:var(--muted)" title="Aircraft editor">PT Editor</a>
+  <a href="jt_editor.html" style="color:var(--muted)" title="Ordnance editor">JT Editor</a>
+  <span id="langSlot"></span>
+  <span id="msg"></span>
+</header>
+<div id="title"></div>
+<div id="wrap">
+  <div style="min-width:0">
+    <nav id="tabs"></nav>
+    <main>
+      <section class="panel" id="p-seeker"></section>
+      <section class="panel" id="p-extra"></section>
+      <section class="panel" id="p-raw"></section>
+      <section class="panel" id="p-all"></section>
+    </main>
+  </div>
+  <div id="side"><div id="pv">
+    <canvas id="cv"></canvas>
+    <div id="pvBar">
+      <span class="key"><i style="background:var(--rws)"></i>RWS</span>
+      <span class="key"><i style="background:var(--tws)"></i>TWS</span>
+      <span id="pvInfo" class="small"></span>
+    </div>
+    <div id="used"></div>
+  </div></div>
+</div>
+<dialog id="ghDlg">
+  <h3 style="margin:0 0 8px">Commit to GitHub</h3>
+  <p class="small" id="ghWhat"></p>
+  <div class="row"><label>Admin key</label><input type="password" id="ghKey" autocomplete="current-password"></div>
+  <div class="row"><label>Commit message</label><input type="text" id="ghMsgIn"></div>
+  <p class="small" id="ghRes"></p>
+  <div class="row" style="justify-content:flex-end"><button id="ghCancel">Cancel</button><button id="ghGo" class="prim">Commit</button></div>
+</dialog>
+<script>
+"use strict";
+// ======================================================================================================
+// SEE Editor: Fighters Anthology seeker (.SEE) files, the radar / IR / laser / visual sensors that aircraft carry on a hardpoint.
+// Parsing / saving: pt_core.js (shared with the PT and JT Editors); field map: see_core.js.  Every byte the user does not change
+// is written back as it was.
+// ======================================================================================================
+const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
+const P = PTCore, S = SEECore;
+const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
+const VERCEL = "https://fashion-hawke.vercel.app";
+async function fetchAny(paths){
+  const urls = [];
+  for (const p of paths){ if (/^https?:$/.test(location.protocol)) urls.push(new URL("../" + p, location.href).href); }
+  for (const p of paths) urls.push(REMOTE + p);
+  for (const u of urls){ try { const r = await fetch(u); if (r.ok) return new Uint8Array(await r.arrayBuffer()); } catch(e){} }
+  return null;
+}
+let see = null, seeName = "", dirty = false, INDEX = {};
+const msg = (t, err) => { $("msg").textContent = t || ""; $("msg").className = err ? "err" : ""; };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const bytesToStr = u8 => { let s = ""; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return s; };
+const strToBytes = s => { const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 255; return u; };
+function touch(){ dirty = true; $("saveBtn").disabled = !see; renderTitle(); draw(); }
+
+// ---------- form builders ----------
+const UNIT = { deg: "°", nm: "nm" };
+const gTag = key => S.F[key][2] === "g" ? ` <span class="g" title="${esc(L("Placed by the order of the original editor's dialog and by comparing the 59 SEE files; not yet confirmed.", "依原編輯器對話框的順序並比對 59 個 SEE 檔推定，尚未確認。"))}">?</span>` : "";
+const ovTag = key => { const e = see && see.vals[S.F[key][0]]; return S.overflow(e) ? ` <span class="ovf" title="${esc(L(`The file says “byte ${e.raw}”; a byte keeps only the low 8 bits, so the game reads ${S.rawVal(e)}.`, `檔案寫的是「byte ${e.raw}」；byte 只保留低 8 位元，遊戲實際讀到 ${S.rawVal(e)}。`))}">⚠ ${esc(e.raw)}</span>` : ""; };
+function fNum(key, en, zh, unit){ const u = unit ?? UNIT[S.F[key][1]] ?? "";
+  return `<div class="row"><label>${L(en, zh)}${gTag(key)}${ovTag(key)}</label><input type="number" data-key="${key}" step="any"><span class="unit">${u}</span></div>`; }
+function fList(key, en, zh, names, namesZh){ return `<div class="row"><label>${L(en, zh)}${gTag(key)}</label><select data-list="${key}" data-names='${esc(JSON.stringify(names))}' data-zh='${esc(JSON.stringify(namesZh || {}))}'></select></div>`; }
+function fStr(n, en, zh){ return `<div class="row"><label>${L(en, zh)}</label><input type="text" data-str="${n}" spellcheck="false"></div>`; }
+const box = (en, zh, inner, note, cls) => `<fieldset><legend${cls ? ` class="${cls}"` : ""}>${L(en, zh)}</legend>${inner}${note ? `<p class="note">${note}</p>` : ""}</fieldset>`;
+function bindPanel(el){
+  el.querySelectorAll("[data-key]").forEach(i => { i.value = S.getF(see, i.dataset.key); i.onchange = () => { const k = i.dataset.key, ov = S.overflow(see.vals[S.F[k][0]]);
+    if (S.setF(see, k, i.value)) touch(); i.value = S.getF(see, k); if (ov && !S.overflow(see.vals[S.F[k][0]])) renderForms(); }; });
+  el.querySelectorAll("[data-str]").forEach(i => { i.value = S.name(see, +i.dataset.str); i.onchange = () => { S.setName(see, +i.dataset.str, i.value.trim()); touch(); }; });
+  el.querySelectorAll("[data-list]").forEach(s => { const key = s.dataset.list, names = JSON.parse(s.dataset.names), zh = JSON.parse(s.dataset.zh), v = S.getF(see, key);
+    const opts = Object.keys(names).map(Number); if (!opts.includes(v)) opts.push(v); opts.sort((a, b) => a - b);
+    s.innerHTML = opts.map(n => `<option value="${n}"${n === v ? " selected" : ""}>${n} · ${esc(names[n] != null ? L(names[n], zh[n] || names[n]) : L("other", "其他"))}</option>`).join("");
+    s.onchange = () => { if (S.setF(see, key, +s.value)) touch(); }; });
+  el.querySelectorAll("[data-radar]").forEach(i => { const b = +i.dataset.radar, get = () => S.getF(see, "radarBits");
+    i.checked = b < 0 ? !(get() & 1) : !!(get() & (1 << b));
+    i.onchange = () => { let v = get();
+      if (b < 0) v = i.checked ? v & ~1 : v | 1;            // Continuous Wave = Pulse bit clear
+      else v = i.checked ? v | (1 << b) : v & ~(1 << b);
+      if (S.setF(see, "radarBits", v)) touch(); bindPanel(el); }; });
+  el.querySelectorAll("[data-hex]").forEach(i => { const key = i.dataset.hex; i.value = "$" + (S.getF(see, key) >>> 0).toString(16);
+    i.onchange = () => { const v = parseInt(i.value.replace(/^\$|^0x/i, ""), 16); if (!isNaN(v) && S.setF(see, key, v)) touch(); bindPanel(el); }; });
+}
+
+// ---------- tabs ----------
+const TABS = [["seeker", "Seeker", "尋標器"], ["extra", "Additional Info", "附加資訊"], ["raw", "All values", "全部數值"], ["all", "All seekers", "所有尋標器"]];
+let curTab = "seeker"; try { curTab = localStorage.getItem("see_tab") || "seeker"; } catch(e){}
+if (!TABS.some(t => t[0] === curTab)) curTab = "seeker";
+function renderTabs(){
+  const nav = $("tabs"); nav.innerHTML = "";
+  for (const [id, en, zh] of TABS){ const b = document.createElement("button"); b.textContent = L(en, zh); b.className = id === curTab ? "on" : "";
+    b.onclick = () => { curTab = id; try { localStorage.setItem("see_tab", id); } catch(e){} renderTabs(); showTab(); }; nav.appendChild(b); }
+}
+function showTab(){ document.querySelectorAll("main .panel").forEach(p => p.classList.toggle("on", p.id === "p-" + curTab));
+  if (curTab === "raw") renderRaw(); else if (curTab === "all") renderAll(); else if (see) bindPanel($("p-" + curTab)); }
+
+const SEEKER_ZH = { 0: "目視", 1: "雷射／照射器", 2: "紅外線", 3: "主動雷達", 4: "被動／反輻射" };
+const RADAR_ZH = ["連續波", "脈衝", "跳頻", "都卜勒"];
+const G = L("Fields marked ? were placed by the order of the original editor's dialog and by comparing all 59 SEE files; they are not yet confirmed. The All values tab shows every raw value.",
+  "標示 ? 的欄位是依原編輯器對話框的順序並比對 59 個 SEE 檔推定，尚未確認；「全部數值」分頁可看到每個原始值。");
+const RANGE_NOTE = L("Ranges and altitudes are 24.8 fixed-point distances shown in the original editor's miles (6097.5 units each); ±1375 means no altitude limit. FOV is a half angle: 180° covers the whole sphere.",
+  "距離與高度是 24.8 定點距離，以原編輯器的英里顯示（每單位 6097.5）；±1375 代表沒有高度限制。視野是半角：180° 代表全方位。");
+const modeBox = (p, en, zh, cls) => box(en, zh, fNum(p + "Min", "Min Range", "最小距離") + fNum(p + "Max", "Max Range", "最大距離") + fNum(p + "MinAlt", "Min Altitude", "最低高度") +
+  fNum(p + "MaxAlt", "Max Altitude", "最高高度") + fNum(p + "FovH", "FOV Heading", "視野 航向") + fNum(p + "FovP", "FOV Pitch", "視野 俯仰"), "", cls);
+
+function renderForms(){
+  if (!see) return;
+  $("p-seeker").innerHTML = `<div class="grid">
+    ${box("Seeker", "尋標器", fStr(0, "Internal Name", "內部名稱") + fStr(2, "Object Name", "物件名稱") + fStr(1, "Description", "說明") +
+      fList("seekerType", "Seeker Type", "尋標器類型", S.SEEKER, SEEKER_ZH) + fNum("weight", "Weight", "重量", "lbs"))}
+    ${modeBox("r", "RWS Parameters", "RWS 參數", "rws")}
+    ${modeBox("t", "TWS Parameters", "TWS 參數", "tws")}
+    ${box("Doppler Parameters", "都卜勒參數", fNum("dopAbove", "Speed Above", "速度高於") + fNum("dopBelow", "Speed Below", "速度低於") + fNum("dopMin", "Min Range", "最小距離"))}
+    ${box("Aspect", "角度", fNum("lookDown", "LookDown", "下視") + fNum("allAspect", "All Aspect", "全向"))}
+  </div><p class="note">${RANGE_NOTE} ${G}</p>`;
+  $("p-extra").innerHTML = `<div class="grid">
+    ${box("Radar Type", "雷達類型", S.RADAR.map(([n, b], k) => `<label class="chk"><input type="checkbox" data-radar="${b}">${esc(L(n, RADAR_ZH[k]))}</label>`).join("") +
+      `<div class="row" style="margin-top:8px"><label>${L("Raw bits", "原始位元")}</label><input type="text" data-hex="radarBits" style="width:80px"></div>`,
+      L("Pulse = bit 0, Frequency Hop = bit 1, Doppler = bit 2; Continuous Wave is the Pulse bit clear. Read from the 59 repo descriptions (“CW” = $0, “Pulse” = $1, “CW Dplr” = $4, “Pulse Dplr” = $5, “P/FH/Dplr” = $7).",
+        "脈衝 = 第 0 位、跳頻 = 第 1 位、都卜勒 = 第 2 位；連續波就是脈衝位元為 0。由儲存庫 59 個檔案的說明比對得出（CW = $0、Pulse = $1、CW Dplr = $4、Pulse Dplr = $5、P/FH/Dplr = $7）。"))}
+    ${box("Deception Chances", "欺騙機率", fNum("chaff", "Chaff/Flare Miss Factor", "干擾絲／熱焰彈 失誤係數") + fNum("ecm", "ECM Jamming Factor", "電子干擾 係數"),
+      L("Same positions as the JT Editor's confirmed Chaff / ECM fields (JT PROJ 25 and 26). 100 on the visual and IR seekers.", "和 JT 編輯器已確認的干擾絲／電子干擾欄位同位置（JT PROJ 25、26）。目視與紅外線尋標器為 100。"))}
+    ${box("Other", "其他", fNum("podFlag", "Pod flag", "莢艙旗標") + `<div class="row"><label>${L("Record id", "記錄代號")}</label><input type="number" data-key="recId" disabled><span class="unit"></span></div>`,
+      L("The pod flag is 1 only on the four targeting pods that have a weight (AAS38, PAVEKNF, PAVESPK, VYYU). The record id is 10 in every file.", "莢艙旗標只有四個有重量的瞄準莢艙（AAS38、PAVEKNF、PAVESPK、VYYU）為 1。記錄代號在所有檔案中都是 10。"))}
+  </div><p class="note">${G}</p>`;
+  showTab(); renderUsed();
+}
+
+// ---------- all values ----------
+const LABELS = []; for (const [k, [i]] of Object.entries(S.F)) LABELS[i] = k;
+function renderRaw(){
+  const el = $("p-raw"); if (!see){ el.innerHTML = ""; return; }
+  el.innerHTML = `<p class="note">${L("Every value in the file, as written (decimal, $hex or ^fixed-point). The right column names the field it feeds in the other tabs.", "檔案中的每個值，照原樣顯示（十進位、$十六進位或 ^定點）。右欄是對應到其他分頁的欄位。")}</p>
+    <fieldset style="max-width:560px"><legend>${esc(seeName)}</legend><table class="raw">${see.vals.map((e, k) => `<tr><td>${k}</td><td>${e.kind}</td><td>${
+      e.kind === "ptr" ? `<b>${esc(e.raw)}</b>` : `<input data-k="${k}" value="${esc(e.raw)}" spellcheck="false">`}</td><td class="lab">${LABELS[k] ? esc(LABELS[k]) + (S.F[LABELS[k]][2] === "g" ? " ?" : "") : ""}${S.overflow(e) ? ` <span class="ovf">→ ${S.rawVal(e)}</span>` : ""}</td></tr>`).join("")}</table></fieldset>`;
+  el.querySelectorAll("input[data-k]").forEach(i => i.onchange = () => {
+    if (S.setRaw(see, +i.dataset.k, i.value)) { touch(); renderRaw(); } else { msg(L("Not a number: ", "不是數字：") + i.value, true); i.value = see.vals[+i.dataset.k].raw; } });
+}
+
+// ---------- all seekers (tools/see_index.json, built by make_see_index.cjs) ----------
+let sortKey = "file", sortDir = 1;
+const COLS = [["file", "File", "檔案"], ["desc", "Description", "說明"], ["type", "Type", "類型"], ["radar", "Radar", "雷達"], ["rMax", "RWS nm", "RWS 浬"], ["rFovH", "RWS ±H°", "RWS ±航向°"],
+  ["tMax", "TWS nm", "TWS 浬"], ["tFovH", "TWS ±H°", "TWS ±航向°"], ["lookDown", "LookDown", "下視"], ["chaff", "Chaff", "干擾絲"], ["ecm", "ECM", "電子干擾"], ["wt", "lbs", "磅"], ["n", "Aircraft", "飛機數"]];
+function radarText(t, v){ if (t !== 3) return "–"; const p = []; p.push(v & 1 ? "P" : "CW"); if (v & 2) p.push("FH"); if (v & 4) p.push("D"); return p.join("/"); }
+function renderAll(){
+  const rows = Object.entries(INDEX).map(([file, x]) => ({ file, ...x, n: x.used.length }));
+  if (!rows.length){ $("p-all").innerHTML = `<p class="note">${L("Loading the seeker list…", "載入尋標器清單…")}</p>`; return; }
+  rows.sort((a, b) => { const x = a[sortKey], y = b[sortKey]; return (typeof x === "number" ? x - y : String(x).localeCompare(String(y))) * sortDir; });
+  $("p-all").innerHTML = `<p class="note">${L("Every SEE file in the repository. Click a column to sort, a file to open it. Aircraft = the PT files that carry it on a hardpoint.", "儲存庫中的所有 SEE 檔。點欄位標題排序，點檔名開啟。飛機數 = 在掛點上裝這個尋標器的 PT 檔數。")}</p>
+    <div class="scroll"><table class="list"><tr>${COLS.map(([k, en, zh]) => `<th data-sort="${k}">${L(en, zh)}${k === sortKey ? (sortDir > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}</tr>
+    ${rows.map(r => `<tr class="${r.file === seeName ? "cur" : ""}"><td><a href="?see=${encodeURIComponent(r.file)}" data-open="${esc(r.file)}">${esc(r.file.replace(/\.SEE$/, ""))}</a></td><td>${esc(r.desc)}</td>
+      <td>${esc(L(S.SEEKER[r.type] || String(r.type), SEEKER_ZH[r.type] || String(r.type)))}</td><td>${radarText(r.type, r.radar)}</td><td>${r.rMax}</td><td>${r.rFovH}</td><td>${r.tMax}</td><td>${r.tFovH}</td><td>${r.lookDown}</td><td>${r.chaff}</td><td>${r.ecm}</td><td>${r.wt || ""}</td><td>${r.n}</td></tr>`).join("")}</table></div>`;
+  $("p-all").querySelectorAll("th[data-sort]").forEach(th => th.onclick = () => { const k = th.dataset.sort; if (k === sortKey) sortDir = -sortDir; else { sortKey = k; sortDir = 1; } renderAll(); });
+  $("p-all").querySelectorAll("a[data-open]").forEach(a => a.onclick = e => { e.preventDefault(); openRepoSEE(a.dataset.open); });
+}
+function renderUsed(){
+  const u = INDEX[seeName]?.used;
+  $("used").innerHTML = !see ? "" : !u ? L("Not in the repository index (opened from disk or new).", "不在儲存庫索引中（從電腦開啟或新檔）。")
+    : !u.length ? L("No repo aircraft carries this seeker.", "儲存庫中沒有飛機裝這個尋標器。")
+    : `${L(`Carried by ${u.length} aircraft:`, `裝在 ${u.length} 架飛機上：`)} ` + u.map(p => `<a href="pt_editor.html?pt=${encodeURIComponent(p + ".PT")}" target="_blank" rel="noopener">${esc(p)}</a>`).join("");
+}
+
+// ======================================================================================================
+// coverage diagram: top view (heading FOV × range) and side view (pitch FOV × range), RWS and TWS
+// ======================================================================================================
+const cv = $("cv"), cx = cv.getContext("2d");
+function draw(){
+  const d = Math.min(2, devicePixelRatio || 1), w = Math.round(cv.clientWidth * d), h = Math.round(cv.clientHeight * d);
+  if (cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; }
+  cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, w, h); if (!see) return;
+  const g = k => S.getF(see, k), css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const modes = [{ p: "r", col: css("--rws") }, { p: "t", col: css("--tws") }].map(m => ({ ...m, min: Math.max(0, g(m.p + "Min")), max: Math.max(0, g(m.p + "Max")),
+    fh: Math.min(180, Math.abs(g(m.p + "FovH"))), fp: Math.min(180, Math.abs(g(m.p + "FovP"))) }));
+  const R = Math.max(1, ...modes.map(m => m.max));
+  const half = h * 0.56, pad = 14 * d;
+  cx.font = `${11 * d}px system-ui,sans-serif`; cx.textBaseline = "top";
+  // panel: centre, radius, angle field (+ = up the screen), label
+  const panel = (cy, ph, fovKey, title) => {
+    const full = modes.some(m => m[fovKey] > 90), r = full ? Math.min(w / 2, ph / 2) - pad : Math.min(w / 2 - pad, ph - 2 * pad), ox = w / 2, oy = full ? cy + ph / 2 : cy + ph - pad;
+    const s = r / R;
+    // rings
+    const step = niceStep(R); cx.strokeStyle = "rgba(255,255,255,.08)"; cx.fillStyle = "rgba(255,255,255,.35)"; cx.lineWidth = d;
+    for (let v = step; v <= R + 1e-6; v += step){ cx.beginPath(); cx.arc(ox, oy, v * s, full ? 0 : Math.PI, Math.PI * 2); cx.stroke(); cx.fillText(fmtNm(v), ox + 3 * d, oy - v * s + 2 * d); }
+    for (const m of modes){ if (!m.max) continue;
+      const a = m[fovKey] * Math.PI / 180, up = -Math.PI / 2;
+      cx.beginPath(); cx.arc(ox, oy, m.max * s, up - a, up + a); cx.arc(ox, oy, m.min * s, up + a, up - a, true); cx.closePath();
+      cx.fillStyle = m.col + "33"; cx.strokeStyle = m.col; cx.lineWidth = 1.5 * d; cx.fill(); cx.stroke();
+    }
+    // the aircraft
+    cx.fillStyle = "#e2e8ee"; cx.beginPath(); cx.moveTo(ox, oy - 7 * d); cx.lineTo(ox - 5 * d, oy + 5 * d); cx.lineTo(ox + 5 * d, oy + 5 * d); cx.closePath(); cx.fill();
+    cx.fillStyle = "#8b96a5"; cx.fillText(title, 8 * d, cy + 6 * d);
+  };
+  panel(0, half, "fh", L("Top view: FOV heading", "上視：航向視野"));
+  cx.strokeStyle = "rgba(255,255,255,.12)"; cx.beginPath(); cx.moveTo(0, half); cx.lineTo(w, half); cx.stroke();
+  panel(half, h - half, "fp", L("Side view: FOV pitch", "側視：俯仰視野"));
+  $("pvInfo").textContent = `RWS ${fmtNm(modes[0].max)} ±${modes[0].fh}° · TWS ${fmtNm(modes[1].max)} ±${modes[1].fh}°`;
+}
+function niceStep(R){ const raw = R / 4, p = 10 ** Math.floor(Math.log10(raw)), f = raw / p; return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p; }
+const fmtNm = v => (Math.round(v * 10) / 10) + " nm";
+addEventListener("resize", draw);
+
+// ======================================================================================================
+// open / save / commit
+// ======================================================================================================
+function renderTitle(){
+  if (!see){ $("title").innerHTML = ""; return; }
+  $("title").innerHTML = `${esc(seeName)} &nbsp;${esc(S.name(see, 1))}<span>${dirty ? L("● edited, not saved", "● 已修改，尚未儲存") : ""}</span>`;
+  $("ghBtn").disabled = !see;
+}
+function openSEE(name, text){
+  let s; try { s = S.parse(text); } catch(e){ msg(L("Cannot read this SEE: ", "無法讀取這個 SEE：") + e.message, true); return; }
+  if (!S.isSee(s)){ msg(L("This is not a seeker SEE file.", "這不是尋標器 SEE 檔。"), true); return; }
+  see = s; seeName = name.toUpperCase(); dirty = false;
+  try { localStorage.setItem("see_last", seeName); } catch(e){}
+  $("saveBtn").disabled = false; $("ghBtn").disabled = false; $("seeList").value = seeName;
+  renderTitle(); renderForms(); draw(); msg("");
+  history.replaceState(null, "", "?see=" + encodeURIComponent(seeName));
+}
+async function openRepoSEE(name){
+  if (dirty && !confirm(L("Discard the changes to " + seeName + "?", "放棄對 " + seeName + " 的修改？"))) { $("seeList").value = seeName; return; }
+  msg(L("Loading ", "載入 ") + name + "…");
+  const u8 = await fetchAny(["SEE/" + name]); if (!u8){ msg(L("Cannot download ", "無法下載 ") + name, true); return; }
+  dirty = false; openSEE(name, bytesToStr(u8));
+}
+$("seeList").onchange = () => $("seeList").value && openRepoSEE($("seeList").value);
+$("seeFile").onchange = async e => { const f = e.target.files[0]; if (!f) return; e.target.value = "";
+  if (dirty && !confirm(L("Discard the changes to " + seeName + "?", "放棄對 " + seeName + " 的修改？"))) return;
+  if (![...$("seeList").options].some(o => o.value === f.name.toUpperCase())) $("seeList").add(new Option(f.name.toUpperCase() + " " + L("(local)", "（本機）"), f.name.toUpperCase()));
+  openSEE(f.name, bytesToStr(new Uint8Array(await f.arrayBuffer()))); };
+$("saveBtn").onclick = () => {
+  if (!see) return; const blob = new Blob([strToBytes(S.serialize(see))], { type: "application/octet-stream" }), a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = seeName; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  dirty = false; renderTitle(); msg(L("Saved ", "已儲存 ") + seeName);
+};
+async function loadIndex(){
+  const u8 = await fetchAny(["tools/see_index.json"]); try { if (u8) INDEX = JSON.parse(bytesToStr(u8)); } catch(e){}
+  const names = Object.keys(INDEX).length ? Object.keys(INDEX) : ["A10R.SEE", "F14R.SEE", "F15R.SEE", "F18R.SEE", "MIG29R.SEE", "SU27R.SEE", "VIS340.SEE"];
+  for (const n of names.sort()) $("seeList").add(new Option(n + (INDEX[n]?.desc ? " · " + INDEX[n].desc : ""), n));
+}
+const API = /vercel\.app$|^localhost$|^127\./.test(location.hostname) ? "" : VERCEL;
+$("ghBtn").onclick = () => {
+  if (!see) return; let key = ""; try { key = localStorage.getItem("fashion_admin_key") || ""; } catch(e){}
+  $("ghKey").value = key; $("ghMsgIn").value = `SEE editor: update ${seeName}`; $("ghRes").textContent = "";
+  $("ghWhat").textContent = L(`Writes SEE/${seeName} on the main branch of kuoyichen/FAoutput. Only the site admin key can do this.`, `會把 SEE/${seeName} 寫到 kuoyichen/FAoutput 的 main 分支。只有網站管理金鑰可以使用。`);
+  $("ghDlg").showModal();
+  fetch(API + "/api/pt-commit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ check: true, adminKey: key }) })
+    .then(r => r.json()).then(j => { if ($("ghRes").textContent) return;
+      $("ghRes").textContent = !j.githubConfigured ? L("Server: GITHUB_TOKEN is not set in Vercel yet.", "伺服器：Vercel 尚未設定 GITHUB_TOKEN。")
+        : key && j.admin ? L("Server ready (GitHub token set, admin key OK).", "伺服器已就緒（GitHub token 已設定，管理金鑰正確）。") : L("Server ready (GitHub token set).", "伺服器已就緒（GitHub token 已設定）。"); })
+    .catch(() => {});
+};
+$("ghCancel").onclick = () => $("ghDlg").close();
+$("ghGo").onclick = async () => {
+  const key = $("ghKey").value.trim(); if (!key){ $("ghRes").textContent = L("Enter the admin key.", "請輸入管理金鑰。"); return; }
+  $("ghGo").disabled = true; $("ghRes").textContent = L("Committing…", "提交中…");
+  try {
+    const bytes = strToBytes(S.serialize(see)); let b64 = ""; for (let i = 0; i < bytes.length; i += 8192) b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+    const r = await fetch(API + "/api/pt-commit", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ adminKey: key, name: seeName, content: btoa(b64), message: $("ghMsgIn").value.trim() }) });
+    const j = await r.json().catch(() => ({ error: "HTTP " + r.status }));
+    if (!r.ok || !j.ok) throw new Error(j.error || "HTTP " + r.status);
+    try { localStorage.setItem("fashion_admin_key", key); } catch(e){}
+    $("ghRes").innerHTML = j.unchanged ? esc(L("No change: GitHub already has this exact file.", "沒有變更：GitHub 上已經是同樣的檔案。")) : `${esc(L("Committed", "已提交"))} <a href="${esc(j.commitUrl)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc((j.sha || "").slice(0, 7))}</a>`;
+    dirty = false; renderTitle();
+  } catch(e){ $("ghRes").textContent = L("Failed: ", "失敗：") + e.message; }
+  $("ghGo").disabled = false;
+};
+
+// ======================================================================================================
+FAI18N.register({
+  "FAshion home": "FAshion 首頁", "SEE Editor": "SEE 編輯器", "PT Editor": "PT 編輯器", "JT Editor": "JT 編輯器", "Aircraft editor": "飛機編輯器", "Ordnance editor": "武器編輯器",
+  "SEE file…": "SEE 檔…", "📂 Open .SEE": "📂 開啟 .SEE", "⬇ Save .SEE": "⬇ 儲存 .SEE", "☁ Commit to GitHub": "☁ 提交到 GitHub",
+  "Open a .SEE file from your disk": "從電腦開啟 .SEE 檔", "Download the edited .SEE file": "下載修改後的 .SEE 檔",
+  "Write this SEE file to SEE/ on GitHub (admin key required)": "把這個 SEE 檔寫到 GitHub 的 SEE/（需要管理金鑰）", "SEE seeker files in the FAoutput repository": "FAoutput 儲存庫中的 SEE 尋標器檔",
+  "Commit to GitHub": "提交到 GitHub", "Admin key": "管理金鑰", "Commit message": "提交說明", "Cancel": "取消", "Commit": "提交"
+});
+$("langSlot").append(FAI18N.picker()); FAI18N.apply();
+FAI18N.onChange(() => { renderTabs(); if (see){ renderTitle(); renderForms(); draw(); } else showTab(); });
+renderTabs(); showTab();
+(async () => {
+  await loadIndex();
+  let start = new URLSearchParams(location.search).get("see"); if (!start){ try { start = localStorage.getItem("see_last"); } catch(e){} }
+  start = (start || "A10R.SEE").toUpperCase(); if (!/\.SEE$/.test(start)) start += ".SEE";
+  await openRepoSEE(start);
+  if (curTab === "all") renderAll();
+})();
+addEventListener("beforeunload", e => { if (dirty){ e.preventDefault(); e.returnValue = ""; } });
+window.seeEditor = { get see(){ return see; }, P, S, draw };
+</script>
+</body>
+</html>

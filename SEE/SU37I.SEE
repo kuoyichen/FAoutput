@@ -1,0 +1,31 @@
+[brent's_relocatable_format]
+    byte 10
+	ptr si_names
+    word 0
+    byte $0
+    byte 2
+    byte $0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 30
+    word 32760
+    word 16380
+    dword ^0
+    dword ^304875
+    dword $8011c180
+    dword $7fee3e80
+    word 32760
+    word 16380
+    dword ^0
+    dword ^304875
+    dword $8011c180
+    dword $7fee3e80
+    byte 100
+    byte 100
+:si_names
+	string ""
+	string "360 deg 50 nm IR/TWR"
+	string "SU37I.SEE"
+	end

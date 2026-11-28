@@ -1,0 +1,154 @@
+[brent's_relocatable_format]
+
+;---------------- START OF OBJ_TYPE ----------------
+
+
+;---------------- general info ----------------
+
+    byte 3
+    word 258
+    word 196
+	ptr ot_names
+    dword $121
+    word $2000
+	ptr shape
+    dword 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 0
+    word 0
+    word 0
+    word 0
+    dword 0
+    dword 1956
+    word 391
+    word 0
+    word 100
+    word 100
+    word 100
+    word 1
+    word 0
+    word 550
+    word 255
+    word 255
+    word 255
+    word 255
+    word 255
+    byte 34
+    byte 0
+    dword 0
+    word 100
+
+;---------------- movement info ----------------
+
+    word 910
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 46
+    word 46
+    dword ^5
+    dword ^5
+    dword ^0
+    dword ^0
+	symbol _GVProc	; utilProc
+
+;---------------- sound info ----------------
+
+	ptr loopSound
+	ptr secondSound
+    dword 0
+    dword 0
+    byte 1
+    word 2500
+    word 25
+    word 20
+    word 20
+    word 1000
+    word 0
+    word 0
+    word 0
+    dword 0
+
+
+
+;---------------- END OF OBJ_TYPE ----------------
+
+
+;---------------- START OF NPC_TYPE ----------------
+
+    dword $2
+    dword 0
+    byte 40
+    byte 100
+    byte 80
+    word 32767
+    word 0
+    byte 3
+	ptr hards
+
+;---------------- END OF NPC_TYPE ----------------
+
+:hards
+;-------- hardpoint 0
+    word $c
+    word 10
+    word 100
+    word 100
+    word 0
+    word 0
+    word 0
+    word 0
+	ptr defaultTypeName0
+    byte 0
+    word 24
+    byte 0
+;-------- hardpoint 1
+    word $e
+    word 30
+    word 50
+    word 100
+    word 0
+    word 0
+    word 0
+    word 0
+	ptr defaultTypeName1
+    byte 0
+    word 24
+    byte 0
+;-------- hardpoint 2
+    word $8
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+    word 0
+	ptr defaultTypeName2
+    byte 0
+    word 1
+    byte 0
+:ot_names
+	string "Submarine"
+	string "Submerged Submarine"
+	string "SUB.NT"
+:shape
+	string "stars.SH"
+:loopSound
+	string "&SHIP1.5K"
+:secondSound
+	string "&ship1.5K"
+:defaultTypeName0
+	string "SSN9.JT"
+:defaultTypeName1
+	string "MK46.JT"
+:defaultTypeName2
+	string "VIS360.SEE"
+	end

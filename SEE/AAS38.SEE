@@ -1,0 +1,31 @@
+[brent's_relocatable_format]
+    byte 10
+	ptr si_names
+    word 615
+    byte $1
+    byte 1
+    byte $0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    word 27300
+    word 31850
+    dword ^0
+    dword ^102438
+    dword $8011c180
+    dword $7fee3e80
+    word 27300
+    word 31850
+    dword ^0
+    dword ^102438
+    dword $8011c180
+    dword $7fee3e80
+    byte 100
+    byte 100
+:si_names
+	string "Atlis 2"
+	string "Atlis 2 Designator"
+	string "AAS38.SEE"
+	end

@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LIB Tool</title>
+<meta name="description" content="Open an FA .LIB and download its files as an FA ToolKit project ZIP, or pack files into a new .LIB that follows every FA.EXE rule. Runs in your browser; byte-identical to falib.py.">
+<style>
+:root{ --bg:#14181d; --card:#1d232b; --card2:#232a33; --line:#2e3742; --text:#dde3ea; --muted:#8b96a5; --accent:#ffd54a; --bad:#ff6a50; --ok:#7bd88f; --cyan:#6fd3ff; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}
+a{color:var(--cyan)}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0 8px 0 0;font-weight:600}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+#langSlot{margin-left:auto}
+.fa-lang{background:#262e38;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font:inherit;font-size:13px}
+button,select,input[type=text],label.btn{background:#262e38;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit}
+button,label.btn{cursor:pointer;white-space:nowrap}
+button:hover,label.btn:hover{border-color:var(--muted)}
+button.prim{background:var(--accent);color:#14181d;font-weight:700;border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:default}
+input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;vertical-align:-2px}
+main{max-width:1100px;margin:0 auto;padding:14px 16px 50px}
+.lead{color:#c4ccd6;margin:4px 0 14px;max-width:820px}
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.tabs button{border:1px solid var(--line);border-bottom:none;border-radius:8px 8px 0 0;background:none;color:var(--muted);padding:8px 14px;font-weight:600}
+.tabs button.on{background:var(--card);color:var(--accent)}
+.pane{display:none}.pane.on{display:block}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:24px 16px;text-align:center;color:var(--muted);cursor:pointer;transition:border-color .2s,background .2s}
+.drop.hover{border-color:var(--accent);background:#ffd54a0d}
+.drop b{color:var(--text)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+.bar .grow{flex:1 1 160px;min-width:0}
+.bar label{color:var(--muted)}
+.sum{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:12px}
+.sum h3{margin:0 0 4px;font:700 15px ui-monospace,Consolas,monospace;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pill{font:600 12px system-ui,sans-serif;border-radius:20px;padding:1px 9px}
+.pill.ok{background:#7bd88f22;color:var(--ok)} .pill.bad{background:#ff6a5022;color:var(--bad)} .pill.warn{background:#ffd54a22;color:var(--accent)}
+.muted{color:var(--muted)} .small{font-size:12.5px}
+.tbl{max-height:460px;overflow:auto;border:1px solid var(--line);border-radius:10px;background:#0f1317}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:5px 9px;border-bottom:1px solid #222a33;text-align:left;white-space:nowrap}
+th{position:sticky;top:0;background:var(--card2);color:var(--muted);font-weight:600;font-size:12px;z-index:1}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+td.nm{font-family:ui-monospace,Consolas,monospace}
+tr.off td{color:var(--muted)}
+tr.bad td.nm{color:var(--bad)}
+tbody tr:hover{background:#ffffff08}
+td .x{background:none;border:none;color:var(--muted);padding:0 4px;font-size:15px}
+td .x:hover{color:var(--bad)}
+#msgU,#msgB{min-height:1.5em;margin:8px 0}
+.err{color:var(--bad)} .okt{color:var(--ok)}
+progress{width:100%;height:10px;accent-color:var(--accent)}
+.box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-top:16px}
+.box h4{margin:0 0 4px;font-size:14px;color:#ff8f70}
+.box ul{margin:4px 0;padding-left:20px}
+.box li{margin:2px 0}
+code{font:12.5px ui-monospace,Consolas,monospace;color:#ffcf8a}
+footer{max-width:1100px;margin:0 auto;padding:16px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--line)}
+@media (max-width:640px){ header,main{padding-left:12px;padding-right:12px} th.hide,td.hide{display:none} }
+</style>
+<script src="fashion_i18n.js"></script>
+<script src="fashion_editors.js" defer></script>
+<script src="falib_core.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <h1>LIB Tool</h1>
+  <span id="langSlot"></span>
+</header>
+<main>
+  <p class="lead" data-lang="en">Open an FA <code>.LIB</code> and take out the files you want as an FA ToolKit project, or pack a pile of files into a new <code>.LIB</code>. Everything runs in your browser; nothing is uploaded. LIBs are built exactly like <a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/falib.py">falib.py</a> builds them (byte for byte), so they follow every rule on <a href="lib_release.html">Making LIBs that do not crash</a>.</p>
+  <p class="lead" data-lang="zh">打開 FA 的 <code>.LIB</code>，把想要的檔案取出成 FA ToolKit 專案；或把一堆檔案打包成新的 <code>.LIB</code>。全部在你的瀏覽器裡執行，不會上傳任何東西。打包的方式和 <a href="https://github.com/kuoyichen/FAoutput/blob/main/tools/falib.py">falib.py</a> 完全一樣（每個位元組都相同），所以符合<a href="lib_release.html">「做出不會當掉的 LIB」</a>裡的所有規則。</p>
+
+  <div class="tabs">
+    <button id="tabU" class="on">📦 Open a LIB</button>
+    <button id="tabB">🔧 Build a LIB</button>
+  </div>
+
+  <!-- ================= unpack ================= -->
+  <section id="paneU" class="pane on">
+    <div class="drop" id="dropU"><b>Drop a .LIB here</b> or click to choose one<input type="file" id="pickU" accept=".lib,.LIB" hidden></div>
+    <div id="msgU"></div>
+    <div id="libView" hidden>
+      <div class="sum" id="libSum"></div>
+      <div class="bar">
+        <input type="text" id="filt" class="grow" placeholder="Filter by name, e.g. F14 or .SH">
+        <button id="selAll">Select all</button>
+        <button id="selNone">Select none</button>
+        <span class="muted" id="selCount"></span>
+      </div>
+      <div class="tbl"><table>
+        <thead><tr><th><input type="checkbox" id="chkAll" title="Select all shown"></th><th>Name</th><th class="hide">Type</th><th class="n">Size</th><th class="n hide">In LIB</th><th class="hide">Stored as</th></tr></thead>
+        <tbody id="rowsU"></tbody>
+      </table></div>
+      <div class="bar">
+        <label for="projName">Project name</label>
+        <input type="text" id="projName" maxlength="8" size="10" title="FA ToolKit project / folder name, 1-8 characters">
+        <button class="prim" id="dlZip">⬇ Download project ZIP</button>
+        <button id="toBuild" title="Add the selected files to the Build tab">➜ Use in Build</button>
+      </div>
+      <p class="muted small" data-lang="en">The ZIP holds one folder named after the project with the selected files plus the three files the FA ToolKit needs to open it as a project: <code>ITEM.DAT</code> (file list), <code>PROJECT.DAT</code> (project name) and <code>README.TXT</code>, written exactly as falib <code>build --toolkit</code> writes them. Unzip it into the ToolKit's folder and open the project there.</p>
+      <p class="muted small" data-lang="zh">ZIP 裡有一個以專案名稱命名的資料夾，放著勾選的檔案，以及 FA ToolKit 開啟專案需要的三個檔：<code>ITEM.DAT</code>（檔案清單）、<code>PROJECT.DAT</code>（專案名稱）和 <code>README.TXT</code>，內容和 falib <code>build --toolkit</code> 產生的完全一樣。解壓到 ToolKit 的資料夾，就能在 ToolKit 裡開這個專案。</p>
+    </div>
+  </section>
+
+  <!-- ================= build ================= -->
+  <section id="paneB" class="pane">
+    <div class="drop" id="dropB"><b>Drop files here</b> (SH, PT, PIC, 11K …, a ToolKit project ZIP or a LIB) or click to choose<input type="file" id="pickB" multiple hidden></div>
+    <div id="msgB"></div>
+    <div class="bar">
+      <label for="libName">LIB name</label>
+      <input type="text" id="libName" maxlength="12" size="14" placeholder="JKP601_A" title="DOS 8.3 name, at most 8 characters before .LIB">
+      <span class="muted">.LIB</span>
+      <button class="prim" id="build" disabled>🔧 Build LIB</button>
+      <button id="clearB" disabled>Clear list</button>
+      <span class="muted" id="countB"></span>
+    </div>
+    <progress id="prog" value="0" max="1" hidden></progress>
+    <div id="buildOut"></div>
+    <div class="tbl" id="tblB" hidden><table>
+      <thead><tr><th>Name</th><th class="hide">Type</th><th class="n">Size</th><th>From</th><th></th></tr></thead>
+      <tbody id="rowsB"></tbody>
+    </table></div>
+    <div class="box">
+      <h4 data-lang="en">What the build does (the falib rules)</h4>
+      <h4 data-lang="zh">打包時做了什麼（falib 規則）</h4>
+      <ul data-lang="en">
+        <li><b>Rule 1:</b> 4,096 zero bytes after the last entry, so FA.EXE's 2 KB reads never run past the end of the LIB (the "random" crash in the mission builder or at mission start).</li>
+        <li><b>Rule 2:</b> PKWare DCL compression with only what the real PKWare encoder produces: distance 2-4,095, length up to 516. Each entry is unpacked again and compared before it goes in.</li>
+        <li><b>Rule 3:</b> the LIB and every file need a DOS 8.3 upper-case name (names are upper-cased for you).</li>
+        <li>A file that would compress to 90% or more of its size is stored uncompressed, as EA did (music, some sounds).</li>
+        <li>Entries in the FA ToolKit's order (symbols, digits, letters), with a <code>$FALIB.INF</code> checksum list first, so <code>python falib.py verify</code> can check the LIB later. The game ignores it.</li>
+        <li><b>Rule 5:</b> if the same file is also in another LIB, the game uses the copy in the newer LIB file. Keep every file in one mod LIB only.</li>
+        <li>Rule 4: at most 20 LIBs for the original FA.EXE (256 for <a href="fa_big.html">FA_BIG</a>).</li>
+      </ul>
+      <ul data-lang="zh">
+        <li><b>規則 1：</b>最後一個項目後面補 4,096 個 0，FA.EXE 每次讀 2 KB 時才不會讀出 LIB 結尾（任務建立或任務開始時「隨機」當掉的原因）。</li>
+        <li><b>規則 2：</b>PKWare DCL 壓縮，只用真正 PKWare 編碼器會產生的內容：距離 2-4,095、長度最多 516。每個項目放進去前都會再解壓一次比對。</li>
+        <li><b>規則 3：</b>LIB 和每個檔都必須是 DOS 8.3 大寫檔名（會自動轉成大寫）。</li>
+        <li>壓縮後還有原大小 90% 以上的檔案就不壓縮直接存，和 EA 的做法一樣（音樂、部分音效）。</li>
+        <li>項目照 FA ToolKit 的順序排列（符號、數字、字母），最前面放 <code>$FALIB.INF</code> 檢查清單，之後可以用 <code>python falib.py verify</code> 檢查。遊戲會忽略它。</li>
+        <li><b>規則 5：</b>同一個檔如果也在別的 LIB 裡，遊戲會用日期比較新的 LIB 裡的版本。每個檔只放在一個 mod LIB 裡。</li>
+        <li>規則 4：原版 FA.EXE 最多 20 個 LIB（<a href="fa_big.html">FA_BIG</a> 可到 256 個）。</li>
+      </ul>
+    </div>
+  </section>
+</main>
+<footer data-lang="en">FAshion is a fan project for Jane's Fighters Anthology by <b>hawke</b> (<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>). Never modify the factory LIBs (FA_1, FA_2, FA_4B, FA_4D); keep backups.</footer>
+<footer data-lang="zh">FAshion 是 hawke 為 Jane's Fighters Anthology 做的同好專案（<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>）。不要修改原廠 LIB（FA_1、FA_2、FA_4B、FA_4D），並記得備份。</footer>
+<script>
+"use strict";
+const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh), F = window.FALIB;
+const fmt = n => n.toLocaleString("en-US");
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+FAI18N.register({
+  "FAshion home": "FAshion 首頁", "LIB Tool": "LIB 工具", "📦 Open a LIB": "📦 開啟 LIB", "🔧 Build a LIB": "🔧 打包 LIB",
+  "Drop a .LIB here": "把 .LIB 拉到這裡", "or click to choose one": "或點一下選擇檔案",
+  "Filter by name, e.g. F14 or .SH": "依檔名篩選，例如 F14 或 .SH", "Select all": "全選", "Select none": "全不選",
+  "Select all shown": "全選目前顯示的", "Name": "檔名", "Type": "類型", "Size": "大小", "In LIB": "LIB 內大小", "Stored as": "存放方式",
+  "Project name": "專案名稱", "FA ToolKit project / folder name, 1-8 characters": "FA ToolKit 專案 / 資料夾名稱，1-8 個字元",
+  "⬇ Download project ZIP": "⬇ 下載專案 ZIP", "➜ Use in Build": "➜ 拿去打包", "Add the selected files to the Build tab": "把勾選的檔案加到「打包 LIB」分頁",
+  "Drop files here": "把檔案拉到這裡", "(SH, PT, PIC, 11K …, a ToolKit project ZIP or a LIB) or click to choose": "（SH、PT、PIC、11K …、ToolKit 專案 ZIP 或 LIB），或點一下選擇",
+  "LIB name": "LIB 名稱", "DOS 8.3 name, at most 8 characters before .LIB": "DOS 8.3 檔名，.LIB 前面最多 8 個字元",
+  "🔧 Build LIB": "🔧 打包 LIB", "Clear list": "清空清單", "From": "來源",
+});
+$("langSlot").append(FAI18N.picker()); FAI18N.apply();
+
+// ---------- tabs ----------
+function tab(which){ for (const k of ["U", "B"]){ $("tab" + k).classList.toggle("on", k === which); $("pane" + k).classList.toggle("on", k === which); } }
+$("tabU").onclick = () => tab("U"); $("tabB").onclick = () => tab("B");
+function dropZone(zone, pick, take){
+  zone.addEventListener("click", e => { if (e.target !== pick) pick.click(); });
+  pick.addEventListener("change", e => { take([...e.target.files]); pick.value = ""; });
+  zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("hover"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("hover"));
+  zone.addEventListener("drop", e => { e.preventDefault(); zone.classList.remove("hover"); take([...e.dataTransfer.files]); });
+}
+function save(name, u8, type){
+  const url = URL.createObjectURL(new Blob([u8], { type: type || "application/octet-stream" })), a = document.createElement("a");
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 20000);
+}
+const ext = n => n.includes(".") ? n.slice(n.lastIndexOf(".") + 1) : "";
+const TYPES = { SH: ["3D shape", "3D 模型"], PT: ["aircraft", "飛機"], JT: ["weapon", "武器"], NT: ["vehicle / ship", "車輛 / 船艦"], OT: ["object", "物件"],
+  PIC: ["picture", "圖片"], SEE: ["seeker", "尋標器"], ECM: ["ECM", "ECM"], HUD: ["HUD", "HUD"], PTS: ["points", "點"], GAS: ["fuel tank", "副油箱"],
+  "11K": ["sound", "聲音"], "8K": ["sound", "聲音"], "5K": ["sound", "聲音"], MM: ["map", "地圖"], T2: ["terrain", "地形"], FNT: ["font", "字型"], XMI: ["music", "音樂"], INF: ["tool info", "工具資訊"] };
+const typeOf = n => { const t = TYPES[ext(n)]; return t ? L(t[0], t[1]) : ext(n); };
+
+// ---------- unpack ----------
+let lib = null;      // {name, u8, p, ents:[{...en, on}]}
+function takeLib(files){
+  const f = files.find(x => /\.lib$/i.test(x.name)) || files[0];
+  if (!f) return;
+  $("msgU").textContent = L("Reading…", "讀取中…"); $("msgU").className = "";
+  f.arrayBuffer().then(buf => {
+    const u8 = new Uint8Array(buf), p = F.parseLib(u8), name = f.name.toUpperCase();
+    lib = { name, u8, p, ents: p.ents.filter(en => !F.TOOL_ENTRIES.includes(en.name.toUpperCase())).map(en => ({ ...en, on: true })) };
+    try { $("projName").value = F.projectName(name); } catch (e) { $("projName").value = name.replace(/\.LIB$/, "").replace(/[^A-Z0-9_$&^~-]/g, "").slice(0, 8); }
+    $("msgU").textContent = ""; $("filt").value = ""; $("libView").hidden = false; renderLib();
+  }).catch(e => { lib = null; $("libView").hidden = true; $("msgU").textContent = `${f.name}: ${e.message}`; $("msgU").className = "err"; });
+}
+dropZone($("dropU"), $("pickU"), takeLib);
+const shown = () => { const q = $("filt").value.trim().toUpperCase(); return lib.ents.filter(e => !q || e.name.toUpperCase().includes(q)); };
+function renderLib(){
+  if (!lib) return;
+  const p = lib.p, files = lib.ents.filter(e => !F.TOOL_ENTRIES.includes(e.name.toUpperCase()));
+  const has = n => p.ents.some(e => e.name.toUpperCase() === n), over = p.ents.filter(e => e.overrun);
+  const made = has("$FALIB.INF") ? "falib" : has("$TOOLKIT.INF") ? "FA ToolKit" : /^FA_(1|2|4B|4D)\.LIB$/.test(lib.name) ? L("factory", "原廠") : L("unknown tool", "未知工具");
+  const tail = p.size - p.endOff;
+  const pill = over.length ? `<span class="pill bad">✖ ${L(`rule 1: ${over.length} entr${over.length > 1 ? "ies" : "y"} read past the end`, `規則 1：${over.length} 個項目會讀出結尾`)}</span>` : `<span class="pill ok">✔ ${L("no read past the end", "不會讀出結尾")}</span>`;
+  $("libSum").innerHTML = `<h3>${esc(lib.name)} ${pill}</h3><div class="muted small">${fmt(files.length)} ${L("files", "個檔")} · ${fmt(p.size)} B · ${L("made by", "製作工具：")} ${made} · ${L("padding", "結尾空白")} ${fmt(Math.max(0, tail))} B`
+    + (over.length ? `<br>${over.slice(0, 6).map(e => `${esc(e.name)} (+${fmt(e.overrun)} B)`).join(", ")}${over.length > 6 ? " …" : ""}. ${L("Rebuild this LIB in the Build tab to fix it.", "可到「打包 LIB」分頁重新打包來修正。")}` : "") + `</div>`;
+  const rows = shown();
+  $("rowsU").innerHTML = rows.map(e => `<tr class="${e.on ? "" : "off"}"><td><input type="checkbox" data-i="${lib.ents.indexOf(e)}"${e.on ? " checked" : ""}></td><td class="nm">${esc(e.name)}</td><td class="hide">${esc(typeOf(e.name))}</td><td class="n">${fmt(e.size)}</td><td class="n hide">${fmt(e.packed)}</td><td class="hide">${e.flag === 4 ? L("compressed", "壓縮") : e.flag === 0 ? L("stored", "未壓縮") : "flag " + e.flag}</td></tr>`).join("");
+  updCount();
+}
+function updCount(){
+  const sel = lib.ents.filter(e => e.on), rows = shown();
+  $("selCount").textContent = L(`${fmt(sel.length)} of ${fmt(lib.ents.length)} selected (${fmt(sel.reduce((a, e) => a + e.size, 0))} B)`, `已選 ${fmt(sel.length)} / ${fmt(lib.ents.length)} 個（${fmt(sel.reduce((a, e) => a + e.size, 0))} B）`);
+  $("chkAll").checked = rows.length > 0 && rows.every(e => e.on); $("chkAll").indeterminate = !$("chkAll").checked && rows.some(e => e.on);
+  $("dlZip").disabled = $("toBuild").disabled = !sel.length;
+}
+$("rowsU").addEventListener("change", e => { const i = e.target.dataset.i; if (i == null) return; lib.ents[i].on = e.target.checked; e.target.closest("tr").className = e.target.checked ? "" : "off"; updCount(); });
+$("rowsU").addEventListener("click", e => { if (e.target.tagName === "TD") { const c = e.target.parentNode.querySelector("input"); c.checked = !c.checked; c.dispatchEvent(new Event("change", { bubbles: true })); } });
+$("filt").addEventListener("input", renderLib);
+$("chkAll").onchange = () => { for (const e of shown()) e.on = $("chkAll").checked; renderLib(); };
+$("selAll").onclick = () => { for (const e of shown()) e.on = true; renderLib(); };
+$("selNone").onclick = () => { for (const e of shown()) e.on = false; renderLib(); };
+function selectedFiles(){
+  const out = [];
+  for (const e of lib.ents) if (e.on) out.push({ name: e.name.toUpperCase(), data: F.entryData(lib.u8, e) });
+  return out;
+}
+$("dlZip").onclick = () => {
+  try {
+    const proj = $("projName").value.trim().toUpperCase();
+    if (!/^[^\s\\/:*?"<>|.]{1,8}$/.test(proj)) throw new Error(L("Project name: 1-8 characters, no spaces or dots.", "專案名稱：1-8 個字元，不能有空白或點。"));
+    const files = selectedFiles().filter(f => !F.TOOL_ENTRIES.includes(f.name));
+    const names = files.map(f => f.name).sort(F.toolkitCompare);
+    const zipFiles = files.sort((a, b) => F.toolkitCompare(a.name, b.name)).map(f => ({ name: `${proj}/${f.name}`, data: f.data }));
+    for (const [n, d] of Object.entries(F.toolkitTexts(proj, names))) zipFiles.push({ name: `${proj}/${n}`, data: d });
+    save(`${proj}.zip`, F.makeZip(zipFiles), "application/zip");
+    $("msgU").textContent = L(`${proj}.zip: ${fmt(names.length)} files + ITEM.DAT, PROJECT.DAT, README.TXT`, `${proj}.zip：${fmt(names.length)} 個檔 + ITEM.DAT、PROJECT.DAT、README.TXT`); $("msgU").className = "okt";
+  } catch (e) { $("msgU").textContent = e.message; $("msgU").className = "err"; }
+};
+$("toBuild").onclick = () => {
+  const files = selectedFiles().filter(f => !F.TOOL_ENTRIES.includes(f.name));
+  addFiles(files.map(f => ({ ...f, from: lib.name })));
+  if (!$("libName").value) $("libName").value = lib.name.replace(/\.LIB$/, "");
+  tab("B");
+};
+
+// ---------- build ----------
+let list = new Map();   // NAME -> {name, data, from}
+let built = null;
+const SKIP = new Set(["ITEM.DAT", "PROJECT.DAT", "README.TXT", "SHORTCUT.DAT", "FA_0.LIB", ...F.TOOL_ENTRIES]);
+function addFiles(files, notes){
+  notes = notes || []; let replaced = 0;
+  for (const f of files){
+    const n = f.name.toUpperCase();
+    if (SKIP.has(n)) continue;
+    if (list.has(n)) replaced++;
+    list.set(n, { name: n, data: f.data, from: f.from || "" });
+  }
+  if (replaced) notes.push(L(`${replaced} file${replaced > 1 ? "s" : ""} replaced by the newer drop.`, `${replaced} 個同名檔已用新拉入的取代。`));
+  built = null; renderList(notes);
+}
+async function takeFiles(files){
+  const notes = [], out = [];
+  $("msgB").textContent = L("Reading…", "讀取中…"); $("msgB").className = "";
+  for (const f of files){
+    try {
+      const u8 = new Uint8Array(await f.arrayBuffer()), up = f.name.toUpperCase();
+      if (up.endsWith(".ZIP")){
+        const z = await F.readZip(u8);
+        const proj = z.find(x => x.name.toUpperCase() === "PROJECT.DAT");
+        if (proj && !$("libName").value) $("libName").value = String.fromCharCode(...proj.data).split(/\r?\n/)[0].trim().toUpperCase().slice(0, 8);
+        const n0 = out.length;
+        for (const x of z) out.push({ name: x.name, data: x.data, from: f.name });
+        notes.push(L(`${f.name}: ${out.length - n0} files.`, `${f.name}：${out.length - n0} 個檔。`));
+      } else if (up.endsWith(".LIB") && up !== "FA_0.LIB" && String.fromCharCode(...u8.subarray(0, 5)) === "EALIB"){
+        const p = F.parseLib(u8);
+        for (const en of p.ents) out.push({ name: en.name, data: F.entryData(u8, en), from: f.name });
+        if (!$("libName").value) $("libName").value = up.replace(/\.LIB$/, "");
+        notes.push(L(`${f.name}: ${p.ents.length} entries unpacked.`, `${f.name}：解開 ${p.ents.length} 個項目。`));
+      } else out.push({ name: f.name, data: u8, from: "" });
+    } catch (e) { notes.push(`<span class="err">${esc(f.name)}: ${esc(e.message)}</span>`); }
+  }
+  const skipped = out.filter(f => SKIP.has(f.name.toUpperCase())).length;
+  if (skipped) notes.push(L(`${skipped} ToolKit / falib file${skipped > 1 ? "s" : ""} (ITEM.DAT, PROJECT.DAT, README.TXT, FA_0.LIB, $FALIB.INF …) skipped: the build writes its own.`, `略過 ${skipped} 個 ToolKit / falib 自己的檔（ITEM.DAT、PROJECT.DAT、README.TXT、FA_0.LIB、$FALIB.INF …），打包時會自己產生。`));
+  addFiles(out, notes);
+}
+dropZone($("dropB"), $("pickB"), takeFiles);
+const nameProblem = n => n.length > 12 || !F.validName(n) ? L("not a DOS 8.3 name", "不是 DOS 8.3 檔名") : /[^\x21-\x7e]/.test(n) ? L("only plain ASCII characters", "只能用一般 ASCII 字元") : "";
+function renderList(notes){
+  const items = [...list.values()].sort((a, b) => F.toolkitCompare(a.name, b.name));
+  const bad = items.filter(f => nameProblem(f.name));
+  $("rowsB").innerHTML = items.map(f => { const pr = nameProblem(f.name); return `<tr class="${pr ? "bad" : ""}"><td class="nm">${esc(f.name)}${pr ? ` <span class="err small">${pr}</span>` : ""}</td><td class="hide">${esc(typeOf(f.name))}</td><td class="n">${fmt(f.data.length)}</td><td class="muted">${esc(f.from)}</td><td><button class="x" data-n="${esc(f.name)}" title="${L("Remove", "移除")}">✕</button></td></tr>`; }).join("");
+  $("tblB").hidden = !items.length;
+  $("countB").textContent = items.length ? L(`${fmt(items.length)} files, ${fmt(items.reduce((a, f) => a + f.data.length, 0))} B`, `${fmt(items.length)} 個檔，${fmt(items.reduce((a, f) => a + f.data.length, 0))} B`) : "";
+  $("build").disabled = !items.length || bad.length > 0; $("clearB").disabled = !items.length;
+  const m = (notes || []).slice();
+  if (bad.length) m.push(`<span class="err">${L(`${bad.length} file name${bad.length > 1 ? "s are" : " is"} not valid in a LIB (rule 3). Rename or remove ${bad.length > 1 ? "them" : "it"}.`, `有 ${bad.length} 個檔名不能放進 LIB（規則 3），請改名或移除。`)}</span>`);
+  if (items.length > 32767) m.push(`<span class="err">${L("FA.EXE skips LIBs with more than 32,767 files.", "FA.EXE 會略過超過 32,767 個檔的 LIB。")}</span>`);
+  $("msgB").innerHTML = m.join(" "); $("msgB").className = "";
+  if (!built) $("buildOut").innerHTML = "";
+}
+$("rowsB").addEventListener("click", e => { const n = e.target.dataset && e.target.dataset.n; if (n){ list.delete(n); built = null; renderList(); } });
+$("clearB").onclick = () => { list.clear(); built = null; renderList(); };
+function libNameValue(){
+  let n = $("libName").value.trim().toUpperCase().replace(/\.LIB$/, "");
+  if (!/^[A-Z0-9_$&^~!#%'()@{}`-]{1,8}$/.test(n)) throw new Error(L("LIB name: 1-8 letters, digits or _ (DOS 8.3, rule 3), e.g. JKP601_A.", "LIB 名稱：1-8 個英文字母、數字或 _（DOS 8.3，規則 3），例如 JKP601_A。"));
+  if (/^FA_(1|2|4B|4D)$/.test(n)) throw new Error(L("That is a factory LIB name. Never replace the factory LIBs.", "這是原廠 LIB 的名字，不要取代原廠 LIB。"));
+  return n + ".LIB";
+}
+$("build").onclick = async () => {
+  let name;
+  try { name = libNameValue(); } catch (e) { $("msgB").textContent = e.message; $("msgB").className = "err"; return; }
+  const files = [...list.values()], total = files.reduce((a, f) => a + f.data.length, 0);
+  $("build").disabled = true; $("prog").hidden = false; $("prog").value = 0; $("buildOut").innerHTML = "";
+  const t0 = performance.now(); let lastPaint = 0;
+  try {
+    const r = await F.buildLib(name, files, { onProgress: async (i, n, nm) => {
+      const now = performance.now();
+      if (now - lastPaint > 60){ lastPaint = now; $("prog").value = i / n; $("msgB").textContent = L(`Compressing ${nm} (${i + 1} / ${n}) …`, `壓縮 ${nm}（${i + 1} / ${n}）…`); $("msgB").className = ""; await new Promise(res => setTimeout(res, 0)); }
+    } });
+    const proj = F.projectName(name);
+    built = { name, lib: r.lib, names: r.names, proj, files: new Map(files.map(f => [f.name, f.data])) };
+    const st = r.entries.filter(e => e.name !== F.INFO_NAME);
+    const nc = st.filter(e => e.flag === 4).length;
+    $("msgB").innerHTML = "";
+    $("buildOut").innerHTML = `<div class="sum"><h3>${esc(name)} <span class="pill ok">✔ ${L("built and checked", "已打包並檢查")}</span></h3>
+      <div class="muted small">${fmt(r.names.length)} ${L("files", "個檔")} (${fmt(nc)} ${L("compressed", "壓縮")}, ${fmt(r.names.length - nc)} ${L("stored", "未壓縮")}) · ${fmt(total)} B → ${fmt(r.lib.length)} B ${L("incl. 4,096 B padding", "含 4,096 B 結尾空白")} · ${((performance.now() - t0) / 1000).toFixed(1)} s<br>
+      ${L("Every entry unpacked again and matched its file; no read past the end (rule 1); only PKWare-legal matches (rule 2).", "每個項目都再解壓比對過；不會讀出結尾（規則 1）；只用 PKWare 合法的壓縮（規則 2）。")}</div>
+      <div class="bar"><button class="prim" id="dlLib">⬇ ${L("Download", "下載")} ${esc(name)}</button><button id="dlProj">⬇ ${L("ToolKit project ZIP", "ToolKit 專案 ZIP")} (${esc(proj)}.zip)</button></div>
+      <div class="muted small">${L(`The project ZIP has folder ${esc(proj)}\\ with the files, ITEM.DAT, PROJECT.DAT, README.TXT and FA_0.LIB (= this LIB), like falib build --toolkit.`, `專案 ZIP 裡是 ${esc(proj)}\\ 資料夾：所有檔案、ITEM.DAT、PROJECT.DAT、README.TXT 和 FA_0.LIB（就是這個 LIB），和 falib build --toolkit 一樣。`)}</div></div>`;
+    $("dlLib").onclick = () => save(built.name, built.lib);
+    $("dlProj").onclick = () => {
+      const z = built.names.map(n => ({ name: `${built.proj}/${n}`, data: built.files.get(n) }));
+      for (const [n, d] of Object.entries(F.toolkitTexts(built.proj, built.names))) z.push({ name: `${built.proj}/${n}`, data: d });
+      z.push({ name: `${built.proj}/FA_0.LIB`, data: built.lib });
+      save(`${built.proj}.zip`, F.makeZip(z), "application/zip");
+    };
+  } catch (e) { $("msgB").textContent = e.message; $("msgB").className = "err"; }
+  $("prog").hidden = true; $("build").disabled = false;
+};
+FAI18N.onChange(() => { renderLib(); if (!built) renderList(); });
+</script>
+</body>
+</html>

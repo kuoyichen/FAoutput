@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NT Editor</title>
+<style>
+:root{ --bg:#14181d; --card:#1d232b; --card2:#232a33; --line:#2e3742; --text:#dde3ea; --muted:#8b96a5; --accent:#ffd54a; --bad:#ff6a50; --ok:#7bd88f; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0 8px 0 0;font-weight:600}
+a.fhome{font:800 17px/1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.4px;color:#e2e8ee;text-decoration:none;margin-right:6px;white-space:nowrap}a.fhome b{color:#ffd54a}a.fhome:hover{opacity:.85}
+button,select,input,label.btn{background:#262e38;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font:inherit}
+button,label.btn{cursor:pointer}
+button:hover,label.btn:hover{border-color:var(--muted)}
+button.on{border-color:var(--accent);color:var(--accent)}
+button.prim{background:var(--accent);color:#14181d;font-weight:600;border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:default}
+input[type=number]{width:96px;text-align:right}
+input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
+#msg{color:var(--accent)} #msg.err{color:var(--bad)}
+#title{padding:8px 16px 0;font-size:15px;font-weight:700;color:#8fc3ff}
+#title span{color:var(--muted);font-weight:400;font-size:12px;margin-left:8px}
+#wrap{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:0 14px;padding:0 16px 40px}
+nav#tabs{display:flex;flex-wrap:wrap;gap:4px;padding:8px 0 0;border-bottom:1px solid var(--line)}
+nav#tabs button{border-radius:6px 6px 0 0;border-bottom:none;background:var(--card)}
+nav#tabs button.on{background:var(--card2);color:var(--accent);border-color:var(--accent)}
+main{padding:12px 0 0;min-width:0}
+.panel{display:none}.panel.on{display:block}
+fieldset{border:1px solid var(--line);border-radius:8px;padding:8px 10px 10px;margin:0;background:var(--card);min-width:0}
+legend{color:#ff8f70;font-weight:700;padding:0 6px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));align-items:start}
+.row{display:flex;align-items:center;gap:8px;margin:4px 0}
+.row>label:first-child{flex:1;min-width:0}
+.row input[type=text]{flex:1.4;min-width:0}
+.row select{max-width:190px}
+.unit{color:var(--muted);font-size:12px;min-width:34px}
+.note{color:var(--muted);font-size:12px;margin:6px 0 0}
+.chk{display:flex;align-items:center;gap:6px;margin:3px 0;cursor:pointer}
+.g{color:#c9a65a;font-size:11px;cursor:help}
+.hint{color:var(--muted);font-size:11px;white-space:nowrap}
+.flags{columns:2 240px;column-gap:20px}
+/* preview */
+#side{padding-top:12px;min-width:0}
+#pv{position:sticky;top:8px}
+#cv{width:100%;height:340px;display:block;touch-action:none;background:radial-gradient(#2f3843,#181d23);border-radius:8px;cursor:grab}
+#pvBar{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:8px;font-size:12px}
+#pvInfo{color:var(--muted);font-size:12px;margin-top:6px}
+/* raw */
+.raw{border-collapse:collapse;font:12px ui-monospace,Consolas,monospace;width:100%}
+.raw td{padding:1px 4px;border-top:1px solid var(--line)}
+.raw input{width:110px;font:inherit;padding:1px 4px}
+.raw .lab{color:var(--muted);font-family:system-ui,sans-serif}
+.rawcols{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px;align-items:start}
+dialog{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;max-width:440px}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+@media (max-width:1000px){ #wrap{grid-template-columns:1fr} #side{order:-1} #pv{position:static} #cv{height:240px} }
+@media (max-width:600px){ header,#wrap,#title{padding-left:10px;padding-right:10px} }
+/* hardpoints */
+.hpt{border-collapse:collapse;width:100%;font-size:12.5px}
+.hpt th{color:#ff8f70;text-align:left;font-weight:700;padding:3px 4px;white-space:nowrap}
+.hpt td{padding:3px 4px;border-top:1px solid var(--line);vertical-align:middle}
+.hpt tr.sel>td{background:#26303b}
+.hpt input[type=text]{width:100%;min-width:90px}
+.hpt input[type=number]{width:78px}
+.hpt select{max-width:120px}
+.hpt .desc{color:#cfd6de}
+.hpt .tools button{padding:2px 6px}
+.hpd{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin:8px 0 4px}
+.small{font-size:12px}
+.tbl-wrap{overflow-x:auto}
+</style>
+<script src="fashion_i18n.js"></script>
+<script src="fashion_editors.js" defer></script>
+<script src="sh_editor_core.js"></script>
+<script src="pt_core.js"></script>
+<script src="nt_core.js"></script>
+<script src="fa_sh_lib.js"></script>
+</head>
+<body>
+<header>
+  <a class="fhome" href="../" title="FAshion home">FA<b>shion</b></a>
+  <h1>NT Editor</h1>
+  <select id="ntList" title="NT vehicle files in the FAoutput repository"><option value="">NT file…</option></select>
+  <label class="btn" title="Open a .NT file from your disk">📂 Open .NT<input type="file" id="ntFile" accept=".nt,.NT" hidden></label>
+  <button id="saveBtn" disabled title="Download the edited .NT file">⬇ Save .NT</button>
+  <button id="ghBtn" disabled title="Write this NT file to NT/ on GitHub (admin key required)">☁ Commit to GitHub</button>
+  <a href="pt_editor.html" style="color:var(--muted)" title="Aircraft editor">PT Editor</a>
+  <a href="jt_editor.html" style="color:var(--muted)" title="Ordnance editor">JT Editor</a>
+  <span id="langSlot"></span>
+  <span id="msg"></span>
+</header>
+<div id="title"></div>
+<div id="wrap">
+  <div style="min-width:0">
+    <nav id="tabs"></nav>
+    <main>
+      <section class="panel" id="p-vehicle"></section>
+      <section class="panel" id="p-class"></section>
+      <section class="panel" id="p-damage"></section>
+      <section class="panel" id="p-hards"></section>
+      <section class="panel" id="p-sound"></section>
+      <section class="panel" id="p-ai"></section>
+      <section class="panel" id="p-raw"></section>
+    </main>
+  </div>
+  <div id="side"><div id="pv">
+    <canvas id="cv"></canvas>
+    <div id="pvBar">
+      <label class="chk"><input type="checkbox" id="spin" checked> Spin</label>
+      <label class="chk"><input type="checkbox" id="wire"> Wireframe</label>
+      <label class="chk"><input type="checkbox" id="showHp" checked> Hardpoints</label>
+      <button id="vSide">Side</button><button id="vTop">Top</button><button id="vIso">3/4</button>
+    </div>
+    <div id="pvInfo"></div>
+  </div></div>
+</div>
+<dialog id="ghDlg">
+  <h3 style="margin:0 0 8px">Commit to GitHub</h3>
+  <p class="small" id="ghWhat"></p>
+  <div class="row"><label>Admin key</label><input type="password" id="ghKey" autocomplete="current-password"></div>
+  <div class="row"><label>Commit message</label><input type="text" id="ghMsgIn"></div>
+  <p class="small" id="ghRes"></p>
+  <div class="row" style="justify-content:flex-end"><button id="ghCancel">Cancel</button><button id="ghGo" class="prim">Commit</button></div>
+</dialog>
+<script>
+"use strict";
+{ const parseOld = parseSH; parseSH = u8 => { try { const M = SHCore.parseModel(u8); if (SHCore.needsCore(M)) return SHCore.legacyModel(M, { on: { _PLgearDown: 1 }, storeShown: PARSE_NO_STORES ? () => false : undefined }); } catch(e){ console.warn(e); } return parseOld(u8); }; }
+// ======================================================================================================
+// NT Editor: Fighters Anthology vehicle (.NT) files: ships, ground vehicles, SAM / AAA sites, structures.
+// Parsing / saving: pt_core.js (shared with the PT and JT editors); field map: nt_core.js.
+// Every byte the user does not change is written back as it was (all 188 repo NT files round-trip exactly).
+// ======================================================================================================
+const $ = id => document.getElementById(id), L = (en, zh) => FAI18N.L(en, zh);
+const P = PTCore, N = NTCore;
+const REMOTE = "https://raw.githubusercontent.com/kuoyichen/faoutput/main/";
+const GH_API = "https://api.github.com/repos/kuoyichen/FAoutput/contents/NT";
+const VERCEL = "https://fashion-hawke.vercel.app";
+async function fetchAny(paths){
+  const urls = [];
+  for (const p of paths){ if (/^https?:$/.test(location.protocol)) urls.push(new URL("../" + p, location.href).href); }
+  for (const p of paths) urls.push(REMOTE + p);
+  for (const u of urls){ try { const r = await fetch(u); if (r.ok) return new Uint8Array(await r.arrayBuffer()); } catch(e){} }
+  return null;
+}
+let nt = null, ntName = "", dirty = false, selHp = 0;
+const msg = (t, err) => { $("msg").textContent = t || ""; $("msg").className = err ? "err" : ""; };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const bytesToStr = u8 => { let s = ""; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return s; };
+const strToBytes = s => { const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 255; return u; };
+function touch(){ dirty = true; $("saveBtn").disabled = !nt; renderTitle(); }
+
+// ---------- form builders ----------
+const gTag = key => N.F[key][3] === "g" ? ` <span class="g" title="${esc(L("Placed by comparing the 188 NT files and the field names in PAC2G.NT; not in the original editor's dialogs.", "由比對 188 個 NT 檔與 PAC2G.NT 的欄位註解推定，原編輯器對話框中沒有。"))}">?</span>` : "";
+function fNum(key, en, zh, unit){ return `<div class="row"><label>${L(en, zh)}${gTag(key)}</label><input type="number" data-key="${key}" step="1"><span class="unit">${unit || ""}</span></div>`; }
+function fList(key, en, zh, names, namesZh){ return `<div class="row"><label>${L(en, zh)}${gTag(key)}</label><select data-list="${key}" data-names='${esc(JSON.stringify(names))}' data-zh='${esc(JSON.stringify(namesZh || {}))}'></select></div>`; }
+function fStr(ref, en, zh, ph){ return `<div class="row"><label>${L(en, zh)}</label><input type="text" data-str="${ref}" spellcheck="false"${ph ? ` placeholder="${esc(ph)}"` : ""}></div>`; }
+const fOff = (en, zh, v, unit) => `<div class="row" style="opacity:.5"><label>${L(en, zh)}</label><input type="text" value="${esc(v ?? "")}" disabled>${unit ? `<span class="unit">${unit}</span>` : ""}</div>`;
+const box = (en, zh, inner, note) => `<fieldset><legend>${L(en, zh)}</legend>${inner}${note ? `<p class="note">${note}</p>` : ""}</fieldset>`;
+// strings: "name#n" (ot_names) or a pointer field "OBJ:6"
+const PTR_LABEL = { "OBJ:6": "shape", "OBJ:7": "shadowShape", "OBJ:50": "loopSound", "OBJ:51": "secondSound", "OBJ:52": "engineOnSound", "OBJ:53": "engineOffSound", "NPC:1": "ctName" };
+function getStr(ref){ if (ref.startsWith("name#")) return P.str(nt, "ot_names", +ref.slice(5)); const [s, k] = ref.split(":"); return P.ptrStr(nt, s, +k); }
+function setStr(ref, v){ if (ref.startsWith("name#")) P.setStr(nt, "ot_names", +ref.slice(5), v); else { const [s, k] = ref.split(":"); P.setPtrStr(nt, s, +k, v, PTR_LABEL[ref] || "str" + s + k); } }
+function bindPanel(el){
+  el.querySelectorAll("[data-key]").forEach(i => { i.value = N.getF(nt, i.dataset.key); i.onchange = () => { N.setF(nt, i.dataset.key, i.value); i.value = N.getF(nt, i.dataset.key); touch(); }; });
+  el.querySelectorAll("[data-str]").forEach(i => { i.value = getStr(i.dataset.str); i.onchange = () => { setStr(i.dataset.str, i.value.trim()); i.value = getStr(i.dataset.str); touch(); renderTitle(); if (i.dataset.str === "OBJ:6") loadPreview(); }; });
+  el.querySelectorAll("[data-list]").forEach(s => { const key = s.dataset.list, names = JSON.parse(s.dataset.names), zh = JSON.parse(s.dataset.zh), v = N.getF(nt, key);
+    const opts = Object.keys(names).map(Number); if (!opts.includes(v)) opts.push(v); opts.sort((a, b) => a - b);
+    s.innerHTML = opts.map(n => `<option value="${n}"${n === v ? " selected" : ""}>${n} · ${esc(names[n] != null ? L(names[n], zh[n] || names[n]) : L("other", "其他"))}</option>`).join("");
+    s.onchange = () => { N.setF(nt, key, +s.value); touch(); }; });
+  el.querySelectorAll("[data-bit]").forEach(i => { const key = i.dataset.bitkey, b = +i.dataset.bit, get = () => N.getF(nt, key) >>> 0;
+    i.checked = !!(get() & (2 ** b)); i.onchange = () => { let v = get(); v = i.checked ? (v | (2 ** b)) >>> 0 : (v & ~(2 ** b)) >>> 0; N.setF(nt, key, v); touch(); bindPanel(el); }; });
+  el.querySelectorAll("[data-hex]").forEach(i => { const key = i.dataset.hex; i.value = "$" + (N.getF(nt, key) >>> 0).toString(16); i.onchange = () => { const v = parseInt(i.value.replace(/^\$|^0x/i, ""), 16); if (!isNaN(v)){ N.setF(nt, key, v); touch(); } bindPanel(el); }; });
+  el.querySelectorAll("[data-cls]").forEach(i => { i.checked = N.getF(nt, "cls") === +i.dataset.cls; i.onchange = () => { if (i.checked){ N.setF(nt, "cls", +i.dataset.cls); touch(); } }; });
+}
+
+// ---------- tabs (the original editor's toolbar dialogs, in its order) ----------
+const TABS = [["vehicle", "Vehicle", "車輛"], ["class", "Object Class", "物件類別"], ["damage", "Damage Info", "損傷資訊"], ["hards", "Hardpoints", "掛點"],
+  ["sound", "Vehicle Sound", "車輛聲音"], ["ai", "Flags & AI", "旗標與 AI"], ["raw", "All values", "全部數值"]];
+let curTab = "vehicle"; try { curTab = localStorage.getItem("nt_tab") || "vehicle"; } catch(e){}
+if (!TABS.some(t => t[0] === curTab)) curTab = "vehicle";
+function renderTabs(){
+  const nav = $("tabs"); nav.innerHTML = "";
+  for (const [id, en, zh] of TABS){ const b = document.createElement("button"); b.textContent = L(en, zh); b.className = id === curTab ? "on" : "";
+    b.onclick = () => { curTab = id; try { localStorage.setItem("nt_tab", id); } catch(e){} renderTabs(); showTab(); }; nav.appendChild(b); }
+}
+function showTab(){ document.querySelectorAll("main .panel").forEach(p => p.classList.toggle("on", p.id === "p-" + curTab));
+  if (!nt) return; if (curTab === "raw") renderRaw(); else if (curTab === "hards") renderHards(); else bindPanel($("p-" + curTab)); }
+
+const CLASS_ZH = { 0x8000: "戰鬥機", 0x4000: "轟炸機／其他飛機", 0x2000: "船艦", 0x1000: "地對空飛彈（SAM）", 0x800: "防空砲（AAA）", 0x200: "無裝甲車輛", 0x400: "裝甲車輛", 0x100: "建築", 0x80: "飛彈", 0x40: "其他" };
+const SPECIAL_ZH = ["提供預警機（AWACS）資訊", "執行地毯式轟炸"];
+const EXPL_ZH = { 15: "小型地面爆炸？", 21: "中型地面爆炸", 23: "大型地面爆炸？", 30: "大型空中爆炸", 34: "大型水面爆炸", 35: "船艦爆炸？", 37: "巨大爆炸？" };
+const OBJ_BITS_ZH = { 0: "其他物件可撞上此物件", 1: "此物件可撞上其他物件", 2: "非玩家可碰撞", 4: "雷達上可見", 5: "可被鎖定為目標", 8: "船艦會設（$100）", 9: "航艦／鑽油平台會設（$200）",
+  10: "步兵／小船會設（$400）", 11: "地面車輛會設（$800）", 14: "可在 FA 中駕駛？（$4000）", 15: "航艦甲板／跑道（$8000）", 18: "航艦作業（$40000）", 19: "航艦作業（$80000）",
+  22: "屋頂／甲板可降落（$400000）", 25: "防空砲區域（$2000000）", 26: "SA-2／SA-5／鷹式（$4000000）" };
+const HP_FLAGS_ZH = ["外部掛點", "副武器", "對稱掛載", "必要掛載", "可掛 - 鳳凰飛彈", "可掛 - 主動雷達飛彈", "可掛 - 半主動雷達飛彈", "可掛 - 紅外線導引", "可掛 - 其他飛彈", "可掛 - 副油箱", "可掛 - 其他外掛", "啟用自動旋轉（砲塔）", "不可掛 - 空對空"];
+const HP_LOC_ZH = ["中線", "機身", "內建機砲", "內部彈艙", "機翼", "翼尖"];
+
+function renderForms(){
+  if (!nt) return;
+  const stem = ntName.replace(/\.NT$/i, "").toUpperCase();
+  $("p-vehicle").innerHTML = `<div class="grid">
+    ${box("Vehicle", "車輛", fStr("name#0", "Internal Name", "內部名稱") + `<div class="row"><label>${L("Object Name", "物件名稱")}</label><input type="text" value="${esc(stem)}" disabled></div>` + fStr("name#1", "Description", "說明") + fStr("name#2", "Object file", "物件檔名") + fNum("year", "Year", "年份"),
+      L("Object Name is the file name. Description is what FA shows for the vehicle.", "物件名稱就是檔名；說明是 FA 顯示的車輛名稱。"))}
+    ${box("Shapes", "模型", fStr("OBJ:6", "3D Shape", "3D 模型") + fStr("OBJ:7", "Shadow Shape", "陰影模型", L("none", "無")) + fStr("NPC:1", "AI Profile", "AI 設定檔", L("none", "無")) + fOff("HUD to Display", "顯示的 HUD", ""),
+      L("The 3D shape is shown on the right. Shadow Shape and AI Profile are empty (greyed in the original editor) on most vehicles; 17 NT files have a shadow and 7 an AI profile. Typing a name adds the string.", "3D 模型顯示在右側。大部分車輛沒有陰影模型與 AI 設定檔（原編輯器中是灰色）；188 個 NT 中有 17 個有陰影、7 個有 AI 設定檔。輸入名稱會自動加上字串。"))}
+    ${box("Weight", "重量", fOff("Maximum", "最大", "", "lbs") + fNum("weight", "Empty", "空重", "lbs"))}
+    ${box("Special Functions", "特殊功能", N.SPECIAL.map(([n, b], k) => `<label class="chk"><input type="checkbox" data-bitkey="special" data-bit="${b}">${esc(L(n, SPECIAL_ZH[k]))}</label>`).join(""),
+      L("NPC_TYPE first dword: bit 0 is set only on the GCI Radar (AWACS info); bit 1 on rocket artillery, guns and big-gun ships (carpet bombing). Inferred from the files.", "NPC_TYPE 第一個 dword：第 0 位只有 GCI 雷達有（AWACS 資訊）；第 1 位出現在火箭砲、火砲與大砲艦（地毯式轟炸）。由檔案推定。"))}
+    ${box("Flyable in FA?", "可在 FA 中駕駛？", `<label class="chk" style="opacity:.5"><input type="radio" disabled>${L("Yes", "是")}</label><label class="chk" style="opacity:.5"><input type="radio" checked disabled>${L("No", "否")}</label>`,
+      L("Greyed for vehicles in the original editor too.", "原編輯器中車輛也是灰色不可選。"))}
+  </div>`;
+  $("p-class").innerHTML = `<div class="grid">${box("Object Class Types", "物件類別", `<div class="flags">${N.CLASSES.map(([v, en]) => `<label class="chk"><input type="radio" name="cls" data-cls="${v}">${L(en, CLASS_ZH[v])}</label>`).join("")}</div>`,
+    L("One bit of obj_class (Ship $2000, SAM $1000, AAA $800, Armored $400, Unarmored $200, Structure $100, Other $40). 2S6 = SAM, as in the original dialog.", "obj_class 的一個位元（船艦 $2000、SAM $1000、AAA $800、裝甲 $400、無裝甲 $200、建築 $100、其他 $40）。2S6 = SAM，與原對話框一致。"))}</div>`;
+  $("p-damage").innerHTML = `<div class="grid">
+    ${box("Explosion If Destroyed", "被摧毀時的爆炸", fList("explType", "Type", "類型", N.EXPLOSIONS, EXPL_ZH) + fNum("crater", "Crater Size", "彈坑大小"),
+      L("21 = Medium Ground Explosion (2S6 dialog), 30 and 34 from the JT dialogs; names with ? are guesses from which objects use them.", "21 = 中型地面爆炸（2S6 對話框），30、34 來自 JT 對話框；帶 ? 的名稱是依使用的物件推測。"))}
+    ${box("Explosion Types", "爆炸類型", fOff("Land", "陸地", "") + fOff("Water", "水面", ""), L("Only for ordnance (greyed for vehicles).", "只用於武器（車輛為灰色）。"))}
+    ${box("Collateral Damage", "附帶損傷", fOff("Radius", "半徑", "") + fOff("Percent", "百分比", ""), L("Only for ordnance (greyed for vehicles).", "只用於武器（車輛為灰色）。"))}
+    ${box("Object Hit Points", "耐打值", fNum("hp", "Object Hit Points", "物件耐打值"))}
+    ${box("Damage Inflicted", "造成的損傷", fNum("dmgPlane", "Plane", "飛機") + fNum("dmgShip", "Ship", "船艦") + fNum("dmgStruct", "Structure", "建築") + fNum("dmgArmor", "Armor", "裝甲") + fNum("dmgOther", "Other", "其他"),
+      L("Every repo NT has 255 here.", "儲存庫中所有 NT 這裡都是 255。"))}
+  </div>`;
+  $("p-sound").innerHTML = `<div class="grid">${box("Vehicle Sound", "車輛聲音", fStr("OBJ:50", "Loop Sound", "循環聲") + fStr("OBJ:51", "Second Sound", "第二聲音") + fStr("OBJ:52", "Engine On Sound", "引擎啟動聲", L("none", "無")) + fStr("OBJ:53", "Engine Off Sound", "引擎關閉聲", L("none", "無")),
+    L("Sound names start with & (a sound in the game's sound LIB), e.g. &TANK.11K. Engine on / off sounds are greyed for vehicles in the original editor and empty in every NT.", "聲音名稱以 & 開頭（遊戲聲音 LIB 中的檔案），例如 &TANK.11K。引擎啟動／關閉聲在原編輯器中對車輛是灰色，所有 NT 都是空的。"))}
+    ${box("Sound distance", "聲音距離", fNum("sndDist", "Max sound distance", "最大聲音距離") + fNum("doppler", "Doppler on", "都卜勒效果"), L("maxSndDist and doDoppler (names from PAC2G.NT); the same in every NT.", "maxSndDist 與 doDoppler（名稱來自 PAC2G.NT）；所有 NT 都相同。"))}</div>`;
+  $("p-ai").innerHTML = `<div class="grid">
+    ${box("Object flags", "物件旗標", `<div>${N.OBJ_BITS.map(([b, n]) => `<label class="chk"><input type="checkbox" data-bitkey="objFlags" data-bit="${b}">${esc(L(n, OBJ_BITS_ZH[b] || n))}${b > 5 ? ' <span class="g">?</span>' : ""}</label>`).join("")}</div>
+       <div class="row"><label>${L("Raw flags", "原始旗標")}</label><input type="text" data-hex="objFlags"></div>`,
+      L("Bits 0–5 are named as in the JT editor's Object Info dialog. The others are described by the kind of NT that uses them (2S6 = $821; ships $131; carriers $c8331; the landable Ticonderoga $408131).", "第 0–5 位名稱同 JT 編輯器的物件資訊對話框；其他位元以使用它的 NT 種類描述（2S6 = $821；船艦 $131；航艦 $c8331；可降落的提康德羅加 $408131）。"))}
+    ${box("AI timers", "AI 計時", fNum("searchT", "searchFrequencyT", "搜尋頻率") + fNum("unreadyT", "unreadyAttackT", "未就緒攻擊時間") + fNum("attackT", "attackT", "攻擊時間") + fNum("retargetT", "retargetT", "重新選定目標時間") + fNum("zoneDist", "zoneDist", "區域距離"),
+      L("NPC_TYPE values, named by the comments in PAC2G.NT. Not in the original editor's dialogs shown so far.", "NPC_TYPE 數值，名稱取自 PAC2G.NT 的註解；目前看到的原編輯器對話框中沒有。"))}
+    ${box("Visibility", "能見度", fNum("maxVis", "maxVisDist", "最大可見距離") + fNum("sigs0", "sigs[0]", "特徵 0") + fNum("sigs1", "sigs[1]", "特徵 1") + fNum("sigs2", "sigs[2]", "特徵 2") + fNum("sigs3", "sigs[3]", "特徵 3") + fNum("sigs4", "sigs[4]", "特徵 4"),
+      L("Signatures (probably radar / IR / visual); ships use 200–300, vehicles 100.", "特徵值（可能是雷達／紅外線／目視）；船艦 200–300，車輛 100。"))}
+  </div>`;
+  showTab();
+}
+
+// ---------- hardpoints ----------
+const descCache = {};
+async function storeDesc(name){
+  name = String(name || "").toUpperCase(); if (!name) return "";
+  if (name in descCache) return descCache[name];
+  descCache[name] = "…"; const ext = (name.match(/\.(\w+)$/) || [])[1] || "";
+  const dir = { JT: "JT", ECM: "ECM", SEE: "SEE", NT: "NT", PT: "PT" }[ext];
+  let d = "";
+  if (dir){ const u8 = await fetchAny([dir + "/" + name]);
+    if (u8){ try { const j = P.parse(bytesToStr(u8)); d = P.str(j, "ot_names", 1) || P.str(j, "si_names", 1); } catch(e){} } else d = L("(not in the repo)", "（儲存庫中沒有）"); }
+  return descCache[name] = d;
+}
+const deg = v => Math.round(((v << 16) >> 16) / 182 * 10) / 10;
+function renderHards(){
+  const el = $("p-hards"); if (!nt){ el.innerHTML = ""; return; }
+  if (selHp >= nt.hp.length) selHp = nt.hp.length - 1;
+  const locOpts = v => P.HP_LOC.map((n, k) => `<option value="${k}"${k === v ? " selected" : ""}>${esc(L(n, HP_LOC_ZH[k]))}</option>`).join("") + (v >= P.HP_LOC.length ? `<option value="${v}" selected>${v}</option>` : "");
+  const rows = nt.hp.map((h, k) => `<tr data-k="${k}" class="${k === selHp ? "sel" : ""}">
+    <td><input type="radio" name="hpSel" ${k === selHp ? "checked" : ""} data-sel="${k}"></td>
+    <td><select data-hf="loc">${locOpts(h.loc)}</select></td>
+    <td><input type="number" data-hf="qty" value="${h.qty}" min="0" max="65535"></td>
+    <td><input type="text" data-hf="type" value="${esc(h.type)}" spellcheck="false"></td>
+    <td class="desc" data-desc="${k}"></td>
+    <td class="tools"><button data-act="up" title="${esc(L("Move up", "上移"))}">▲</button><button data-act="dn" title="${esc(L("Move down", "下移"))}">▼</button><button data-act="del" title="${esc(L("Remove", "刪除"))}">✕</button>${/\.JT$/i.test(h.type) ? ` <a href="jt_editor.html?jt=${encodeURIComponent(h.type.toUpperCase())}" target="_blank" style="color:var(--accent)">JT ↗</a>` : ""}</td></tr>`).join("");
+  const h = nt.hp[selHp];
+  const det = h ? box("Hardpoint " + selHp + " details", "掛點 " + selHp + " 細節", `<div class="hpd">
+      <div>${P.HP_FLAGS.map((n, b) => `<label class="chk small"><input type="checkbox" data-hbit="${b}" ${h.flags & (1 << b) ? "checked" : ""}>${esc(L(n, HP_FLAGS_ZH[b]))}</label>`).join("")}
+        <div class="row"><label>${L("Raw flags", "原始旗標")}</label><input type="text" data-hhex value="$${(h.flags & 0xffff).toString(16)}"></div></div>
+      <div>${[["x", "Position x (right)", "位置 x（右）"], ["up", "Position up", "位置 上"], ["fwd", "Position fwd", "位置 前"]].map(([f, en, zh]) => `<div class="row"><label>${L(en, zh)}</label><input type="number" data-hf="${f}" value="${(h[f] << 16) >> 16}"><span class="unit">SH</span></div>`).join("")}
+        ${[["slewH", "Default heading", "預設方位"], ["slewP", "Default pitch", "預設俯仰"], ["limH", "Heading limit", "方位限制"], ["limP", "Pitch limit", "俯仰限制"]].map(([f, en, zh]) => `<div class="row"><label>${L(en, zh)}</label><input type="number" data-hdeg="${f}" value="${deg(h[f])}" step="any"><span class="unit">° <span class="hint">(${h[f]})</span></span></div>`).join("")}
+        <div class="row"><label>${L("Max weight", "最大重量")}</label><input type="number" data-hf="wt" value="${h.wt}" min="0" max="255"><span class="unit">×100 lbs</span></div></div>
+    </div>`, L("Same 12-value hardpoint record as a PT. Angles are FA units (182 per degree; 32760 ≈ 180°, so a turret that can turn all the way round). The yellow dots on the 3D view are the hardpoints; the selected one is larger.", "與 PT 相同的 12 值掛點記錄。角度是 FA 單位（每度 182；32760 ≈ 180°，即可整圈旋轉的砲塔）。3D 圖上的黃點是掛點，選取的較大。")) : "";
+  el.innerHTML = `<fieldset><legend>${L("Hardpoints", "掛點")}</legend><div class="tbl-wrap"><table class="hpt"><tr><th></th><th>${L("Location", "位置")}</th><th>${L("Qty", "數量")}</th><th>${L("Store Type", "掛載類型")}</th><th>${L("Store Description", "掛載說明")}</th><th></th></tr>${rows}</table></div>
+    <div class="row" style="justify-content:flex-start"><button id="hpAdd">＋ ${L("Add hardpoint", "新增掛點")}</button><span class="note" style="margin:0">${L("Qty 32767 = unlimited. The hardpoint count and the two type-size words are updated on save.", "數量 32767 = 無限。存檔時會更新掛點數與兩個類型大小欄位。")}</span></div></fieldset>
+    <div style="margin-top:12px">${det}</div>`;
+  el.querySelectorAll("tr[data-k]").forEach(tr => { const k = +tr.dataset.k, h = nt.hp[k];
+    tr.querySelector("[data-sel]").onchange = () => { selHp = k; renderHards(); draw(); };
+    tr.querySelectorAll("[data-hf]").forEach(i => i.onchange = () => { const f = i.dataset.hf;
+      if (f === "type") h.type = i.value.trim().toUpperCase().replace(/[^A-Z0-9_~.\-&]/g, "");
+      else h[f] = Math.max(0, Math.min(f === "qty" ? 65535 : 255, Math.round(+i.value || 0)));
+      touch(); selHp = k; renderHards(); });
+    tr.querySelectorAll("[data-act]").forEach(b => b.onclick = () => { const a = b.dataset.act, j = a === "up" ? k - 1 : k + 1;
+      if (a === "del"){ if (!confirm(L("Remove hardpoint " + k + "?", "刪除掛點 " + k + "？"))) return; nt.hp.splice(k, 1); selHp = Math.max(0, k - 1); }
+      else if (j >= 0 && j < nt.hp.length){ [nt.hp[k], nt.hp[j]] = [nt.hp[j], nt.hp[k]]; selHp = j; } else return;
+      touch(); renderHards(); draw(); });
+    const d = tr.querySelector("[data-desc]"); storeDesc(h.type).then(s => { d.textContent = s; });
+  });
+  $("hpAdd").onclick = () => { nt.hp.push({ flags: 0x8, x: 0, up: 0, fwd: 0, slewH: 0, slewP: 0, limH: 0, limP: 0, type: "", wt: 0, qty: 1, loc: 0, _orig: -1 }); selHp = nt.hp.length - 1; touch(); renderHards(); draw(); };
+  if (!h) return;
+  el.querySelectorAll(".hpd [data-hf]").forEach(i => i.onchange = () => { const f = i.dataset.hf, v = Math.round(+i.value || 0);
+    h[f] = f === "wt" ? Math.max(0, Math.min(255, v)) : Math.max(-32768, Math.min(32767, v)) & 0xffff; if (f !== "wt") h[f] = (h[f] << 16) >> 16; touch(); renderHards(); draw(); });
+  el.querySelectorAll("[data-hdeg]").forEach(i => i.onchange = () => { const f = i.dataset.hdeg; h[f] = Math.round((+i.value || 0) * 182) & 0xffff; touch(); renderHards(); draw(); });
+  el.querySelectorAll("[data-hbit]").forEach(i => i.onchange = () => { const b = 1 << +i.dataset.hbit; h.flags = i.checked ? h.flags | b : h.flags & ~b; touch(); renderHards(); });
+  el.querySelector("[data-hhex]").onchange = e => { const v = parseInt(e.target.value.replace(/^\$|^0x/i, ""), 16); if (!isNaN(v)){ h.flags = v & 0xffff; touch(); } renderHards(); };
+}
+
+// ---------- all values ----------
+function renderRaw(){
+  const el = $("p-raw"); if (!nt){ el.innerHTML = ""; return; }
+  const col = sec => `<fieldset><legend>${sec}_TYPE</legend><table class="raw">${nt.fields[sec].map((e, k) => `<tr><td>${k}</td><td>${e.kind}</td><td>${
+    e.kind === "ptr" || e.kind === "symbol" ? `<b>${esc(e.raw)}</b>${e.kind === "ptr" ? ` <span class="lab">“${esc(P.str(nt, e.raw))}”</span>` : ""}` : `<input data-sec="${sec}" data-k="${k}" value="${esc(e.raw)}" spellcheck="false">`
+  }</td><td class="lab">${esc(N.NAMES[sec][k] || "")}</td></tr>`).join("")}</table></fieldset>`;
+  el.innerHTML = `<p class="note">${L("Every value in the file, as written (decimal, $hex or ^fixed-point). Names come from the comments in NT/PAC2G.NT and the original editor's dialogs; ? = guessed. Hardpoints are edited in the Hardpoints tab.", "檔案中的每個值，照原樣顯示（十進位、$十六進位或 ^定點）。名稱取自 NT/PAC2G.NT 的註解與原編輯器對話框；? = 推測。掛點請在「掛點」分頁修改。")}</p>
+    <div class="rawcols">${col("OBJ")}${col("NPC")}</div>`;
+  el.querySelectorAll("input[data-sec]").forEach(i => i.onchange = () => {
+    if (N.setRaw(nt, i.dataset.sec, +i.dataset.k, i.value)) touch(); else { msg(L("Not a number: ", "不是數字：") + i.value, true); i.value = nt.fields[i.dataset.sec][+i.dataset.k].raw; } });
+}
+
+// ======================================================================================================
+// 3D preview of the vehicle shape, with the hardpoints as dots
+// ======================================================================================================
+const cv = $("cv"), cx = cv.getContext("2d");
+const view = { yaw: 2.2, pitch: 0.35, zoom: 1 };
+let model = null, PAL = PAL_GRAY;
+async function loadPreview(){
+  const name = (nt ? P.ptrStr(nt, "OBJ", 6) : "").toUpperCase().replace(/\.SH$/, "");
+  model = null; $("pvInfo").textContent = name ? L("Loading ", "載入 ") + name + ".SH…" : L("No 3D shape.", "沒有 3D 模型。"); draw();
+  if (!name) return;
+  const u8 = await fetchAny(["SH/" + name + ".SH"]);
+  if (!u8){ $("pvInfo").textContent = L("Cannot find ", "找不到 ") + name + ".SH"; return; }
+  let m = null; PARSE_NO_STORES = true; try { m = parseSH(u8); } catch(e){} finally { PARSE_NO_STORES = false; }
+  if (!m){ $("pvInfo").textContent = L("Cannot read ", "無法解析 ") + name + ".SH"; return; }
+  // textured faces (most vehicles are textured) are drawn in a flat camouflage tone; the canvas preview has no texture mapping
+  const faces = [], add = (idx, tf) => faces.push({ pts: idx.map(i => tf(m.v[i])), col: idx.col & 255, tex: !!idx.uv && !(idx.col & 255) });
+  for (const idx of m.f) add(idx, v => [v[0], v[2], v[1]]);
+  try { const vars = {}; for (const x of m.ctl.vars) vars[x.v] = x.vals.length ? x.vals[0] : 0; const done = new Set();
+    for (const e of evalCtl(m, vars)){ if (done.has(e.part)) continue; done.add(e.part); const tf = partTf(e); for (const idx of m.subs[e.part].f) add(idx, tf); } } catch(e){}
+  let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+  for (const f of faces) for (const p of f.pts) for (let k = 0; k < 3; k++){ lo[k] = Math.min(lo[k], p[k]); hi[k] = Math.max(hi[k], p[k]); }
+  if (!faces.length){ lo = [-10, -10, -10]; hi = [10, 10, 10]; }
+  const c = lo.map((a, k) => (a + hi[k]) / 2), r = Math.max(1, ...hi.map((a, k) => a - lo[k])) / 2;
+  model = { name, faces, c, r, size: hi.map((a, k) => (a - lo[k]) * m.scale) };
+  $("pvInfo").textContent = `${name}.SH · ${faces.length} ${L("faces", "面")} · ${L("length", "長")} ${Math.round(model.size[2])} · ${L("width", "寬")} ${Math.round(model.size[0])} ${L("(SH units)", "（SH 單位）")}`;
+  draw();
+}
+function draw(){
+  const d = Math.min(2, devicePixelRatio || 1), w = Math.round(cv.clientWidth * d), h = Math.round(cv.clientHeight * d);
+  if (cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; }
+  cx.clearRect(0, 0, w, h); if (!model) return;
+  const cy = Math.cos(view.yaw), sy = Math.sin(view.yaw), cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
+  const s = Math.min(w, h) * 0.46 / model.r * view.zoom;
+  const tf = p => { const x = p[0] - model.c[0], y = p[1] - model.c[1], z = p[2] - model.c[2];
+    const x1 = x*cy - z*sy, z1 = x*sy + z*cy, y2 = y*cp - z1*sp, z2 = y*sp + z1*cp; return [w/2 + x1*s, h/2 - y2*s, z2]; };
+  const wire = $("wire").checked, light = [0.35, 0.85, 0.4], ll = Math.hypot(...light);
+  const list = model.faces.map(f => { const q = f.pts.map(tf); let z = 0; for (const p of q) z += p[2];
+    const a = f.pts[0], b = f.pts[1], c = f.pts[2] || f.pts[1], u = [b[0]-a[0], b[1]-a[1], b[2]-a[2]], v = [c[0]-a[0], c[1]-a[1], c[2]-a[2]];
+    const n = [u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]], nl = Math.hypot(...n) || 1;
+    return { q, z: z / q.length, k: Math.abs((n[0]*light[0] + n[1]*light[1] + n[2]*light[2]) / nl / ll), col: f.col, tex: f.tex }; });
+  list.sort((a, b) => a.z - b.z);
+  cx.lineJoin = "round"; cx.lineWidth = wire ? 1 : 0.6;
+  for (const f of list){
+    let r = 190, g = 194, b = 200; const i = f.col; if (f.tex){ r = 140; g = 150; b = 118; } else if (i > 0 && i < 255){ r = PAL[3*i]; g = PAL[3*i+1]; b = PAL[3*i+2]; }
+    const sh = 0.55 + 0.5 * f.k, col = `rgb(${Math.min(255, r*sh)|0},${Math.min(255, g*sh)|0},${Math.min(255, b*sh)|0})`;
+    cx.beginPath(); f.q.forEach((p, k) => k ? cx.lineTo(p[0], p[1]) : cx.moveTo(p[0], p[1])); cx.closePath();
+    if (wire){ cx.strokeStyle = "#ffd54a"; cx.stroke(); } else { cx.fillStyle = col; cx.strokeStyle = col; cx.fill(); cx.stroke(); }
+  }
+  // hardpoints: (x, up, fwd) in SH units, in the same space as the faces; symmetrical ones also at -x
+  if (nt && $("showHp").checked){
+    cx.font = `${11 * d}px system-ui,sans-serif`; cx.textBaseline = "middle";
+    nt.hp.forEach((hp, k) => { const xs = hp.flags & 4 && hp.x ? [1, -1] : [1];
+      for (const sg of xs){ const p = tf([sg * ((hp.x << 16) >> 16), (hp.up << 16) >> 16, (hp.fwd << 16) >> 16]), R = (k === selHp ? 6 : 4) * d;
+        cx.beginPath(); cx.arc(p[0], p[1], R, 0, 7); cx.fillStyle = k === selHp ? "#ffd54a" : "rgba(255,213,74,.7)"; cx.fill(); cx.strokeStyle = "#14181d"; cx.lineWidth = 1.5 * d; cx.stroke();
+        if (sg === 1){ cx.fillStyle = "#ffd54a"; cx.fillText(String(k), p[0] + R + 3 * d, p[1]); } } });
+  }
+}
+{ let drag = null;
+  cv.onpointerdown = e => { drag = [e.clientX, e.clientY]; cv.setPointerCapture(e.pointerId); $("spin").checked = false; };
+  cv.onpointermove = e => { if (!drag) return; view.yaw += (e.clientX - drag[0]) * 0.01; view.pitch = Math.max(-1.55, Math.min(1.55, view.pitch + (e.clientY - drag[1]) * 0.01)); drag = [e.clientX, e.clientY]; draw(); };
+  cv.onpointerup = cv.onpointercancel = () => { drag = null; };
+  cv.onwheel = e => { e.preventDefault(); view.zoom = Math.max(0.3, Math.min(6, view.zoom * Math.exp(-e.deltaY * 0.001))); draw(); };
+  const setV = (y, p) => { view.yaw = y; view.pitch = p; $("spin").checked = false; draw(); };
+  $("vSide").onclick = () => setV(Math.PI / 2, 0); $("vTop").onclick = () => setV(Math.PI / 2, 1.55); $("vIso").onclick = () => setV(2.2, 0.35);
+  $("wire").onchange = draw; $("showHp").onchange = draw; addEventListener("resize", draw);
+  let last = 0; const tick = t => { if ($("spin").checked && model && !document.hidden){ view.yaw += Math.min(50, t - last) * 0.0006; draw(); } last = t; requestAnimationFrame(tick); }; requestAnimationFrame(tick);
+}
+
+// ======================================================================================================
+// open / save / commit
+// ======================================================================================================
+function renderTitle(){
+  if (!nt){ $("title").innerHTML = ""; return; }
+  $("title").innerHTML = `${esc(ntName)} &nbsp;${esc(P.str(nt, "ot_names", 1))}<span>${dirty ? L("● edited, not saved", "● 已修改，尚未儲存") : ""}</span>`;
+  $("ghBtn").disabled = !nt;
+}
+async function openNT(name, text){
+  let n; try { n = N.parse(text); } catch(e){ msg(L("Cannot read this NT: ", "無法讀取這個 NT：") + e.message, true); return; }
+  if (!n.fields.OBJ?.length || !n.fields.NPC?.length || n.fields.PLANE?.length || n.fields.PROJ?.length){ msg(L("This is not a vehicle NT file.", "這不是車輛 NT 檔。"), true); return; }
+  nt = n; ntName = name.toUpperCase(); dirty = false; selHp = 0;
+  try { localStorage.setItem("nt_last", ntName); } catch(e){}
+  $("saveBtn").disabled = false; $("ghBtn").disabled = false; $("ntList").value = ntName;
+  renderTitle(); renderForms(); msg("");
+  history.replaceState(null, "", "?nt=" + encodeURIComponent(ntName));
+  await loadPreview();
+}
+async function openRepoNT(name){
+  if (dirty && !confirm(L("Discard the changes to " + ntName + "?", "放棄對 " + ntName + " 的修改？"))) { $("ntList").value = ntName; return; }
+  msg(L("Loading ", "載入 ") + name + "…");
+  const u8 = await fetchAny(["NT/" + name]); if (!u8){ msg(L("Cannot download ", "無法下載 ") + name, true); return; }
+  await openNT(name, bytesToStr(u8));
+}
+$("ntList").onchange = () => $("ntList").value && openRepoNT($("ntList").value);
+$("ntFile").onchange = async e => { const f = e.target.files[0]; if (!f) return; e.target.value = "";
+  if (dirty && !confirm(L("Discard the changes to " + ntName + "?", "放棄對 " + ntName + " 的修改？"))) return;
+  if (![...$("ntList").options].some(o => o.value === f.name.toUpperCase())) $("ntList").add(new Option(f.name.toUpperCase() + " " + L("(local)", "（本機）"), f.name.toUpperCase()));
+  await openNT(f.name, bytesToStr(new Uint8Array(await f.arrayBuffer()))); };
+$("saveBtn").onclick = () => {
+  if (!nt) return; const blob = new Blob([strToBytes(N.serialize(nt))], { type: "application/octet-stream" }), a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = ntName; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  dirty = false; renderTitle(); msg(L("Saved ", "已儲存 ") + ntName);
+};
+async function listRepoNT(){
+  const sel = $("ntList"); let names = [];
+  try { const r = await fetch(GH_API + "?ref=main"); if (r.ok) names = (await r.json()).map(x => x.name).filter(n => /\.NT$/i.test(n)); } catch(e){}
+  if (!names.length) names = ["2S6.NT", "BMP2.NT", "BTR80.NT", "GCI.NT", "KIROV.NT", "M109.NT", "NIMZ.NT", "SA9.NT", "TICON.NT", "WASP.NT"];
+  for (const n of names.sort()) sel.add(new Option(n, n.toUpperCase()));
+}
+const API = /vercel\.app$|^localhost$|^127\./.test(location.hostname) ? "" : VERCEL;
+$("ghBtn").onclick = () => {
+  if (!nt) return; let key = ""; try { key = localStorage.getItem("fashion_admin_key") || ""; } catch(e){}
+  $("ghKey").value = key; $("ghMsgIn").value = `NT editor: update ${ntName}`; $("ghRes").textContent = "";
+  $("ghWhat").textContent = L(`Writes NT/${ntName} on the main branch of kuoyichen/FAoutput. Only the site admin key can do this.`, `會把 NT/${ntName} 寫到 kuoyichen/FAoutput 的 main 分支。只有網站管理金鑰可以使用。`);
+  $("ghDlg").showModal();
+  fetch(API + "/api/pt-commit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ check: true, adminKey: key }) })
+    .then(r => r.json()).then(j => { if ($("ghRes").textContent) return;
+      $("ghRes").textContent = !j.githubConfigured ? L("Server: GITHUB_TOKEN is not set in Vercel yet.", "伺服器：Vercel 尚未設定 GITHUB_TOKEN。")
+        : key && j.admin ? L("Server ready (GitHub token set, admin key OK).", "伺服器已就緒（GitHub token 已設定，管理金鑰正確）。") : L("Server ready (GitHub token set).", "伺服器已就緒（GitHub token 已設定）。"); })
+    .catch(() => {});
+};
+$("ghCancel").onclick = () => $("ghDlg").close();
+$("ghGo").onclick = async () => {
+  const key = $("ghKey").value.trim(); if (!key){ $("ghRes").textContent = L("Enter the admin key.", "請輸入管理金鑰。"); return; }
+  $("ghGo").disabled = true; $("ghRes").textContent = L("Committing…", "提交中…");
+  try {
+    const bytes = strToBytes(N.serialize(nt)); let b64 = ""; for (let i = 0; i < bytes.length; i += 8192) b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+    const r = await fetch(API + "/api/pt-commit", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ adminKey: key, name: ntName, content: btoa(b64), message: $("ghMsgIn").value.trim() }) });
+    const j = await r.json().catch(() => ({ error: "HTTP " + r.status }));
+    if (!r.ok || !j.ok) throw new Error(j.error || "HTTP " + r.status);
+    try { localStorage.setItem("fashion_admin_key", key); } catch(e){}
+    $("ghRes").innerHTML = j.unchanged ? esc(L("No change: GitHub already has this exact file.", "沒有變更：GitHub 上已經是同樣的檔案。")) : `${esc(L("Committed", "已提交"))} <a href="${esc(j.commitUrl)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc((j.sha || "").slice(0, 7))}</a>`;
+    dirty = false; renderTitle();
+  } catch(e){ $("ghRes").textContent = L("Failed: ", "失敗：") + e.message; }
+  $("ghGo").disabled = false;
+};
+
+// ======================================================================================================
+FAI18N.register({
+  "FAshion home": "FAshion 首頁", "NT Editor": "NT 編輯器", "PT Editor": "PT 編輯器", "JT Editor": "JT 編輯器", "Aircraft editor": "飛機編輯器", "Ordnance editor": "武器編輯器",
+  "NT file…": "NT 檔…", "📂 Open .NT": "📂 開啟 .NT", "⬇ Save .NT": "⬇ 儲存 .NT",
+  "☁ Commit to GitHub": "☁ 提交到 GitHub", "Open a .NT file from your disk": "從電腦開啟 .NT 檔", "Download the edited .NT file": "下載修改後的 .NT 檔",
+  "Write this NT file to NT/ on GitHub (admin key required)": "把這個 NT 檔寫到 GitHub 的 NT/（需要管理金鑰）", "NT vehicle files in the FAoutput repository": "FAoutput 儲存庫中的 NT 車輛檔",
+  "Spin": "自動旋轉", "Wireframe": "線框", "Hardpoints": "掛點", "Side": "側視", "Top": "上視",
+  "Commit to GitHub": "提交到 GitHub", "Admin key": "管理金鑰", "Commit message": "提交說明", "Cancel": "取消", "Commit": "提交"
+});
+$("langSlot").append(FAI18N.picker()); FAI18N.apply();
+FAI18N.onChange(() => { renderTabs(); if (nt){ renderTitle(); renderForms(); loadPreview(); } });
+renderTabs(); showTab();
+(async () => {
+  try { const p = await loadGamePal(); if (p) PAL = p; } catch(e){}
+  await listRepoNT();
+  let start = new URLSearchParams(location.search).get("nt"); if (!start){ try { start = localStorage.getItem("nt_last"); } catch(e){} }
+  start = (start || "2S6.NT").toUpperCase(); if (!/\.NT$/.test(start)) start += ".NT";
+  await openRepoNT(start);
+})();
+addEventListener("beforeunload", e => { if (dirty){ e.preventDefault(); e.returnValue = ""; } });
+window.ntEditor = { get nt(){ return nt; }, P, N, view, draw, get model(){ return model; } };
+</script>
+</body>
+</html>

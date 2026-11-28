@@ -58,7 +58,7 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
   <span id="langSlot"></span>
 </header>
 <main>
-  <div class="kicker">Release #8 · updated Nov 23</div>
+  <div class="kicker">Release #8 · updated Nov 25</div>
   <h1 data-lang="en">Air refueling from the <b>KC-135</b> and the <b>KC-130</b></h1>
   <h1 data-lang="zh">FA 可以<b>空中加油</b>了：KC-135 和 KC-130</h1>
   <p class="lead" data-lang="en">Fly up behind a friendly KC-135 and it lowers its boom, aims it at you, extends the telescope to your receptacle and pumps fuel into your tanks. Everything lives inside <code>KC135.SH</code>, with no FA.EXE patch. The tanker now also wears today’s USAF grey and sits on shorter gear, so <code>_KC135.PIC</code> comes with it. Drop in the two files and every mission that has a friendly KC-135 becomes a tanker mission.</p>
@@ -68,8 +68,10 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
   <div class="dl">
     <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/KC135.SH" download>⬇ <span data-lang="en">Download KC135.SH</span><span data-lang="zh">下載 KC135.SH</span></a>
     <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PIC/_KC135.PIC" download>⬇ <span data-lang="en">Download _KC135.PIC</span><span data-lang="zh">下載 _KC135.PIC</span></a>
+    <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/PT/KC135.PT" download>⬇ <span data-lang="en">Download KC135.PT</span><span data-lang="zh">下載 KC135.PT</span></a>
+    <a class="btn ghost" href="#rearview"><span data-lang="en">Boom operator view</span><span data-lang="zh">加油操作員視角</span></a>
     <a class="btn ghost" href="#use"><span data-lang="en">How to refuel</span><span data-lang="zh">怎麼加油</span></a>
-    <span class="muted" style="font-size:13px">KC135.SH 41,984 B + _KC135.PIC · FA 1.02f</span>
+    <span class="muted" style="font-size:13px">KC135.SH 41,984 B + _KC135.PIC + KC135.PT (optional) · FA 1.02f</span>
   </div>
   <div class="dl">
     <a class="btn" href="https://raw.githubusercontent.com/kuoyichen/FAoutput/main/SH/KC130.SH" download>⬇ <span data-lang="en">Download KC130.SH</span><span data-lang="zh">下載 KC130.SH</span></a>
@@ -90,6 +92,18 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
   </div>
   <p class="muted" style="font-size:13px" data-lang="en">Screenshots from FA 1.02f with the shipped <code>KC135.SH</code>, taken by Kuoyi.</p>
   <p class="muted" style="font-size:13px" data-lang="zh">以上是 Kuoyi 用發布版 <code>KC135.SH</code> 在 FA 1.02f 裡的實機截圖。</p>
+
+  <h2 id="rearview" data-lang="en">New: watch the refueling from the boom operator's seat</h2><h2 data-lang="zh">新功能：從加油操作員的位置看加油</h2>
+  <p class="lead" data-lang="en">The updated <code>KC135.PT</code> moves the tanker's view point to the boom operator's window under the tail. Fly the KC-135 yourself and switch to the rear view: you look down the boom at the receiver and can follow the whole contact, from <code>Start Refueling</code> to <code>Plane Re-Fueled</code>, with the green lights on the boom.</p>
+  <p class="lead" data-lang="zh">更新後的 <code>KC135.PT</code> 把加油機的視點移到機尾下方的加油操作員窗口。自己開 KC-135、切到後視角，就能順著硬桿往下看到受油機，從 <code>Start Refueling</code> 到 <code>Plane Re-Fueled</code> 整個接觸過程和桿上的綠燈都看得清清楚楚。</p>
+  <div class="two">
+    <figure><img src="img/refuel/rear_start.jpg" alt="Rear view from the KC-135: boom reaching an F-16, Start Refueling" loading="lazy"><figcaption data-lang="en">The boom swings down to the receiver: <code>Start Refueling</code>.</figcaption><figcaption data-lang="zh">硬桿擺向受油機：<code>Start Refueling</code>。</figcaption></figure>
+    <figure><img src="img/refuel/rear_contact.jpg" alt="Rear view from the KC-135: telescope in the receptacle" loading="lazy"><figcaption data-lang="en">In contact, straight behind: telescope in the receptacle, green band lit.</figcaption><figcaption data-lang="zh">正後方接上：伸縮管插進受油口，綠色燈帶亮起。</figcaption></figure>
+    <figure><img src="img/refuel/rear_both.jpg" alt="Rear view from the KC-135: Start Refueling and Plane Re-Fueled" loading="lazy"><figcaption data-lang="en">The receiver drifts left and the boom follows it until the tanks are full.</figcaption><figcaption data-lang="zh">受油機往左偏，硬桿一路跟著，直到加滿。</figcaption></figure>
+    <figure><img src="img/refuel/rear_full.jpg" alt="Rear view from the KC-135: Plane Re-Fueled" loading="lazy"><figcaption data-lang="en"><code>Plane Re-Fueled</code>: the receiver can back off and the boom stows.</figcaption><figcaption data-lang="zh"><code>Plane Re-Fueled</code>：受油機可以退開，硬桿收回。</figcaption></figure>
+  </div>
+  <p class="muted" style="font-size:13px" data-lang="en">Screenshots from FA 1.02f with the shipped <code>KC135.SH</code> and <code>KC135.PT</code>, taken by Kuoyi. The forward cockpit view also starts from the boom operator's window; keep the stock <code>KC135.PT</code> if you prefer the pilot's seat.</p>
+  <p class="muted" style="font-size:13px" data-lang="zh">以上是 Kuoyi 用發布版 <code>KC135.SH</code> 和 <code>KC135.PT</code> 在 FA 1.02f 裡的實機截圖。前視的座艙視角也會從操作員窗口出發；喜歡駕駛座視角的話就保留原版 <code>KC135.PT</code>。</p>
 
   <h2 id="use" data-lang="en">How to refuel</h2><h2 data-lang="zh">怎麼加油</h2>
   <ol class="steps" data-lang="en">
@@ -132,13 +146,15 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
     <div data-lang="zh"><b>可以穿過加油機。</b>你在它 2,000 ft 以內時，它的碰撞半徑從 284 ft 縮到 10 ft，衝過頭也不會撞毀。離遠了就恢復原值。</div>
     <div data-lang="en"><b>Flying the KC-135 yourself</b> works as before: the afterburner key shows the boom (now the new one, trailing straight back).</div>
     <div data-lang="zh"><b>自己開 KC-135</b> 和原版一樣：按後燃器會顯示硬桿（現在是新的硬桿，水平拖在後面）。</div>
+    <div data-lang="en"><b>Boom operator's view (new KC135.PT, optional).</b> If you fly the tanker yourself, this PT moves your eye from the flight deck to the boom operator's window under the tail (108 ft back, 20 ft down). Look behind you and you watch the boom and the receiver the way the operator does. The forward cockpit view starts from there too, so leave the stock KC135.PT in place if you prefer the pilot's seat. Refueling works with either PT.</div>
+    <div data-lang="zh"><b>加油操作員視角（新的 KC135.PT，可選用）。</b>如果你自己開加油機，這個 PT 會把視點從駕駛艙移到機尾下方的加油操作員窗口（往後 108 ft、往下 20 ft）。往後看就能像操作員一樣看著硬桿和受油機。前視的座艙視角也會從那裡出發，如果你喜歡駕駛座的視角，就保留原版 KC135.PT。不管用哪個 PT 都能加油。</div>
     <div data-lang="en"><b>Only up close.</b> The boom and lights are part of the detailed model; far away FA draws the low-detail KC-135 without them.</div>
     <div data-lang="zh"><b>只在近距離顯示。</b>硬桿和燈是在精細模型裡；距離遠時 FA 會改畫低精細度的 KC-135，看不到它們。</div>
     <div data-lang="en"><b>Up to 8 tankers</b> keep their own boom position (KC-135 and KC-130 each). Multiplayer is untested.</div>
     <div data-lang="zh"><b>最多 8 架加油機</b>各自記住自己的硬桿位置（KC-135、KC-130 各 8 架）。連線對戰沒有測試過。</div>
   </div>
-  <div class="note" data-lang="en">To undo, put your original <code>KC135.SH</code> and <code>_KC135.PIC</code> back (for the KC-130, remove <code>KC130.SH</code>, <code>_KC130.PIC</code> and <code>KC130.PT</code>). Nothing else is changed.</div>
-  <div class="note" data-lang="zh">要還原，把原本的 <code>KC135.SH</code> 和 <code>_KC135.PIC</code> 放回去就好（KC-130 則刪掉 <code>KC130.SH</code>、<code>_KC130.PIC</code> 和 <code>KC130.PT</code>），其他東西都沒有改。</div>
+  <div class="note" data-lang="en">To undo, put your original <code>KC135.SH</code>, <code>_KC135.PIC</code> and <code>KC135.PT</code> back (for the KC-130, remove <code>KC130.SH</code>, <code>_KC130.PIC</code> and <code>KC130.PT</code>). Nothing else is changed.</div>
+  <div class="note" data-lang="zh">要還原，把原本的 <code>KC135.SH</code>、<code>_KC135.PIC</code> 和 <code>KC135.PT</code> 放回去就好（KC-130 則刪掉 <code>KC130.SH</code>、<code>_KC130.PIC</code> 和 <code>KC130.PT</code>），其他東西都沒有改。</div>
 
   <h2 id="kc130" data-lang="en">The KC-130: hose and drogue</h2><h2 data-lang="zh">KC-130：軟管和錐套</h2>
   <p data-lang="en">FA’s C-130 shape (<code>AN12A.SH</code>, which the stock KC-130 uses) gets a refueling pod under each outer wing. When you come near, both pods reel out a 360 ft hose that hangs in a curve and trails level into a shuttlecock drogue. Fly your nose toward one of them: within about 660 ft the drogue on your side swings to meet your nose (holding a drogue by hand in FA would be close to impossible), and when you are in contact that pod turns green and fuel flows at 50 lb/s. Either side can refuel you, but only one at a time. Like the KC-135, its collision radius drops from 198 ft to 10 ft while you are within 3,000 ft, so you can fly through it.</p>
@@ -247,7 +263,7 @@ footer{max-width:980px;margin:0 auto;padding:20px 16px 40px;color:var(--muted);f
 <footer data-lang="zh">FAshion 是 hawke 為 Jane's Fighters Anthology 做的同好專案（<a href="mailto:kuoyichen@gmail.com">kuoyichen</a>）。請保留原版 KC135.SH 和 KC130.PT 的備份。</footer>
 <script>
 "use strict";
-FAI18N.register({ "FAshion home": "FAshion 首頁", "Air refueling": "空中加油", "Release #8": "發布 #8" });
+FAI18N.register({ "FAshion home": "FAshion 首頁", "Air refueling": "空中加油", "Release #8": "發布 #8", "Release #8 · updated Nov 25": "發布 #8 · 11 月 25 日更新" });
 document.getElementById("langSlot").append(FAI18N.picker()); FAI18N.apply();
 </script>
 </body>

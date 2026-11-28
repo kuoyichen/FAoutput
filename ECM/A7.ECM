@@ -1,0 +1,26 @@
+[brent's_relocatable_format]
+    byte 9
+	ptr si_names
+    word 237
+    byte $1
+    word $70
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 40
+    word 100
+    byte 25
+    byte 10
+    byte 28
+    word 100
+    byte 0
+:si_names
+	string "Remora"
+	string "Remora ECM"
+	string "A7.ECM"
+	end

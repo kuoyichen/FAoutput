@@ -1,0 +1,39 @@
+;*****************************************************************
+; large.ai
+; --------
+; AI program for large plane other than bomber:
+;	- transport
+;	- AWACS
+;*****************************************************************
+
+if do_hit goto hit
+if do_evade goto evade
+exit
+
+;-----------------------------------------------------------------
+; CODE FOR "HIT"
+;-----------------------------------------------------------------
+
+hit:
+
+;print "AIRLINER: 'Emergency! Emergency!'"
+move h		0 - random 25		any		2000		10 + random 10
+
+exit
+
+;-----------------------------------------------------------------
+; CODE FOR "EVADE"
+;-----------------------------------------------------------------
+
+evade:
+
+;-------- try to go fast, with a little evasion
+
+;--- usually dive, unless we're at low altitude
+%a = 5 - random 20
+if alt < 5000 && %a < 0		%a = 0
+
+move htotgt + 180 + random 40 - 20   %a   any 2000 10 + random 10
+
+restart
+

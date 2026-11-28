@@ -1,0 +1,26 @@
+[brent's_relocatable_format]
+    byte 9
+	ptr si_names
+    word 0
+    byte $0
+    word $f0
+    byte 60
+    byte 65
+    byte 127
+    byte 191
+    byte 30
+    byte 65
+    byte 127
+    byte 191
+    byte 70
+    word 100
+    byte 0
+    byte 0
+    byte 30
+    word 100
+    byte 0
+:si_names
+	string ""
+	string "(60) 65C (30) 65F 70R CW/P/FH"
+	string "MIG31.ECM"
+	end

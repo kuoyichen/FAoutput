@@ -1,0 +1,31 @@
+[brent's_relocatable_format]
+    byte 10
+	ptr si_names
+    word 0
+    byte $0
+    byte 2
+    byte $0
+    byte 0
+    byte 0
+    byte 0
+    byte 0
+    byte 50
+    word 5460
+    word 2730
+    dword ^0
+    dword ^85365
+    dword $8011c180
+    dword $7fee3e80
+    word 5460
+    word 2730
+    dword ^0
+    dword ^85365
+    dword $8011c180
+    dword $7fee3e80
+    byte 100
+    byte 100
+:si_names
+	string ""
+	string "OEPS-29 14nm IRST"
+	string "MIG29I.SEE"
+	end
