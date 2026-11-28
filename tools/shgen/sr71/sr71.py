@@ -67,7 +67,22 @@ FUS = [(1.2, 0.28, 0.24, -0.30, 0.42, -0.06, 0.02),
 
 def fuselage(M):
     rings = [chine_ring(*st) for st in FUS]
+    f0 = len(M.F)
     geo.loft(M, rings, BODY, True, P(0.0, 0.0, -0.05), 'cap')
+    # SR71_3: geo.loft's normal hint is radial from the ring centre; the flat chine top faces (rounded to whole
+    # units) then got a horizontal hint, the winding came out facing DOWN and FA culled them from above (chines
+    # missing in game).  Hint = outward perpendicular of the ring edge (rings run clockwise in (x, z)).
+    K = len(rings[0])
+    for j in range(len(rings) - 1):
+        for k in range(K):
+            n = np.zeros(3)
+            for r in (rings[j], rings[j + 1]):
+                (x0, _, z0), (x1, _, z1) = r[k], r[(k + 1) % K]
+                e = np.array([-(z1 - z0), 0.0, x1 - x0]); L = np.linalg.norm(e)
+                if L > 1e-9: n += e / L
+            n /= (np.linalg.norm(n) or 1)
+            i = f0 + j * K + k
+            M.F[i] = (M.F[i][0], M.F[i][1], M.F[i][2], tuple(n))
     M.F[-1] = (M.F[-1][0], DUCT, False, M.F[-1][3])
 
 
@@ -123,17 +138,45 @@ def spike(M, sx):
     geo.loft(M, rings, SPIKE, True, P(48.5, dx, 0.0), None)
 
 
+def surface(M, secs, col, **kw):
+    """geo.surface with correct normal hints.  SR71_3: geo.surface hints point from the section centre to the face
+    (mostly fore/aft), so flat upper/lower and fin side faces could get either winding and be culled in FA.  Here
+    the hint is from the closest point of the section's chord line (LE -> TE) to the face centre."""
+    f0 = len(M.F)
+    out = geo.surface(M, secs, col, **kw)
+    where = {}
+    for rings in out:
+        for r in rings:
+            for i in r: where[i] = r
+    for fi in range(f0, len(M.F)):
+        ids, c_, sm, h = M.F[fi]
+        P = np.array([M.V[i] for i in ids]); c = P.mean(0)
+        rs = []
+        for i in ids:
+            r = where.get(i)
+            if r is not None and not any(r is q for q in rs): rs.append(r)
+        if len(rs) != 2 or len(ids) != 4: continue          # caps keep their spanwise hint
+        n = np.zeros(3)
+        for r in rs:
+            m = np.mean([M.V[i] for i in ids if i in r], 0)           # this face's edge on ring r
+            le, te = np.array(M.V[r[0]]), np.array(M.V[r[4]]); d = te - le
+            t = np.clip(np.dot(m - le, d) / np.dot(d, d), 0, 1); n += m - (le + t * d)
+        L = np.linalg.norm(n)
+        if L > 1e-9: M.F[fi] = (ids, c_, sm, tuple(n / L))
+    return out
+
+
 def wings(M):
     def W(x, le, ch, t, h=0.0): return dict(s=x * U, le=(S0 - le) * U, chord=ch * U, h=h * U, t=t * U)
     # outer wing from inside the nacelle to the tip (slight negative camber droop at the tip)
-    geo.surface(M, [W(NAC_X, 60.0, 36.5, 1.0), W(19.0, 70.5, 26.0, 0.8, -0.1), W(24.5, 80.5, 15.0, 0.5, -0.25),
+    surface(M, [W(NAC_X, 60.0, 36.5, 1.0), W(19.0, 70.5, 26.0, 0.8, -0.1), W(24.5, 80.5, 15.0, 0.5, -0.25),
                     W(27.8, 87.5, 6.5, 0.3, -0.35)], BODY, smooth=False)
 
 
 def fins(M, sx):
     cant = np.tan(np.radians(15.0))
     def F(z, le, ch, t): return dict(s=z * U, le=(S0 - le) * U, chord=ch * U, h=(sx * (NAC_X - cant * (z - 4.1))) * U, t=t * U)
-    geo.surface(M, [F(3.6, 81.0, 17.5, 0.6), F(7.5, 86.0, 11.5, 0.45), F(11.6, 91.5, 5.5, 0.3)], BODY, mirror=False, vertical=True)
+    surface(M, [F(3.6, 81.0, 17.5, 0.6), F(7.5, 86.0, 11.5, 0.45), F(11.6, 91.5, 5.5, 0.3)], BODY, mirror=False, vertical=True)
 
 
 # ------------------------------------------------------------------ gear and flames
